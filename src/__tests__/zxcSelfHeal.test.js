@@ -24,7 +24,6 @@ const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZ
 // sync-zxc-contract step) can NEVER strand this suite. The seed is what the
 // handler tries first, so the stub must match it — not a frozen literal.
 const SEED_MINT = zxcContractSeed().mintPath; // the seeded contract (a human last read this)
-const NEW_MINT = "/backend/totallynewmint"; // what the "renamed" chunk advertises
 // Host-agnostic: the handler builds this from ZXC_ORIGIN, which moves when the
 // provider migrates. The assertion only needs to prove the embed PAGE was read,
 // so match the path, not the (rotating) origin.
@@ -47,6 +46,8 @@ const A = {
   date: "aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   imdb: "bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   latest: "cccccccccccccccccccccccccccc",
+  fToken: "dddddddddddddddddddddddd",
+  salt: "13572468",
 };
 const NEW_MINT_PATH = "/backend/totallynewmint";
 
@@ -60,6 +61,16 @@ const CHUNK_SRC = [
   `o&&h.set("${A.imdb}",o);return h}}}}`,
 ].join("");
 
+/* The CURRENT bundle shape: a `FIELD_MAP` object plus a `generateFrontendToken`
+   helper. The mint needs the fToken pair (sha512 of ts:salt:tmdbId), so a
+   parser that reads the object but not the salt would mint without it and every
+   row would still answer 400. */
+const FIELD_RUNTIME_CHUNK = [
+  `let r="${A.salt}",i={id:"${A.tmdbId}",fToken:"${A.fToken}",ts:"${A.ts}",token:"${A.token}",title:"${A.title}",year:"${A.year}",season:"${A.season}",episode:"${A.episode}",imdbId:"${A.imdb}",path:"${A.path}",mediaType:"${A.mediaType}",date:"${A.date}",latestDate:"${A.latest}"};`,
+  'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}',
+  `function q(){return{queryFn:async()=>{let{data:e}=await X.post("${NEW_MINT_PATH}",{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}`,
+].join("");
+
 const json = (payload) =>
   new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
 const html = (body) => new Response(body, { status: 200, headers: { "content-type": "text/html" } });
@@ -67,16 +78,21 @@ const html = (body) => new Response(body, { status: 200, headers: { "content-typ
 const EMBED_HTML = `<!doctype html><html><body><script src="/_next/static/chunks/xxx.js"></script></body></html>`;
 
 let requests;
+let mintPayloads;
 let details;
 let serversResponse;
 let mintStatus;
 
 function installFetch() {
-  vi.stubGlobal("fetch", vi.fn(async (input) => {
+  vi.stubGlobal("fetch", vi.fn(async (input, init) => {
     const url = String(typeof input === "string" ? input : input?.url || input);
     requests.push(url);
     if (url.includes("/backend/tmdb/details/")) return json(details);
-    if (url.includes(NEW_MINT_PATH)) return json({ token: "newtok", ts: "1800000000" });
+    if (url.includes(NEW_MINT_PATH)) {
+      const body = init?.body ? JSON.parse(init.body) : null;
+      mintPayloads.push(body);
+      return json({ token: "newtok", ts: "1800000000" });
+    }
     if (url.includes(SEED_MINT)) {
       return new Response("<html><body>404</body></html>", { status: mintStatus });
     }
@@ -122,6 +138,7 @@ beforeEach(() => {
   lookup.mockReset();
   lookup.mockResolvedValue([{ address: "93.184.216.34" }]);
   requests = [];
+  mintPayloads = [];
   details = { title: "Inception", release_date: "2010-07-15", imdb_id: "tt0000000" };
   serversResponse = {
     success: true,
@@ -149,6 +166,51 @@ describe("ZXC mint self-heal", () => {
     expect(serversUrl()).toContain(A.tmdbId);
     expect(serversUrl()).toContain("Inception");
     expect(r.ok).toBe(true);
+  });
+
+  it("re-derives on a rotated param set (400), not only a renamed path", async () => {
+    mintStatus = 400;
+    const r = await resolve({ server: "atlas" });
+    expect(requests.some((u) => u.includes(EMBED))).toBe(true);
+    expect(requests.some((u) => u.includes("/_next/static/chunks/"))).toBe(true);
+    expect(requests.some((u) => u.includes(NEW_MINT_PATH))).toBe(true);
+    expect(r.ok).toBe(true);
+  });
+
+  it("mints the fToken pair and replays it on the sources query", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input, init) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(NEW_MINT_PATH)) {
+        mintPayloads.push(init?.body ? JSON.parse(init.body) : null);
+        return json({ token: "newtok", ts: "1800000000" });
+      }
+      if (url.includes(SEED_MINT)) return new Response("<html>404</html>", { status: 404 });
+      if (url.includes("/embed/")) return html(EMBED_HTML);
+      if (url.includes("/_next/static/chunks/")) return html(FIELD_RUNTIME_CHUNK);
+      if (url.includes("/backend_/sources/")) return json(serversResponse);
+      if (url.includes(".m3u8")) {
+        return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const r = await resolve({ server: "atlas" });
+    expect(r.ok).toBe(true);
+    const body = mintPayloads.find((b) => b && b[A.fToken]);
+    expect(body).toBeTruthy();
+    // The mint needs mediaType + path AS WELL AS the fToken pair; any one of
+    // the three missing answers 400 "Invalid request".
+    expect(body[A.mediaType]).toBe("movie");
+    expect(body[A.path]).toBe("atlas");
+    expect(body[A.fToken]).toMatch(/^[0-9a-f]{64}$/);
+    expect(typeof body[A.ts]).toBe("number");
+    // The sources query must replay the SAME fToken the mint validated.
+    expect(serversUrl()).toContain(body[A.fToken]);
   });
 
   it("does NOT run discovery on a non-contract failure (5xx)", async () => {
@@ -183,13 +245,14 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
      zxcstream.cc's shipped chunk), pinned so a silent regression to the old
      parser is loud. */
   const FIELD_MAP_CHUNK =
-    'const FIELD_MAP={id:"a7f39c821d604e5b9c1e547b",fToken:"a1b2c3d4e5f6",'
-    + 'mediaType:"c281b306d28147a35632e816b",path:"6b491e7258d392e7561a9384c",'
-    + 'season:"d8427b59c38a2f957c3613e85b",episode:"91c6e4a753d1f785c92346b713d",'
-    + 'ts:"61d9a5274c8e3b29f38c291e6",token:"c492f7a183d601e436c538a716d",'
-    + 'title:"5e28c9147a306d1e29f3674b392a1",year:"b731e6c94f08675f8341c306e",'
-    + 'date:"e1649321a39e5814b3027",imdbId:"f35a8c1943265e871c4933a725f",'
-    + 'latestDate:"e92543416ad739e5814b3027"};'
+    'let r="23423653",i={id:"a7f39c821d604e5b91e547b",fToken:"e83c4b719a52105479c1635a",'
+    + 'mediaType:"c81b306d28147a35632e816b",path:"6b491e258d392e7561a9384c",'
+    + 'season:"d8427b5c38a2f957c3613e85b",episode:"91c6ea753d1f785c92346b713d",'
+    + 'ts:"61d9a5274c8e3b2f38c291e6",token:"c492f7a183d01e436c538a716d",'
+    + 'title:"5e28c9147a06d1e29f3674b392a1",year:"b731e6c94f8675f8341c306e",'
+    + 'date:"e164931a39e5814b3027",imdbId:"f35a81943265e871c4933a725f",'
+    + 'latestDate:"e9543416ad739e5814b3027"};'
+    + 'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}'
     + 'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/fucku",'
     + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}';
 
@@ -198,19 +261,21 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     expect(c).toBeTruthy();
     expect(c.mintPath).toBe("/backend/fucku");
     expect(c.params).toEqual({
-      tmdbId: "a7f39c821d604e5b9c1e547b",
-      mediaType: "c281b306d28147a35632e816b",
-      path: "6b491e7258d392e7561a9384c",
-      season: "d8427b59c38a2f957c3613e85b",
-      episode: "91c6e4a753d1f785c92346b713d",
-      ts: "61d9a5274c8e3b29f38c291e6",
-      token: "c492f7a183d601e436c538a716d",
-      title: "5e28c9147a306d1e29f3674b392a1",
-      year: "b731e6c94f08675f8341c306e",
-      date: "e1649321a39e5814b3027",
+      tmdbId: "a7f39c821d604e5b91e547b",
+      mediaType: "c81b306d28147a35632e816b",
+      path: "6b491e258d392e7561a9384c",
+      season: "d8427b5c38a2f957c3613e85b",
+      episode: "91c6ea753d1f785c92346b713d",
+      fToken: "e83c4b719a52105479c1635a",
+      ts: "61d9a5274c8e3b2f38c291e6",
+      token: "c492f7a183d01e436c538a716d",
+      title: "5e28c9147a06d1e29f3674b392a1",
+      year: "b731e6c94f8675f8341c306e",
+      date: "e164931a39e5814b3027",
     });
-    expect(c.imdbParam).toBe("f35a8c1943265e871c4933a725f");
-    expect(c.latestDateParam).toBe("e92543416ad739e5814b3027");
+    expect(c.imdbParam).toBe("f35a81943265e871c4933a725f");
+    expect(c.latestDateParam).toBe("e9543416ad739e5814b3027");
+    expect(c.fTokenSalt).toBe("23423653");
   });
 
   it("ignores a `FIELD_MAP`-shaped object whose core params are incomplete", () => {

@@ -41,8 +41,10 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const STRICT = process.argv.includes("--strict");
 
 const PROBE = { movie: "27205", tv: "1399", season: "1", episode: "1" };
-// Try in this order; a single pass on ANY server is enough to call it playable.
-const SERVERS = ["atlas", "centaurus", "orion", "andromeda", "meow"];
+// The live rows, in menu order (`src/constants/sources.js`). A single pass on
+// ANY row is enough to call the contract playable, but every row gets a REAL
+// bytes check when it is tried — a resolve that says ok:true is not playback.
+const SERVERS = ["orion", "valstrax", "atlas", "ursa", "alatreon", "daedalus"];
 
 const log = (msg) => console.log(`[sync-zxc] ${msg}`);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -94,26 +96,90 @@ function makeRes() {
   };
 }
 
+async function callHandler(body) {
+  const res = makeRes();
+  await handler({ method: "POST", body, headers: { "x-forwarded-for": "203.0.113.9" } }, res);
+  let payload = res.body;
+  if (typeof payload === "string") {
+    try { payload = JSON.parse(payload); } catch { /* keep text */ }
+  }
+  return { status: res.statusCode, headers: res.headers, payload };
+}
+
+const isPlaylist = (x) => typeof x === "string" && x.startsWith("#EXTM3U");
+
+function firstUri(text, baseUrl) {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    try { return new URL(line, baseUrl).toString(); } catch { return ""; }
+  }
+  return "";
+}
+
+function byteKind(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length === 0) return "";
+  const head = buf.subarray(0, Math.min(buf.length, 12));
+  if (head.includes(Buffer.from("styp")) || head.includes(Buffer.from("moof"))) return "fmp4";
+  if (head[0] === 0x47) return "ts";
+  return "";
+}
+
+/* Resolve -> playlist -> first segment BYTES. The same bar as the player: a
+   row whose master 200s but whose segment 403s must not verify a new seed. */
+async function playRow(server, kind) {
+  const body = { action: "resolvezxc", type: kind, id: kind === "movie" ? PROBE.movie : PROBE.tv, server };
+  if (kind === "tv") { body.season = PROBE.season; body.episode = PROBE.episode; }
+  const resolved = await callHandler(body);
+  const payload = resolved.payload;
+  if (payload?.ok !== true) {
+    return { ok: false, note: `${payload?.code || "?"} ${payload?.error || ""}`.trim() };
+  }
+  const variant = (payload.variants || []).find((v) => v?.uri);
+  if (!variant) return { ok: false, note: "resolve returned no variant" };
+  const refUrl = payload.source?.refUrl || "";
+
+  let playlistUrl = variant.uri;
+  let list = await callHandler({ action: "playlist", playlistUrl, refUrl });
+  if (list.status !== 200 || !isPlaylist(list.payload)) {
+    return { ok: false, note: `playlist HTTP ${list.status}` };
+  }
+  let text = list.payload;
+  if (text.includes("#EXT-X-STREAM-INF")) {
+    playlistUrl = firstUri(text, playlistUrl);
+    if (!playlistUrl) return { ok: false, note: "master has no variant URI" };
+    list = await callHandler({ action: "playlist", playlistUrl, refUrl });
+    if (list.status !== 200 || !isPlaylist(list.payload)) {
+      return { ok: false, note: `media playlist HTTP ${list.status}` };
+    }
+    text = list.payload;
+  }
+  const segment = firstUri(text, playlistUrl);
+  if (!segment) return { ok: false, note: "media playlist has no segment URI" };
+
+  const bytes = await callHandler({ action: "segment", url: segment, refUrl, range: { start: 0, max: 65536 } });
+  const codec = byteKind(bytes.payload);
+  if (bytes.status !== 200 || !codec) return { ok: false, note: `segment HTTP ${bytes.status}` };
+  return {
+    ok: true,
+    server,
+    variants: (payload.variants || []).filter((v) => v?.uri).length,
+    audio: Array.isArray(payload.audioTracks) ? payload.audioTracks.length : 0,
+    codec,
+    bytes: bytes.payload.length,
+  };
+}
+
 async function play(kind) {
   let lastErr = "no server attempted";
   for (const server of SERVERS) {
-    const body = { action: "resolvezxc", type: kind, id: kind === "movie" ? PROBE.movie : PROBE.tv, server };
-    if (kind === "tv") { body.season = PROBE.season; body.episode = PROBE.episode; }
-    const res = makeRes();
-    let payload;
     try {
-      await handler({ method: "POST", body, headers: { "x-forwarded-for": "203.0.113.9" } }, res);
-      payload = typeof res.body === "string" ? JSON.parse(res.body) : res.body;
+      const result = await playRow(server, kind);
+      if (result.ok) return result;
+      lastErr = `${server}: ${result.note}`;
     } catch (error) {
       lastErr = `${server}: threw ${error.message}`;
-      await sleep(1500);
-      continue;
     }
-    if (payload?.ok === true) {
-      const variants = Array.isArray(payload.variants) ? payload.variants.length : 0;
-      return { ok: true, server, variants, audio: Array.isArray(payload.audioTracks) ? payload.audioTracks.length : 0 };
-    }
-    lastErr = `${server}: ${payload?.code || "?"} ${payload?.error || ""}`;
     await sleep(1500);
   }
   return { ok: false, error: lastErr };
@@ -162,8 +228,8 @@ if (derived && !zxcContractEquals(seed, derived)) {
 await sleep(3000);
 
 const { movie, series } = await verifyPlayback();
-log(`movie  playback: ${movie.ok ? `OK via ${movie.server} (${movie.variants} variants)` : `FAIL (${movie.error})`}`);
-log(`series playback: ${series.ok ? `OK via ${series.server} (${series.variants} variants, ${series.audio} audio)` : `FAIL (${series.error})`}`);
+log(`movie  playback: ${movie.ok ? `OK via ${movie.server} (${movie.variants} variants, ${movie.codec} ${movie.bytes}B)` : `FAIL (${movie.error})`}`);
+log(`series playback: ${series.ok ? `OK via ${series.server} (${series.variants} variants, ${series.audio} audio, ${series.codec} ${series.bytes}B)` : `FAIL (${series.error})`}`);
 
 const verified = movie.ok && series.ok;
 // Only a VERIFIED rewrite is a change worth committing. An unverified run —

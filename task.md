@@ -6385,3 +6385,76 @@ Visual pass, conservative CSS-only changes.
 - Not verifiable here: real-browser feel of the audio rollback, the Tab reveal
   and the panel-focus change (jsdom cannot paint or exercise native tab order).
   Browser-required items elsewhere in this file remain unticked.
+
+## 2026-10-27 - ZXC mint contract rotation: fToken/ts, 400 self-heal, byte-level server probe
+
+### Root cause
+- The provider rotated **every** `FIELD_MAP` literal and added a required
+  browser-proof pair to the mint. The committed seed still had the old literals
+  and no `fToken`, so `POST /backend/fucku` answered
+  `400 {"success":false,"error":"Invalid request"}` on every row. The player
+  reported `ZXC <server> returned no stream` for all six servers.
+- The runtime self-heal only treated **404 / non-JSON** as contract drift.
+  A rotated param set answers **400**, so the outage could never heal itself.
+- Live contract read off the shipped chunk (2026-10-27): mint path
+  `/backend/fucku`; `FIELD_MAP` = `a7f39c...e547b`, `c81b30...e816b`,
+  `6b491e...9384c`, `d8427b...3e85b`, `91c6ea...713d`, `e83c4b...635a`
+  (`fToken`), `61d9a5...91e6` (`ts`), `c492f7...716d` (`token`), plus title/
+  year/date/imdb/latestDate. `fTokenSalt` = `23423653`.
+- The mint needs `id + mediaType + path + fToken + ts` together;
+  `fToken = sha512("<ts>:<salt>:<tmdbId>").hex[:64]`. The sources query replays
+  the same `fToken` with the minted `token`/`ts`.
+
+### Resolver (`api/stream.js`)
+- Seed block updated to the live values above and now carries
+  `ZXC_FTOKEN_SALT`; `parseZxcFieldMap` reads `fToken`, and the new
+  `parseZxcFrontendSalt` resolves the salt variable next to the `sha512` call.
+  A half-read fToken/salt pair is rejected so it cannot replace a working seed.
+- `zxcMint` sends the fToken pair (number `ts`, as the provider requires),
+  returns it, and `zxcServerLinks` replays it. **HTTP 400 now triggers
+  discovery**; 404 / non-JSON / "no token" still do; timeouts/429/5xx still do
+  not. A successful re-discovery clears the MPD and resolve caches so a payload
+  minted under the retired contract cannot outlive it.
+- `scripts/probe-servers.mjs` rewritten for the six live rows + Auto and now
+  proves **resolve -> playlist -> first segment bytes** (fMP4 `styp`/`moof` or
+  TS sync), not `ok:true`. `scripts/sync-zxc-contract.mjs` uses the same six
+  rows and the same byte-level bar before it may commit a new seed.
+
+### Live playback probe (movie 27205 + TV 1399 S1E1)
+| row | movie | TV |
+| --- | --- | --- |
+| Server 1 Orion | PASS fMP4, 3 variants, 8 audio | PASS fMP4, 3 variants, 5 audio |
+| Server 2 Valstrax | PASS fMP4, 3 variants | PASS fMP4, 3 variants |
+| Server 3 Atlas | FAIL upstream 427 | FAIL upstream 427 |
+| Server 4 Ursa | FAIL segment 403 | FAIL segment 403 |
+| Server 5 Alatreon | PASS TS | PASS TS |
+| Server 6 Daedalus | PASS TS, 1080p | FAIL upstream "No streams found" |
+| Auto | PASS TS via alatreon | PASS TS via alatreon |
+
+- `9/14 played real media bytes`. `npm run sync:zxc -- --dry-run` also reports
+  `seed matches` and verifies movie + series via Orion (65536B fMP4 each).
+- Atlas/Ursa are **provider-side dead at their delivery workers** in this run:
+  Atlas' workers.dev host answers its own `Fetch failed: 427`; Ursa's segment
+  worker answers `Fetch failed: 403 Forbidden` (plain, Range, and both
+  referers). Daedalus TV answers `{"error":"No streams found"}` even with real
+  GoT metadata while Orion resolves the same episode. No resolver change can
+  manufacture those bytes. Manual picks send `prefer`, so these rows still fall
+  through to a healthy backend; the explicit-`server` probe stays strict and
+  reports the real failure.
+
+### Tests
+- `zxcSelfHeal.test.js` (+2): a 400 triggers chunk discovery and the retry
+  succeeds; the mint carries the generated 64-hex fToken plus a numeric ts and
+  the sources query replays the same fToken. The pinned `FIELD_MAP` test now
+  uses the live literals and asserts the salt.
+- Honesty: both new tests were run against `110392e`'s `api/stream.js` (tests
+  kept) and failed there — the 400 test made no embed/chunk request, and the
+  fToken test found no fToken in the mint body. They pass on this tree.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged; removed one unused test
+  constant)
+- test: 116/116 files, 1385/1385 tests
+- build: clean, 1.94s
+- Not verifiable here: real-browser paint/switch behavior (jsdom), and
+  Atlas/Ursa cannot play while their provider workers return 427/403.

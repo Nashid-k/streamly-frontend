@@ -191,22 +191,25 @@ const ZXC_ORIGIN = "https://zxcstream.cc";
 // hand-edit inside the markers — edit the script instead.
 const ZXC_MINT_PATH = "/backend/fucku";
 /* The obfuscated parameter names the client sends. Read straight off the
-   shipped bundle's `FIELD_MAP` export (module 78863) — renaming any of them
-   makes the request fail closed. */
+   shipped bundle's `FIELD_MAP` export — renaming any of them makes the
+   request fail closed. */
 const ZXC_PARAM = {
-  tmdbId: "a7f39c821d604e5b9c1e547b",
-  mediaType: "c281b306d28147a35632e816b",
-  path: "6b491e7258d392e7561a9384c",
-  season: "d8427b59c38a2f957c3613e85b",
-  episode: "91c6e4a753d1f785c92346b713d",
-  ts: "61d9a5274c8e3b29f38c291e6",
-  token: "c492f7a183d601e436c538a716d",
-  title: "5e28c9147a306d1e29f3674b392a1",
-  year: "b731e6c94f08675f8341c306e",
-  date: "e1649321a39e5814b3027",
+  tmdbId: "a7f39c821d604e5b91e547b",
+  mediaType: "c81b306d28147a35632e816b",
+  path: "6b491e258d392e7561a9384c",
+  season: "d8427b5c38a2f957c3613e85b",
+  episode: "91c6ea753d1f785c92346b713d",
+  fToken: "e83c4b719a52105479c1635a",
+  ts: "61d9a5274c8e3b2f38c291e6",
+  token: "c492f7a183d01e436c538a716d",
+  title: "5e28c9147a06d1e29f3674b392a1",
+  year: "b731e6c94f8675f8341c306e",
+  date: "e164931a39e5814b3027",
 };
-const ZXC_IMDB_PARAM = "f35a8c1943265e871c4933a725f";
-const ZXC_LATEST_DATE_PARAM = "e92543416ad739e5814b3027";
+const ZXC_IMDB_PARAM = "f35a81943265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e9543416ad739e5814b3027";
+/* Salt for `sha512(ts:salt:tmdbId)`, the provider's per-request fToken. */
+const ZXC_FTOKEN_SALT = "23423653";
 // <zxc-contract:end>
 
 /* The AES passphrase the provider seals every link with. It has NEVER changed
@@ -334,6 +337,7 @@ let zxcContract = {
   params: { ...ZXC_PARAM },
   imdbParam: ZXC_IMDB_PARAM,
   latestDateParam: ZXC_LATEST_DATE_PARAM,
+  fTokenSalt: ZXC_FTOKEN_SALT,
 };
 
 /* Parse the provider's OWN server roster (`gN.SERVERS`) out of the shipped
@@ -409,14 +413,39 @@ function parseZxcFieldMap(src) {
     path: get("path"),
     season: get("season"),
     episode: get("episode"),
+    fToken: get("fToken"),
     ts: get("ts"),
     token: get("token"),
     title: get("title"),
     year: get("year"),
     date: get("date"),
   };
-  if (!Object.values(params).every((v) => typeof v === "string" && v.length > 0)) return null;
+  const required = ["tmdbId", "mediaType", "path", "season", "episode", "ts", "token", "title", "year", "date"];
+  if (!required.every((k) => params[k])) return null;
   return { params, imdbParam: get("imdbId"), latestDateParam: get("latestDate") };
+}
+
+/* The provider's per-request frontend token is
+   `sha512("<ts>:<salt>:<tmdbId>")`; the salt is a bare literal next to the
+   `generateFrontendToken` helper, not part of FIELD_MAP. Locate the hash call,
+   read its salt VARIABLE, then resolve that variable's literal declaration in
+   the same chunk. Structural on purpose: minifier names change, the shape does
+   not. Returns "" when the shape is absent (older contracts had no fToken). */
+function parseZxcFrontendSalt(chunks) {
+  for (const src of chunks) {
+    if (typeof src !== "string") continue;
+    const call = src.match(/createHash\(\s*"sha512"\s*\)[\s\S]{0,240}?update\(\s*`\$\{[^}]+\}:\$\{([A-Za-z_$][\w$]*)\}:[\s\S]{0,80}?`\s*\)/);
+    if (!call) continue;
+    const ident = call[1].replace(/[$]/g, "\\$&");
+    // Scope the declaration lookup to the text just BEFORE the hash call and
+    // require `let`/`;`/`,` so a random `r="object"` elsewhere in the bundle
+    // cannot masquerade as the salt.
+    const at = call.index;
+    const before = src.slice(Math.max(0, at - 4000), at);
+    const decls = [...before.matchAll(new RegExp(`(?:\\blet\\s+|[,;])${ident}\\s*=\\s*"([0-9A-Za-z_-]{4,64})"`, "g"))];
+    if (decls.length > 0) return decls[decls.length - 1][1];
+  }
+  return "";
 }
 
 /* Parse the param contract out of the shipped client chunks. Returns null unless
@@ -442,12 +471,17 @@ export function deriveZxcContractFromChunks(chunks) {
       const m = src.match(/\.post\(\s*"(\/backend\/[A-Za-z0-9_-]+)"/);
       if (m) { mintPath = m[1]; break; }
     }
-    if (mintPath) {
+    const fTokenSalt = parseZxcFrontendSalt(chunks);
+    // Current contracts carry BOTH the fToken param and its salt. A half-read
+    // pair must not replace a working seed: the mint would omit the token and
+    // every row would 400, which is exactly the outage this parser heals.
+    if (mintPath && (!fieldMap.params.fToken || fTokenSalt)) {
       return {
         mintPath,
         params: { ...fieldMap.params },
         imdbParam: fieldMap.imdbParam,
         latestDateParam: fieldMap.latestDateParam,
+        fTokenSalt,
         roster: parseZxcRoster(chunks),
       };
     }
@@ -526,6 +560,7 @@ export function deriveZxcContractFromChunks(chunks) {
         params,
         imdbParam,
         latestDateParam,
+        fTokenSalt: "",
         // The live roster rides along so the caller adopts the provider's
         // current server order/dubs without a second parse pass.
         roster: parseZxcRoster(chunks),
@@ -561,7 +596,14 @@ async function discoverZxcContract() {
     try {
       const found = await fetchLiveZxcContract();
       if (found) {
+        const changed = !zxcContractEquals(zxcContract, found);
         zxcContract = found;
+        // Playlists/resolve payloads minted under the retired contract must not
+        // outlive it: a cached master would keep replaying the dead param set.
+        if (changed) {
+          clearZxcMpdCache();
+          clearZxcResolveCache();
+        }
         logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}`);
       } else {
         logWarn("zxc", "provider mint contract re-discovery found nothing usable; keeping current");
@@ -590,6 +632,7 @@ export function clearZxcDiscoveryCache() {
     params: { ...ZXC_PARAM },
     imdbParam: ZXC_IMDB_PARAM,
     latestDateParam: ZXC_LATEST_DATE_PARAM,
+    fTokenSalt: ZXC_FTOKEN_SALT,
   };
 }
 
@@ -602,7 +645,7 @@ export const ZXC_CONTRACT_BEGIN = "// <zxc-contract:begin>";
 export const ZXC_CONTRACT_END = "// <zxc-contract:end>";
 const ZXC_CONTRACT_PARAM_KEYS = [
   "tmdbId", "mediaType", "path", "season", "episode",
-  "ts", "token", "title", "year", "date",
+  "fToken", "ts", "token", "title", "year", "date",
 ];
 
 /* The COMMITTED seed (never the in-memory self-heal value) — what a drift check
@@ -613,6 +656,7 @@ export function zxcContractSeed() {
     params: { ...ZXC_PARAM },
     imdbParam: ZXC_IMDB_PARAM,
     latestDateParam: ZXC_LATEST_DATE_PARAM,
+    fTokenSalt: ZXC_FTOKEN_SALT,
   };
 }
 
@@ -622,6 +666,7 @@ export function zxcContractEquals(a, b) {
     !!b &&
     a.mintPath === b.mintPath &&
     a.imdbParam === b.imdbParam &&
+    (a.fTokenSalt || "") === (b.fTokenSalt || "") &&
     a.latestDateParam === b.latestDateParam &&
     ZXC_CONTRACT_PARAM_KEYS.every((k) => a.params?.[k] === b.params?.[k])
   );
@@ -644,6 +689,9 @@ export function describeZxcContractChange(from, to) {
   if (from.latestDateParam !== to.latestDateParam) {
     changes.push(`latestDateParam ${from.latestDateParam} -> ${to.latestDateParam}`);
   }
+  if ((from.fTokenSalt || "") !== (to.fTokenSalt || "")) {
+    changes.push(`fTokenSalt ${from.fTokenSalt || "(none)"} -> ${to.fTokenSalt || "(none)"}`);
+  }
   return changes;
 }
 
@@ -657,13 +705,15 @@ export function renderZxcContractBlock(contract) {
     "// hand-edit inside the markers — edit the script instead.",
     `const ZXC_MINT_PATH = "${contract.mintPath}";`,
     "/* The obfuscated parameter names the client sends. Read straight off the",
-    "   shipped bundle's `uo/up/ug/uf/uh/ul/uu/ud/uc/um` constants — renaming any of",
-    "   them makes the request fail closed. */",
+    "   shipped bundle's `FIELD_MAP` export — renaming any of them makes the",
+    "   request fail closed. */",
     "const ZXC_PARAM = {",
-    ...ZXC_CONTRACT_PARAM_KEYS.map((k) => `  ${k}: "${contract.params[k]}",`),
+    ...ZXC_CONTRACT_PARAM_KEYS.map((k) => `  ${k}: "${contract.params[k] || ""}",`),
     "};",
     `const ZXC_IMDB_PARAM = "${contract.imdbParam}";`,
     `const ZXC_LATEST_DATE_PARAM = "${contract.latestDateParam}";`,
+    "/* Salt for `sha512(ts:salt:tmdbId)`, the provider's per-request fToken. */",
+    `const ZXC_FTOKEN_SALT = "${contract.fTokenSalt || ""}";`,
     ZXC_CONTRACT_END,
   ].join("\n");
 }
@@ -987,18 +1037,35 @@ async function zxcTitleMeta({ type, tmdbId, refererPath }) {
   return meta;
 }
 
+/* The provider's client proves "a real browser asked" with a per-request pair:
+   `ts` (Date.now()) and `fToken = sha512("<ts>:<salt>:<tmdbId>").hex[:64]`.
+   The mint now requires BOTH; a body with only id/mediaType/path answers 400
+   "Invalid request". The same fToken is replayed on the sources query. */
+function zxcFrontendToken(tmdbId, salt) {
+  const ts = Date.now();
+  const fToken = crypto.createHash("sha512").update(`${ts}:${salt}:${tmdbId}`).digest("hex").slice(0, 64);
+  return { fToken, ts };
+}
+
 /* Step 1: mint a token. Fails closed on anything but a 200 with a token. On a
-   contract-shaped failure (the path 404s / the body is no longer JSON) the
-   contract is re-discovered once and the mint retried, so a silent upstream
-   rename self-heals instead of taking every server down. */
+   contract-shaped failure (the path 404s / params rotated -> 400 / the body is
+   no longer JSON) the contract is re-discovered once and the mint retried, so a
+   silent upstream rename self-heals instead of taking every server down. */
 async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
   const attempt = async () => {
-    const { params, mintPath } = zxcContract;
+    const { params, mintPath, fTokenSalt } = zxcContract;
     const payload = {
       [params.tmdbId]: tmdbId,
       [params.mediaType]: type,
       [params.path]: server,
     };
+    let fToken = "";
+    if (params.fToken && fTokenSalt) {
+      const frontend = zxcFrontendToken(tmdbId, fTokenSalt);
+      fToken = frontend.fToken;
+      payload[params.fToken] = fToken;
+      payload[params.ts] = frontend.ts;
+    }
     if (type === "tv") {
       payload[params.season] = String(season || "");
       payload[params.episode] = String(episode || "");
@@ -1011,17 +1078,20 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
     });
     const data = JSON.parse(text);
     if (!data?.token || data?.ts === undefined) throw new Error("token mint returned no token");
-    return { token: String(data.token), ts: String(data.ts) };
+    return { token: String(data.token), ts: String(data.ts), fToken };
   };
 
   try {
     return await attempt();
   } catch (error) {
     // A rotated path answers 404 (or 200 with an HTML page -> JSON.parse throws).
-    // Anything else (timeout, 429, 5xx) is NOT a rename and must not trigger the
-    // (relatively heavy) chunk re-discovery.
+    // A rotated PARAM SET answers 400 (the required fields no longer arrive),
+    // which is why 400 must trigger discovery too. Anything else (timeout, 429,
+    // 5xx) is NOT a contract change and must not trigger the (relatively heavy)
+    // chunk re-discovery.
     const looksRenamed =
       error?.status === 404 ||
+      error?.status === 400 ||
       error instanceof SyntaxError ||
       /no token/.test(String(error?.message || ""));
     if (!looksRenamed) throw error;
@@ -1040,7 +1110,7 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
   // Spending it here folds one upstream round trip out of the resolve's
   // critical path; when absent (playlist re-mint, dub switch, other callers)
   // the normal mint runs unchanged.
-  const { token, ts } = prefetchedToken || (await zxcMint({ ...meta, server }));
+  const { token, ts, fToken } = prefetchedToken || (await zxcMint({ ...meta, server }));
   // Read the contract AFTER the mint: a rename discovered during the mint must
   // drive THIS request's query too, not just the next one.
   const { params, imdbParam, latestDateParam } = zxcContract;
@@ -1054,6 +1124,7 @@ async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken 
     [params.year]: meta.year,
     [params.date]: meta.date,
   });
+  if (fToken && params.fToken) query.set(params.fToken, fToken);
   if (meta.type === "tv") {
     query.set(params.season, String(meta.season || ""));
     query.set(params.episode, String(meta.episode || ""));

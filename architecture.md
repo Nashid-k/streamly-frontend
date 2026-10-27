@@ -209,30 +209,36 @@ mint path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it — measured
 history `meow → fuckyou → fuckoffniggawtf → scrapeurfckingmom → scrapeurfckingdad
 → fucku` — so it is read from the constant and never repeated here) whose body
 carries the obfuscated field keys (`ZXC_PARAM`: `id`, `mediaType`, `path` for the
-server, plus `season`/`episode` for TV) and answers `{token, ts}`. The links are
-then fetched from `GET {ZXC_ORIGIN}/backend_/sources/{server}?<obfuscated query>`,
+server, plus `season`/`episode` for TV) **and the browser-proof `fToken`/`ts`
+pair** — `ts = Date.now()` and
+`fToken = sha512("<ts>:<salt>:<tmdbId>")[:64]` keyed by `ZXC_FTOKEN_SALT`.
+Missing any required key answers `400 {"error":"Invalid request"}`, so a
+half-read contract fails every row at once. The mint answers `{token, ts}`; the
+sources query replays the same `fToken` alongside the minted `token`/`ts`. The
+links are then fetched from `GET {ZXC_ORIGIN}/backend_/sources/{server}?<obfuscated query>`,
 which answers `{success, links:[{type, link, resolution}], dubs, cached, server}`
 — each `link` is AES-256-CBC sealed with `ZXC_LINK_KEY` (CryptoJS `Salted__`
 envelope) and decrypted by `decryptZxcLink`. The whole exchange runs server-side.
 `ZXC_ORIGIN` is `https://zxcstream.cc` (the v1 `vidstuck.xyz` origin, the
 `/backend/servers/` endpoint, and the dead `player.zxcprime.xyz`/`zxcstream.icu`
-hosts are all retired). **A rename cannot take the
-provider down:** the mint path + obfuscated param names live in a mutable
-`zxcContract` (seeded from the constants) and a contract-shaped mint failure
-(HTTP 404 / non-JSON body / "no token") re-derives them from the provider's own
-shipped chunk and retries once — timeouts/429/5xx deliberately do NOT trigger
-discovery (discovery asks for a higher response ceiling than the default 1.5MB
-text cap, because the provider's contract chunk is a ~1.7MB bundle). Two
-out-of-band layers keep the committed seed truthful, both patching the same
-sentinel-delimited block through helpers exported from `api/stream.js`: a daily
-GitHub Action (`scripts/sync-zxc-contract.mjs` +
+hosts are all retired). **A rename or a param rotation cannot take the
+provider down:** the mint path, obfuscated param names, and fToken salt live in a
+mutable `zxcContract` (seeded from the constants) and a contract-shaped mint
+failure (HTTP 400/404 / non-JSON body / "no token") re-derives them from the
+provider's own shipped chunk and retries once — timeouts/429/5xx deliberately do
+NOT trigger discovery (discovery asks for a higher response ceiling than the
+default 1.5MB text cap, because the provider's contract chunk is a ~1.7MB
+bundle). Two out-of-band layers keep the committed seed truthful, both patching
+the same sentinel-delimited block through helpers exported from `api/stream.js`:
+a daily GitHub Action (`scripts/sync-zxc-contract.mjs` +
 `.github/workflows/sync-zxc-contract.yml`, prefers `SYNC_PAT`) and a Vercel Cron
 watchdog (`api/sync-contract.js`, `crons` in `vercel.json`, authenticated with
 `Authorization: Bearer $CRON_SECRET` and closed when the secret is unset; drift
 is committed as ONE atomic Git Data API commit via `GITHUB_TOKEN`). Each derives
 the live contract, rewrites the block (and the path pinned in
-`zxcMintPath.test.js`), proves real movie + series playback through the handler,
-and only then commits, so the committed seed never goes stale. The sources
+`zxcMintPath.test.js`), proves real movie + series playback BYTES through the
+handler (resolve → playlist → first fMP4/TS segment, not just `ok:true`), and
+only then commits, so the committed seed never goes stale. The sources
 response's `links` are decrypted per-server links whose wire `type` picks the
 playback path (DASH→`server/dashToHls.js`, else native HLS); wire format and dubs
 are read per response, not frozen. The seed roster maps each backend to a row:
