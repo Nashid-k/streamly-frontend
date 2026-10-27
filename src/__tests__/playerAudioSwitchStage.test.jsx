@@ -11,7 +11,7 @@
 // stage on any AUDIO_TRACK_LOADED). The first pins the pick → branded stage →
 // confirmation lifecycle, plus the language preference surviving a server
 // re-resolve.
-import { describe, expect, it, beforeAll, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 const hlsState = {
@@ -20,6 +20,7 @@ const hlsState = {
   deferParse: false,
   deferSwitch: false,
   switchedInstance: null,
+  failSwitchIndex: null,
 };
 
 const MASTER_URL = "https://vidstuck.xyz/backend/servers/centaurus?zx=streamly&zv=master";
@@ -57,6 +58,10 @@ vi.mock("hls.js", () => {
       return this._audioTrack;
     }
     set audioTrack(value) {
+      if (hlsState.failSwitchIndex === value) {
+        hlsState.failSwitchIndex = null;
+        throw new Error("audio switch refused");
+      }
       this._audioTrack = value;
       hlsState.switchedInstance = this;
       this._fire("audioTrackSwitching", {});
@@ -135,6 +140,11 @@ beforeEach(() => {
   hlsState.deferParse = false;
   hlsState.deferSwitch = false;
   hlsState.switchedInstance = null;
+  hlsState.failSwitchIndex = null;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 async function mountPlayer() {
@@ -246,6 +256,66 @@ describe("in-manifest audio switch", () => {
     await waitFor(() => {
       const next = hlsState.instances[hlsState.instances.length - 1];
       expect(next.audioTrack).toBe(1);
+    });
+    unmount();
+  });
+
+  it("rolls a timed-out pick back to the playing track and does not persist it", async () => {
+    const { unmount } = await mountPlayer();
+    hlsState.deferSwitch = true;
+    // The 6s bound is armed by the pick, so it must be a fake timer.
+    vi.useFakeTimers();
+
+    openAudioPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^Tamil/i }));
+    const instance = hlsState.switchedInstance;
+    expect(instance.audioTrack).toBe(1);
+    expect(screen.getByText("Switching audio…")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(7000);
+    });
+
+    // The stage is gone, the old track is playing again (hls.js makes a same-id
+    // re-select a no-op, so leaving the target selected was not retryable), and
+    // the failure is explained.
+    expect(screen.queryByText("Switching audio…")).not.toBeInTheDocument();
+    expect(instance.audioTrack).toBe(0);
+    openAudioPanel();
+    expect(screen.getByText(/didn't start/)).toBeInTheDocument();
+
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Back to settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Servers/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Server 2/i }));
+
+    await waitFor(() => expect(hlsState.instances.length).toBeGreaterThan(1), { timeout: 5000 });
+    // The failed language must not be re-applied to the next resolve.
+    await waitFor(() => {
+      const next = hlsState.instances[hlsState.instances.length - 1];
+      expect(next.audioTrack).toBe(0);
+    });
+    unmount();
+  });
+
+  it("restores the previous preference when the switch itself throws", async () => {
+    const { unmount } = await mountPlayer();
+    hlsState.failSwitchIndex = 1;
+
+    openAudioPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^Tamil/i }));
+    openAudioPanel();
+    expect(screen.getByText(/couldn't be selected/)).toBeInTheDocument();
+    expect(hlsState.instances[0].audioTrack).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Servers/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Server 2/i }));
+
+    await waitFor(() => expect(hlsState.instances.length).toBeGreaterThan(1), { timeout: 5000 });
+    await waitFor(() => {
+      const next = hlsState.instances[hlsState.instances.length - 1];
+      expect(next.audioTrack).toBe(0);
     });
     unmount();
   });

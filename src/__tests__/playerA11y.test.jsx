@@ -117,6 +117,23 @@ describe("player settings sheet semantics", () => {
     expect(document.activeElement).toBe(screen.getByRole("dialog"));
   });
 
+  it("names every subpanel and keeps focus on the dialog when it changes", () => {
+    mount();
+    const gear = screen.getByRole("button", { name: /^settings$/i });
+    gear.focus();
+    fireEvent.click(gear);
+
+    const sleep = screen.getByRole("button", { name: /sleep timer/i });
+    // The row that opens a submenu unmounts with it. Without re-focusing the
+    // dialog, focus fell to <body> and the new heading was never announced.
+    sleep.focus();
+    fireEvent.click(sleep);
+    expect(screen.getByRole("dialog", { name: "Sleep timer" })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole("button", { name: /back to settings/i }));
+    expect(screen.getByRole("dialog", { name: "Settings" })).toHaveFocus();
+  });
+
   it("marks the playing episode in the rail for assistive tech", () => {
     render(
       <NativePlayerView
@@ -154,6 +171,28 @@ describe("player failure recovery", () => {
     // Distinct from the top bar's "Back", so voice/screen-reader users are not
     // offered two identically-named controls.
     expect(screen.getByRole("button", { name: /back to browse/i })).toBeInTheDocument();
+  });
+
+  it("does not paint a loading stage over the unsupported-browser failure", async () => {
+    mount();
+    expect(screen.getByRole("alert").textContent).toMatch(/MediaSource/i);
+    // jsdom has no MediaSource, so this is the terminal branch: a spinner here
+    // can never resolve and the banner used to sit on top of it forever. The
+    // stage's exit fade is allowed to finish.
+    await waitFor(() => {
+      expect(screen.queryByRole("status", { name: /loading video/i })).toBeNull();
+    });
+  });
+
+  it("hides the failure banner while the settings sheet it points at is open", () => {
+    mount();
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    // The banner is painted above the sheet (z-index 7 vs 6) on the same bottom
+    // strip, swallowing the server rows the message tells the viewer to use.
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /close panel/i }));
+    expect(screen.getByRole("alert")).toBeInTheDocument();
   });
 
   it("re-runs the load when Try again is pressed", () => {

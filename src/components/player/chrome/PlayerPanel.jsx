@@ -18,6 +18,9 @@ const TITLES = {
   speed: "Playback Speed",
   aspect: "Aspect Ratio",
   servers: "Servers",
+  sourcequality: "Source Quality",
+  sleep: "Sleep Timer",
+  substyle: "Subtitle Style",
 };
 
 const ARIA_LABELS = {
@@ -28,6 +31,9 @@ const ARIA_LABELS = {
   speed: "Playback speed",
   servers: "Servers",
   aspect: "Aspect ratio",
+  sourcequality: "Source quality",
+  sleep: "Sleep timer",
+  substyle: "Subtitle style",
 };
 
 export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings, children }) {
@@ -41,7 +47,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
           transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
           ref={panelRef}
           role="dialog"
-          aria-label={ARIA_LABELS[panel] || "Aspect ratio"}
+          aria-label={ARIA_LABELS[panel] || TITLES[panel] || "Settings"}
           tabIndex={-1}
           onClick={(e) => e.stopPropagation()}
           className="np-panel-surface"
@@ -121,7 +127,7 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                   letterSpacing: "-0.01em",
                 }}
               >
-                {TITLES[panel] || ""}
+                {TITLES[panel] || "Settings"}
               </span>
             </div>
             <IconBtn label="Close panel" onClick={onClose} size={28} style={{ opacity: 0.7 }}>

@@ -17,6 +17,7 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
       initial={false}
       animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -20 }}
       transition={M.SPRING.SHEET}
+      inert={!visible}
       style={{
         position: "absolute",
         top: 0,
@@ -32,7 +33,10 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         background:
           "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.16) 45%, rgba(0,0,0,0) 100%)",
         pointerEvents: visible ? "auto" : "none",
-        zIndex: 4,
+        // Same layer as the transport row: above the panel dim (5) so Back stays
+        // operable while a sheet is open, below the sheet itself (6, painted
+        // later). At 4 the dim swallowed it and clicks landed on the backdrop.
+        zIndex: 6,
       }}
     >
       <div

@@ -20,6 +20,7 @@ const hlsState = {
   currentLevel: -1,
   loadSourceCalls: [],
   resolveCalls: [],
+  failUrls: new Set(),
 };
 
 /* Minimal hls.js stand-in: the component only needs isSupported, Events, and
@@ -47,6 +48,10 @@ vi.mock("hls.js", () => {
       this._handlers = {};
     }
     loadSource(url) {
+      if (hlsState.failUrls.has(url)) {
+        hlsState.failUrls.delete(url);
+        throw new Error("playlist load refused");
+      }
       this.loadedSources.push(url);
       hlsState.loadSourceCalls.push(url);
       // The real hls.js parses asynchronously and fires MANIFEST_PARSED, which
@@ -140,6 +145,7 @@ beforeEach(() => {
   vi.stubEnv("VITE_STREAMLY_RELAY_URL", "");
   hlsState.currentLevel = -1;
   hlsState.loadSourceCalls.length = 0;
+  hlsState.failUrls.clear();
 });
 
 const openAudioPanel = () => {
@@ -220,5 +226,20 @@ describe("ZXC DASH master — dub switching", () => {
     // Clicking Audio opens the Audio track panel.
     fireEvent.click(audioBtn);
     expect(screen.getByRole("dialog", { name: "Audio" })).toBeInTheDocument();
+  });
+
+  it("rolls a dub back to the previous language when its manifest refuses to load", async () => {
+    hlsState.failUrls.add(FRENCH_DUB);
+    render(<NativePlayerView type="movie" id="1101383" title="The End of Oak Street" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+
+    openAudioPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^French/i }));
+
+    // pickQuality bails before committing; pickDub must undo its optimistic
+    // row selection and say why instead of claiming a language that never loaded.
+    expect(await screen.findByText(/didn't start/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Original/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^French/i })).not.toHaveAttribute("aria-pressed");
   });
 });

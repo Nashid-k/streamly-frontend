@@ -6302,3 +6302,86 @@ Visual pass, conservative CSS-only changes.
   full run above is green.
 - Not verifiable here: real-browser feel of the frame-gated reveal and the
   audio switch transition (jsdom cannot paint).
+
+## 2026-10-27 — Player switching: failed-pick rollback, retry, stale guards, chrome a11y
+
+### Audio switches
+- `cancelAudioSwitch()` is now the single way to discard a pending in-manifest
+  audio switch: it bumps `audioSwitchTokenRef`, nulls `audioSwitchRef` and
+  `audioFailedIndexRef`, and clears the 6 s timer. Server picks, source-quality
+  picks, a full `pickQuality` manifest reload, `failOver`, the load-failure
+  path, the terminal-failure path and the run cleanup all call it instead of
+  hand-rolling (and drifting from) the same reset.
+- A timed-out audio pick now **rolls back to the track that was playing**
+  (`hlsAtPick.audioTrack = previousIndex`, only when `>= 0`). hls.js makes a
+  same-id re-select a no-op, so leaving the target selected was both a lie in
+  the menu and a permanently unretryable row. The failure mark
+  (`audioFailedIndexRef`) allows the same row to be picked again; any confirmed
+  switch clears it.
+- A pick that throws restores the previous index **and** the previous language
+  preference, shows the failure note, and clears the stage/buffering. A failed
+  pick no longer persists its language across the next server switch.
+- `attachAudio` clamps hls.js's `-1` "no default chosen yet" value to track 0,
+  and the `AUDIO_TRACK_SWITCHED`/`AUDIO_TRACK_LOADED` handlers always sync
+  `audioIndex` when no user pick is pending (startup default changes update the
+  menu without arming or clearing the branded stage).
+
+### Quality / dub races
+- `pickQuality` returns `true`/`false`; every stale/aborted bail returns
+  `false`, the in-manifest rung and no-op same-URI paths return `true`, and the
+  catch returns `false`. `rollbackPick` keeps Auto highlighted when the failed
+  pick was an Auto pick.
+- `pickDub` captures the `runRef` + `hlsRef` identity as well as the
+  server/source snapshot. If its `pickQuality` probe/load never committed, it
+  restores `previousDub` and shows "… didn't start — keeping the previous
+  audio" instead of leaving the failed language highlighted (and then
+  re-pinning that dead manifest on the next resolve).
+- `failOver`, the `loadSource` catch and the previous-instance destroy now null
+  `hlsRef` after `destroy()`, so continuations parked on a dead instance cannot
+  write into the next run. `runSourceOnce` re-checks `stale()` immediately after
+  `def.resolve`.
+- A pinned dub now opens on `pinnedDub.uri` before `entryUrlFor`, including the
+  relay-friendly recompute branch, so a token-refresh retry stays in the dub.
+
+### Chrome / a11y
+- The fatal banner is hidden while a settings panel is open (it used to cover
+  the Servers rows its own message points at). The unsupported-MediaSource
+  branch clears spinner/stage/buffering/note and sets `status = "error"`;
+  `showStage` is also gated on `!fatal`.
+- Every subpanel now has a title and an ARIA label (`sourcequality`, `sleep`,
+  `substyle` were missing and fell back to "Aspect ratio"). Focus returns to
+  the dialog on every panel change (except the episodes rail), so opening a
+  submenu no longer drops focus to `<body>`.
+- Hidden top/bottom chrome is `inert`, so invisible controls leave the tab
+  order. The first `Tab` while chrome is hidden reveals it (and prevents the
+  default focus move); later Tabs enter the now-focusable controls. The top bar
+  is raised to the transport's z-layer so Back stays operable over the panel
+  dim.
+- `LoadingStage` no longer has `aria-hidden` on its root, so the live
+  "Loading video" status can announce the actual note ("Switching to Server 2…")
+  instead of an empty label.
+- Unmuting at volume 0 now restores volume to 0.5 instead of leaving silence
+  with an "unmuted" icon.
+
+### Tests
+- `playerAudioSwitchStage.test.jsx` (+2): a timed-out pick rolls back to the
+  playing track, does not re-apply the failed language on the next server, and
+  a throwing `audioTrack` assignment restores the previous preference.
+- `zxcMasterDubSwitch.test.jsx` (+1): a dub whose manifest refuses to load rolls
+  back to Original and shows the failure note.
+- `playerA11y.test.jsx` (+3): subpanel names + focus retention, no loading stage
+  on the unsupported-media fatal state, and the fatal banner hidden while the
+  settings sheet is open.
+- Honesty: all six new tests were run against the pre-fix source (source files
+  checked out to `d692704`, tests kept) and failed there — the audio tests at
+  `expected 1 to be +0`, the dialogs on the missing "Sleep timer" name, the
+  stage/banner assertions on the still-mounted nodes, and the dub test on the
+  missing rollback note. They pass on this tree.
+
+### Gates
+- lint: 0 errors (pre-existing warnings unchanged)
+- test: 116/116 files, 1383/1383 tests
+- build: clean, 2.01s
+- Not verifiable here: real-browser feel of the audio rollback, the Tab reveal
+  and the panel-focus change (jsdom cannot paint or exercise native tab order).
+  Browser-required items elsewhere in this file remain unticked.

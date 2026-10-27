@@ -106,6 +106,9 @@ export default function BottomChrome({
         y: visible ? 0 : 20,
       }}
       transition={M.SPRING.SHEET}
+      // Faded chrome is not just invisible: without this its buttons stay in the
+      // tab order and receive focus while painted at 0 opacity.
+      inert={!visible}
       style={{
         position: "absolute",
         left: 0,

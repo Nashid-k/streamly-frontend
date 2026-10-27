@@ -361,12 +361,30 @@ export default function NativePlayerView({
   const audioSwitchRef = useRef(null);
   const audioSwitchTokenRef = useRef(0);
   const audioSwitchTimerRef = useRef(null);
+  // The track a pick last failed on. hls.js keeps the failed id selected after
+  // a timeout, so without this the same row could never be retried.
+  const audioFailedIndexRef = useRef(null);
   // Persist the viewer's chosen audio track across re-resolves (by lang/name)
   // so a server switch or token refresh doesn't silently revert to track 0.
   const audioPreferenceRef = useRef(null);
   // Rapid sibling-dub picks each probe before committing; only the newest probe
   // may apply its URL/labels (a slower old probe used to win the race).
   const dubPickTokenRef = useRef(0);
+  // One place discards a pending in-manifest audio switch: the server/source
+  // picks, a full manifest reload, a failover, and the run's own teardown all
+  // used to duplicate (and drift from) this reset. Bumping the token makes the
+  // old listener/timer continuation a no-op.
+  const cancelAudioSwitch = useCallback(() => {
+    audioSwitchTokenRef.current += 1;
+    audioSwitchRef.current = null;
+    audioFailedIndexRef.current = null;
+    try {
+      clearTimeout(audioSwitchTimerRef.current);
+    } catch {
+      // no timer armed
+    }
+    audioSwitchTimerRef.current = null;
+  }, []);
   // Arm-and-fire resume after a switch whose post-reload video.play() the browser
   // refused (autoplay policy): the next user interaction replays it (see the
   // pointerdown listener below), so a switch-while-playing never strands the
@@ -574,7 +592,7 @@ export default function NativePlayerView({
   // picture, and without this a paused switch showed neither spinner (the
   // spinner gate wants `playing`) nor stage — just a black rectangle with no
   // progress indication until the new stream committed.
-  const showStage = (spinner || serverSwitchStage) && (stageWhileLoading || !hasStartedRef.current);
+  const showStage = !fatal && (spinner || serverSwitchStage) && (stageWhileLoading || !hasStartedRef.current);
   // Why this particular wait is happening. "Loading…" alone is identical for a
   // cold open and for a server the viewer just picked, and those two deserve
   // different wording — one is the app working, the other is the app admitting
@@ -618,6 +636,12 @@ export default function NativePlayerView({
   );
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
+  // The global key handler binds once per panel flip, so it cannot read the
+  // latest `controlsVisible` from its closure. A ref keeps the Tab-to-reveal
+  // path honest without re-binding (and resetting Space-hold state) on every
+  // auto-hide.
+  const controlsVisibleRef = useRef(controlsVisible);
+  controlsVisibleRef.current = controlsVisible;
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "servers"
   /* A sheet is open. Everything that floats in the bottom-right corner — the
      Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
@@ -1141,9 +1165,14 @@ setScrubDragging(true);
         panelSessionRef.current = {
           el: document.activeElement instanceof HTMLElement ? document.activeElement : null,
         };
-        // Synchronous (not rAF-deferred) so focus lands in the same commit as
-        // the open. preventScroll because the sheet is still translated
-        // off-frame when it mounts, and a bare focus() scrolls to chase it.
+      }
+      // Synchronous (not rAF-deferred) so focus lands in the same commit as the
+      // open. preventScroll because the sheet is still translated off-frame when
+      // it mounts, and a bare focus() scrolls to chase it. Re-focus on EVERY
+      // panel change: the row that opened a submenu unmounts with it, and focus
+      // would otherwise fall back to <body> (silently skipping the new heading
+      // and its rows). The episodes rail owns its own focus handling.
+      if (panel !== "episodes") {
         panelRef.current?.focus({ preventScroll: true });
       }
       return undefined;
@@ -1166,10 +1195,14 @@ setScrubDragging(true);
   };
 
   const toggleMute = () => {
-    const m = !mutedRef.current;
+    // At volume 0 the stream is already silent, so "unmute" (muted false) would
+    // leave the button looking dead. Treat the first press as "restore sound".
+    const atZero = volumeRef.current <= 0;
+    const m = atZero ? false : !mutedRef.current;
+    if (atZero) setVolume(0.5);
     setMuted(m);
     setAutoMuted(false);
-    showHud("volume", m ? 0 : volumeRef.current);
+    showHud("volume", atZero ? 0.5 : m ? 0 : volumeRef.current);
     poke();
   };
 
@@ -2052,6 +2085,15 @@ setScrubDragging(true);
       togglePlayRef.current?.();
     };
     const onKey = (e) => {
+      // Auto-hidden chrome is inert (no invisible tab targets), so the first Tab
+      // must bring it back instead of moving focus nowhere. preventDefault gives
+      // React the commit; the next Tab enters the now-focusable controls.
+      if (e.key === "Tab" && !controlsVisibleRef.current) {
+        e.preventDefault();
+        setControlsVisible(true);
+        poke();
+        return;
+      }
       const action = keyboardAction({
         code: e.code,
         repeat: e.repeat,
@@ -2139,6 +2181,14 @@ setScrubDragging(true);
   useEffect(() => {
     if (!Hls.isSupported()) {
       setFatal("This browser has no MediaSource support — native playback cannot run here.");
+      // Nothing will ever load: clear every loader signal so the banner is not
+      // painted over a spinner that can never resolve.
+      setStatus("error");
+      setBuffering(false);
+      setSpinner(false);
+      setStageWhileLoading(false);
+      setServerSwitchStage(false);
+      setSwitchingNote(null);
       return undefined;
     }
     const run = runRef.current + 1;
@@ -2278,11 +2328,16 @@ setScrubDragging(true);
       setAudioTracks(
         tracks.map((t, i) => ({ index: i, name: t.name || t.lang || `Audio ${i + 1}`, lang: t.lang || "" })),
       );
+      // hls.js reports -1 until it has selected a default track. A -1 leaked
+      // into the menu as "no row selected" on a fresh open; track 0 is what the
+      // element is about to play, so show that until the real event lands.
+      let live = 0;
       try {
-        setAudioIndex(hls.audioTrack ?? 0);
+        live = Number(hls.audioTrack);
       } catch {
-        setAudioIndex(0);
+        live = 0;
       }
+      setAudioIndex(Number.isInteger(live) && live >= 0 ? live : 0);
     };
 
     /* The commit used to drop the stage the moment the PLAYLIST parsed, which
@@ -2425,6 +2480,9 @@ setScrubDragging(true);
           if (error?.code === "no-source") return "off";
           return false;
         }
+        // The resolve above can outlive this run (server switch, title change):
+        // its result belongs to a stream that no longer exists.
+        if (stale()) return true;
         // The backend echoes the server that ACTUALLY served this — for the
         // automatic path because it picks one, and for a manual `prefer` pick
         // because it may fall through when the picked backend has no source.
@@ -2485,7 +2543,7 @@ setScrubDragging(true);
           if (pinnedDub) {
             smoothStart = { uri: pinnedDub.uri, height: 0 };
           }
-          let entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+          let entryUrl = pinnedDub?.uri || entryUrlFor(def, { source: liveSource }, smoothStart);
           if (!entryUrl) {
             return false;
           }
@@ -2515,7 +2573,7 @@ setScrubDragging(true);
               .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
             if (relayFriendly && relayFriendly.uri !== smoothStart?.uri) {
               smoothStart = relayFriendly;
-              entryUrl = entryUrlFor(def, { source: liveSource }, smoothStart);
+              entryUrl = pinnedDub?.uri || entryUrlFor(def, { source: liveSource }, smoothStart);
               // A per-quality source whose variant lacks a uri must not reach
               // hls.loadSource(undefined) — that surfaced as ?url=undefined at
               // the worker (500 + CORS noise) instead of a clean failover.
@@ -2529,6 +2587,7 @@ setScrubDragging(true);
           } catch {
             // previous instance already gone
           }
+          hlsRef.current = null;
           // Byte cap scaled so the top rendition we serve can get BUFFER_DEPTH_SECONDS ahead.
           const topBps = variants.reduce((m, v) => Math.max(m, Number(v.bandwidth) || 0), 0) || 8 * 1000 * 1000;
           const maxBufferSize = Math.min(
@@ -2621,11 +2680,17 @@ setScrubDragging(true);
             // server) resumed at 0 instead of where the viewer actually was.
             const lastT = videoRef.current?.currentTime || 0;
             if (lastT > 0) carryAt = lastT;
+            // This instance is about to die: any quality/dub continuation parked
+            // on it must never write into the next run, and an in-flight audio
+            // switch's listeners die with it.
+            switchTokenRef.current += 1;
+            cancelAudioSwitch();
             try {
               hls.destroy();
             } catch {
               // already torn down
             }
+            hlsRef.current = null;
             resolveFatal?.();
           };
           // Non-fatal fragment failures never reach the attempt log, yet a loop of them IS
@@ -2645,6 +2710,7 @@ setScrubDragging(true);
           const clearAudioSwitch = () => {
             if (!audioSwitchRef.current) return;
             audioSwitchRef.current = null;
+            audioFailedIndexRef.current = null;
             try {
               clearTimeout(audioSwitchTimerRef.current);
             } catch {
@@ -2654,6 +2720,17 @@ setScrubDragging(true);
             setBuffering(false);
             setStageWhileLoading(false);
             setSwitchingNote(null);
+          };
+
+          // Startup audio loading moves the default track too. The menu must
+          // follow it even when no USER pick is pending (the stage must not).
+          const syncAudioIndex = () => {
+            try {
+              const live = Number(hlsRef.current?.audioTrack);
+              setAudioIndex(Number.isInteger(live) && live >= 0 ? live : 0);
+            } catch {
+              setAudioIndex(0);
+            }
           };
 
           if (Hls.Events.AUDIO_TRACK_SWITCHING) {
@@ -2670,7 +2747,10 @@ setScrubDragging(true);
             hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
               if (runRef.current !== run) return;
               const pending = audioSwitchRef.current;
-              if (!pending) return;
+              if (!pending) {
+                syncAudioIndex();
+                return;
+              }
               // A rapid second pick moved the target while this event was in
               // flight: only the track that is actually selected may settle it.
               try {
@@ -2679,11 +2759,7 @@ setScrubDragging(true);
                 // fall through: the event itself is the confirmation
               }
               clearAudioSwitch();
-              try {
-                setAudioIndex(hlsRef.current?.audioTrack ?? 0);
-              } catch {
-                // ignore
-              }
+              syncAudioIndex();
             });
           }
           if (Hls.Events.AUDIO_TRACK_LOADED) {
@@ -2691,18 +2767,17 @@ setScrubDragging(true);
               if (runRef.current !== run) return;
               // Only clear for an actual user-initiated in-manifest audio switch.
               const pending = audioSwitchRef.current;
-              if (!pending) return;
+              if (!pending) {
+                syncAudioIndex();
+                return;
+              }
               try {
                 if ((hls.audioTrack ?? 0) !== pending.index) return;
               } catch {
                 // fall through: the event itself is the confirmation
               }
               clearAudioSwitch();
-              try {
-                setAudioIndex(hlsRef.current?.audioTrack ?? 0);
-              } catch {
-                // ignore
-              }
+              syncAudioIndex();
             });
           }
           hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -2743,11 +2818,16 @@ setScrubDragging(true);
             hls.attachMedia(videoRef.current);
             await waitParsed(hls);
           } catch {
+            // The instance never committed: invalidate every quality/dub/audio
+            // continuation parked on it before tearing it down.
+            switchTokenRef.current += 1;
+            cancelAudioSwitch();
             try {
               hls.destroy();
             } catch {
               // already torn down
             }
+            hlsRef.current = null;
             return false;
           }
           if (stale()) return true;
@@ -2932,15 +3012,11 @@ setScrubDragging(true);
       if (stale()) return;
       setStatus("error");
       // Terminal failure: the fatal banner is the only thing on screen, so the
-      // branded stage/spinner must not keep spinning behind it. Same for an
-      // in-flight audio switch — its listeners died with this run.
-      audioSwitchRef.current = null;
-      try {
-        clearTimeout(audioSwitchTimerRef.current);
-      } catch {
-        // ignore
-      }
-      audioSwitchTimerRef.current = null;
+      // branded stage/spinner must not keep spinning behind it. Same for any
+      // in-flight switch continuation — its listeners died with this run.
+      switchTokenRef.current += 1;
+      dubPickTokenRef.current += 1;
+      cancelAudioSwitch();
       setBuffering(false);
       setStageWhileLoading(false);
       setServerSwitchStage(false);
@@ -2983,25 +3059,21 @@ setScrubDragging(true);
         // already torn down
       }
       hlsRef.current = null;
-      try {
-        clearTimeout(audioSwitchTimerRef.current);
-      } catch {
-        // ignore
-      }
-      audioSwitchTimerRef.current = null;
-      audioSwitchRef.current = null;
+      switchTokenRef.current += 1;
+      dubPickTokenRef.current += 1;
+      cancelAudioSwitch();
       try {
         videoRef.current?.removeAttribute?.("src");
       } catch {
         // element already detached
       }
     };
-  }, [type, id, season, episode, title, reloadToken, clearSleepTimer]);
+  }, [type, id, season, episode, title, reloadToken, clearSleepTimer, cancelAudioSwitch]);
 
   const pickQuality = async (uri, height, opts = {}) => {
     const hls = hlsRef.current;
-    if (!videoRef.current) return;
-    if (!hls) return;
+    if (!videoRef.current) return false;
+    if (!hls) return false;
     // A pinned NHD dub IS the manifest — the source serves one rung per dub, so
     // a quality pick while a dub plays would silently swap the viewer back to
     // the original language instead of changing quality. Honest answer: fixed.
@@ -3010,7 +3082,7 @@ setScrubDragging(true);
     if (activeDubRef.current > 0 && !opts.dubSwitch) {
       setBuffering(false);
       setQualityNote("Switch audio back to Original to change quality");
-      return;
+      return false;
     }
     // Stamp this pick before any await: a newer pick or a server switch bumps
     // the token, and this continuation must then never write into the new run.
@@ -3033,8 +3105,8 @@ setScrubDragging(true);
     // try, so they used to leave the menu row and the settings summary claiming
     // a rung that never loaded.
     const rollbackPick = () => {
-      setManualHeight(null);
-      setAutoLevel(metaRef.current?.masterLevels ? true : false);
+      if (!opts.auto) setManualHeight(null);
+      setAutoLevel(opts.auto ? true : metaRef.current?.masterLevels ? true : false);
     };
     // pickDub already said "Audio -> <track>…" — don't overwrite it with "?p".
     setBuffering(true);
@@ -3064,7 +3136,7 @@ setScrubDragging(true);
         setStageWhileLoading(false);
         setSwitchingNote(null);
         setQualityNote(null);
-        return;
+        return true;
       }
       // Pre-warm the swap: probe the TARGET while the current level still plays (warms
       // the CDN edge and proves the route). With parallel range chunking a tall pick
@@ -3080,19 +3152,19 @@ setScrubDragging(true);
       const refUrl = metaRef.current?.refUrl;
       try {
         if (!warm) warm = await probeSourcePlayable(uri, refUrl);
-        if (!isCurrent()) return;
+        if (!isCurrent()) return false;
         if (!warm.ok) {
           rollbackPick();
           setBuffering(false);
           setStageWhileLoading(false);
           setSwitchingNote(null);
           setControlsVisible(true);
-          return;
+          return false;
         }
       } catch {
         // probe hiccup (abort, timeout) — fall through to the requested uri
       }
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       // A probe hiccup with no requested uri would reach loadSource(undefined)
       // → the worker's ?url=undefined 500. Bail to the current quality instead.
       if (!chosenUri) {
@@ -3101,14 +3173,14 @@ setScrubDragging(true);
         setStageWhileLoading(false);
         setSwitchingNote(null);
         setControlsVisible(true);
-        return;
+        return false;
       }
       if (chosenUri === activeUri) {
         setBuffering(false);
         setStageWhileLoading(false);
         setSwitchingNote(null);
         setControlsVisible(true);
-        return;
+        return true;
       }
       // The picture is about to go black for real: everything above either
       // returned early (probe failed, same URI, pinned level) or proved the
@@ -3117,6 +3189,9 @@ setScrubDragging(true);
       // has no idea whether it stalled. The in-manifest shortcut above is
       // deliberately NOT armed: it never drops the frame, so it must not blank
       // the player either.
+      // A whole new manifest invalidates a pending in-manifest audio switch:
+      // its tracks/listeners belong to the old playlist.
+      cancelAudioSwitch();
       setStageWhileLoading(true);
       setServerSwitchStage(false);
       setSwitchingNote(
@@ -3139,7 +3214,7 @@ setScrubDragging(true);
         hls.on(Hls.Events.MANIFEST_PARSED, done);
         hls.on(Hls.Events.ERROR, onFatal);
       });
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       safeSeek(t);
       const video = videoRef.current;
       // Resume INSIDE the click's activation window: start the play() NOW, before
@@ -3182,7 +3257,7 @@ setScrubDragging(true);
           frameTimer = setTimeout(cleanup, 4000);
         });
       }
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       if (resumePlay) await resumePlay;
       setActiveUri(chosenUri);
       // The full-reload path never sees LEVEL_SWITCHED's height when the new
@@ -3217,11 +3292,12 @@ setScrubDragging(true);
       // so without this the art stage would sit on top of working video.
       setStageWhileLoading(false);
       setSwitchingNote(null);
+      return true;
     } catch {
       // A superseded pick owns nothing on screen: the newer action (or server
       // switch) has already set its own highlight/stage. Writing here would roll
       // back the NEW pick and clear the NEW loader.
-      if (!isCurrent()) return;
+      if (!isCurrent()) return false;
       // Roll the optimistic pick back: the stream is still on the old rung, so
       // the highlight must say so.
       rollbackPick();
@@ -3232,6 +3308,7 @@ setScrubDragging(true);
       // the viewer gets their frame back immediately instead of a stuck overlay.
       setStageWhileLoading(false);
       setSwitchingNote(null);
+      return false;
     }
   };
   pickQualityRef.current = pickQuality;
@@ -3249,14 +3326,7 @@ setScrubDragging(true);
     // Invalidate any in-flight quality/dub continuation: it belongs to the old
     // stream and must not commit into this run.
     switchTokenRef.current += 1;
-    audioSwitchTokenRef.current += 1;
-    audioSwitchRef.current = null;
-    try {
-      clearTimeout(audioSwitchTimerRef.current);
-    } catch {
-      // ignore
-    }
-    audioSwitchTimerRef.current = null;
+    cancelAudioSwitch();
     pendingSourceHeightRollbackRef.current = null;
     // The teardown below detaches the media element (currentTime → 0) and the
     // stage replaces the picture: carry the position/paused state and the last
@@ -3307,14 +3377,7 @@ setScrubDragging(true);
     // A source-quality pick re-runs the whole stream: invalidate any quality/dub
     // continuation still parked on the old manifest.
     switchTokenRef.current += 1;
-    audioSwitchTokenRef.current += 1;
-    audioSwitchRef.current = null;
-    try {
-      clearTimeout(audioSwitchTimerRef.current);
-    } catch {
-      // ignore
-    }
-    audioSwitchTimerRef.current = null;
+    cancelAudioSwitch();
     // Remember the last working ladder for the failure path (only when this is
     // an actual change, so a same-rung retry doesn't roll back to itself).
     if ((sourceHeightRef.current || 0) !== next) {
@@ -3422,19 +3485,39 @@ setScrubDragging(true);
   const pickAudio = (index) => {
     const hls = hlsRef.current;
     if (!hls) return;
-    if (index === hls.audioTrack) return;
+    // hls.audioTrack is ALREADY the target when a previous pick timed out, so a
+    // plain equality guard made that row permanently unretryable. The failure
+    // mark is cleared on any confirmed switch.
+    if (index === hls.audioTrack && audioFailedIndexRef.current !== index) return;
     const tracks = hls.audioTracks || [];
     const picked = tracks[index];
+    if (!picked) return;
+    // Capture what is playing BEFORE the optimistic preference overwrite. A
+    // failed pick must not make that language sticky across every later resolve.
+    let previousIndex = -1;
+    try {
+      previousIndex = Number(hls.audioTrack);
+    } catch {
+      previousIndex = -1;
+    }
+    const previousPref =
+      audioPreferenceRef.current ||
+      (previousIndex > 0 && tracks[previousIndex]
+        ? { lang: tracks[previousIndex].lang || "", name: tracks[previousIndex].name || "" }
+        : null);
     // Remember the language, not the index: a re-resolve (server switch, token
     // refresh) builds a new track list where the same language may sit elsewhere.
     audioPreferenceRef.current = {
-      lang: picked?.lang || "",
-      name: picked?.name || "",
+      lang: picked.lang || "",
+      name: picked.name || "",
     };
+    audioFailedIndexRef.current = null;
     // Gate the hls AUDIO_TRACK_* listeners: only a real user pick may put the
     // branded stage up (or take it down). Startup audio loading fires the same
     // events and used to clear a cold-open stage before the first frame.
     const token = (audioSwitchTokenRef.current += 1);
+    const hlsAtPick = hls;
+    const runAtPick = runRef.current;
     audioSwitchRef.current = { index, token };
     try {
       clearTimeout(audioSwitchTimerRef.current);
@@ -3449,17 +3532,26 @@ setScrubDragging(true);
     // Close the sheet so the viewer actually sees the branded loader behind it.
     setPanel(null);
     // If the group is advertised but the manifest never confirms the switch,
-    // never leave the stage up forever: restore the track the element is on.
+    // never leave the stage up forever. Restore the track that WAS playing, not
+    // the target: hls.audioTrack already points at the target, and leaving it
+    // there both lies to the menu and prevents a retry (re-selecting the same
+    // track is a no-op in hls.js).
     audioSwitchTimerRef.current = setTimeout(() => {
       if (audioSwitchTokenRef.current !== token) return;
+      if (runRef.current !== runAtPick || hlsRef.current !== hlsAtPick) return;
       if (!audioSwitchRef.current) return;
       audioSwitchRef.current = null;
       audioSwitchTimerRef.current = null;
-      try {
-        setAudioIndex(hlsRef.current?.audioTrack ?? 0);
-      } catch {
-        setAudioIndex(0);
+      audioFailedIndexRef.current = index;
+      audioPreferenceRef.current = previousPref;
+      if (previousIndex >= 0 && previousIndex !== index) {
+        try {
+          hlsAtPick.audioTrack = previousIndex;
+        } catch {
+          // element torn down between the pick and the bound
+        }
       }
+      setAudioIndex(previousIndex >= 0 ? previousIndex : 0);
       setBuffering(false);
       setStageWhileLoading(false);
       setSwitchingNote(null);
@@ -3470,16 +3562,24 @@ setScrubDragging(true);
       hls.audioTrack = index;
       setAudioIndex(index);
     } catch (error) {
-      // Roll the optimistic label back; the old track keeps playing.
+      // Roll the optimistic preference and label back; the old track keeps
+      // playing. The failure mark lets the same row be picked again.
       logWarn("native", "Could not switch the in-manifest audio track.", {
         index,
         message: error?.message,
       });
       audioSwitchRef.current = null;
-      clearTimeout(audioSwitchTimerRef.current);
-      audioSwitchTimerRef.current = null;
       try {
-        setAudioIndex(hls.audioTrack ?? 0);
+        clearTimeout(audioSwitchTimerRef.current);
+      } catch {
+        // no timer armed
+      }
+      audioSwitchTimerRef.current = null;
+      audioFailedIndexRef.current = index;
+      audioPreferenceRef.current = previousPref;
+      try {
+        const live = Number(hls.audioTrack);
+        setAudioIndex(Number.isInteger(live) && live >= 0 ? live : 0);
       } catch {
         setAudioIndex(0);
       }
@@ -3512,9 +3612,16 @@ setScrubDragging(true);
     // result belongs to a stream that is no longer playing.
     const myId = (dubPickTokenRef.current += 1);
     const sourceAtPick = `${requestedServerRef.current || ""}|${sourceHeightRef.current || 0}`;
+    // A failover destroys this hls instance mid-probe. A dub result that lands
+    // after that belongs to a stream that is no longer playing, even when the
+    // requested server/source did not change.
+    const hlsAtPick = hlsRef.current;
+    const runAtPick = runRef.current;
     const isCurrent = () =>
       dubPickTokenRef.current === myId &&
-      `${requestedServerRef.current || ""}|${sourceHeightRef.current || 0}` === sourceAtPick;
+      `${requestedServerRef.current || ""}|${sourceHeightRef.current || 0}` === sourceAtPick &&
+      runRef.current === runAtPick &&
+      hlsRef.current === hlsAtPick;
     const meta = metaRef.current;
     // The "Original" row must return to the SAME entry the resolver loaded:
     // for a master source that is the multi-level master (meta.entryUrl), not
@@ -3563,12 +3670,29 @@ setScrubDragging(true);
       return next;
     });
     setQualityNote(null);
+    const previousDub = activeDubRef.current;
     activeDubRef.current = index;
     setActiveDub(index);
+    let ok = false;
     try {
-      await pickQualityRef.current?.(targetUri, null, { dubSwitch: true, preProbed: true });
+      ok = await pickQualityRef.current?.(targetUri, null, { dubSwitch: true, preProbed: true });
     } catch {
       // pickQuality never rejects; the catch is future-proofing
+      ok = false;
+    }
+    if (!isCurrent()) return;
+    if (ok === false) {
+      // The switch never committed (probe/playlist/frame failure). Leaving the
+      // row highlighted would claim a language that is not playing — and the
+      // next resolve would keep preferring the manifest that just failed.
+      activeDubRef.current = previousDub;
+      setActiveDub(previousDub);
+      const label =
+        index === 0
+          ? "The original audio"
+          : audioTrackList[index]?.label || "That audio track";
+      setQualityNote(`${label} didn't start — keeping the previous audio.`);
+      setControlsVisible(true);
     }
   };
 
@@ -4903,14 +5027,16 @@ const showSkipOutro = shouldShowSkipOutro({
           )}
         </AnimatePresence>
       </div>
-<FatalBanner
-        message={fatal}
-        onRetry={retryLoad}
-        onBack={() => {
-          if (onCloseRef.current) onCloseRef.current();
-          else window.history.back();
-        }}
-      />
+{!panel && (
+        <FatalBanner
+          message={fatal}
+          onRetry={retryLoad}
+          onBack={() => {
+            if (onCloseRef.current) onCloseRef.current();
+            else window.history.back();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -55,7 +55,6 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
   const showArt = !!posterUrl && !frame && !artFailed;
   return (
     <div
-      aria-hidden="true"
       style={{
         position: "absolute",
         inset: 0,
