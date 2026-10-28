@@ -23,26 +23,30 @@ export const ROUTE_EXIT_TRANSITIONS = {
 
 export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
 
+/* The exiting page is lifted out of flow by AnimatePresence mode="popLayout"
+   and keeps its shape while it fades UNDER the entering page — which starts at
+   opacity 0. `pointerEvents: "none"` stops the still-fading ghost from
+   swallowing the click the viewer just made while the new page is invisible. */
 export const ROUTE_VARIANTS = {
   "fade-up-subtle": {
     initial: { opacity: 0, y: 10, scale: 0.995, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -6, scale: 0.998, translateZ: 0, willChange: "transform, opacity" },
+    exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", willChange: "transform, opacity" },
   },
   "fade-up": {
     initial: { opacity: 0, y: 14, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -8, scale: 0.997, translateZ: 0, willChange: "transform, opacity" },
+    exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
   },
   "fade-only": {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },
     animate: { opacity: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, translateZ: 0, willChange: "opacity" },
+    exit: { opacity: 0, pointerEvents: "none", willChange: "opacity" },
   },
   crossfade: {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },
     animate: { opacity: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, translateZ: 0, willChange: "opacity" },
+    exit: { opacity: 0, pointerEvents: "none", willChange: "opacity" },
   },
 };
 
@@ -76,7 +80,9 @@ export function getRouteVariant(pathname = "") {
   if (pathname.startsWith("/search")) return "fade-only";
   if (pathname === "/watchlist" || pathname === "/history") return "fade-up-subtle";
   if (pathname.startsWith("/settings")) return "fade-only";
-  if (pathname.startsWith("/title/")) return "fade-up";
+  // Details pages live on /watch/:id (see routes.jsx); the details transition
+  // previously never matched and they fell through to the subtle variant.
+  if (pathname.startsWith("/watch/")) return "fade-up";
   if (pathname.startsWith("/person/")) return "fade-up-subtle";
   if (pathname.startsWith("/genre/")) return "fade-up-subtle";
   if (pathname.startsWith("/collections") || pathname.startsWith("/public-collection")) {

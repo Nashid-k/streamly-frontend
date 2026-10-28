@@ -33,9 +33,27 @@ function Layout({ children }) {
     main?.focus({ preventScroll: true });
   }, [location.pathname, location.search]);
 
-  const variants = reduceMotion ? REDUCED_ROUTE_VARIANTS[variant] : ROUTE_VARIANTS[variant];
+  /* `mode="popLayout"` is load-bearing for scroll correctness, not a taste
+     choice. With `sync` both pages stay in normal flow for the whole
+     transition — the tall page being left keeps the document stretched, the
+     pending page sits BELOW it in scroll coordinates, and the exit animation
+     races `useScrollRestoration`'s scroll-to-top: the viewer sees the new page
+     arrive at the bottom and travel up as the old page collapses. `popLayout`
+     lifts the exiting page out of flow (its pixels stay put while it fades
+     under the entering page), so the document is the entering page alone from
+     commit onwards and the scroll reset lands invisibly on it. `wait` was
+     also rejected: it delays the enter behind the full exit and still clamps
+     the scroll at commit. */
+  const variants = reduceMotion
+    ? REDUCED_ROUTE_VARIANTS[variant]
+    : {
+        ...ROUTE_VARIANTS[variant],
+        exit: {
+          ...ROUTE_VARIANTS[variant].exit,
+          transition: ROUTE_EXIT_TRANSITIONS[variant],
+        },
+      };
   const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
-  const exitTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_EXIT_TRANSITIONS[variant];
 
   return (
     <div className="app-container">
@@ -46,17 +64,14 @@ function Layout({ children }) {
       <OfflineBanner />
 
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
-        <AnimatePresence mode="sync" initial={false}>
+        <AnimatePresence mode="popLayout" initial={false}>
           <motion.div
             key={routeKey}
             variants={variants}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{
-              duration: reduceMotion ? 0 : 0.26,
-              ease: [0.25, 0.8, 0.25, 1],
-            }}
+            transition={enterTransition}
             style={{
               flex: 1,
               minHeight: "100%",
