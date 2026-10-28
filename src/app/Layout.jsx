@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useLocation } from "react-router-dom";
-import { DURATION, EASE_OUT } from "../constants/motion";
 import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
@@ -9,29 +8,34 @@ import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useOptionalPreferences } from "../context/preferences";
+import {
+  getRouteVariant,
+  REDUCED_ROUTE_TRANSITION,
+  REDUCED_ROUTE_VARIANTS,
+  ROUTE_EXIT_TRANSITIONS,
+  ROUTE_TRANSITIONS,
+  ROUTE_VARIANTS,
+} from "../constants/routeMotion";
 
 function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
   const osReduced = useReducedMotion();
   const prefs = useOptionalPreferences();
-  // framer's hook reads only the OS media query, and MotionConfig
-  // reducedMotion="always" still animates opacity — the in-app setting has to
-  // gate the fade itself or Reduce Motion never stops page transitions.
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
   const mainRef = useRef(null);
+  const routeKey = location.pathname + location.search;
+  const variant = getRouteVariant(location.pathname);
 
-  /* Move focus to the main landmark on route change so keyboard and screen
-     reader users land in the new page instead of being left on the nav link
-     they just activated. Skipped when focus is already inside <main>: a page's
-     autofocus input (Search) wins for one frame and this parent-layout effect
-     would otherwise steal the caret right back. `preventScroll` keeps the
-     scroll-restoration logic in charge of position. */
   useEffect(() => {
     const main = mainRef.current;
     if (main?.contains(document.activeElement)) return;
     main?.focus({ preventScroll: true });
   }, [location.pathname]);
+
+  const variants = reduceMotion ? REDUCED_ROUTE_VARIANTS[variant] : ROUTE_VARIANTS[variant];
+  const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
+  const exitTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_EXIT_TRANSITIONS[variant];
 
   return (
     <div className="app-container">
@@ -41,36 +45,44 @@ function Layout({ children }) {
       <Header />
       <OfflineBanner />
 
-      {/* Main Content Area with Page Transitions.
-          Enter-fade + subtle rise, no AnimatePresence exit: the exit animation
-          kept the old page mounted for 180 ms while useScrollRestoration fired
-          window.scrollTo(0, 0), so the outgoing page visibly jumped to top
-          before fading out. Without an exit the old page unmounts instantly
-          (the scroll reset is invisible) and the new page fades in with a
-          gentle upward settle. */}
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
-        <motion.div
-          key={location.pathname}
-          initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={
-            reduceMotion
-              ? { duration: 0 }
-              : { duration: DURATION.MED, ease: EASE_OUT }
-          }
-          style={{ flex: 1 }}
-        >
-          {children}
-        </motion.div>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={routeKey}
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={{
+              enter: enterTransition,
+              exit: exitTransition,
+            }}
+            style={{
+              flex: 1,
+              minHeight: "100%",
+              overflowX: "hidden",
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transform: "translateZ(0)",
+            }}
+            onAnimationStart={() => {
+              if (mainRef.current) {
+                mainRef.current.dataset.routeAnimating = "true";
+              }
+            }}
+            onAnimationComplete={() => {
+              if (mainRef.current) {
+                delete mainRef.current.dataset.routeAnimating;
+              }
+            }}
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
-      {/* Back to top */}
       <BackToTop />
-
-      {/* Global footer — Streamly wordmark, disclaimer, contact */}
       <Footer />
-
-      {/* Mobile Bottom Navigation — Cinejoy-style floating icon pill */}
       <MobileBottomNav />
     </div>
   );
