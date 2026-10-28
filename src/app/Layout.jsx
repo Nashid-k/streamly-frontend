@@ -81,11 +81,19 @@ function Layout({ children }) {
               transform: "translate3d(0,0,0)",
             }}
             onAnimationStart={() => {
+              // Single source of truth for "a route transition is in flight".
+              // useScrollRestoration defers the POP restore until it clears,
+              // so Back lands after the enter animation has settled instead
+              // of adjusting the scroll mid-flight. The PUSH scroll-to-top is
+              // deliberately NOT gated on this: its reset must fire at commit
+              // while the document is already the entering page.
+              window.__streamlyRouteAnimating = true;
               if (mainRef.current) {
                 mainRef.current.dataset.routeAnimating = "true";
               }
             }}
             onAnimationComplete={() => {
+              window.__streamlyRouteAnimating = false;
               if (mainRef.current) {
                 delete mainRef.current.dataset.routeAnimating;
               }

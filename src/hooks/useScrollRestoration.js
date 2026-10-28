@@ -3,6 +3,12 @@ import { useLocation, useNavigationType } from "react-router-dom";
 import { logDebug } from "../utils/debugLogger";
 
 const MAX_SCROLL_ENTRIES = 20;
+// Back arrives as POP while the previous page is still animating out. The
+// restore's first attempt waits for that to settle instead of adjusting the
+// scroll mid-flight; the hard cap keeps a missed animation callback from ever
+// stranding the viewer away from their position.
+const SETTLE_POLL_MS = 50;
+const SETTLE_MAX_WAIT_MS = 1000;
 
 function readScrollEntry(key) {
   try {
@@ -94,21 +100,47 @@ export function useScrollRestoration() {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
         const scrollY = savedPosition.y;
-        const deadline = Date.now() + 1400;
+        const retryDeadline = Date.now() + 1400;
+        let settleTimer = 0;
         let retryTimer = 0;
 
         const attempt = () => {
           window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
-          if (Math.abs(window.scrollY - scrollY) >= 1 && Date.now() < deadline) {
+          // Re-attempt while the target does not "stick": the destination page
+          // grows as its data lands (e.g. HomePage's category count per scroll
+          // event), clamping the scroll short of the saved position.
+          if (Math.abs(window.scrollY - scrollY) >= 1 && Date.now() < retryDeadline) {
             retryTimer = window.setTimeout(attempt, 80);
           }
         };
-        requestAnimationFrame(() => {
-          requestAnimationFrame(attempt);
-        });
-        return () => window.clearTimeout(retryTimer);
+
+        // Layout flips `window.__streamlyRouteAnimating` on route-transition
+        // start/complete; wait for it to clear (bounded) so the first attempt
+        // lands after the enter animation instead of mid-flight.
+        const settleDeadline = Date.now() + SETTLE_MAX_WAIT_MS;
+        const pollSettled = () => {
+          if (window.__streamlyRouteAnimating !== true || Date.now() >= settleDeadline) {
+            requestAnimationFrame(() => {
+              requestAnimationFrame(attempt);
+            });
+            return;
+          }
+          settleTimer = window.setTimeout(pollSettled, SETTLE_POLL_MS);
+        };
+        pollSettled();
+
+        return () => {
+          window.clearTimeout(settleTimer);
+          window.clearTimeout(retryTimer);
+        };
       }
     } else {
+      // PUSH: the reset must fire at commit, NOT after the animation. Under
+      // AnimatePresence mode="popLayout" the document at commit is already the
+      // entering page (the exiting one is out of flow), so this lands on the
+      // new page invisibly; gating it on the animation flag would let the
+      // viewer stare at a mid-page position for the length of the fade when
+      // the destination is cached and already tall.
       requestAnimationFrame(() => {
         window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       });
