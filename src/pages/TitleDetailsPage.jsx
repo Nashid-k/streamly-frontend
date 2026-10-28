@@ -437,16 +437,35 @@ export default function TitleDetails() {
   const infoRows = useMemo(() => {
     const rows = [];
     const dateOpts = { year: "numeric", month: "short", day: "numeric" };
+    const spokenLanguages = Array.isArray(movie?.spokenLanguages)
+      ? movie.spokenLanguages
+          .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
+          .filter(Boolean)
+          .join(", ")
+      : movie?.spoken_languages && Array.isArray(movie.spoken_languages)
+        ? movie.spoken_languages
+            .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
+            .filter(Boolean)
+            .join(", ")
+        : null;
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
-      if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      if (spokenLanguages) {
+        rows.push({ label: "Languages", value: spokenLanguages });
+      } else if (movie?.originalLanguage) {
+        rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      }
       if (movie?.releaseDate) rows.push({ label: "First Aired", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
       if (movie?.lastAiredDate) rows.push({ label: "Last Aired", value: formatTMDBDate(movie.lastAiredDate, dateOpts, undefined, releasePlatform) });
       if (movie?.seasonsCount) rows.push({ label: "Seasons", value: String(movie.seasonsCount) });
       if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
-      if (movie?.originalLanguage) rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      if (spokenLanguages) {
+        rows.push({ label: "Languages", value: spokenLanguages });
+      } else if (movie?.originalLanguage) {
+        rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
+      }
       if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
     }
     return rows;

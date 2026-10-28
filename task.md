@@ -818,6 +818,13 @@
   - Attempt-log header now shows `frags direct` / `relay ×N frags` so "loads on good internet" is provable from the log instead of guessable.
   - Verified: oxlint 0 new warnings, vitest 45 files / **493/493**, build OK (✓ 4.29s). Models: probe-time ≤720 for relay, +2-frag relay-streak demote for mid-play throttling; both preserve position.
 
+- [x] **NetMirror player servers — feasibility evaluation (user request: "integrate netmirror player servers") — 2026-10-28.**
+  - **Prior state.** NetMirror (net27.cc family) was fully removed in a prior batch (resolvers, client branches, CSP, tests) after confirmation it was Cloudflare-challenged and gated; rationale documented in code comments (`api/stream.js`, `src/constants/sources.js`).
+  - **Live inspection.** Probed `net50.cc/` (and mobile endpoints) — responds via Cloudflare/fronting; `net50.cc/mobile/home?app=1` and `a.netfree2.cc/mobile/home?app=1` return parked/redirecting HTML with no public playable API. `net77.cc` presents Cloudflare Turnstile ("Checking your Browser…") that cannot be bypassed in an automated/headless unauthenticated flow.
+  - **Unofficial app flow (analyzed).** Reviewed `C:\Users\dell\AppData\Local\Temp\opencode\netmirror-src` (Dart app): uses `apiUrl`/`newApiUrl` (`net50.cc/mobile`, `a.netfree2.cc/mobile`), requires `t_hash_t` cookie minted via ad-verification flow, hits authenticated endpoints (`playlist.php` with `cookie: t_hash_t=...`), and parses protected responses. No public unauthenticated playback endpoints or direct media URLs discovered.
+  - **Conclusion.** No viable unauthenticated integration path exists. Per prior removal rationale and explicit constraints (do not forge challenges or handle ad-verification), NetMirror player servers are **not integrable** in this serverless/web app without authenticated/session-gated flows that cannot be legitimately automated. No code changes made (no re-addition of resolvers, sources, or client branches). `src/api/streamResolve.js`, `api/stream.js`, `src/constants/sources.js` remain free of NetMirror references.
+  - **Gates.** `npm run lint` — 0 errors (49 warnings baseline), `npm run test` — **115 files / 1374 tests**, all green, `npm run build` — clean.
+
 - [x] **Native-player deep audit — 6 real bugs fixed (user order: "find other issues with the native player and its logic and fix those")**:
   1. **Aborted direct-probe cached as a permanent "not direct" verdict** (`nativeHlsLoader.js` `probeDirectOrigin`): an aborted probe (source failover, watchdog timeout, seek/title switch) resolves `{ok:false}` and the per-origin cache keeps it FOREVER — every later fragment of a perfectly-CORS'd CDN rides the Vercel relay for the rest of the session (free-tier burn + slower playback). Fix: on `AbortError`, delete the cache entry so the next load re-probes with its own live signal. + regression test (17 loader tests).
   2. **Resume countdown commits into a paused player**: when autoplay was blocked (or the user paused mid-card) the 8s timer still ran → `commitResume` seeking into a silent player, flashing "Resuming…" then vanishing with the offer lost. Fix: tick and auto-commit both bail while `video.paused`; the card holds until the user taps play, which commits immediately (Netflix behavior).
@@ -6643,3 +6650,31 @@ Visual pass, conservative CSS-only changes.
 - Not verifiable here: real-browser paint/switch behavior (jsdom); Atlas/Ursa/
   Daedalus cannot deliver bytes while their provider workers/storyboard-only
   responses stay in this state.
+
+## 2026-10-27 - net77.cc REA inspection: NetMirror portal, not a source
+
+- **What it is.** `net77.cc` is a Cloudflare-fronted NetMirror PWA, not an
+  independent streaming backend. Its public `manifest.json` has
+  `short_name`/`name` `NetMirror` and `start_url: /home?h=1`; public portal
+  copy says "Sign-In is Required to Use in Computer" and advertises 50+ OTT
+  sources.
+- **What is publicly reachable.** `/home` and `/home?h=1` answer `301 ->
+  /verify2`, which is a Cloudflare `403` with `Cf-Mitigated: challenge`.
+  `/manifest.json`, `/robots.txt`, `/favicon.ico` and `/img/nf2/A144.png`
+  return `200`. `/mobile/verify2.php` returns `200`.
+- **The mobile API is not a live path.** `/mobile/home?app=1`,
+  `/mobile/movies?app=1` and `/mobile/series?app=1` answer `301` to
+  `https://net50.cc/mobile/...`; `net50.cc/mobile/home?app=1` returns a
+  ParkLogic parked-domain redirect page, not the NetMirror API. The older
+  unofficial NetMirror client also used `net50.cc/mobile` and
+  `a.netfree2.cc/mobile`, so that path is stale.
+- **REA evidence.** `list-browser-targets` and `inspect-web-page` against a
+  real Chrome 155 CDP session captured the Cloudflare `Just a moment...`
+  target, `Performing security verification`, and the Turnstile iframe
+  `Checking your Browser…`. The iframe target regenerated and exposed no
+  clickable control; the challenge never passed. `r.jina.ai` also returned the
+  Cloudflare challenge, not page content.
+- **Decision.** No resolver/source change. NetMirror is an authenticated
+  web/mobile frontend, not a direct media host; adding it would require
+  credentials plus a Cloudflare challenge bypass, and no public playback
+  endpoint was found. The native ZXC resolver remains the supported path.
