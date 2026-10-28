@@ -757,17 +757,56 @@ export default function TitleDetails() {
         });
         if (!alive) return;
         const tracks = Array.isArray(res?.audioTracks) ? res.audioTracks : [];
+        const LANG_ALIASES = {
+          esla: "Spanish (Latin America)",
+          es419: "Spanish (Latin America)",
+          esmx: "Spanish (Mexico)",
+          ptbr: "Portuguese (Brazil)",
+          ptpt: "Portuguese (Portugal)",
+          zhcn: "Chinese (Simplified)",
+          zhtw: "Chinese (Traditional)",
+        };
+        const FILM_LANG = {
+          en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
+          kn: "Kannada", bn: "Bengali", pa: "Punjabi", mr: "Marathi", gu: "Gujarati",
+          es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese",
+          ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
+          tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", ms: "Malay",
+          pl: "Polish", nl: "Dutch", sv: "Swedish", no: "Norwegian", da: "Danish",
+        };
+        const ISO3_LANG = {
+          eng: "English", spa: "Spanish", fra: "French", fre: "French", deu: "German",
+          ger: "German", ita: "Italian", por: "Portuguese", rus: "Russian", jpn: "Japanese",
+          kor: "Korean", zho: "Chinese", chi: "Chinese", ara: "Arabic", tur: "Turkish",
+          vie: "Vietnamese", tha: "Thai", ind: "Indonesian", pol: "Polish", nld: "Dutch",
+          dut: "Dutch", swe: "Swedish", nor: "Norwegian", dan: "Danish", hin: "Hindi",
+          tam: "Tamil", tel: "Telugu", mal: "Malayalam", kan: "Kannada", ben: "Bengali",
+        };
+        const NOISE = /\b(dubbed?|dub|audio|track|version|audio\s*track|soundtrack)\b/gi;
+        const normalize = (raw) => {
+          if (!raw) return "";
+          let s = String(raw).trim();
+          if (!s) return "";
+          const codeLike = s.toLowerCase().replace(/[^a-z0-9]/g, "");
+          if (LANG_ALIASES[codeLike]) return LANG_ALIASES[codeLike];
+          if (FILM_LANG[codeLike] || ISO3_LANG[codeLike]) return FILM_LANG[codeLike] || ISO3_LANG[codeLike];
+          s = s.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+          s = s.replace(NOISE, " ").replace(/\s+/g, " ").trim();
+          if (!s) return "";
+          // if it's just a 2-3 letter code
+          if (/^[a-z]{2,3}$/i.test(s)) {
+            const c = s.toLowerCase();
+            return LANG_ALIASES[c] || FILM_LANG[c] || ISO3_LANG[c] || s.toUpperCase();
+          }
+          return s
+            .split(" ")
+            .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+            .join(" ");
+        };
         const langs = tracks
-          .map((t) => t?.label)
+          .map((t) => t?.label || t?.lang)
           .filter((l) => typeof l === "string" && l.trim())
-          .map((l) => {
-            const s = String(l).trim();
-            return s
-              .replace(/\s*\(.*dub.*\)$/i, "")
-              .replace(/\s+[-–—]?\s*dub$/i, "")
-              .replace(/\s+audio$/i, "")
-              .trim();
-          })
+          .map(normalize)
           .filter((l) => l && !/^(original|auto)$/i.test(l));
         const unique = Array.from(new Set(langs));
         setServerLanguages(unique);
