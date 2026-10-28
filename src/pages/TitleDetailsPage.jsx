@@ -444,23 +444,22 @@ export default function TitleDetails() {
       ? movie.spokenLanguages
           .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
           .filter(Boolean)
-          .join(", ")
       : movie?.spoken_languages && Array.isArray(movie.spoken_languages)
         ? movie.spoken_languages
             .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
             .filter(Boolean)
-            .join(", ")
-        : null;
-    const serverLangStr = Array.isArray(serverLanguages) && serverLanguages.length > 0 ? serverLanguages.join(", ") : null;
-    const displayLang = serverLangStr || spokenLanguages;
+        : [];
+    const spokenLangStr = spokenLanguages.length > 0 ? spokenLanguages.join(", ") : null;
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
       if (Array.isArray(serverLanguages)) {
         if (serverLanguages.length > 0) {
           rows.push({ label: "Languages", value: serverLanguages.join(", ") });
+        } else if (spokenLangStr) {
+          rows.push({ label: "Languages", value: spokenLangStr });
+        } else if (movie?.originalLanguage) {
+          rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
         }
-      } else if (displayLang) {
-        rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
@@ -473,9 +472,11 @@ export default function TitleDetails() {
       if (Array.isArray(serverLanguages)) {
         if (serverLanguages.length > 0) {
           rows.push({ label: "Languages", value: serverLanguages.join(", ") });
+        } else if (spokenLangStr) {
+          rows.push({ label: "Languages", value: spokenLangStr });
+        } else if (movie?.originalLanguage) {
+          rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
         }
-      } else if (displayLang) {
-        rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
