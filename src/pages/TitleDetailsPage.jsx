@@ -435,7 +435,7 @@ export default function TitleDetails() {
     // Episodes for series; Runtime / Language / Release Date for movies), rendered
     // identically on mobile and desktop. Above the loading early-return so hook
     // order stays unconditional.
-  const [serverLanguages, setServerLanguages] = useState(null);
+  const [serverLanguages, setServerLanguages] = useState(undefined);
 
   const infoRows = useMemo(() => {
     const rows = [];
@@ -460,6 +460,8 @@ export default function TitleDetails() {
         } else if (movie?.originalLanguage) {
           rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
         }
+      } else if (spokenLangStr) {
+        rows.push({ label: "Languages", value: spokenLangStr });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
@@ -477,6 +479,8 @@ export default function TitleDetails() {
         } else if (movie?.originalLanguage) {
           rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
         }
+      } else if (spokenLangStr) {
+        rows.push({ label: "Languages", value: spokenLangStr });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
