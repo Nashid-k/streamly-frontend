@@ -194,21 +194,6 @@
     border-radius: 50%;
   }
 
-  .mobile-bottom-nav {
-    height: 4rem;
-    width: min(94vw, 29rem);
-    padding: 0.32rem;
-  }
-
-  .bottom-nav-item {
-    min-width: 0;
-  }
-
-  .bottom-nav-item.active {
-    background: #ffffff;
-    color: #000;
-    box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
-  }
 
   .content-page.main-content {
     min-height: 100svh;

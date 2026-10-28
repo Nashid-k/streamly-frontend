@@ -583,8 +583,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
       <div className="discovery-page relative z-10">
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="relative mx-auto max-w-[1600px] pt-24 pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-12 pb-8 px-6 md:px-8 space-y-8">
+        <header className="relative mx-auto max-w-[1600px] pt-20 sm:pt-24 pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-8 sm:pt-12 pb-6 px-3 sm:px-6 md:px-8 space-y-6 sm:space-y-8">
             <div className="flex flex-col xl:flex-row gap-10 xl:gap-8 items-start xl:items-end justify-between">
               <div className="max-w-xl">
                 <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">

@@ -69,7 +69,7 @@ export default function ExploreCollectionsPage() {
   return (
     <AmbientBackground fallback>
       <SEO title={t("explore.title")} description={t("explore.subtitle")} noindex />
-      <div className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-12">
+      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-8 md:py-12">
         <header className="mb-8 md:mb-10 text-left">
           <h1 className="text-2xl md:text-4xl font-bold tracking-tight">
             {t("explore.title")}

@@ -9,7 +9,7 @@
   z-index: var(--z-sticky);
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 2rem;
   padding: var(--header-inset) clamp(0.75rem, 2vw, 1.25rem) 0;
   pointer-events: none;
@@ -20,6 +20,14 @@
 }
 
 /* Brand — standalone floating logo at the left end (Cinejoy .brand-mark) */
+.header-brand-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs, 4px);
+  pointer-events: auto;
+  flex-shrink: 0;
+}
+
 .app-brand-link {
   display: inline-flex;
   align-items: center;

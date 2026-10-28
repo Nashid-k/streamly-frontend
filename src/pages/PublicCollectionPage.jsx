@@ -99,7 +99,7 @@ export default function PublicCollectionPage() {
     return (
       <AmbientBackground>
         <SEO title={seoTitle} description={seoDescription} />
-        <div className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-12">
+        <div className="mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-8 md:py-12">
           <Link
             to="/explore/collections"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
@@ -157,7 +157,7 @@ export default function PublicCollectionPage() {
   return (
     <AmbientBackground>
       <SEO title={seoTitle} description={seoDescription} />
-      <div className="mx-auto max-w-6xl px-4 md:px-6 py-8 md:py-12">
+      <div className="mx-auto max-w-6xl px-4 md:px-6 pt-20 pb-8 md:py-12">
         <Link
           to="/explore/collections"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"

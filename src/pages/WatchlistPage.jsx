@@ -558,8 +558,8 @@ export default function WatchlistPage() {
 
       <div className="discovery-page relative z-10">
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="relative mx-auto max-w-[1600px] pt-24 pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-12 pb-8 px-6 md:px-8 space-y-8">
+        <header className="relative mx-auto max-w-[1600px] pt-20 sm:pt-24 pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-8 sm:pt-12 pb-6 px-3 sm:px-6 md:px-8 space-y-6 sm:space-y-8">
             <div className="flex flex-col xl:flex-row gap-10 xl:gap-8 items-start xl:items-end justify-between">
               <div className="max-w-xl">
                 {inCollectionView && (
@@ -695,7 +695,7 @@ export default function WatchlistPage() {
         {/* ── Collections rail (main view) ────────────────────────────── */}
         {!inCollectionView && collections.length > 0 && (
           <section className="relative z-10 mt-2">
-            <div className="flex items-center gap-3 px-4 md:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 md:px-8">
               <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
                 Your Collections
               </h2>
@@ -733,7 +733,7 @@ export default function WatchlistPage() {
         {/* ── Best Collections rail — the public lists worth sharing ────── */}
         {!inCollectionView && bestCollections.length > 0 && (
           <section className="relative z-10 mt-6">
-            <div className="flex items-center gap-3 px-4 md:px-8">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 md:px-8">
               <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
                 {t("collections.bestCollectionsTitle")}
               </h2>

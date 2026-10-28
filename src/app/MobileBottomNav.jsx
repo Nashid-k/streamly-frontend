@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Search, Settings } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
@@ -13,9 +13,6 @@ function MobileBottomNav() {
   const location = useLocation();
   const { t } = useI18n();
   const { user } = useAppAuth();
-
-  // Fullscreen player owns the viewport
-  const isPlayerRoute = location.pathname.startsWith("/watch/");
 
   const items = [
     ...NAV_ITEMS.map((item) => ({
@@ -44,6 +41,7 @@ function MobileBottomNav() {
     const activeRect = active.getBoundingClientRect();
     const x = activeRect.left - navRect.left;
     const w = activeRect.width;
+    if (w <= 0) return;
     setPill((prev) => (prev.x === x && prev.w === w && prev.ready ? prev : { x, w, ready: true }));
   }, []);
 
@@ -57,65 +55,67 @@ function MobileBottomNav() {
   }, [measurePill]);
 
   return (
-    <AnimatePresence>
-      {!isPlayerRoute && (
-        <motion.nav
-          ref={navRef}
-          className="mobile-bottom-nav"
-          aria-label={t("nav.mobileNav")}
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 80, opacity: 0 }}
+    <motion.nav
+      ref={navRef}
+      className="mobile-bottom-nav"
+      aria-label={t("nav.mobileNav")}
+      initial={{ y: 20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: 80, opacity: 0 }}
+      transition={SPRING.SHEET}
+    >
+      {/* Sliding active pill indicator */}
+      {pill.ready && (
+        <motion.span
+          className="bottom-nav-pill"
+          initial={false}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: "5px",
+            bottom: "5px",
+            borderRadius: "var(--radius-full)",
+            background: "#ffffff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.35), 0 0 16px 1px rgba(255,255,255,0.18)",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+          animate={{ x: pill.x, width: pill.w }}
           transition={SPRING.SHEET}
-        >
-          {/* Sliding active pill indicator */}
-          {pill.ready && (
-            <motion.span
-              className="bottom-nav-pill"
-              style={{
-                position: "absolute",
-                top: "4px",
-                bottom: "4px",
-                borderRadius: "var(--radius-full)",
-                background: "#ffffff",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.35), 0 0 16px 1px rgba(255,255,255,0.18)",
-                pointerEvents: "none",
-                zIndex: 0,
-              }}
-              animate={{ x: pill.x, width: pill.w }}
-              transition={SPRING.SHEET}
-            />
-          )}
-
-          {items.map((item) => {
-            const active = item.match(location.pathname);
-            return (
-              <Link
-                key={`bottom-${item.id}`}
-                to={item.to}
-                data-nav-active={active ? "true" : undefined}
-                className={`bottom-nav-item ${active ? "active" : ""}`}
-                aria-current={active ? "page" : undefined}
-                aria-label={item.label}
-                title={item.label}
-                style={{ position: "relative", zIndex: 1 }}
-              >
-                {item.id === "settings" && user?.picture ? (
-                  <img
-                    src={user.picture}
-                    alt=""
-                    className="w-6 h-6 rounded-full object-cover border border-white/40"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <item.icon size={24} strokeWidth={2} />
-                )}
-              </Link>
-            );
-          })}
-        </motion.nav>
+        />
       )}
-    </AnimatePresence>
+
+      {items.map((item) => {
+        const active = item.match(location.pathname);
+        return (
+          <Link
+            key={`bottom-${item.id}`}
+            to={item.to}
+            data-nav-active={active ? "true" : undefined}
+            className={`bottom-nav-item ${active ? "active" : ""}`}
+            aria-current={active ? "page" : undefined}
+            aria-label={item.label}
+            title={item.label}
+            style={{
+              position: "relative",
+              zIndex: 1,
+              color: active ? (pill.ready ? "#000000" : "#ffffff") : undefined,
+            }}
+          >
+            {item.id === "settings" && user?.picture ? (
+              <img
+                src={user.picture}
+                alt=""
+                className="w-6 h-6 rounded-full object-cover border border-white/40"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <item.icon size={22} strokeWidth={2} />
+            )}
+          </Link>
+        );
+      })}
+    </motion.nav>
   );
 }
 

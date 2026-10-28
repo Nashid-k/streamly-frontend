@@ -61,6 +61,7 @@
   --header-gap: clamp(0.75rem, 1.8vh, 1.5rem);
   /* The one number a page top needs: island height + breathing room. */
   --header-clearance: calc(var(--header-h) + var(--header-gap));
+  --content-gutter: clamp(1rem, 3.2vw, 4rem);
   /* Legacy alias — .brand-mark still sizes itself from this. */
   --brand-h: var(--header-mark-h);
 

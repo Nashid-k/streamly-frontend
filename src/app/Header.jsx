@@ -148,6 +148,7 @@ function Header() {
 
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
+      <div className="header-brand-cluster">
       {/* Cinejoy-style back arrow — sits right before the brand logo on
           every non-home page; prefers history, falls back to home. */}
       <AnimatePresence mode="wait" initial={false}>
@@ -191,6 +192,7 @@ function Header() {
           draggable={false}
         />
       </Link>
+      </div>
 
       <nav ref={navRef} className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
         {/* Shared sliding highlight (Cinejoy .nav-pill) */}

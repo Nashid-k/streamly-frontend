@@ -415,14 +415,14 @@ export default function SettingsPage() {
       <div className="discovery-page relative z-10">
         {/* Header — discovery-page block: same scale, glow and layout as the
             movies/series/my-list pages (big title, subtitle, frosted pills). */}
-        <header className="relative mx-auto max-w-[1600px] pt-24 pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-12 pb-6 px-2 md:px-4">
+        <header className="relative mx-auto max-w-[1600px] pt-20 sm:pt-24 pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-8 sm:pt-12 pb-6 px-2 md:px-4">
             <div className="flex flex-col xl:flex-row gap-8 xl:gap-10 items-start xl:items-end justify-between">
               <div className="max-w-xl">
                 <button
                   type="button"
                   onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
-                  className="group flex items-center gap-1.5 text-sm font-medium text-white/60 transition-colors mb-4 hover:text-white/90"
+                  className="hidden sm:inline-flex group items-center gap-1.5 text-sm font-medium text-white/60 transition-colors mb-4 hover:text-white/90"
                 >
                   <ChevronLeft
                     size={15}
