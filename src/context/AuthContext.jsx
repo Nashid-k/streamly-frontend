@@ -22,6 +22,7 @@ import { logDebug, logError, logWarn } from "../utils/debugLogger";
 import { morphCollections } from "../hooks/collectionMorph";
 import { readPreferencesSnapshot, applyRemotePreferences } from "../utils/preferencesSnapshot";
 import { queryClient } from "../queryClient";
+import { removePersistedQueryCache } from "../queryCachePersister";
 import SignInDialog from "../components/auth/SignInDialog";
 
 const SYNC_TOKEN_KEY = "streamly_sync_token";
@@ -292,6 +293,17 @@ function discardLocalLibrary() {
     queryClient.clear();
   } catch (error) {
     logWarn("auth", "Could not clear the query cache while discarding the local library.", {
+      message: error?.message,
+    });
+  }
+  /* The persisted catalogue copy is part of the library too: without this, the
+     next account's boot hydrates the PREVIOUS account's cache straight from
+     localStorage — `queryClient.clear()` only ever wipes memory. Same rule as
+     the in-memory wipe: public rails are the price of a clean handover. */
+  try {
+    removePersistedQueryCache();
+  } catch (error) {
+    logWarn("auth", "Could not remove the persisted query cache while discarding the local library.", {
       message: error?.message,
     });
   }

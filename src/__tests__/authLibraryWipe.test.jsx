@@ -3,6 +3,7 @@ import { render, screen, act } from "@testing-library/react";
 import { AuthProvider } from "../context/AuthContext";
 import { useAppAuth } from "../context/auth";
 import { useMyList, useContinueWatching, useMyCollections } from "../hooks/useUserData";
+import { PERSIST_STORAGE_KEY } from "../queryCachePersister";
 
 /* Sign-out on a shared machine must leave NOTHING of the previous account
    readable — not just in localStorage, but ON SCREEN.
@@ -94,6 +95,33 @@ describe("sign-out clears the RENDERED library, not just the stored one", () => 
     expect(screen.getByTestId("my-list")).toHaveTextContent("empty");
     expect(screen.getByTestId("watch-history")).toHaveTextContent("empty");
     expect(screen.getByTestId("collections")).toHaveTextContent("empty");
+  });
+
+  it("removes the persisted query cache alongside the in-memory wipe", async () => {
+    // The persisted catalogue copy (src/queryCachePersister.js) hydrates on
+    // the NEXT boot; `queryClient.clear()` only ever wipes memory, so without
+    // the accompanying storage removal the previous session's catalogue and
+    // any personalised rows it held would survive the sign-out.
+    localStorage.setItem(
+      "streamly_user",
+      JSON.stringify({ id: "acc-1", accountId: "acc-1", name: "Alex", email: "alex@test.com" }),
+    );
+    localStorage.setItem(
+      PERSIST_STORAGE_KEY,
+      JSON.stringify({ timestamp: Date.now(), buster: "test", clientState: { queries: [] } }),
+    );
+
+    render(
+      <AuthProvider>
+        <LibraryConsumer />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      screen.getByText("Logout").click();
+    });
+
+    expect(localStorage.getItem(PERSIST_STORAGE_KEY)).toBeNull();
   });
 
   it("empties the rendered library when a DIFFERENT account is adopted", async () => {

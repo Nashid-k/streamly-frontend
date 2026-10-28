@@ -21,10 +21,15 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      // Catalog data barely changes — 8min stale + 15min GC reduces
+      // Catalog data barely changes — 8min stale + 30min GC reduces
       // superfluous refetches on tab focus, back-navigation, and rail remounts.
+      // GC was 15min: returning after a longer break evicted everything, so
+      // every route remount paid the full fetch again ("no proper caching").
+      // 30min covers a typical viewing session; past that, queryCachePersister
+      // still restores the persisted whitelist, so routes keep painting from
+      // cache and only genuinely stale entries refresh in the background.
       staleTime: 8 * 60 * 1000,
-      gcTime:   15 * 60 * 1000,
+      gcTime:   30 * 60 * 1000,
       // A media browse page has several concurrent requests. One retry gives
       // transient mobile connections a second chance without trapping the UI
       // behind a long sequence of loading skeletons.

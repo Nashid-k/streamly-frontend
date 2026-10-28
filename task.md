@@ -6714,3 +6714,52 @@ Visual pass, conservative CSS-only changes.
   web/mobile frontend, not a direct media host; adding it would require
   credentials plus a Cloudflare challenge bypass, and no public playback
   endpoint was found. The native ZXC resolver remains the supported path.
+
+## 2026-10-28 — Persistent query cache: routes no longer reload from zero
+
+**Symptom:** "no proper caching — every routing gives a fresh loading." Diagnosis:
+the in-memory React Query cache already serves SPA back-navigation (staleTime
+8min default, 24h for details; every cache-clear is a scoped sign-in/language/
+reset action). The real gaps: (1) the cache is memory-only, so a reload, tab
+reopen or app restart re-pays every request and shows full skeletons again even
+seconds later; (2) `gcTime` 15min evicted everything when returning after a
+longer break, so late back-navigations refetched too.
+
+- **`src/queryCachePersister.js` (new).** Persists the query cache to
+  localStorage (key `streamly_rq_cache`, throttled 1s writes). Hydrates before
+  first paint via `PersistQueryClientProvider`, so reloads/restarts paint routes
+  from what was on screen and staleness rules decide background refreshes.
+  - Whitelist dehydrate: per-title families (`movie`, `similar`, `episodes`,
+    `person`, `titleLogo`, `realRatings`) + catalogue rails (featured/trending/
+    top10/popular/topRated/nowPlaying/regional/new-releases/editorial/discover-*/
+    genre-*/category-fallback/public-collection*). Deliberately NOT persisted:
+    `recommendations` (per-account) and `search` (the viewer's own queries).
+  - Failed/empty queries are never restored (`status !== success` skip); maxAge
+    24h + versioned buster (`streamly-rq-v1` — bump to drop all old snapshots).
+  - localStorage quota: retry cascade prunes the heaviest rows first — episodes
+    arrays, then similar, then the rails one family per pass — keeps the
+    per-title data intact; gives up honestly (no partial garbage) when even
+    per-title-only does not fit. Private-mode / storage-blocked browsers log
+    and stay memory-only as before.
+- **`main.jsx`.** `QueryClientProvider` → `PersistQueryClientProvider` with the
+  persisted options; hydration completes in the first effect tick (sync
+  localStorage), so no visible restore flash.
+- **`AuthContext.discardLocalLibrary()`** now also calls
+  `removePersistedQueryCache()` — `queryClient.clear()` only wipes memory, and
+  without this the next account on a shared device hydrated the previous
+  account's/cache copy straight from localStorage.
+- **`queryClient.js`.** Default `gcTime` 15min → 30min (returning after a
+  longer break evicted everything and every remount paid the full fetch again).
+- **Tests (`queryCachePersistence.test.jsx`, new):** whitelist permits rails +
+  per-title and refuses `recommendations`/`search`/pending/failed queries;
+  restore serves a persisted route with ZERO queryFn calls; entries older than
+  24h are dropped and refetched; a mismatched buster snapshot is discarded;
+  `removePersistedQueryCache` handles present and missing rows; quota cascade
+  drops episodes → similar → rails and eventually gives up.
+  `authLibraryWipe.test.jsx` now also asserts the persisted copy is removed on
+  the account-change wipe.
+- **Gates:** lint 0 errors (47 warnings baseline), test 118 files all green,
+  build clean 1.65s.
+- **Not verifiable here:** cold-start restore feel in a real browser (jsdom
+  cannot measure paint-on-hydrate); confirm by reloading the app after
+  browsing — routes should paint instantly and refetch in the background.

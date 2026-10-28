@@ -24,7 +24,8 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";
 import { I18nProvider } from "./i18n/index.jsx";
 
-import { QueryClientProvider } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { persistQueryCacheOptions } from "./queryCachePersister";
 import { HelmetProvider } from "react-helmet-async";
 import { Analytics } from "@vercel/analytics/react";
 import { queryClient } from "./queryClient";
@@ -61,7 +62,12 @@ if (import.meta.env.PROD) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
+      {/* PersistQueryClientProvider hydrates the catalogue cache from
+          localStorage BEFORE first paint (src/queryCachePersister.js), so a
+          reload / tab reopen paints routes from the persisted entries and
+          lets staleness rules decide background refreshes. The library-wipe
+          contract (AuthContext) also removes the persisted copy. */}
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistQueryCacheOptions}>
         <AuthProvider>
           <PreferencesProvider>
             <I18nProvider>
@@ -72,7 +78,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             </I18nProvider>
           </PreferencesProvider>
         </AuthProvider>
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     </HelmetProvider>
   </React.StrictMode>,
 );

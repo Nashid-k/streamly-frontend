@@ -16,7 +16,9 @@
     "probe:latency": "node scripts/probe-catalogue-latency.mjs"
   },
   "dependencies": {
+    "@tanstack/query-sync-storage-persister": "^5.105.0",
     "@tanstack/react-query": "^5.102.1",
+    "@tanstack/react-query-persist-client": "^5.105.0",
     "@vercel/analytics": "^2.0.1",
     "@vitejs/plugin-react": "^6.0.4",
     "framer-motion": "^13.1.0",
