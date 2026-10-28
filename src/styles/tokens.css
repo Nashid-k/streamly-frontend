@@ -176,7 +176,18 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  /* Deliberately NOT `smooth` — and this is a root-cause fix, not a taste
+     choice. Per CSSOM View, `window.scrollTo({behavior: "auto"})` does not
+     mean "jump now": "auto" defers to the computed `scroll-behavior` of the
+     scrolled box. With `smooth` here, EVERY programmatic viewport reset —
+     useScrollRestoration's route-change scroll-to-top and Back-restore, the
+     pages' own filter/tab resets — animated for ~300-500 ms instead of
+     jumping, which was the reported "details page scrolls up from the bottom
+     on every navigation" and made all route transitions read as mushy.
+     Explicit smooth behaviour still works: BackToTop passes
+     `behavior: "smooth"` directly, and JS callers needing an unconditional
+     jump can pass `behavior: "instant"`. */
+  scroll-behavior: auto;
   /* `clip` (not `hidden`) — `hidden` computes `overflow-y: auto` on the box
      and turns <body> into a non-scrolling scroll container, which silently
      disables `position: sticky` everywhere (the settings nav never docked). */

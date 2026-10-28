@@ -70,7 +70,7 @@ describe("useScrollRestoration × route-animation flag", () => {
     fireEvent.click(screen.getByText("toB"));
 
     await waitFor(() =>
-      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" }),
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "instant" }),
     );
   });
 
@@ -102,7 +102,7 @@ describe("useScrollRestoration × route-animation flag", () => {
     // Flag cleared → the restore lands on the saved position.
     window.__streamlyRouteAnimating = false;
     await waitFor(() =>
-      expect(scrollToSpy).toHaveBeenCalledWith({ top: 500, left: 0, behavior: "auto" }),
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 500, left: 0, behavior: "instant" }),
     );
   });
 });

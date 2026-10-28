@@ -267,10 +267,12 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
+/* Smooth scroll behavior — REMOVED. This was a second `html {
+   scroll-behavior: smooth }` (tokens.css had the first): because
+   `window.scrollTo({behavior: "auto"})` defers to the CSS property rather
+   than jumping, it animated every programmatic scroll-to-top — the root
+   cause of the navigation scroll-jump. Explicit `behavior: "smooth"` callers
+   (BackToTop) still glide; see tokens.css for the full explanation. */
 
 /* Button icon spin on hover — removed: the only `.btn-icon-spin` consumer
    never rendered, so the rules were dead (no CSS/JXS reference remained). */

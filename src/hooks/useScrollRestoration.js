@@ -105,7 +105,11 @@ export function useScrollRestoration() {
         let retryTimer = 0;
 
         const attempt = () => {
-          window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+          // "instant", not "auto": per CSSOM View, "auto" defers to the CSS
+          // `scroll-behavior` of the scrolled box, so a stray `smooth` on
+          // <html> would turn this restore into a visible glide. Restoring a
+          // position must land in one frame.
+          window.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
           // Re-attempt while the target does not "stick": the destination page
           // grows as its data lands (e.g. HomePage's category count per scroll
           // event), clamping the scroll short of the saved position.
@@ -142,7 +146,12 @@ export function useScrollRestoration() {
       // viewer stare at a mid-page position for the length of the fade when
       // the destination is cached and already tall.
       requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        // "instant", not "auto": "auto" defers to the CSS `scroll-behavior`
+        // of the scroll box, so `html { scroll-behavior: smooth }` used to
+        // animate this reset — the reported "details page scrolls up from the
+        // bottom on every navigation". An unconditional jump, by definition,
+        // must not animate.
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       });
     }
   }, [location.key, navType]);
