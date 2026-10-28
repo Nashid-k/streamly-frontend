@@ -18,7 +18,6 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import streamResolve from "../api/streamResolve";
 import {
   Play,
   Star,
@@ -435,59 +434,39 @@ export default function TitleDetails() {
     // Episodes for series; Runtime / Language / Release Date for movies), rendered
     // identically on mobile and desktop. Above the loading early-return so hook
     // order stays unconditional.
-  const [serverLanguages, setServerLanguages] = useState(undefined);
-
   const infoRows = useMemo(() => {
     const rows = [];
     const dateOpts = { year: "numeric", month: "short", day: "numeric" };
-    const spokenLanguages = Array.isArray(movie?.spokenLanguages)
+    const spokenList = Array.isArray(movie?.spokenLanguages)
       ? movie.spokenLanguages
-          .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
-          .filter(Boolean)
-      : movie?.spoken_languages && Array.isArray(movie.spoken_languages)
+      : Array.isArray(movie?.spoken_languages)
         ? movie.spoken_languages
-            .map((lang) => lang?.english_name || lang?.name || lang?.iso_639_1)
-            .filter(Boolean)
         : [];
-    const spokenLangStr = spokenLanguages.length > 0 ? spokenLanguages.join(", ") : null;
+    const langs = spokenList
+      .map((lang) => {
+        if (!lang) return null;
+        if (lang.iso_639_1) return String(lang.iso_639_1).toUpperCase();
+        if (lang.code) return String(lang.code).toUpperCase();
+        return null;
+      })
+      .filter(Boolean);
+    if (langs.length > 0) {
+      rows.push({ label: "Languages", value: langs.join(", "), uppercase: true });
+    } else if (movie?.originalLanguage) {
+      rows.push({ label: "Language", value: String(movie.originalLanguage).toUpperCase(), uppercase: true });
+    }
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
-      if (Array.isArray(serverLanguages)) {
-        if (serverLanguages.length > 0) {
-          rows.push({ label: "Languages", value: serverLanguages.join(", ") });
-        } else if (spokenLangStr) {
-          rows.push({ label: "Languages", value: spokenLangStr });
-        } else if (movie?.originalLanguage) {
-          rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-        }
-      } else if (spokenLangStr) {
-        rows.push({ label: "Languages", value: spokenLangStr });
-      } else if (movie?.originalLanguage) {
-        rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-      }
       if (movie?.releaseDate) rows.push({ label: "First Aired", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
       if (movie?.lastAiredDate) rows.push({ label: "Last Aired", value: formatTMDBDate(movie.lastAiredDate, dateOpts, undefined, releasePlatform) });
       if (movie?.seasonsCount) rows.push({ label: "Seasons", value: String(movie.seasonsCount) });
       if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
-      if (Array.isArray(serverLanguages)) {
-        if (serverLanguages.length > 0) {
-          rows.push({ label: "Languages", value: serverLanguages.join(", ") });
-        } else if (spokenLangStr) {
-          rows.push({ label: "Languages", value: spokenLangStr });
-        } else if (movie?.originalLanguage) {
-          rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-        }
-      } else if (spokenLangStr) {
-        rows.push({ label: "Languages", value: spokenLangStr });
-      } else if (movie?.originalLanguage) {
-        rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
-      }
       if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
     }
     return rows;
-  }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform, serverLanguages]);
+  }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform]);
 
   const {
     data: episodesData,
@@ -749,81 +728,7 @@ export default function TitleDetails() {
     };
   }, [movie, warmNumericId, isTvContent, selectedSeason, warmEpisode, isPlaying]);
 
-  useEffect(() => {
-    let alive = true;
-    async function fetchServerLangs() {
-      if (!movie || !warmNumericId) return;
-      try {
-        const res = await streamResolve.resolveZxc({
-          type: isTvContent ? "tv" : "movie",
-          id: warmNumericId,
-          season: isTvContent ? selectedSeason : undefined,
-          episode: isTvContent ? warmEpisode : undefined,
-        });
-        if (!alive) return;
-        const tracks = Array.isArray(res?.audioTracks) ? res.audioTracks : [];
-        const LANG_ALIASES = {
-          esla: "Spanish (Latin America)",
-          es419: "Spanish (Latin America)",
-          esmx: "Spanish (Mexico)",
-          ptbr: "Portuguese (Brazil)",
-          ptpt: "Portuguese (Portugal)",
-          zhcn: "Chinese (Simplified)",
-          zhtw: "Chinese (Traditional)",
-        };
-        const FILM_LANG = {
-          en: "English", te: "Telugu", hi: "Hindi", ta: "Tamil", ml: "Malayalam",
-          kn: "Kannada", bn: "Bengali", pa: "Punjabi", mr: "Marathi", gu: "Gujarati",
-          es: "Spanish", fr: "French", de: "German", it: "Italian", pt: "Portuguese",
-          ru: "Russian", ja: "Japanese", ko: "Korean", zh: "Chinese", ar: "Arabic",
-          tr: "Turkish", vi: "Vietnamese", th: "Thai", id: "Indonesian", ms: "Malay",
-          pl: "Polish", nl: "Dutch", sv: "Swedish", no: "Norwegian", da: "Danish",
-        };
-        const ISO3_LANG = {
-          eng: "English", spa: "Spanish", fra: "French", fre: "French", deu: "German",
-          ger: "German", ita: "Italian", por: "Portuguese", rus: "Russian", jpn: "Japanese",
-          kor: "Korean", zho: "Chinese", chi: "Chinese", ara: "Arabic", tur: "Turkish",
-          vie: "Vietnamese", tha: "Thai", ind: "Indonesian", pol: "Polish", nld: "Dutch",
-          dut: "Dutch", swe: "Swedish", nor: "Norwegian", dan: "Danish", hin: "Hindi",
-          tam: "Tamil", tel: "Telugu", mal: "Malayalam", kan: "Kannada", ben: "Bengali",
-        };
-        const NOISE = /\b(dubbed?|dub|audio|track|version|audio\s*track|soundtrack)\b/gi;
-        const normalize = (raw) => {
-          if (!raw) return "";
-          let s = String(raw).trim();
-          if (!s) return "";
-          const codeLike = s.toLowerCase().replace(/[^a-z0-9]/g, "");
-          if (LANG_ALIASES[codeLike]) return LANG_ALIASES[codeLike];
-          if (FILM_LANG[codeLike] || ISO3_LANG[codeLike]) return FILM_LANG[codeLike] || ISO3_LANG[codeLike];
-          s = s.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
-          s = s.replace(NOISE, " ").replace(/\s+/g, " ").trim();
-          if (!s) return "";
-          // if it's just a 2-3 letter code
-          if (/^[a-z]{2,3}$/i.test(s)) {
-            const c = s.toLowerCase();
-            return LANG_ALIASES[c] || FILM_LANG[c] || ISO3_LANG[c] || s.toUpperCase();
-          }
-          return s
-            .split(" ")
-            .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
-            .join(" ");
-        };
-        const langs = tracks
-          .map((t) => t?.label || t?.lang)
-          .filter((l) => typeof l === "string" && l.trim())
-          .map(normalize)
-          .filter((l) => l && !/^(original|auto)$/i.test(l));
-        const unique = Array.from(new Set(langs));
-        setServerLanguages(unique);
-      } catch {
-        if (alive) setServerLanguages([]);
-      }
-    }
-    fetchServerLangs();
-    return () => {
-      alive = false;
-    };
-  }, [movie, warmNumericId, isTvContent, selectedSeason, warmEpisode]);
+
 
   if (loading) {
     return <MovieDetailsSkeleton />;
