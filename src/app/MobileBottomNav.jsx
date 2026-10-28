@@ -1,14 +1,21 @@
+import { useRef, useEffect, useState, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { Search, Settings } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
+import { SPRING } from "../constants/motion";
 
-/* Mobile Bottom Navigation — Cinejoy-style floating icon pill */
+/* Mobile Bottom Navigation — Cinejoy-style floating icon pill with a sliding
+   active indicator that mirrors the desktop .nav-active-pill behaviour. */
 function MobileBottomNav() {
   const location = useLocation();
   const { t } = useI18n();
   const { user } = useAppAuth();
+
+  // Fullscreen player owns the viewport
+  const isPlayerRoute = location.pathname.startsWith("/watch/");
 
   const items = [
     ...NAV_ITEMS.map((item) => ({
@@ -22,35 +29,93 @@ function MobileBottomNav() {
     { id: "settings", label: user ? t("settings.tabs.account") : t("nav.settings"), to: "/settings", icon: Settings, match: (p) => p === "/settings" },
   ];
 
+  const navRef = useRef(null);
+  const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
+
+  const measurePill = useCallback(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const active = nav.querySelector('[data-nav-active="true"]');
+    if (!active) {
+      setPill((prev) => (prev.ready ? { ...prev, ready: false } : prev));
+      return;
+    }
+    const navRect = nav.getBoundingClientRect();
+    const activeRect = active.getBoundingClientRect();
+    const x = activeRect.left - navRect.left;
+    const w = activeRect.width;
+    setPill((prev) => (prev.x === x && prev.w === w && prev.ready ? prev : { x, w, ready: true }));
+  }, []);
+
+  useLayoutEffect(() => {
+    measurePill();
+  }, [measurePill, location.pathname]);
+
+  useEffect(() => {
+    window.addEventListener("resize", measurePill);
+    return () => window.removeEventListener("resize", measurePill);
+  }, [measurePill]);
+
   return (
-    <nav className="mobile-bottom-nav" aria-label={t("nav.mobileNav")}>
-      {items.map((item) => {
-        const active = item.match(location.pathname);
-        return (
-          <Link
-            key={`bottom-${item.id}`}
-            to={item.to}
-            className={`bottom-nav-item ${active ? "active" : ""}`}
-            aria-current={active ? "page" : undefined}
-            aria-label={item.label}
-            title={item.label}
-          >
-            {item.id === "settings" && user?.picture ? (
-              <img
-                src={user.picture}
-                /* Decorative: the enclosing link is the labelled control, so
-                   an avatar alt would only be read twice. */
-                alt=""
-                className="w-6 h-6 rounded-full object-cover border border-white/40"
-                referrerPolicy="no-referrer"
-              />
-            ) : (
-              <item.icon size={24} strokeWidth={2} />
-            )}
-          </Link>
-        );
-      })}
-    </nav>
+    <AnimatePresence>
+      {!isPlayerRoute && (
+        <motion.nav
+          ref={navRef}
+          className="mobile-bottom-nav"
+          aria-label={t("nav.mobileNav")}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          transition={SPRING.SHEET}
+        >
+          {/* Sliding active pill indicator */}
+          {pill.ready && (
+            <motion.span
+              className="bottom-nav-pill"
+              style={{
+                position: "absolute",
+                top: "4px",
+                bottom: "4px",
+                borderRadius: "var(--radius-full)",
+                background: "#ffffff",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.35), 0 0 16px 1px rgba(255,255,255,0.18)",
+                pointerEvents: "none",
+                zIndex: 0,
+              }}
+              animate={{ x: pill.x, width: pill.w }}
+              transition={SPRING.SHEET}
+            />
+          )}
+
+          {items.map((item) => {
+            const active = item.match(location.pathname);
+            return (
+              <Link
+                key={`bottom-${item.id}`}
+                to={item.to}
+                data-nav-active={active ? "true" : undefined}
+                className={`bottom-nav-item ${active ? "active" : ""}`}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                title={item.label}
+                style={{ position: "relative", zIndex: 1 }}
+              >
+                {item.id === "settings" && user?.picture ? (
+                  <img
+                    src={user.picture}
+                    alt=""
+                    className="w-6 h-6 rounded-full object-cover border border-white/40"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <item.icon size={24} strokeWidth={2} />
+                )}
+              </Link>
+            );
+          })}
+        </motion.nav>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -272,9 +272,9 @@ export function ToastProvider({ children }) {
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((t) => (
-            <div key={t.id} style={{ pointerEvents: "auto" }}>
+            <motion.div layout key={t.id} style={{ pointerEvents: "auto" }}>
               <ToastItem toast={t} onDismiss={dismiss} />
-            </div>
+            </motion.div>
           ))}
         </AnimatePresence>
       </div>

@@ -6,7 +6,6 @@
   border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  animation: skeleton-breathe 3s ease-in-out infinite;
 }
 
 /* Shimmer wave overlay */
@@ -32,11 +31,6 @@
 @keyframes shimmer-wave {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
-}
-
-@keyframes skeleton-breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.92; }
 }
 
 /* Skeleton shimmer boosted for visibility */
@@ -78,6 +72,10 @@
 .skeleton-card:nth-child(6) { animation-delay: 0.25s; }
 .skeleton-card:nth-child(7) { animation-delay: 0.3s; }
 .skeleton-card:nth-child(8) { animation-delay: 0.35s; }
+.skeleton-card:nth-child(9) { animation-delay: 0.40s; }
+.skeleton-card:nth-child(10) { animation-delay: 0.45s; }
+.skeleton-card:nth-child(11) { animation-delay: 0.50s; }
+.skeleton-card:nth-child(12) { animation-delay: 0.55s; }
 
 @keyframes skeleton-wave-in {
   0% { opacity: 0; transform: translateY(12px) scale(0.97); }

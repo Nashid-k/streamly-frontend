@@ -242,8 +242,8 @@
   justify-content: center;
   padding: clamp(12px, 3vh, 40px) clamp(12px, 3vw, 40px);
   background: rgba(var(--black-rgb), 0.72);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .title-info-card {

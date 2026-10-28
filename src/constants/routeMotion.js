@@ -1,4 +1,4 @@
-import { DURATION, EASE_OUT } from "./motion";
+import { DURATION, EASE_OUT, EASE_IN } from "./motion";
 
 export const ROUTE_EASE = EASE_OUT;
 
@@ -12,13 +12,17 @@ export const ROUTE_TRANSITIONS = {
   "fade-up": { duration: 0.26, ease: ROUTE_EASE },
   "fade-only": { duration: 0.2, ease: ROUTE_EASE },
   crossfade: { duration: 0.22, ease: ROUTE_EASE },
+  "slide-right": { duration: 0.26, ease: ROUTE_EASE },
+  "slide-left": { duration: 0.26, ease: ROUTE_EASE },
 };
 
 export const ROUTE_EXIT_TRANSITIONS = {
-  "fade-up-subtle": { duration: 0.18, ease: ROUTE_EASE },
-  "fade-up": { duration: 0.2, ease: ROUTE_EASE },
-  "fade-only": { duration: 0.16, ease: ROUTE_EASE },
-  crossfade: { duration: 0.18, ease: ROUTE_EASE },
+  "fade-up-subtle": { duration: 0.2, ease: EASE_IN },
+  "fade-up": { duration: 0.22, ease: EASE_IN },
+  "fade-only": { duration: 0.18, ease: EASE_IN },
+  crossfade: { duration: 0.18, ease: EASE_IN },
+  "slide-right": { duration: 0.22, ease: EASE_IN },
+  "slide-left": { duration: 0.22, ease: EASE_IN },
 };
 
 export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
@@ -46,7 +50,17 @@ export const ROUTE_VARIANTS = {
   crossfade: {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },
     animate: { opacity: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, pointerEvents: "none", willChange: "opacity" },
+    exit: { opacity: 0.15, pointerEvents: "none", willChange: "opacity" },
+  },
+  "slide-right": {
+    initial: { opacity: 0, x: -28, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    animate: { opacity: 1, x: 0, scale: 1, translateZ: 0, willChange: "auto" },
+    exit: { opacity: 0, x: 28, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
+  },
+  "slide-left": {
+    initial: { opacity: 0, x: 28, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    animate: { opacity: 1, x: 0, scale: 1, translateZ: 0, willChange: "auto" },
+    exit: { opacity: 0, x: -28, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
   },
 };
 
@@ -71,6 +85,16 @@ export const REDUCED_ROUTE_VARIANTS = {
     animate: { opacity: 1 },
     exit: { opacity: 0 },
   },
+  "slide-right": {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
+  "slide-left": {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
 };
 
 export function getRouteVariant(pathname = "") {
@@ -80,13 +104,12 @@ export function getRouteVariant(pathname = "") {
   if (pathname.startsWith("/search")) return "fade-only";
   if (pathname === "/watchlist" || pathname === "/history") return "fade-up-subtle";
   if (pathname.startsWith("/settings")) return "fade-only";
-  // Details pages live on /watch/:id (see routes.jsx); the details transition
-  // previously never matched and they fell through to the subtle variant.
-  if (pathname.startsWith("/watch/")) return "fade-up";
+  // Details and collection pages live deeper in the browsing hierarchy
+  if (pathname.startsWith("/watch/") || pathname.startsWith("/category/")) return "fade-up";
   if (pathname.startsWith("/person/")) return "fade-up-subtle";
   if (pathname.startsWith("/genre/")) return "fade-up-subtle";
-  if (pathname.startsWith("/collections") || pathname.startsWith("/public-collection")) {
-    return "fade-up-subtle";
+  if (pathname.startsWith("/collections") || pathname.startsWith("/public-collection") || pathname.startsWith("/explore/collections")) {
+    return "fade-up";
   }
   return "fade-up-subtle";
 }

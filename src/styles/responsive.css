@@ -115,7 +115,7 @@
     border-radius: 50%;
   }
   .nav-icon-btn:active {
-    transform: scale(0.92);
+    transform: scale(0.96);
   }
 
   /* Mobile Bottom Nav — floating frosted glass pill */
@@ -156,15 +156,15 @@
     -webkit-user-select: none;
   }
   .bottom-nav-item:active {
-    transform: scale(0.92);
+    transform: scale(0.96);
   }
   .bottom-nav-item:hover {
     color: #fff;
   }
   .bottom-nav-item.active {
     color: #000;
-    background: #ffffff;
-    box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
+    background: transparent;
+    box-shadow: none;
   }
   .bottom-nav-item.active svg {
     color: #000;

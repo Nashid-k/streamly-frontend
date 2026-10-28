@@ -1,4 +1,4 @@
-import React from "react";
+import { motion } from "framer-motion";
 
 /* Lightweight Suspense fallback for lazy route chunks. Replaces the dual-ring
    spinner with a page-shaped skeleton so the swap reads as "content loading"
@@ -7,7 +7,10 @@ import React from "react";
    slow network) it should feel like the page is arriving, not like a spinner. */
 export default function RouteFallback() {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -28,7 +31,7 @@ export default function RouteFallback() {
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="skeleton"
+              className="skeleton skeleton-card"
               style={{
                 flex: "0 0 auto",
                 width: "clamp(120px, 14vw, 180px)",
@@ -39,6 +42,6 @@ export default function RouteFallback() {
           ))}
         </div>
       ))}
-    </div>
+    </motion.div>
   );
 }

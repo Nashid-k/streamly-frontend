@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigationType } from "react-router-dom";
 import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
@@ -26,6 +26,17 @@ function Layout({ children }) {
   const mainRef = useRef(null);
   const routeKey = location.pathname + location.search;
   const variant = getRouteVariant(location.pathname);
+  const navigationType = useNavigationType();
+
+  // Back/Forward (POP) gets a directional slide that matches native OS nav metaphor.
+  // Utility pages (/search, /settings, fade-only) are direction-neutral — a
+  // sliding settings panel feels wrong, so they keep their own fade variant.
+  const effectiveVariant =
+    navigationType === "POP" && variant !== "fade-only"
+      ? "slide-right"
+      : navigationType === "PUSH" && variant === "slide-right"
+        ? "slide-left"
+        : variant;
 
   useEffect(() => {
     const main = mainRef.current;
@@ -45,15 +56,15 @@ function Layout({ children }) {
      also rejected: it delays the enter behind the full exit and still clamps
      the scroll at commit. */
   const variants = reduceMotion
-    ? REDUCED_ROUTE_VARIANTS[variant]
+    ? REDUCED_ROUTE_VARIANTS[effectiveVariant]
     : {
-        ...ROUTE_VARIANTS[variant],
+        ...ROUTE_VARIANTS[effectiveVariant],
         exit: {
-          ...ROUTE_VARIANTS[variant].exit,
-          transition: ROUTE_EXIT_TRANSITIONS[variant],
+          ...ROUTE_VARIANTS[effectiveVariant].exit,
+          transition: ROUTE_EXIT_TRANSITIONS[effectiveVariant],
         },
       };
-  const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
+  const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[effectiveVariant];
 
   return (
     <div className="app-container">

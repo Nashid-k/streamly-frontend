@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { Search, Settings, ChevronLeft } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
@@ -149,8 +150,14 @@ function Header() {
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
       {/* Cinejoy-style back arrow — sits right before the brand logo on
           every non-home page; prefers history, falls back to home. */}
-      {location.pathname !== "/" && (
-        <button
+      <AnimatePresence mode="wait" initial={false}>
+        {location.pathname !== "/" && (
+          <motion.button
+            key="back-btn"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           type="button"
           className="back-btn"
           aria-label="Go back"
@@ -170,8 +177,9 @@ function Header() {
           }}
         >
           <ChevronLeft size={24} strokeWidth={1.5} />
-        </button>
+        </motion.button>
       )}
+      </AnimatePresence>
 
       <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
         <img

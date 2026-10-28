@@ -90,8 +90,8 @@
   box-shadow: inset 0 1px 0 rgba(var(--white-rgb),0.04), 0 18px 30px -26px rgba(var(--black-rgb),0.9);
   transition:
     box-shadow 0.3s ease-out,
-    border-color 0.3s ease-out,
-    transform 0.3s ease-out;
+    border-color 0.3s ease-out;
+
   border: 1px solid rgba(var(--white-rgb), 0.06);
 }
 .poster-wrapper::after {
@@ -171,30 +171,30 @@
   }
   .movie-card:hover .card-veil {
     opacity: 1;
-    transition: opacity var(--duration-slow) var(--ease-out) 180ms;
+    transition: opacity var(--duration-slow) var(--ease-out) 60ms;
   }
   .movie-card:hover .card-curtain {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
     transition:
-      opacity var(--duration-slow) var(--ease-out) 200ms,
-      transform var(--duration-slow) var(--ease-out) 200ms;
+      opacity var(--duration-slow) var(--ease-out) 80ms,
+      transform var(--duration-slow) var(--ease-out) 80ms;
   }
   .movie-card:hover .curtain-meta {
     opacity: 1;
     transform: translateY(0);
     transition:
-      opacity 350ms var(--ease-out) 430ms,
-      transform 350ms var(--ease-out) 430ms;
+      opacity 300ms var(--ease-out) 180ms,
+      transform 300ms var(--ease-out) 180ms;
   }
   .movie-card:hover .curtain-play-btn {
     opacity: 1;
     translate: 0 0;
     pointer-events: auto;
     transition:
-      opacity 350ms var(--ease-out) 500ms,
-      translate 350ms var(--ease-out) 500ms,
+      opacity 300ms var(--ease-out) 240ms,
+      translate 300ms var(--ease-out) 240ms,
       transform var(--duration-fast) var(--ease-out);
   }
   .movie-card:hover .card-badges {
@@ -215,30 +215,30 @@
 }
 .movie-card:focus-visible .card-veil {
   opacity: 1;
-  transition: opacity var(--duration-slow) var(--ease-out) 180ms;
+  transition: opacity var(--duration-slow) var(--ease-out) 60ms;
 }
 .movie-card:focus-visible .card-curtain {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
   transition:
-    opacity var(--duration-slow) var(--ease-out) 200ms,
-    transform var(--duration-slow) var(--ease-out) 200ms;
+    opacity var(--duration-slow) var(--ease-out) 80ms,
+    transform var(--duration-slow) var(--ease-out) 80ms;
 }
 .movie-card:focus-visible .curtain-meta {
   opacity: 1;
   transform: translateY(0);
   transition:
-    opacity 350ms var(--ease-out) 430ms,
-    transform 350ms var(--ease-out) 430ms;
+    opacity 300ms var(--ease-out) 180ms,
+    transform 300ms var(--ease-out) 180ms;
 }
 .movie-card:focus-visible .curtain-play-btn {
   opacity: 1;
   translate: 0 0;
   pointer-events: auto;
   transition:
-    opacity 350ms var(--ease-out) 500ms,
-    translate 350ms var(--ease-out) 500ms,
+    opacity 300ms var(--ease-out) 240ms,
+    translate 300ms var(--ease-out) 240ms,
     transform var(--duration-fast) var(--ease-out);
 }
 .movie-card:focus-visible .card-badges {

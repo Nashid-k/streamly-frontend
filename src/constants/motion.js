@@ -85,6 +85,8 @@ import { useMemo } from "react";
 /* The one easing curve for tweened motion. Matches the card curtain so the
    player and the cards decelerate identically. */
 export const EASE_OUT = [0.16, 1, 0.3, 1];
+/** Ease-in for exits — pages accelerate off-screen (opposite of EASE_OUT). */
+export const EASE_IN = [0.4, 0, 1, 1];
 
 /* Shared enter/exit shapes. Duplicated `initial`/`exit` objects drift: the same
    badge grew different exit values in two files. These are the canonical ones,

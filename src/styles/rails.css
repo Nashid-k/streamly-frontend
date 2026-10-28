@@ -50,10 +50,10 @@ textarea:focus-visible {
    so content can never be stuck hidden. */
 .fade-in-section {
   opacity: 0;
-  transform: translateY(30px);
+  transform: translateY(14px);
   transition:
-    opacity 0.6s var(--ease-out),
-    transform 0.6s var(--ease-out);
+    opacity 0.42s var(--ease-out),
+    transform 0.42s var(--ease-out);
 }
 .fade-in-section.is-visible {
   opacity: 1;
