@@ -18,6 +18,7 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import streamResolve from "../api/streamResolve";
 import {
   Play,
   Star,
@@ -434,6 +435,8 @@ export default function TitleDetails() {
     // Episodes for series; Runtime / Language / Release Date for movies), rendered
     // identically on mobile and desktop. Above the loading early-return so hook
     // order stays unconditional.
+  const [serverLanguages, setServerLanguages] = useState([]);
+
   const infoRows = useMemo(() => {
     const rows = [];
     const dateOpts = { year: "numeric", month: "short", day: "numeric" };
@@ -448,10 +451,12 @@ export default function TitleDetails() {
             .filter(Boolean)
             .join(", ")
         : null;
+    const serverLangStr = serverLanguages.length > 0 ? serverLanguages.join(", ") : null;
+    const displayLang = serverLangStr || spokenLanguages;
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
-      if (spokenLanguages) {
-        rows.push({ label: "Languages", value: spokenLanguages });
+      if (displayLang) {
+        rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
@@ -461,15 +466,15 @@ export default function TitleDetails() {
       if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
-      if (spokenLanguages) {
-        rows.push({ label: "Languages", value: spokenLanguages });
+      if (displayLang) {
+        rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
       }
       if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
     }
     return rows;
-  }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform]);
+  }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform, serverLanguages]);
 
   const {
     data: episodesData,
@@ -730,6 +735,35 @@ export default function TitleDetails() {
       controller.abort();
     };
   }, [movie, warmNumericId, isTvContent, selectedSeason, warmEpisode, isPlaying]);
+
+  useEffect(() => {
+    let alive = true;
+    async function fetchServerLangs() {
+      if (!movie || !warmNumericId) return;
+      try {
+        const res = await streamResolve.resolveZxc({
+          type: isTvContent ? "tv" : "movie",
+          id: warmNumericId,
+          season: isTvContent ? selectedSeason : undefined,
+          episode: isTvContent ? warmEpisode : undefined,
+        });
+        if (!alive) return;
+        const tracks = Array.isArray(res?.audioTracks) ? res.audioTracks : [];
+        const langs = tracks
+          .map((t) => t?.label)
+          .filter((l) => typeof l === "string" && l.trim() && !/^(original|auto)$/i.test(l.trim()))
+          .map((l) => l.trim());
+        const unique = Array.from(new Set(langs));
+        setServerLanguages(unique);
+      } catch {
+        if (alive) setServerLanguages([]);
+      }
+    }
+    fetchServerLangs();
+    return () => {
+      alive = false;
+    };
+  }, [movie, warmNumericId, isTvContent, selectedSeason, warmEpisode]);
 
   if (loading) {
     return <MovieDetailsSkeleton />;
