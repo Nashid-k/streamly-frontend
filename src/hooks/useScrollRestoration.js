@@ -94,25 +94,24 @@ export function useScrollRestoration() {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
         const scrollY = savedPosition.y;
-        const deadline = Date.now() + 1200;
+        const deadline = Date.now() + 1400;
         let retryTimer = 0;
 
-        // Pages that grow on scroll (HomePage appends categories per scroll
-        // event) are still shorter than the saved offset when the first
-        // scrollTo runs, so the browser clamps. Keep re-attempting every 100ms
-        // until window.scrollY holds at the target or the deadline passes;
-        // cleanup (unmount / navigation / a later restore) cancels the loop.
         const attempt = () => {
-          window.scrollTo(0, scrollY);
+          window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
           if (Math.abs(window.scrollY - scrollY) >= 1 && Date.now() < deadline) {
-            retryTimer = window.setTimeout(attempt, 100);
+            retryTimer = window.setTimeout(attempt, 80);
           }
         };
-        attempt();
+        requestAnimationFrame(() => {
+          requestAnimationFrame(attempt);
+        });
         return () => window.clearTimeout(retryTimer);
       }
     } else {
-      window.scrollTo(0, 0);
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      });
     }
   }, [location.key, navType]);
 }
