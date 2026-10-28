@@ -63,7 +63,8 @@ function Layout({ children }) {
               overflowX: "hidden",
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
-              transform: "translateZ(0)",
+              transform: "translate3d(0,0,0)",
+              willChange: "transform, opacity",
             }}
             onAnimationStart={() => {
               if (mainRef.current) {
