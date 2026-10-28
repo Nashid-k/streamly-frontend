@@ -31,7 +31,7 @@ function Layout({ children }) {
     const main = mainRef.current;
     if (main?.contains(document.activeElement)) return;
     main?.focus({ preventScroll: true });
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const variants = reduceMotion ? REDUCED_ROUTE_VARIANTS[variant] : ROUTE_VARIANTS[variant];
   const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
@@ -46,7 +46,7 @@ function Layout({ children }) {
       <OfflineBanner />
 
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="sync" initial={false}>
           <motion.div
             key={routeKey}
             variants={variants}
@@ -54,8 +54,8 @@ function Layout({ children }) {
             animate="animate"
             exit="exit"
             transition={{
-              enter: enterTransition,
-              exit: exitTransition,
+              duration: reduceMotion ? 0 : 0.26,
+              ease: [0.25, 0.8, 0.25, 1],
             }}
             style={{
               flex: 1,
@@ -64,7 +64,6 @@ function Layout({ children }) {
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translate3d(0,0,0)",
-              willChange: "transform, opacity",
             }}
             onAnimationStart={() => {
               if (mainRef.current) {
