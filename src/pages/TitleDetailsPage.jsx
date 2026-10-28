@@ -435,7 +435,7 @@ export default function TitleDetails() {
     // Episodes for series; Runtime / Language / Release Date for movies), rendered
     // identically on mobile and desktop. Above the loading early-return so hook
     // order stays unconditional.
-  const [serverLanguages, setServerLanguages] = useState([]);
+  const [serverLanguages, setServerLanguages] = useState(null);
 
   const infoRows = useMemo(() => {
     const rows = [];
@@ -451,11 +451,15 @@ export default function TitleDetails() {
             .filter(Boolean)
             .join(", ")
         : null;
-    const serverLangStr = serverLanguages.length > 0 ? serverLanguages.join(", ") : null;
+    const serverLangStr = Array.isArray(serverLanguages) && serverLanguages.length > 0 ? serverLanguages.join(", ") : null;
     const displayLang = serverLangStr || spokenLanguages;
     if (isTvContent) {
       if (movie?.status) rows.push({ label: "Status", value: movie.status });
-      if (displayLang) {
+      if (Array.isArray(serverLanguages)) {
+        if (serverLanguages.length > 0) {
+          rows.push({ label: "Languages", value: serverLanguages.join(", ") });
+        }
+      } else if (displayLang) {
         rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
@@ -466,7 +470,11 @@ export default function TitleDetails() {
       if (movie?.episodesCount) rows.push({ label: "Episodes", value: String(movie.episodesCount) });
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
-      if (displayLang) {
+      if (Array.isArray(serverLanguages)) {
+        if (serverLanguages.length > 0) {
+          rows.push({ label: "Languages", value: serverLanguages.join(", ") });
+        }
+      } else if (displayLang) {
         rows.push({ label: "Languages", value: displayLang });
       } else if (movie?.originalLanguage) {
         rows.push({ label: "Language", value: movie.originalLanguage, uppercase: true });
@@ -751,8 +759,16 @@ export default function TitleDetails() {
         const tracks = Array.isArray(res?.audioTracks) ? res.audioTracks : [];
         const langs = tracks
           .map((t) => t?.label)
-          .filter((l) => typeof l === "string" && l.trim() && !/^(original|auto)$/i.test(l.trim()))
-          .map((l) => l.trim());
+          .filter((l) => typeof l === "string" && l.trim())
+          .map((l) => {
+            const s = String(l).trim();
+            return s
+              .replace(/\s*\(.*dub.*\)$/i, "")
+              .replace(/\s+[-–—]?\s*dub$/i, "")
+              .replace(/\s+audio$/i, "")
+              .trim();
+          })
+          .filter((l) => l && !/^(original|auto)$/i.test(l));
         const unique = Array.from(new Set(langs));
         setServerLanguages(unique);
       } catch {
