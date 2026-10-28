@@ -1285,9 +1285,9 @@ export default function TitleDetails() {
               <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
                 <div className="divide-y divide-white/[0.06]">
                   {infoRows.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between px-3.5 py-2.5">
-                      <span className="text-xs text-white/40">{row.label}</span>
-                      <span className={`text-xs text-white/80${row.uppercase ? " uppercase" : ""}`}>
+                    <div key={row.label} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+                      <span className="text-xs text-white/40 shrink-0">{row.label}</span>
+                      <span className={`text-xs text-white/80 text-right leading-snug ${row.uppercase ? " uppercase" : ""}`}>
                         {row.value}
                         {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
                       </span>
@@ -1304,9 +1304,9 @@ export default function TitleDetails() {
             <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
               <div className="divide-y divide-white/[0.06]">
                 {infoRows.map((row) => (
-                  <div key={row.label} className="flex items-center justify-between px-4 py-2.5">
-                    <span className="text-xs text-white/40">{row.label}</span>
-                    <span className={`text-xs text-white/80${row.uppercase ? " uppercase" : ""}`}>
+                  <div key={row.label} className="flex items-start justify-between gap-3 px-4 py-2.5">
+                    <span className="text-xs text-white/40 shrink-0">{row.label}</span>
+                    <span className={`text-xs text-white/80 text-right leading-snug ${row.uppercase ? " uppercase" : ""}`}>
                       {row.value}
                       {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
                     </span>
