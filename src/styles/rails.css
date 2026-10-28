@@ -194,7 +194,9 @@ textarea:focus-visible {
   margin-left: 10px;
   transition: transform var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .movie-rail-wrapper > div:first-child h3.rail-title--because:hover::after {
   transform: translateY(2px);
+}
 }
 

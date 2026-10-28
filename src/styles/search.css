@@ -85,6 +85,7 @@
 .cast-card > * {
   transition: transform 0.3s var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .cast-card:hover .cast-rail__avatar {
   transform: scale(1.1);
   border-color: rgba(var(--white-rgb), 0.3);
@@ -92,6 +93,7 @@
 }
 .cast-card:hover > *:last-child {
   transform: translateY(4px);
+}
 }
 .cast-rail__avatar--monogram {
   background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.28), rgba(var(--accent-secondary-rgb), 0.16));
@@ -301,11 +303,13 @@ body::after {
   margin: 0 0 1rem;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .page-back:hover {
   transform: translateX(-2px);
   background: rgba(var(--white-rgb), 0.1);
   border-color: rgba(var(--white-rgb), 0.2);
   color: #fff;
+}
 }
 
 .page-danger-action {
@@ -314,11 +318,13 @@ body::after {
   background: rgba(149, 255, 80, 0.07);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .page-danger-action:hover {
   transform: translateY(-1px);
   background: rgba(149, 255, 80, 0.15);
   border-color: rgba(251, 113, 133, 0.48);
   color: #ffe4e6;
+}
 }
 
 .filter-controls {
@@ -473,10 +479,12 @@ body::after {
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .search-panel__clear:hover {
   transform: translateY(-50%) scale(1.06);
   background: rgba(var(--white-rgb), 0.16);
   color: #fff;
+}
 }
 
 /* ── Cinejoy-style search hero & landing ─────────────────────────────── */

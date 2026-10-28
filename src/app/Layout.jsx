@@ -75,7 +75,17 @@ function Layout({ children }) {
             style={{
               flex: 1,
               minHeight: "100%",
-              overflowX: "hidden",
+              /* `clip`, never `hidden`: per CSS box model, `overflow-x: hidden`
+                 computes `overflow-y: auto`, which makes this wrapper the
+                 nearest scroll container for every page it hosts — silently
+                 killing `position: sticky` inside it (the same defect tokens.css
+                 documents for `html`/`body`/`.app-container`, which land in a
+                 scroll container that never scrolls). Page-level sticky rails,
+                 like the episode-details skeleton bar and the ratings grid's
+                 sticky day/season labels, never docked while this said
+                 "hidden"; `clip` crops the same horizontal overflow without
+                 creating a scroll container. */
+              overflowX: "clip",
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translate3d(0,0,0)",

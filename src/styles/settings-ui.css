@@ -115,9 +115,11 @@ html[data-theme="custom"] {
   transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .settings-tab:hover {
   color: #fff;
   background: rgba(var(--white-rgb), 0.08);
+}
 }
 
 .settings-tab.is-active {
@@ -188,9 +190,11 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .reset-preferences-button:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.45);
+}
 }
 
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */
@@ -336,8 +340,10 @@ html:not([data-theme]) .segment-btn.segment-active {
   transition: color 0.25s var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .segment-btn:hover {
   color: #fff;
+}
 }
 
 .segment-btn.segment-active {
@@ -448,9 +454,11 @@ html:not([data-theme]) .segment-btn.segment-active {
   transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .seed-pill:hover {
   background: rgba(var(--white-rgb), 0.09);
   border-color: rgba(var(--white-rgb), 0.18);
+}
 }
 
 .seed-pill:focus-within {
@@ -510,9 +518,11 @@ html:not([data-theme]) .segment-btn.segment-active {
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .seed-reset:hover {
   background: rgba(var(--white-rgb), 0.12);
   color: #fff;
+}
 }
 
 .theme-picker-divider {
@@ -549,8 +559,10 @@ html:not([data-theme]) .segment-btn.segment-active {
   inset: -8px;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .color-dot:hover {
   transform: scale(1.15);
+}
 }
 
 /* Explicit ring: the dot ships `outline: none`, so keep its focus affordance
@@ -649,9 +661,11 @@ html:not([data-theme]) .segment-btn.segment-active {
   -webkit-user-select: none;
 }
 
+@media (hover: hover) and (pointer: fine) {
 .order-item:hover {
   background: rgba(var(--white-rgb), 0.06);
   border-color: rgba(var(--white-rgb), 0.12);
+}
 }
 
 .order-item:focus-visible {
@@ -680,9 +694,11 @@ html:not([data-theme]) .segment-btn.segment-active {
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .order-grip--drag:hover {
   background: rgba(var(--white-rgb), 0.08);
   color: var(--accent-primary, rgba(var(--white-rgb), 0.8));
+}
 }
 
 .order-grip--drag:active {

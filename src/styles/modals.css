@@ -305,7 +305,9 @@
   background: rgba(20, 20, 26, 0.85);
   transition: background var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-close:hover { background: rgba(40, 40, 52, 0.95); transform: scale(1.06); }
+}
 .title-info-close:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
 .title-info-name {
   position: absolute;
@@ -429,7 +431,9 @@
   font-family: inherit;
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-similar-mode:hover { color: #fff; }
+}
 .title-info-similar-mode[data-active="true"] {
   background: rgba(var(--white-rgb), 0.18);
   color: #fff;
@@ -469,11 +473,13 @@
   transition: transform var(--anim-hover-time) var(--anim-hover-ease), border-color 0.25s ease-out, box-shadow var(--anim-hover-time) var(--anim-hover-ease);
   display: block;
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-similar-card:hover .title-info-similar-poster,
 .title-info-similar-gridcard:hover .title-info-similar-poster {
   transform: translateY(-3px) scale(1.03);
   border-color: rgba(var(--white-rgb), 0.22);
   box-shadow: 0 22px 40px -16px rgba(var(--black-rgb), 0.95);
+}
 }
 .title-info-similar-poster img {
   width: 100%;
@@ -535,9 +541,11 @@
   font-family: inherit;
   transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-similar-row:hover {
   background: rgba(var(--white-rgb), 0.04);
   border-color: rgba(var(--white-rgb), 0.08);
+}
 }
 .title-info-similar-row:active { transform: scale(0.99); }
 .title-info-similar-row-poster {
@@ -608,7 +616,9 @@
   box-shadow: 0 8px 26px rgba(var(--black-rgb), 0.4), 0 3px 14px rgba(var(--black-rgb), 0.2);
   transition: background var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-play:hover { background: var(--btn-bg-hover, #ffffff); transform: translateY(-1px); }
+}
 .title-info-play:active { transform: translateY(0); }
 .title-info-list {
   display: inline-flex;
@@ -627,7 +637,9 @@
   border: 1px solid rgba(var(--white-rgb), 0.16);
   transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-list:hover { background: rgba(var(--white-rgb), 0.13); }
+}
 .title-info-list.is-in-list {
   color: var(--accent-primary, var(--accent-color));
   border-color: rgba(var(--accent-primary-rgb), 0.5);
@@ -650,7 +662,9 @@
   border: 1px solid rgba(var(--white-rgb), 0.16);
   transition: background var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .title-info-details:hover { background: rgba(var(--white-rgb), 0.09); }
+}
 .title-info-play:focus-visible,
 .title-info-list:focus-visible,
 .title-info-details:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }

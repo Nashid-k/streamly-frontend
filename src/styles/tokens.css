@@ -349,9 +349,11 @@ a {
   background-clip: padding-box;
   transition: background var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(var(--accent-primary-rgb), 0.45);
   border-width: 0;
+}
 }
 
 /* Layout */

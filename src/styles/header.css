@@ -67,9 +67,11 @@
   margin-right: var(--spacing-sm);
   transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .back-btn:hover {
   background: rgba(var(--white-rgb), 0.08);
   color: #ffffff;
+}
 }
 .back-btn:active {
   transform: scale(0.94);
@@ -172,9 +174,11 @@
   transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s var(--ease-out);
   white-space: nowrap;
 }
+@media (hover: hover) and (pointer: fine) {
 .nav-link:hover {
   opacity: 1;
   color: #ffffff;
+}
 }
 .nav-link:active {
   transform: scale(0.96);
@@ -223,6 +227,7 @@
 /* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every
    non-active label — no background chips on individual items, and the
    shared white active pill stays exactly as it is (black ink). */
+@media (hover: hover) and (pointer: fine) {
 .navbar:hover .nav-link:not(.nav-link--active) {
   opacity: 1;
   color: #ffffff;
@@ -234,6 +239,7 @@
 .navbar:hover .nav-icon-btn--active {
   color: #000000;
   background: transparent;
+}
 }
 .nav-link:focus-visible,
 .nav-icon-btn:focus-visible {
@@ -304,8 +310,10 @@
   transition: color var(--nav-fade), background-color var(--nav-fade), box-shadow var(--nav-fade);
   flex-shrink: 0;
 }
+@media (hover: hover) and (pointer: fine) {
 .nav-icon-btn:hover {
   color: #ffffff;
+}
 }
 .nav-icon-btn--active {
   color: #000000;

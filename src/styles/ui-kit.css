@@ -186,8 +186,10 @@
     box-shadow var(--duration-normal) var(--ease-out),
     background-color var(--duration-normal) var(--ease-out);
 }
+@media (hover: hover) and (pointer: fine) {
 .card:hover {
   border-color: var(--border-medium);
+}
 }
 
 /* ── Divider ─────────────────────────────────────────────── */

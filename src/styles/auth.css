@@ -66,9 +66,11 @@
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .auth-dialog__close:hover:not(:disabled) {
   background: rgba(var(--white-rgb), 0.12);
   color: #fff;
+}
 }
 
 .auth-dialog__close:disabled {
@@ -175,9 +177,11 @@
   transition: color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .auth-dialog__reveal:hover {
   color: #fff;
   background: rgba(var(--white-rgb), 0.08);
+}
 }
 
 .auth-dialog__hint {
@@ -211,8 +215,10 @@
   transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .auth-dialog__submit:hover:not(:disabled) {
   transform: translateY(-1px);
+}
 }
 
 .auth-dialog__submit:disabled {
@@ -233,9 +239,11 @@
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
 .auth-dialog__ghost:hover {
   background: rgba(var(--white-rgb), 0.08);
   color: #fff;
+}
 }
 
 /* "Check your inbox" panel — replaces the form after a successful /api/register. */
