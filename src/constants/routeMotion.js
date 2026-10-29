@@ -8,21 +8,21 @@ const BASE_TRANSITION = {
 };
 
 export const ROUTE_TRANSITIONS = {
-  "fade-up-subtle": { duration: 0.28, ease: ROUTE_EASE },
-  "fade-up": { duration: 0.3, ease: ROUTE_EASE },
-  "fade-only": { duration: 0.24, ease: ROUTE_EASE },
-  crossfade: { duration: 0.26, ease: ROUTE_EASE },
-  "slide-right": { duration: 0.28, ease: ROUTE_EASE },
-  "slide-left": { duration: 0.28, ease: ROUTE_EASE },
+  "fade-up-subtle": { duration: 0.26, ease: ROUTE_EASE },
+  "fade-up": { duration: 0.28, ease: ROUTE_EASE },
+  "fade-only": { duration: 0.22, ease: ROUTE_EASE },
+  crossfade: { duration: 0.24, ease: ROUTE_EASE },
+  "slide-right": { duration: 0.26, ease: ROUTE_EASE },
+  "slide-left": { duration: 0.26, ease: ROUTE_EASE },
 };
 
 export const ROUTE_EXIT_TRANSITIONS = {
-  "fade-up-subtle": { duration: 0.22, ease: EASE_IN },
-  "fade-up": { duration: 0.24, ease: EASE_IN },
-  "fade-only": { duration: 0.2, ease: EASE_IN },
-  crossfade: { duration: 0.2, ease: EASE_IN },
-  "slide-right": { duration: 0.24, ease: EASE_IN },
-  "slide-left": { duration: 0.24, ease: EASE_IN },
+  "fade-up-subtle": { duration: 0.2, ease: EASE_IN },
+  "fade-up": { duration: 0.22, ease: EASE_IN },
+  "fade-only": { duration: 0.18, ease: EASE_IN },
+  crossfade: { duration: 0.18, ease: EASE_IN },
+  "slide-right": { duration: 0.22, ease: EASE_IN },
+  "slide-left": { duration: 0.22, ease: EASE_IN },
 };
 
 export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
@@ -33,14 +33,14 @@ export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
    swallowing the click the viewer just made while the new page is invisible. */
 export const ROUTE_VARIANTS = {
   "fade-up-subtle": {
-    initial: { opacity: 0, y: 12, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
-    animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -8, scale: 0.996, pointerEvents: "none", willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 10, scale: 0.995, transform: "translateZ(0)", willChange: "transform, opacity" },
+    animate: { opacity: 1, y: 0, scale: 1, transform: "translateZ(0)", willChange: "auto" },
+    exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", transform: "translateZ(0)", willChange: "transform, opacity" },
   },
   "fade-up": {
-    initial: { opacity: 0, y: 16, scale: 0.993, translateZ: 0, willChange: "transform, opacity" },
-    animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -10, scale: 0.995, pointerEvents: "none", willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 14, scale: 0.994, transform: "translateZ(0)", willChange: "transform, opacity" },
+    animate: { opacity: 1, y: 0, scale: 1, transform: "translateZ(0)", willChange: "auto" },
+    exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", transform: "translateZ(0)", willChange: "transform, opacity" },
   },
   "fade-only": {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },

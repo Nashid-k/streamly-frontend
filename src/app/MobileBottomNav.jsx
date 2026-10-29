@@ -59,10 +59,10 @@ function MobileBottomNav() {
       ref={navRef}
       className="mobile-bottom-nav"
       aria-label={t("nav.mobileNav")}
-      initial={{ y: 20, opacity: 0 }}
+      initial={{ y: 16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      exit={{ y: 80, opacity: 0 }}
-      transition={SPRING.SHEET}
+      exit={{ y: 60, opacity: 0 }}
+      transition={{ type: "spring", stiffness: 380, damping: 32 }}
     >
       {/* Sliding active pill indicator */}
       {pill.ready && (

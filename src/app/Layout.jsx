@@ -89,7 +89,8 @@ function Layout({ children }) {
               overflowX: "clip",
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
-              transform: "translate3d(0,0,0)",
+              transform: "translateZ(0)",
+              willChange: reduceMotion ? "auto" : "transform, opacity",
             }}
             onAnimationStart={() => {
               if (typeof window !== 'undefined') {
