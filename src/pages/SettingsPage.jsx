@@ -542,7 +542,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="settings-list">
-                  {/* Sign In / User Status */}
+                  {/* User Status */}
                   <div className="setting-row">
                     <div className="setting-meta flex items-center gap-3">
                       {hasAccount ? (
@@ -566,12 +566,12 @@ export default function SettingsPage() {
                         <span className="setting-desc">
                           {user
                             ? user.email || t("settings.account.syncActive")
-                            : t("settings.account.signInEmailHint")}
+                            : t("settings.account.localOnly")}
                         </span>
                       </div>
                     </div>
-                    <div className="setting-control flex items-center gap-2">
-                      {hasAccount ? (
+                    {hasAccount && (
+                      <div className="setting-control flex items-center gap-2">
                         <button
                           onClick={handleSignOut}
                           className="glassy-button"
@@ -579,18 +579,8 @@ export default function SettingsPage() {
                           <LogOut className="w-4 h-4" />
                           {t("settings.account.signOut")}
                         </button>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleOpenSignIn}
-                            className="glassy-button glassy-button--primary px-5 py-2.5 text-[14px]"
-                          >
-                            <User className="w-4 h-4" />
-                            {t("settings.account.signIn")}
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Cloud Sync Status */}
@@ -687,7 +677,6 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  {/* Cloud Data Deletion — any account that has cloud data. */}
                   {hasAccount && (
                     <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
                       <div className="setting-meta">

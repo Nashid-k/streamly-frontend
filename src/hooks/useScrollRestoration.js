@@ -100,27 +100,17 @@ export function useScrollRestoration() {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
         const scrollY = savedPosition.y;
-        const retryDeadline = Date.now() + 1400;
+        const retryDeadline = Date.now() + 1600;
         let settleTimer = 0;
         let retryTimer = 0;
 
         const attempt = () => {
-          // "instant", not "auto": per CSSOM View, "auto" defers to the CSS
-          // `scroll-behavior` of the scrolled box, so a stray `smooth` on
-          // <html> would turn this restore into a visible glide. Restoring a
-          // position must land in one frame.
           window.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
-          // Re-attempt while the target does not "stick": the destination page
-          // grows as its data lands (e.g. HomePage's category count per scroll
-          // event), clamping the scroll short of the saved position.
           if (Math.abs(window.scrollY - scrollY) >= 1 && Date.now() < retryDeadline) {
-            retryTimer = window.setTimeout(attempt, 80);
+            retryTimer = window.setTimeout(attempt, 60);
           }
         };
 
-        // Layout flips `window.__streamlyRouteAnimating` on route-transition
-        // start/complete; wait for it to clear (bounded) so the first attempt
-        // lands after the enter animation instead of mid-flight.
         const settleDeadline = Date.now() + SETTLE_MAX_WAIT_MS;
         const pollSettled = () => {
           if (window.__streamlyRouteAnimating !== true || Date.now() >= settleDeadline) {
@@ -139,20 +129,20 @@ export function useScrollRestoration() {
         };
       }
     } else {
-      // PUSH: the reset must fire at commit, NOT after the animation. Under
-      // AnimatePresence mode="popLayout" the document at commit is already the
-      // entering page (the exiting one is out of flow), so this lands on the
-      // new page invisibly; gating it on the animation flag would let the
-      // viewer stare at a mid-page position for the length of the fade when
-      // the destination is cached and already tall.
-      requestAnimationFrame(() => {
-        // "instant", not "auto": "auto" defers to the CSS `scroll-behavior`
-        // of the scroll box, so `html { scroll-behavior: smooth }` used to
-        // animate this reset — the reported "details page scrolls up from the
-        // bottom on every navigation". An unconditional jump, by definition,
-        // must not animate.
-        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-      });
+      // For PUSH navigation, ensure we scroll to top after route transition/paint
+      const scrollToTop = () => {
+        // Wait for any ongoing animation
+        if (typeof window !== 'undefined' && window.__streamlyRouteAnimating) {
+          requestAnimationFrame(scrollToTop);
+          return;
+        }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+          });
+        });
+      };
+      scrollToTop();
     }
   }, [location.key, navType]);
 }
