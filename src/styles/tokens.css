@@ -69,7 +69,6 @@
   --nav-pad: 6px;
   --nav-item-h: 40px;
   --nav-fade: 0.3s ease;
-  --nav-transition: 0.38s var(--ease-out);
   --condense-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ── Spacing Scale ─────────────────────────────────────── */

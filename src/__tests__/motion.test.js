@@ -739,3 +739,72 @@ describe("route variants let framer compose the transform", () => {
     expect(ROUTE_VARIANTS.crossfade.exit.opacity).toBeGreaterThan(0);
   });
 });
+
+describe("navigation moves one pill, never the dock", () => {
+  /* The desktop dock is right-docked, so any active-state width change is a
+     one-frame reflow of the whole island: 23px of nav shift used to land
+     before the pill had moved a single pixel. The ink also crossfaded for
+     0.3s, leaving the outgoing label black-on-glass and the incoming label
+     white-on-white mid-flight. These guards pin the two fixes: (a) every tab
+     is the same width whether active or not, (b) the ink is a blend against
+     the pill, not a timed colour change. */
+  const headerCss = readFileSync(join(process.cwd(), "src", "styles", "header.css"), "utf8");
+  const responsiveCss = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
+  const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
+  const headerJsx = readFileSync(join(process.cwd(), "src", "app", "Header.jsx"), "utf8");
+  const mobileJsx = readFileSync(join(process.cwd(), "src", "app", "MobileBottomNav.jsx"), "utf8");
+
+  function block(css, selector) {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
+  }
+
+  it("keeps every desktop tab the same width in every active state", () => {
+    const tab = block(headerCss, ".nav-link");
+    expect(tab).toMatch(/font-weight:\s*600/);
+    // Active used to bump 500 → 600 and reveal an icon (display:none → block),
+    // widening the tab and reflowing the dock before the pill travelled.
+    expect(block(headerCss, ".nav-link--active")).not.toMatch(/font-weight:/);
+    expect(block(headerCss, ".nav-link--active")).not.toMatch(/padding:|gap:/);
+    expect(block(headerCss, ".nav-link--home")).not.toMatch(/font-weight:/);
+    expect(headerCss).not.toMatch(/\.nav-link-icon[^{]*\{[^}]*display:\s*none/);
+  });
+
+  it("keeps the ink in one place and lets difference resolve it over the pill", () => {
+    expect(block(headerCss, ".nav-link")).toMatch(/mix-blend-mode:\s*difference/);
+    expect(block(headerCss, ".nav-icon-btn")).toMatch(/mix-blend-mode:\s*difference/);
+    // White is the source colour difference needs: over the white pill it
+    // resolves to black, over the frosted track it stays near-white.
+    expect(block(headerCss, ".nav-link--active")).toMatch(/color:\s*#ffffff/);
+    expect(block(headerCss, ".nav-icon-btn--active")).toMatch(/color:\s*#ffffff/);
+    // Opacity on the blended element would isolate it from the pill behind it;
+    // the nav cluster must not create a stacking context either.
+    expect(block(headerCss, ".nav-link")).not.toMatch(/opacity:/);
+    expect(block(headerCss, ".nav-cluster")).not.toMatch(/z-index:/);
+    expect(block(headerCss, ".nav-link--active")).not.toMatch(/color:\s*#000/);
+  });
+
+  it("drives the pill with one spring and leaves no CSS transition to fight it", () => {
+    expect(headerJsx).toMatch(/<motion\.span[\s\S]{0,80}className="nav-active-pill"/);
+    expect(headerJsx).toMatch(/transition=\{pillTransition\}/);
+    expect(headerJsx).toMatch(/x:\s*SPRING\.LIFT/);
+    expect(block(headerCss, ".nav-active-pill")).not.toMatch(/transition:/);
+    expect(tokensCss).not.toMatch(/--nav-transition/);
+  });
+
+  it("slides the brand mark when the back button claims its space", () => {
+    // The back button mounts inside the left island on every non-home route.
+    // Without a layout animation the logo snapped ~52px right in the same
+    // frame the route changed.
+    expect(headerJsx).toMatch(/<motion\.div[\s\S]{0,120}layout[\s\S]{0,200}className="app-brand-link-wrap"/);
+    expect(headerJsx).toMatch(/useReducedMotion/);
+    expect(block(headerCss, ".app-brand-link-wrap")).toMatch(/display:\s*inline-flex/);
+  });
+
+  it("applies the same ink rule to the mobile bottom nav", () => {
+    expect(block(responsiveCss, ".bottom-nav-item")).toMatch(/mix-blend-mode:\s*difference/);
+    expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*#fff/);
+    expect(responsiveCss).not.toMatch(/\.bottom-nav-item\.active svg\s*\{[^}]*color:\s*#000/);
+    expect(mobileJsx).not.toMatch(/#000000/);
+  });
+});

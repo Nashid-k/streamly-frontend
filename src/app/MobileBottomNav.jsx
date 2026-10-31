@@ -81,7 +81,7 @@ function MobileBottomNav() {
             zIndex: 0,
           }}
           animate={{ x: pill.x, width: pill.w }}
-          transition={SPRING.SHEET}
+          transition={SPRING.LIFT}
         />
       )}
 
@@ -92,14 +92,13 @@ function MobileBottomNav() {
             key={`bottom-${item.id}`}
             to={item.to}
             data-nav-active={active ? "true" : undefined}
-            className={`bottom-nav-item ${active ? "active" : ""}`}
+            className={`bottom-nav-item ${active ? "active" : ""}${item.id === "settings" && user?.picture ? " bottom-nav-item--avatar" : ""}`}
             aria-current={active ? "page" : undefined}
             aria-label={item.label}
             title={item.label}
             style={{
               position: "relative",
               zIndex: 1,
-              color: active ? (pill.ready ? "#000000" : "#ffffff") : undefined,
             }}
           >
             {item.id === "settings" && user?.picture ? (

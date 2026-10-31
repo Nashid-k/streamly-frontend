@@ -28,6 +28,11 @@
   flex-shrink: 0;
 }
 
+.app-brand-link-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
 .app-brand-link {
   display: inline-flex;
   align-items: center;
@@ -136,21 +141,24 @@
   }
 }
 
-/* Right zone — nav links + icons grouped together inside the pill */
+/* Right zone — nav links + icons grouped together inside the pill.
+   Deliberately NOT a stacking context: labels invert against the white pill
+   with mix-blend-mode, so nothing between the links and `.navbar` may isolate
+   them (see `.nav-link`). Links/buttons raise themselves above the pill. */
 .nav-cluster {
   display: flex;
   align-items: center;
   gap: 22px;
   flex: 0 1 auto;
   min-width: 0;
-  position: relative;
-  z-index: 1;
 }
 
 /* Gradient accent used by the footer wordmark */
 
 /* Cinejoy-style divider between the tabs and the utility icon cluster */
 .nav-separator {
+  position: relative;
+  z-index: 1;
   width: 1px;
   height: 18px;
   flex: 0 0 auto;
@@ -166,6 +174,8 @@
 }
 
 .nav-link {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -173,18 +183,22 @@
   height: var(--nav-item-h);
   padding: 0 14px;
   font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  opacity: 0.85;
+  font-weight: 600;
+  color: rgba(var(--white-rgb), 0.86);
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
-  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s var(--ease-out);
+  /* The ink never crossfades. It stays white and `difference` resolves it to
+     black wherever the white pill is behind it, so the label is legible at
+     every pixel of the pill's travel. Each tab also keeps its icon slot and
+     weight while active — both used to widen the tab and shove the entire
+     right-docked dock sideways a frame before the pill had moved. */
+  mix-blend-mode: difference;
+  transition: background-color var(--nav-fade), transform 0.25s var(--ease-out);
   white-space: nowrap;
 }
 @media (hover: hover) and (pointer: fine) {
 .nav-link:hover {
-  opacity: 1;
   color: #ffffff;
 }
 }
@@ -192,25 +206,19 @@
   transform: scale(0.96);
 }
 
-/* Active state — the shared pill provides the white background; the link only
-   flips its ink to black with the same --nav-fade the real site uses. */
+/* Active state — the shared pill supplies the white field; the label stays
+   full-strength white so `difference` resolves it to pure black over the pill. */
 .nav-link--home {
   gap: 6px;
   padding: 0 16px;
-  font-weight: 600;
 }
 .nav-link--active {
-  opacity: 1;
-  font-weight: 600;
-  color: #000000;
-}
-.nav-link--active .nav-link-icon {
-  color: inherit;
+  color: #ffffff;
 }
 
 /* ── Cinejoy .nav-pill — ONE shared highlight that glides between items.
-   x/width are injected from real measurements in App.jsx and animated with
-   the identical --nav-transition spring cubic-bezier. */
+   x/width/opacity are driven by framer from real measurements in Header.jsx;
+   no CSS transition may compete with those per-frame writes. */
 .nav-active-pill {
   position: absolute;
   left: 0;
@@ -221,15 +229,9 @@
   box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
   z-index: 0;
   pointer-events: none;
-  /* The pill glides via transform and resizes via width. width transitions on
-     this single small absolute element (no in-flow children) only re-layouts
-     itself — it never reflows the nav cluster — so it stays cheap. */
+  /* The pill is the only element that moves/resizes; it is absolute with no
+     in-flow children, so resizing it never reflows the dock. */
   will-change: transform;
-  transition: transform var(--nav-transition), width var(--nav-transition), opacity var(--nav-fade);
-}
-.nav-cluster .nav-link,
-.nav-cluster .nav-icon-btn {
-  transition: color var(--nav-fade), background-color var(--nav-fade), opacity var(--nav-fade), transform 0.25s var(--ease-out);
 }
 
 /* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every
@@ -237,7 +239,6 @@
    shared white active pill stays exactly as it is (black ink). */
 @media (hover: hover) and (pointer: fine) {
 .navbar:hover .nav-link:not(.nav-link--active) {
-  opacity: 1;
   color: #ffffff;
 }
 .navbar:hover .nav-icon-btn:not(.nav-icon-btn--active) {
@@ -245,7 +246,7 @@
 }
 .navbar:hover .nav-link--active,
 .navbar:hover .nav-icon-btn--active {
-  color: #000000;
+  color: #ffffff;
   background: transparent;
 }
 }
@@ -261,15 +262,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .nav-active-pill,
   .navbar,
   .header-row,
   .brand-mark {
     transition: none !important;
   }
-}
-.nav-link:not(.nav-link--home):not(.nav-link--active) .nav-link-icon {
-  display: none;
 }
 @media (max-width: 1200px) {
   .nav-links {
@@ -281,9 +278,6 @@
   .nav-link {
     padding: 7px 10px;
     gap: 0;
-  }
-  .nav-link .nav-link-icon {
-    display: inline-flex !important;
   }
   .nav-link-label {
     display: none !important;
@@ -304,6 +298,7 @@
 /* Ghost icon buttons — Cinejoy `.nav-item.is-icon` 40px circles */
 .nav-icon-btn {
   position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,7 +310,8 @@
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: color var(--nav-fade), background-color var(--nav-fade), box-shadow var(--nav-fade);
+  mix-blend-mode: difference;
+  transition: background-color var(--nav-fade), box-shadow var(--nav-fade);
   flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -324,7 +320,12 @@
 }
 }
 .nav-icon-btn--active {
-  color: #000000;
+  color: #ffffff;
+}
+/* A photo cannot invert: over a white pill it would turn into a negative.
+   Keep the avatar glyph normal; the pill still reads behind it. */
+.nav-icon-btn--avatar {
+  mix-blend-mode: normal;
 }
 
 /* Avatar initial circle */

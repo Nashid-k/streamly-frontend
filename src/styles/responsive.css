@@ -152,7 +152,11 @@
     padding: 0;
     color: #9ca3af;
     text-decoration: none;
-    transition: background var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
+    /* Same ink rule as the desktop dock: the icon stays one constant colour
+       and `difference` turns it black only where the white pill is behind it,
+       so it is readable for the whole slide instead of flipping early. */
+    mix-blend-mode: difference;
+    transition: background var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1), transform var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     user-select: none;
     -webkit-user-select: none;
@@ -164,13 +168,12 @@
     color: #fff;
   }
   .bottom-nav-item.active {
-    color: #000;
+    color: #fff;
     background: transparent;
     box-shadow: none;
   }
-  .bottom-nav-item.active svg {
-    color: #000;
-    filter: drop-shadow(0 1px 2px rgba(var(--black-rgb), 0.35));
+  .bottom-nav-item--avatar {
+    mix-blend-mode: normal;
   }
   body {
     padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));

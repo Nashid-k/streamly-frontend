@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, Settings, ChevronLeft } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
-import { DURATION, EASE_OUT } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT } from "../constants/motion";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
 import AccountMenu from "./AccountMenu";
@@ -17,6 +17,7 @@ function Header() {
   const navigate = useNavigate();
   const { user } = useAppAuth();
   const { t } = useI18n();
+  const reduceMotion = useReducedMotion();
 
     /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
        Clicking the settings icon drops a menu with Login / Settings / Watch
@@ -98,10 +99,13 @@ function Header() {
     /* ── Sliding active pill (Cinejoy .nav-pill) ─────────────────────────────
        One shared highlight glides between whatever nav item is active — brand links
        AND icon buttons on the same track. Position/width come from real DOM
-       measurements fed into CSS vars, so the transition reuses the site's own
-       `--nav-transition` cubic-bezier. */
+       measurements; the travel itself is a spring so a second click mid-flight
+       retargets from the current velocity instead of restarting a curve. */
   const navRef = useRef(null);
   const [pill, setPill] = useState({ x: 0, w: 0, ready: false });
+  // The very first placement is a cut: a hard load must not sweep the pill in
+  // from x=0 before it has ever been measured.
+  const [pillAnimated, setPillAnimated] = useState(false);
   const measureTick = useRef(0);
 
   const measurePill = useCallback(() => {
@@ -114,10 +118,17 @@ function Header() {
            another origin and land slid off-track. A rect diff off the shared navbar
            box stays correct for any nested container. */
     const active = nav.querySelector('[data-nav-active="true"]');
+    if (!active) {
+      // Routes with no active tab (genre/category/person) hide the pill instead
+      // of collapsing it to a 0px sliver at the far left of the track.
+      setPill((prev) => (prev.ready ? { ...prev, ready: false } : prev));
+      return;
+    }
     const trackRect = nav.getBoundingClientRect();
-    const x = active ? active.getBoundingClientRect().left - trackRect.left : 0;
-    const w = active ? active.getBoundingClientRect().width : 0;
-    setPill((prev) => (prev.x === x && prev.w === w ? prev : { x, w, ready: true }));
+    const x = active.getBoundingClientRect().left - trackRect.left;
+    const w = active.getBoundingClientRect().width;
+    if (w <= 0) return;
+    setPill((prev) => (prev.x === x && prev.w === w && prev.ready ? prev : { x, w, ready: true }));
   }, []);
 
   // rAF-throttled wrapper for frequent scroll/resize events — the pill track
@@ -136,6 +147,15 @@ function Header() {
     measurePill();
   }, [measurePill, location.pathname, isScrolled]);
 
+  // Once the first measured frame is on screen, every later pill movement is a
+  // spring. Keeping this separate from the measurement effect means a fast
+  // route change can never cancel the switch.
+  useEffect(() => {
+    if (pillAnimated) return undefined;
+    const frame = window.requestAnimationFrame(() => setPillAnimated(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [pillAnimated]);
+
   useEffect(() => {
     window.addEventListener("resize", scheduleMeasure);
     window.addEventListener("scroll", scheduleMeasure, { passive: true });
@@ -146,6 +166,15 @@ function Header() {
       if (measureTick.current) window.cancelAnimationFrame(measureTick.current);
     };
   }, [scheduleMeasure, measurePill]);
+
+  const pillTransition =
+    reduceMotion || !pillAnimated
+      ? { duration: 0 }
+      : {
+          x: SPRING.LIFT,
+          width: { duration: DURATION.MED, ease: EASE_OUT },
+          opacity: { duration: DURATION.FAST, ease: EASE_OUT },
+        };
 
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
@@ -183,27 +212,31 @@ function Header() {
       )}
       </AnimatePresence>
 
-      <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
-        <img
-          src="/brand/cinejoy-logo.svg"
-          alt="Cinejoy"
-          className="brand-mark logo-legible"
-          width={512}
-          height={543}
-          draggable={false}
-        />
-      </Link>
+      <motion.div
+        layout
+        transition={reduceMotion ? { duration: 0 } : SPRING.LIFT}
+        className="app-brand-link-wrap"
+      >
+        <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
+          <img
+            src="/brand/cinejoy-logo.svg"
+            alt="Cinejoy"
+            className="brand-mark logo-legible"
+            width={512}
+            height={543}
+            draggable={false}
+          />
+        </Link>
+      </motion.div>
       </div>
 
       <nav ref={navRef} className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
         {/* Shared sliding highlight (Cinejoy .nav-pill) */}
-        <span
+        <motion.span
           className="nav-active-pill"
-          style={{
-            transform: `translateX(${pill.x}px)`,
-            width: `${pill.w}px`,
-            opacity: pill.ready ? 1 : 0,
-          }}
+          initial={false}
+          animate={{ x: pill.x, width: pill.w, opacity: pill.ready ? 1 : 0 }}
+          transition={pillTransition}
           aria-hidden="true"
         />
         <div className="nav-cluster">
@@ -219,7 +252,9 @@ function Header() {
                   className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
-                  {/* Icon shows on compact/tablet viewports, and on Home or active page in desktop */}
+                  {/* Every tab keeps its icon at every width. The slot must
+                      never appear/disappear on activation, or the right-docked
+                      dock reflows before the pill has travelled. */}
                   <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
                   <span className="nav-link-label">{label}</span>
                 </Link>
@@ -250,7 +285,7 @@ function Header() {
               ref={settingsBtnRef}
               type="button"
               data-nav-active={location.pathname === "/settings" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}`}
+              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}${user?.picture ? " nav-icon-btn--avatar" : ""}`}
               aria-label={user ? `${t("settings.tabs.account")} (${user.name || user.email})` : t("nav.settings")}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
