@@ -19,6 +19,11 @@
   - **New guard.** `motion.test.js` gained "keeps every tween on the published duration scale and easing" — closes the string-shorthand / ease-keyword / typed-duration loopholes the prior two framer tests missed. Verified green on the fixed tree; red against pre-fix source (string shorthand + `easeInOut` + typed durations all surfaced before the fix).
   - **Gates.** `npm run lint` — 0 errors, 47 warnings (baseline). `npm run test` — **118 files / 1,414 tests, all green**. `npm run build` — clean (1.48 s).
 
+- [x] **Post-load cache persistence & session-scale staleness (user: "once page loads cache it instead of loading it again and again, only load as per needs to improve user exp") — 2026-10-31.**
+  - **What was found.** The caching stack was already sound in wiring (React Query memory cache staleTime 8min / gcTime 30min, persisted catalogue cache via localStorage + persister, service-worker cache-first/SWR, viewport-gated prefetch). The repeat-loading the user reported traced to the freshness window itself: the global staleTime was 8 minutes and catalogue rails were pinned at 5–10 minutes, so after a browsing session aged past those windows, every revisit / reload re-fetched from the network and re-painted loading states — defeating "cache once loaded, load only as needed".
+  - **Fix.** Global React Query default `staleTime` raised to 30 min (viewing-session scale, aligned with the existing gcTime and the persister's design); per-family pins (details 24h, realRatings 24h, personalised picks) left intact.
+  - **Gates.** `npm run lint` — 0 errors, 47 warnings (baseline). `npm run test` — **118 files / 1,414 tests, all green**. `npm run build` — clean (1.45 s).
+
 - [x] **Post-fix to-and-fro verification on the spring/blend dock — user: "still its there, if i do to and fro in switching routs/navbar the stuck or jitters are there, improve more and animate things and aniamte transistions" — 2026-10-31 (follow-up round).**
   - **What was re-verified (headless Chrome CDP, after `e3fed6a` shipped the fix).**
     1. To-and-fro via nav links, Home ⇄ Movies, sampled 40 frames: pill transform glides 7 → 128.297 with constant nav rect (`navX 770.73 / navW 627.27` throughout), no snap, no jitter, no stuck.
