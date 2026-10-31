@@ -12,6 +12,7 @@ import {
   Search,
   RotateCcw,
   LogOut,
+  LogIn,
   Bookmark,
   Clock,
   SlidersHorizontal,
@@ -564,14 +565,14 @@ export default function SettingsPage() {
                           </span>
                         </div>
                         <span className="setting-desc">
-                          {user
+                          {hasAccount
                             ? user.email || t("settings.account.syncActive")
                             : t("settings.account.localOnly")}
                         </span>
                       </div>
                     </div>
-                    {hasAccount && (
-                      <div className="setting-control flex items-center gap-2">
+                    <div className="setting-control flex items-center gap-2">
+                      {hasAccount ? (
                         <button
                           onClick={handleSignOut}
                           className="glassy-button"
@@ -579,8 +580,17 @@ export default function SettingsPage() {
                           <LogOut className="w-4 h-4" />
                           {t("settings.account.signOut")}
                         </button>
-                      </div>
-                    )}
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleOpenSignIn}
+                          className="glassy-button glassy-button--primary"
+                        >
+                          <LogIn className="w-4 h-4" />
+                          {t("settings.account.signIn")}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Cloud Sync Status */}
@@ -619,7 +629,7 @@ export default function SettingsPage() {
                         )}
                       </div>
                       <span className="setting-desc">
-                        {user
+                        {hasAccount
                           ? syncStatus === "syncing"
                             ? t("settings.account.syncingMsg")
                             : syncStatus === "error"

@@ -197,6 +197,7 @@ export const en = {
       welcomeBack: "Welcome {name}",
       syncActive: "Your profile and library are actively synchronized.",
       signInEmailHint: "Sign in with your email to sync your watchlist, collections and history across devices.",
+      localOnly: "You're browsing in local mode — sign in to sync your watchlist, collections and history across devices.",
       cloudSync: "Cloud Sync",
       connected: "Connected",
       syncing: "Syncing",

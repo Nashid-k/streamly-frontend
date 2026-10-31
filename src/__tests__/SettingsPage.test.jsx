@@ -227,6 +227,9 @@ describe("SettingsPage", () => {
     renderPage();
 
     expect(screen.getByText(/not signed in/i)).toBeInTheDocument();
+    // The guest row must explain where their data lives, not print the raw
+    // `settings.account.localOnly` key (the catalog was missing it).
+    expect(screen.getByText(/browsing in local mode/i)).toBeInTheDocument();
     expect(screen.queryByText(/^connected$/i)).not.toBeInTheDocument();
   });
 
@@ -244,6 +247,30 @@ describe("SettingsPage", () => {
     });
 
     expect(screen.getByText(/^connected$/i)).toBeInTheDocument();
+  });
+
+  /* A pre-email Google session can leave a `user` object with no accountId.
+     The account row used `user` truthiness for its badge/description, so that
+     leftover profile read as synced while `hasAccount` (and the sign-in path)
+     said otherwise. The whole row must key off `hasAccount`. */
+  it("does not treat a legacy profile without an account as synced", () => {
+    renderWithProviders(<SettingsPage />, {
+      route: "/settings",
+      authValue: {
+        user: { name: "Legacy" },
+        hasAccount: false,
+        myList: [],
+        collections: [],
+        continueWatching: [],
+        logout: () => {},
+      },
+    });
+
+    expect(screen.getByText(/not signed in/i)).toBeInTheDocument();
+    expect(screen.getByText(/browsing in local mode/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^connected$/i)).not.toBeInTheDocument();
   });
 });
 

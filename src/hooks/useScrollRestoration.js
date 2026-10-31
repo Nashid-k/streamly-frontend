@@ -129,20 +129,20 @@ export function useScrollRestoration() {
         };
       }
     } else {
-      // For PUSH navigation, ensure we scroll to top after route transition/paint
-      const scrollToTop = () => {
-        // Wait for any ongoing animation
-        if (typeof window !== 'undefined' && window.__streamlyRouteAnimating) {
-          requestAnimationFrame(scrollToTop);
-          return;
-        }
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-          });
-        });
-      };
-      scrollToTop();
+      // PUSH: the reset must fire at commit, NOT after the animation. Under
+      // AnimatePresence mode="popLayout" the document at commit is already the
+      // entering page (the exiting one is out of flow), so this lands on the
+      // new page invisibly; gating it on the animation flag would let the
+      // viewer stare at a mid-page position for the length of the fade when
+      // the destination is cached and already tall.
+      requestAnimationFrame(() => {
+        // "instant", not "auto": "auto" defers to the CSS `scroll-behavior`
+        // of the scroll box, so `html { scroll-behavior: smooth }` used to
+        // animate this reset — the reported "details page scrolls up from the
+        // bottom on every navigation". An unconditional jump, by definition,
+        // must not animate.
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      });
     }
   }, [location.key, navType]);
 }
