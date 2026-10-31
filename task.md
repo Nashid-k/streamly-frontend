@@ -14,7 +14,8 @@
   - **Bottom nav spring.** The nav's hand-typed `{ stiffness: 380, damping: 32 }` became the published `SPRING.LIFT` token (380/30); the nav is a floating pill, so the role token is the intended source.
   - **Legacy profile honesty.** The account row keyed its description and Cloud Sync copy off `user` truthiness while the badge and controls keyed off `hasAccount`. A leftover pre-email Google profile (a `user` object with no accountId) therefore read as "synced" beside a Sign In button. Both descriptions now key off `hasAccount`, matching the row's own documented contract.
   - **Tests.** The guest test now also pins the local-mode sentence, so a missing catalog key fails as raw-key output instead of slipping through; a new legacy-profile test pins the `hasAccount` gating (not signed in, local mode, Sign In present, no Sign Out, no Connected badge).
-  - **Gates.** `npm run lint` — 0 errors, 47 warnings (baseline). `npm run test` — **118 files / 1,405 tests, all green** (includes the previously untriggerable sign-in focus test and the new legacy-profile case). `npm run build` — clean (1.71 s).
+  - **Debug artifacts removed.** Commit `6378fec` had accidentally committed six one-off scratch files from the settings audit (`count.js`, `countout.txt`, `out3.txt`, `out5.txt`, `result.txt`, `temp_settings.txt` — the last a stale copy of SettingsPage). A repo-wide reference scan found no consumer; `git rm` removed them so the tree no longer ships a PowerShell error dump or a duplicate page copy.
+  - **Gates.** `npm run lint` — 0 errors, 47 warnings (baseline). `npm run test` — **118 files / 1,405 tests, all green** (includes the previously untriggerable sign-in focus test and the new legacy-profile case). `npm run build` — clean (1.35 s).
 
 - [x] **Mobile UI & Navigation overhaul (user: "mobile ui is collapsed, find everything and fix each page, navbar everything") — 2026-10-28.**
   - **What was diagnosed & fixed:**
