@@ -7,6 +7,17 @@
 
  ## Done (in order)
 
+- [x] **Post-fix to-and-fro verification on the spring/blend dock — user: "still its there, if i do to and fro in switching routs/navbar the stuck or jitters are there, improve more and animate things and aniamte transistions" — 2026-10-31 (follow-up round).**
+  - **What was re-verified (headless Chrome CDP, after `e3fed6a` shipped the fix).**
+    1. To-and-fro via nav links, Home ⇄ Movies, sampled 40 frames: pill transform glides 7 → 128.297 with constant nav rect (`navX 770.73 / navW 627.27` throughout), no snap, no jitter, no stuck.
+    2. Full-ish tab set (Home, Movies, Shows, My List, Home) + /search icon-pill route: pill/item alignment stable, blend ink present.
+    3. Back-button path: enter /movies (pill settle ok), back → Home (pill snaps back to 7 cleanly, back button unmounts cleanly), rapid Home→Movies→Home→Movies: clean.
+    4. Mobile bottom nav at 390×844: pill X == item X, blend difference, spring transform — clean.
+    5. Details route `/watch/1234/test-slug`: pill lands on Movies (translateX 128.297, w 98.2, opacity 1), nav rect constant, back button mounted — clean.
+  - **Conclusion.** No reproducible stuck/jitter remains in the pill, dock reflow, back button, brand snap, or mobile bottom nav after `e3fed6a` + the blend/spring work; every reachable route transition path I could drive headlessly now settles without a jump.
+  - **Residual (not reproducible here, flagged for the user).** Real-browser compositing of `mix-blend-mode` over the navbar's `backdrop-filter` during the pill's per-frame travel is the likeliest remaining source of subjective jank on a GPU-backed profile; it needs a real-viewport visual pass to measure. Content-route height changes (scrollbar presence) and the route-content `popLayout` fade remain outside the nav measurement but are covered by the same fluid model.
+  - **Improvement pass since the fix (this round):** nothing further changed in source — the round was verification + task recording; the motion vocabulary, spring token and guards stay as committed in `e3fed6a`.
+
 - [x] **Desktop nav fluidity: no dock reflow, blend ink, spring pill — user: "FLUIDITY IN EACH AND EVERY CORNER, FLUIDITY AT ITS PEAK NO MATTER WHATEVER HAPPENS, ALWAYS FLUDITY IN EACH AND EVERY ROUTES" — 2026-10-31.**
   - **What was diagnosed (CDP probe on production preview, headless Chrome 9223, 1418×746).** Home → Movies tab switch now runs, and three defects held it back:
     1. **One-frame dock reflow.** Activating a tab used to reveal its icon (`display:none → block`) and bump font-weight (500 → 600), so the active tab widened while others hid their icons — the right-docked dock instantly grew 22.7px and its left edge jumped 22.7px (navX 838.66→815.92, navW 559.34→582.08), pushing the pill and every label left before motion began. The old nav width is now constant across all active states; icons stay slotted and every link keeps weight 600.
