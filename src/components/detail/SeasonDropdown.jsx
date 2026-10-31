@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PRESS_SCALE } from "../../constants/motion";
+import { DURATION, EASE_IN, EASE_OUT, PRESS_SCALE } from "../../constants/motion";
 import { ChevronDown } from "lucide-react";
 
 // ─── SeasonDropdown — custom styled dropdown (no native <select>) ─────────────
@@ -46,7 +46,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
           fontWeight: 600,
           cursor: "pointer",
           backdropFilter: "blur(12px)",
-          transition: "background 0.2s, border-color 0.2s",
+          transition: "background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)",
           whiteSpace: "nowrap",
         }}
       >
@@ -85,7 +85,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
         </span>
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
-          transition={{ duration: 0.22, ease: "easeInOut" }}
+          transition={{ duration: DURATION.MED, ease: EASE_IN }}
           style={{ display: "flex", color: "#a1a1aa" }}
         >
           <ChevronDown size={16} />
@@ -98,7 +98,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
             initial={{ opacity: 0, y: -8, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
             style={{
               position: "absolute",
               top: "calc(100% + 6px)",
@@ -148,7 +148,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                           : index === seasonOptions.length - 1
                             ? "0 0 14px 14px"
                             : "0",
-                      transition: "background 0.1s",
+                      transition: "background var(--duration-fast) var(--ease-out)",
                     }}
                   >
                     {isSelected && (

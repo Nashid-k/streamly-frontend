@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { EASE_OUT } from "../../constants/motion";
+import { DURATION, EASE_OUT } from "../../constants/motion";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import MovieCard from "../MovieCard";
@@ -142,7 +142,7 @@ const MovieRail = React.memo(
                 padding: "2px 8px",
                 borderRadius: "4px",
                 border: "none",
-                transition: "color 0.2s",
+                transition: "color var(--duration-fast) var(--ease-out)",
                 background: "transparent",
               }}
             >
@@ -177,7 +177,7 @@ const MovieRail = React.memo(
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-10px" }}
                   transition={{
-                    duration: 0.35,
+                    duration: DURATION.MED,
                     delay: Math.min((i % 10) * 0.03, 0.15),
                     ease: EASE_OUT,
                   }}

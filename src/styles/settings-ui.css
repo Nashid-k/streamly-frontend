@@ -206,7 +206,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   scroll-margin-top: 100px;
-  transition: box-shadow 0.35s var(--ease-out);
+  transition: box-shadow var(--duration-fast) var(--ease-out);
 }
 
 /* ── Section Header ── */
@@ -305,8 +305,8 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   background: rgba(var(--white-rgb), 0.9);
   border-radius: var(--radius-full);
   box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.02);
-  transition: left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
-    width 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: left var(--duration-fast) var(--ease-out),
+    width var(--duration-fast) var(--ease-out);
   z-index: 0;
   pointer-events: none;
 }
@@ -337,7 +337,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: color 0.25s var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -362,7 +362,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.12);
   cursor: pointer;
-  transition: background 220ms var(--ease-out), border-color 220ms var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 
 .toggle::before {
@@ -391,7 +391,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   width: 18px;
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.7);
-  transition: transform var(--duration-fast) cubic-bezier(0.175, 0.885, 0.32, 1.275),
+  transition: transform var(--duration-fast) var(--ease-out),
     background var(--duration-fast) var(--ease-out);
   box-shadow: 0 2px 4px rgba(var(--black-rgb), 0.02);
 }

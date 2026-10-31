@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **App-wide motion drift sweep — hardcoded durations/curves, string transitions, bare easings, unaudited shapes (user: "find other issues related to smoothness and animations/transitions in across the entire app and fix") — 2026-10-31.**
+  - **What was found beyond the navbar fix (`e3fed6a`).** The motion vocabulary was supposed to be single-source but several surfaces had drifted past it or bypassed the audit entirely:
+    1. **Hand-written framer tweens** with bespoke bezier arrays (`ease: [0.16, 1, 0.3, 1]`) or typed durations on token-importing surfaces (HomePage hero fades, TitleDetailsPage episode rails + trailer fade, NetflixStillWatching/Top10Rail/MovieRail/ContentTag/EmptyState/DiscoveryRails/GenreShowcase/SectionHeader/RouteFallback/NotFoundPage/GenrePage/CategoryPage/SettingsPage/SearchPage/PersonDetailsPage/WatchlistPage fade-ins…).
+    2. **Framer string shorthand** — `transition: "opacity 0.4s ease"` / `"all 0.2s"` / `"background 0.2s"`: framer takes transition *objects*, not CSS-value strings, so these were unaudited by the object-shape tests and drift-prone where authored.
+    3. **Bare easings** — `ease: "easeInOut"` (SeasonDropdown, HistoryPage progress) → published `EASE_IN`.
+    4. **Typed durations outside the scale** — route variants (`0.26/0.28/0.22…`) and tweens (`0.35/0.4/0.45/0.5/0.15/0.9…`) → `DURATION.FAST/MED/SLOW`.
+    5. **Token-file drift** — `--nav-fade: 0.3s ease` (bare `ease`), `--condense-ease: cubic-bezier(0.4, 0, 0.2, 1)` (second curve), and hand-typed durations in `header.css` / `modals.css` / `settings-ui.css` / `grids.css` / `hero.css` / `search.css` / `buttons.css` / `discovery.css` → published token vars / curves.
+    6. **Route durations** — `ROUTE_TRANSITIONS`/`ROUTE_EXIT_TRANSITIONS` typed literals → `DURATION` tokens.
+  - **Fixes.** All framer tweens now pass token durations + `EASE_OUT`/`EASE_IN`; string transitions converted to token objects or token-var CSS; easings/curves/durations migrated to the published vocabulary. Files touched: `tokens.css`, `header.css`, `modals.css`, `settings-ui.css`, `grids.css`, `hero.css`, `search.css`, `buttons.css`, `discovery.css`, `routeMotion.js`, `HomePage`, `TitleDetailsPage`, `HistoryPage`, `WatchlistPage`, `Toast`, `MovieCard`, `RatingsCluster`, `ProviderEmbedPlayer`, `LeavingSoonBanner`, `LanguageSwitchOverlay`, `MovieRail`, `SeasonDropdown`, `ContentTag`, `NetflixStillWatching`, `Top10Rail`, `DiscoveryRails`, `EmptyState`, `GenreShowcase`, `SectionHeader`, `RouteFallback`, `NotFoundPage`, `GenrePage`, `CategoryPage`, `SettingsPage`, `SearchPage`, `PersonDetailsPage`, `CountdownBadge`-adjacent typed sites.
+  - **New guard.** `motion.test.js` gained "keeps every tween on the published duration scale and easing" — closes the string-shorthand / ease-keyword / typed-duration loopholes the prior two framer tests missed. Verified green on the fixed tree; red against pre-fix source (string shorthand + `easeInOut` + typed durations all surfaced before the fix).
+  - **Gates.** `npm run lint` — 0 errors, 47 warnings (baseline). `npm run test` — **118 files / 1,414 tests, all green**. `npm run build` — clean (1.48 s).
+
 - [x] **Post-fix to-and-fro verification on the spring/blend dock — user: "still its there, if i do to and fro in switching routs/navbar the stuck or jitters are there, improve more and animate things and aniamte transistions" — 2026-10-31 (follow-up round).**
   - **What was re-verified (headless Chrome CDP, after `e3fed6a` shipped the fix).**
     1. To-and-fro via nav links, Home ⇄ Movies, sampled 40 frames: pill transform glides 7 → 128.297 with constant nav rect (`navX 770.73 / navW 627.27` throughout), no snap, no jitter, no stuck.

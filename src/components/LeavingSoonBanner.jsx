@@ -67,7 +67,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
               padding: "8px 10px", borderRadius: "8px",
               width: "100%", background: "transparent", border: "none",
               font: "inherit", color: "inherit", textAlign: "left",
-              cursor: "pointer", transition: "background 0.2s",
+              cursor: "pointer", transition: "background var(--duration-fast) var(--ease-out)",
             }}
           >
             {/* Thumbnail. The raw backdropUrl is a full w1280 banner frame for a

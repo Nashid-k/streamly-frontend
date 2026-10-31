@@ -8,7 +8,7 @@ import {
   useEffect,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { SPRING, EASE_OUT } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT } from "../constants/motion";
 import { Check, X, AlertCircle, AlertTriangle, Info, Volume2, Settings, Play } from "lucide-react";
 import { useOptionalPreferences } from "../context/preferences";
 import { useI18n } from "../i18n/index.jsx";
@@ -87,7 +87,7 @@ function ToastItem({ toast, onDismiss }) {
       layout
       initial={{ opacity: 0, y: 24, scale: 0.92, filter: "blur(8px)" }}
       animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-      exit={{ opacity: 0, y: -12, scale: 0.95, filter: "blur(4px)", transition: { duration: 0.2, ease: EASE_OUT } }}
+      exit={{ opacity: 0, y: -12, scale: 0.95, filter: "blur(4px)", transition: { duration: DURATION.FAST, ease: EASE_OUT } }}
       transition={SPRING.TOAST}
       onClick={() => onDismiss(toast.id)}
       role="alert"

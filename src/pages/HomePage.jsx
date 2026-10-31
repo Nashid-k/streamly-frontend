@@ -1,5 +1,5 @@
 import SEO from "../components/SEO";
-import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
+import { DURATION, EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
@@ -964,7 +964,7 @@ export default function Home({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: EASE_OUT }}
+            transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             style={{ willChange: "opacity" }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
@@ -1007,7 +1007,7 @@ export default function Home({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.45, ease: EASE_OUT }}
+                transition={{ duration: DURATION.SLOW, ease: EASE_OUT }}
               />
             </AnimatePresence>
 
@@ -1052,7 +1052,7 @@ export default function Home({
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
               style={{ willChange: "transform, opacity" }}
             >
                 {/* Title / Logo — real show wordmark, lazy-fetched on demand */}

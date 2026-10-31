@@ -138,7 +138,7 @@ export default function RatingsCluster({
             border: "1px solid rgba(255,255,255,0.12)",
             color: "#a1a1aa",
             cursor: "pointer",
-            transition: "color 0.15s ease, background 0.15s ease",
+            transition: "color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out)",
           }}
         >
           <RefreshCw size={11} strokeWidth={2.25} />

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useEffect, useCallback, memo } from "react";
 import { motion } from "framer-motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { movieService } from "../api/movieService";
@@ -247,7 +248,7 @@ const DiscoveryRails = memo(function DiscoveryRails({ limit = 20 } = {}) {
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             >
               <ErrorBoundary>
                 <DiscoveryRail section={section} />

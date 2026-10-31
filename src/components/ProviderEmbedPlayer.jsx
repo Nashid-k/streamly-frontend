@@ -175,7 +175,7 @@ export default function ProviderEmbedPlayer({ type, id, season, episode, title, 
           paddingTop: "max(12px, env(safe-area-inset-top))",
           background: "linear-gradient(to bottom, rgba(0,0,0,0.75), rgba(0,0,0,0))",
           opacity: chromeVisible ? 1 : 0,
-          transition: "opacity 0.3s ease",
+          transition: "opacity var(--duration-fast) var(--ease-out)",
           pointerEvents: chromeVisible ? "auto" : "none",
         }}
       >

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
@@ -207,7 +207,7 @@ export default function CategoryPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
-                duration: 0.4,
+                duration: DURATION.MED,
                 delay: (index % 20) * 0.05,
                 ease: EASE_OUT,
               }}

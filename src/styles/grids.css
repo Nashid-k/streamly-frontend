@@ -76,7 +76,7 @@
      side lives on the :hover/:focus-visible rules below, so entering gets the
      silk curve + staged delays and leaving gets this quick settle — CSS's
      version of framer's rest/hover variant split, with zero JS per hover. */
-  transition: transform 250ms var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 
 .poster-wrapper {
@@ -298,7 +298,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-primary);
-  transition: color 0.25s var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 .movie-card:hover .movie-title {
   color: #ffffff;

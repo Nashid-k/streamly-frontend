@@ -530,7 +530,7 @@
   overflow: hidden;
   padding: 0;
   margin: 0;
-  transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+  transition: width var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
 }
 @media (hover: hover) and (pointer: fine) {
 .hero-dot:hover {

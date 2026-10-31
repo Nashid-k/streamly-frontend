@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -879,7 +879,7 @@ export default function SettingsPage() {
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                              transition={{ duration: 0.15, ease: EASE_OUT }}
+                              transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
                               className="absolute right-0 top-full mt-2 w-64 rounded-2xl p-2 shadow-2xl z-50 discovery-menu settings-dropdown"
                             >
                               <div role="listbox" aria-label={t("settings.appearance.themePresets")} className="flex flex-col gap-1">
@@ -1142,7 +1142,7 @@ export default function SettingsPage() {
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                              transition={{ duration: 0.15, ease: EASE_OUT }}
+                              transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
                               className="absolute right-0 top-full mt-2 w-44 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 discovery-menu settings-dropdown"
                             >
                               {SEEK_TIMES.map((st) => {
@@ -1227,7 +1227,7 @@ export default function SettingsPage() {
                               initial={{ opacity: 0, y: 8, scale: 0.96 }}
                               animate={{ opacity: 1, y: 0, scale: 1 }}
                               exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                              transition={{ duration: 0.15, ease: EASE_OUT }}
+                              transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
                               className="absolute right-0 top-full mt-2 w-52 max-h-60 overflow-y-auto rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 discovery-menu settings-dropdown"
                             >
                               {LANGUAGES.map((l) => {

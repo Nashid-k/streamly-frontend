@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { motion } from "framer-motion";
 import { useIsFetching } from "@tanstack/react-query";
 import { LANGUAGE_SENSITIVE_QUERY_PREFIXES } from "../context/preferencesConstants";
@@ -96,7 +96,7 @@ export default function LanguageSwitchOverlay({ active, onDone }) {
       aria-busy="true"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: EASE_OUT }}
+      transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
     >
       <img
         src="/brand/cinejoy-logo.svg"

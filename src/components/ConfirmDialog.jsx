@@ -165,7 +165,7 @@ export function useConfirmDialog() {
                     fontSize: "0.9rem",
                     fontWeight: 600,
                     cursor: "pointer",
-                    transition: "background 0.2s",
+                    transition: "background var(--duration-fast) var(--ease-out)",
                   }}
                   onMouseEnter={(e) =>
                     (e.currentTarget.style.background =
@@ -191,7 +191,7 @@ export function useConfirmDialog() {
                     fontSize: "0.9rem",
                     fontWeight: 700,
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    transition: "all var(--duration-fast) var(--ease-out)",
                     boxShadow: "0 4px 14px rgba(239,68,68,0.3)",
                   }}
                   onMouseEnter={(e) => {

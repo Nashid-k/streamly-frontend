@@ -539,6 +539,44 @@ describe("framer tweens declare the shared easing", () => {
       `Hand-typed easing arrays; import EASE_OUT/EASE_IN instead:\n${offenders.join("\n")}`
     ).toEqual([]);
   });
+
+  it("keeps every tween on the published duration scale and easing", () => {
+    // The sweep closed the loopholes the two tests above missed: string
+    // shorthand transitions (`transition: "opacity 0.3s ease"`) and the
+    // `ease: "easeInOut"` keyword never reached the object-shape audit, and
+    // typed numeric durations (`duration: 0.35`) bypassed the CSS-scale check
+    // entirely. All three are drift from the one published vocabulary. Only
+    // transition objects are audited here, so autoplay/marquee timings that
+    // legitimately ride `repeat` are left alone.
+    const offenders = [];
+    for (const file of files) {
+      if (file.includes(`${join("components", "player")}`)) continue;
+      const src = readFileSync(file, "utf8");
+      for (const block of transitionObjects(src)) {
+        const own = ownProps(block);
+        const duration = own.match(/duration\s*:\s*([^,}]+)/);
+        if (duration) {
+          const raw = duration[1].trim();
+          const numeric = /^\d+(\.\d+)?$/.test(raw);
+          if (numeric) {
+            const value = Number(raw);
+            const isZero = value === 0;
+            const isToken = [DURATION.FAST, DURATION.MED, DURATION.SLOW].includes(value);
+            if (!isZero && !isToken) offenders.push(`${file.replace(process.cwd(), "")}: ${raw}`);
+          }
+        }
+        const easeKeyword = own.match(/ease\s*:\s*"([^"]*)"/);
+        if (easeKeyword) offenders.push(`${file.replace(process.cwd(), "")}: ${easeKeyword[0]}`);
+      }
+      for (const match of src.matchAll(/transition\s*(?::|=)\s*"([^"]*)"/g)) {
+        if (!/var\(--/.test(match[1])) offenders.push(`${file.replace(process.cwd(), "")}: ${match[0]}`);
+      }
+    }
+    expect(
+      offenders,
+      `Untokenised framer motion (string shorthand, ease keyword, typed duration):\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
 });
 
 describe("every modal takes the shared shapes", () => {

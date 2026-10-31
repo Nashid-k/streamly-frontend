@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { EASE_OUT } from "../../constants/motion";
+import { DURATION, EASE_OUT } from "../../constants/motion";
 import { motion } from "framer-motion";
 import MovieCard from "../MovieCard";
 import RailArrow from "../RailArrow";
@@ -125,7 +125,7 @@ const Top10Rail = React.memo(
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true, margin: "-10px" }}
                   transition={{
-                    duration: 0.5,
+                    duration: DURATION.SLOW,
                     delay: (railIndex % 4) * 0.15 + i * 0.05,
                     ease: EASE_OUT,
                   }}

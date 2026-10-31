@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -523,7 +523,7 @@ export default function SearchPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
-                      duration: 0.4,
+                      duration: DURATION.MED,
                       delay: (idx % 10) * 0.05,
                       ease: EASE_OUT,
                     }}
@@ -630,7 +630,7 @@ export default function SearchPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
-                    duration: 0.4,
+                    duration: DURATION.MED,
                     delay: (idx % 10) * 0.05,
                     ease: EASE_OUT,
                   }}

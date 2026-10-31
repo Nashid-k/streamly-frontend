@@ -65,7 +65,7 @@
   font-size: 1.6rem;
   font-weight: 700;
   color: rgba(var(--white-rgb), 0.85);
-  transition: transform 0.3s var(--ease-out), border-color 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
 @media (min-width: 768px) {
   .cast-rail__avatar {
@@ -74,7 +74,7 @@
   }
 }
 .cast-card > * {
-  transition: transform 0.3s var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
 .cast-card:hover .cast-rail__avatar {

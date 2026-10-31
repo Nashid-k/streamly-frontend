@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
+import { DURATION, EASE_IN, EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -209,7 +209,7 @@ export default function HistoryPage() {
                   fontSize: "0.82rem",
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "all 0.2s",
+                  transition: "all var(--duration-fast) var(--ease-out)",
                 }}
               >
                 {isSelectMode ? "Cancel" : "Select"}
@@ -252,7 +252,7 @@ export default function HistoryPage() {
                 color: "#fff",
                 fontSize: "0.82rem",
                 outline: "none",
-                transition: "border-color 0.2s, background 0.2s",
+                transition: "border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out)",
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = "rgba(var(--accent-primary-rgb), 0.5)";
@@ -292,7 +292,7 @@ export default function HistoryPage() {
             icon={
               <motion.div
                 animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
-                transition={{ duration: 1.5, delay: 0.3, ease: "easeInOut" }}
+                transition={{ duration: DURATION.SLOW, delay: 0.3, ease: EASE_IN }}
               >
                 <Clock size={36} strokeWidth={1.5} color="#52525b" />
               </motion.div>
@@ -354,7 +354,7 @@ export default function HistoryPage() {
                             exit={{
                               opacity: 0,
                               scale: 0.9,
-                              transition: { duration: 0.2, ease: EASE_OUT },
+                              transition: { duration: DURATION.FAST, ease: EASE_OUT },
                             }}
                             style={{
                               position: "relative",
@@ -362,7 +362,7 @@ export default function HistoryPage() {
                               borderRadius: "16px",
                               outline: isSelectMode && isSelected ? "2px solid var(--accent-primary, #60a5fa)" : "none",
                               outlineOffset: "3px",
-                              transition: "outline 0.15s ease",
+                              transition: "outline var(--duration-fast) var(--ease-out)",
                             }}
                           >
                             <MovieCard
@@ -387,7 +387,7 @@ export default function HistoryPage() {
                                   alignItems: "center",
                                   justifyContent: "center",
                                   boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                                  transition: "all 0.2s",
+                                  transition: "all var(--duration-fast) var(--ease-out)",
                                 }}
                               >
                                 {isSelected && <Check size={14} color="#fff" strokeWidth={3} />}

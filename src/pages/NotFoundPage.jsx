@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { Compass } from "lucide-react";
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
@@ -41,7 +42,7 @@ export default function NotFoundPage() {
         className="not-found__inner"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: DURATION.MED, ease: EASE_OUT }}
       >
         <div className="not-found__code" aria-hidden="true">
           404

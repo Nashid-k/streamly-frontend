@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 
 export default function SectionHeader({
   title,
@@ -11,7 +12,7 @@ export default function SectionHeader({
     <motion.div
       initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: DURATION.MED, ease: EASE_OUT }}
       style={{
         display: "flex",
         justifyContent: "space-between",

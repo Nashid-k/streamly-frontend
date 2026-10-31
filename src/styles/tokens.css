@@ -68,8 +68,8 @@
   /* ── Nav (official Cinejoy tokens) ──────────────────────── */
   --nav-pad: 6px;
   --nav-item-h: 40px;
-  --nav-fade: 0.3s ease;
-  --condense-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --nav-fade: var(--duration-fast) var(--ease-out);
+  --condense-ease: var(--ease-out);
 
   /* ── Spacing Scale ─────────────────────────────────────── */
   --spacing-sm: 0.5rem;

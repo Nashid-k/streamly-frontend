@@ -1,5 +1,5 @@
 import React from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { motion, useReducedMotion } from "framer-motion";
 
 /* ContentTag — the one place a small coloured card label is drawn.
@@ -43,7 +43,7 @@ export default function ContentTag({ label, tone = "new", reason, dot = true, si
     <motion.span
       initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.22, ease: EASE_OUT }}
+      transition={{ duration: DURATION.MED, ease: EASE_OUT }}
       title={reason || undefined}
       style={{
         display: "inline-flex",

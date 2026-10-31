@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useNavigate, Link } from "react-router-dom";
 import {
   Bookmark,
@@ -840,10 +840,10 @@ export default function WatchlistPage() {
                           exit={{
                             opacity: 0,
                             scale: 0.85,
-                            transition: { duration: 0.2, ease: EASE_OUT },
+                            transition: { duration: DURATION.FAST, ease: EASE_OUT },
                           }}
                           transition={{
-                            duration: 0.4,
+                            duration: DURATION.MED,
                             delay: (idx % 20) * 0.04,
                             ease: EASE_OUT,
                           }}
@@ -856,7 +856,7 @@ export default function WatchlistPage() {
                                 ? "2px solid var(--accent-primary, #60a5fa)"
                                 : "none",
                             outlineOffset: "3px",
-                            transition: "outline 0.15s ease",
+                            transition: "outline var(--duration-fast) var(--ease-out)",
                           }}
                         >
                           <MovieCard
@@ -886,7 +886,7 @@ export default function WatchlistPage() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                                transition: "all 0.2s",
+                                transition: "all var(--duration-fast) var(--ease-out)",
                               }}
                             >
                               {isSelected && (

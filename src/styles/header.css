@@ -49,7 +49,7 @@
   filter: drop-shadow(0 2px 10px rgba(var(--black-rgb), 0.45));
   /* Condense on scroll is a transform-only scale (44 → 38px optically):
      never animates height/layout, so the fixed header never reflows. */
-  transition: transform 0.32s var(--condense-ease), filter 0.3s var(--ease-out);
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease), filter var(--duration-fast) var(--ease-out);
 }
 .header-row.scrolled .brand-mark {
   transform: scale(0.864);
@@ -125,7 +125,7 @@
      header on every frame of every scroll. The scrolled state therefore snaps
      its tint and shadow (a single, invisible-at-speed change) while the pill
      still moves smoothly. */
-  transition: transform 0.32s var(--condense-ease), border-color 0.3s var(--ease-out);
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease), border-color var(--duration-fast) var(--ease-out);
 }
 .navbar.scrolled {
   transform: translateY(-3px);
@@ -194,7 +194,7 @@
      weight while active — both used to widen the tab and shove the entire
      right-docked dock sideways a frame before the pill had moved. */
   mix-blend-mode: difference;
-  transition: background-color var(--nav-fade), transform 0.25s var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
   white-space: nowrap;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -311,7 +311,7 @@
   cursor: pointer;
   text-decoration: none;
   mix-blend-mode: difference;
-  transition: background-color var(--nav-fade), box-shadow var(--nav-fade);
+  transition: background-color var(--duration-fast) var(--ease-out), box-shadow var(--anim-hover-time) var(--anim-hover-ease);
   flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {

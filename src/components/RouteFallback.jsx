@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 
 /* Lightweight Suspense fallback for lazy route chunks. Replaces the dual-ring
    spinner with a page-shaped skeleton so the swap reads as "content loading"
@@ -10,7 +11,7 @@ export default function RouteFallback() {
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
       style={{
         display: "flex",
         flexDirection: "column",

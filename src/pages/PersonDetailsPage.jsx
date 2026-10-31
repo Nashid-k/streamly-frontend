@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Calendar, MapPin, RotateCw } from "lucide-react";
 import { motion } from "framer-motion";
@@ -419,7 +419,7 @@ export default function PersonDetails() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    transition: "all 0.2s ease",
+                    transition: "all var(--duration-fast) var(--ease-out)",
                   }}
                 >
                   {bioExpanded ? "Show less" : "Read more"}
@@ -453,7 +453,7 @@ export default function PersonDetails() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{
-                  duration: 0.4,
+                  duration: DURATION.MED,
                   delay: idx * 0.08,
                   ease: EASE_OUT,
                 }}
@@ -503,7 +503,7 @@ export default function PersonDetails() {
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       cursor: "pointer",
-                      transition: "all 0.2s",
+                      transition: "all var(--duration-fast) var(--ease-out)",
                     }}
                   >
                     {tab.label}
@@ -521,7 +521,7 @@ export default function PersonDetails() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{
-                  duration: 0.4,
+                  duration: DURATION.MED,
                   delay: Math.min(idx * 0.04, 0.25),
                   ease: EASE_OUT,
                 }}

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { RotateCw } from "lucide-react";
@@ -221,7 +221,7 @@ export default function GenrePage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
-                    duration: 0.4,
+                    duration: DURATION.MED,
                     delay: (idx % 20) * 0.05,
                     ease: EASE_OUT,
                   }}

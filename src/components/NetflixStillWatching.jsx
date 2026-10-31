@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { motion } from "framer-motion";
 import {
   ACCENT_DIM,
@@ -22,7 +22,7 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.25, ease: EASE_OUT }}
+      transition={{ duration: DURATION.MED, ease: EASE_OUT }}
       style={{
         position: "absolute",
         inset: 0,

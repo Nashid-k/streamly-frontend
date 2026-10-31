@@ -8,21 +8,21 @@ const BASE_TRANSITION = {
 };
 
 export const ROUTE_TRANSITIONS = {
-  "fade-up-subtle": { duration: 0.26, ease: ROUTE_EASE },
-  "fade-up": { duration: 0.28, ease: ROUTE_EASE },
-  "fade-only": { duration: 0.22, ease: ROUTE_EASE },
-  crossfade: { duration: 0.24, ease: ROUTE_EASE },
-  "slide-right": { duration: 0.26, ease: ROUTE_EASE },
-  "slide-left": { duration: 0.26, ease: ROUTE_EASE },
+  "fade-up-subtle": { duration: DURATION.FAST, ease: ROUTE_EASE },
+  "fade-up": { duration: DURATION.MED, ease: ROUTE_EASE },
+  "fade-only": { duration: DURATION.FAST, ease: ROUTE_EASE },
+  crossfade: { duration: DURATION.FAST, ease: ROUTE_EASE },
+  "slide-right": { duration: DURATION.MED, ease: ROUTE_EASE },
+  "slide-left": { duration: DURATION.MED, ease: ROUTE_EASE },
 };
 
 export const ROUTE_EXIT_TRANSITIONS = {
-  "fade-up-subtle": { duration: 0.2, ease: EASE_IN },
-  "fade-up": { duration: 0.22, ease: EASE_IN },
-  "fade-only": { duration: 0.18, ease: EASE_IN },
-  crossfade: { duration: 0.18, ease: EASE_IN },
-  "slide-right": { duration: 0.22, ease: EASE_IN },
-  "slide-left": { duration: 0.22, ease: EASE_IN },
+  "fade-up-subtle": { duration: DURATION.FAST, ease: EASE_IN },
+  "fade-up": { duration: DURATION.MED, ease: EASE_IN },
+  "fade-only": { duration: DURATION.FAST, ease: EASE_IN },
+  crossfade: { duration: DURATION.FAST, ease: EASE_IN },
+  "slide-right": { duration: DURATION.MED, ease: EASE_IN },
+  "slide-left": { duration: DURATION.MED, ease: EASE_IN },
 };
 
 export const REDUCED_ROUTE_TRANSITION = { duration: 0 };

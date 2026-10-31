@@ -1,5 +1,5 @@
 import SEO from "../components/SEO";
-import { EASE_OUT, PRESS_SCALE } from "../constants/motion";
+import { DURATION, EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
@@ -1375,7 +1375,7 @@ export default function TitleDetails() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             style={
               episodeLayout === 'carousel'
                 ? {
@@ -1592,7 +1592,7 @@ export default function TitleDetails() {
                           initial={{ opacity: 0, scale: 0.95, y: 16 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                          transition={{ duration: 0.35, delay: Math.min(idx * 0.04, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                          transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.04, 0.3), ease: EASE_OUT }}
                           whileHover={{ y: -4 }}
                           whileTap={playable ? { scale: PRESS_SCALE.CONTROL } : undefined}
                           role={playable ? "button" : undefined}
@@ -1709,7 +1709,7 @@ export default function TitleDetails() {
                         initial={{ opacity: 0, x: -12 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12 }}
-                        transition={{ duration: 0.3, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
+                        transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
                         whileHover={{ background: 'rgba(255,255,255,0.04)' }}
                         whileTap={playable ? { scale: PRESS_SCALE.ROW } : undefined}
                         role={playable ? "button" : undefined}
@@ -1724,7 +1724,7 @@ export default function TitleDetails() {
                           background: isEpPlaying ? 'rgba(var(--accent-primary-rgb), 0.08)' : 'transparent',
                           border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.2)' : '1px solid transparent',
                           cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : 1,
-                          transition: 'background 0.2s, border 0.2s',
+                          transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)',
                         }}
                       >
                         {/* Thumbnail */}
@@ -1801,7 +1801,7 @@ export default function TitleDetails() {
                           background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                           color: '#fff', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'all 0.2s',
+                          letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
                         }}
                       >
                         {`Load more (${episodes.length - visibleEpisodeCount} remaining)`}
@@ -1842,7 +1842,7 @@ export default function TitleDetails() {
                           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                           color: '#a1a1aa', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'all 0.2s',
+                          letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
                         }}
                       >
                         Show less
@@ -2061,7 +2061,7 @@ export default function TitleDetails() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: EASE_OUT }}
+            transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             style={{
               position: "fixed",
               inset: 0,
@@ -2078,7 +2078,7 @@ export default function TitleDetails() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 0.12 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.9, ease: EASE_OUT }}
+                transition={{ duration: DURATION.SLOW, ease: EASE_OUT }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -2097,7 +2097,7 @@ export default function TitleDetails() {
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1, duration: 0.4, ease: EASE_OUT }}
+                transition={{ delay: 0.1, duration: DURATION.MED, ease: EASE_OUT }}
                 className="video-modal-header"
                 style={{
                   position: "relative",
@@ -2231,7 +2231,7 @@ export default function TitleDetails() {
                       borderRadius: "20px",
                       boxShadow: "0 32px 64px -12px rgba(0,0,0,0.9)",
                       opacity: iframeLoading ? 0 : 1,
-                      transition: "opacity 0.4s ease",
+                      transition: "opacity var(--duration-fast) var(--ease-out)",
                     }}
                   />
                 </>

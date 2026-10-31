@@ -410,7 +410,7 @@ const MovieCard = memo(function MovieCard({
                   objectFit: "cover",
                   zIndex: 1,
                   opacity: isLoaded ? 1 : 0,
-                  transition: "opacity 0.4s ease",
+                  transition: "opacity var(--duration-fast) var(--ease-out)",
                 }}
               />
             ) : (
