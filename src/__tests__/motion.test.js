@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { SPRING, DURATION, EASE_OUT, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
+import { ROUTE_VARIANTS } from "../constants/routeMotion";
 import { SPRING as REEXPORTED } from "../constants/playerUi";
 
 /* Walks a directory for source files, so the contract tests below cover every
@@ -514,6 +515,30 @@ describe("framer tweens declare the shared easing", () => {
     }
     expect(offenders, `Use ease: EASE_OUT in: ${offenders.join(", ")}`).toEqual([]);
   });
+
+  it("allows only the two published curves as inline bezier arrays", () => {
+    // The app publishes EASE_OUT (enters) and EASE_IN (exits). A hand-typed
+    // array is a second vocabulary even when it looks close; the committed
+    // regression used [0.25, 0.8, 0.25, 1] on the header back button.
+    const allowed = [EASE_OUT, EASE_IN].map((curve) => curve.join(","));
+    const offenders = [];
+    for (const file of files) {
+      // The player owns its own motion model (IS_TOUCH paths, native controls),
+      // so its chrome is deliberately outside the shared-chrome vocabulary.
+      if (file.includes(`${join("components", "player")}`)) continue;
+      const src = readFileSync(file, "utf8");
+      for (const match of src.matchAll(/ease:\s*\[([^\]]+)\]/g)) {
+        const nums = match[1].split(",").map((n) => Number(n.trim()));
+        if (!allowed.includes(nums.join(","))) {
+          offenders.push(`${file.replace(process.cwd(), "")}: [${match[1].trim()}]`);
+        }
+      }
+    }
+    expect(
+      offenders,
+      `Hand-typed easing arrays; import EASE_OUT/EASE_IN instead:\n${offenders.join("\n")}`
+    ).toEqual([]);
+  });
 });
 
 describe("every modal takes the shared shapes", () => {
@@ -686,5 +711,31 @@ describe("press feedback is one vocabulary", () => {
         /import \{[^}]*\bPRESS_SCALE\b[^}]*\} from "[^"]*constants\/motion"/,
       );
     }
+  });
+});
+
+describe("route variants let framer compose the transform", () => {
+  /* framer builds `transform` from x/y/scale/translateZ. A variant that also
+     carries `transform: "translateZ(0)"` wins the style write and silently
+     drops the movement � verified in jsdom: the element rendered with only
+     `translateZ(0)`, while `translateZ: 0` produced `translateY(10px)
+     scale(0.995)`. Two route variants regressed this way, turning the app's
+     most common pages into fades with no rise. */
+  it("never sets a literal transform, which replaces x/y/scale", () => {
+    for (const [variant, states] of Object.entries(ROUTE_VARIANTS)) {
+      for (const [state, values] of Object.entries(states)) {
+        expect(values, `${variant}.${state}`).not.toHaveProperty("transform");
+      }
+    }
+  });
+
+  it("keeps the movement each variant's name promises", () => {
+    expect(ROUTE_VARIANTS["fade-up-subtle"].initial.y).toBeGreaterThan(0);
+    expect(ROUTE_VARIANTS["fade-up"].initial.y).toBeGreaterThan(0);
+    expect(ROUTE_VARIANTS["slide-right"].initial.x).toBeLessThan(0);
+    expect(ROUTE_VARIANTS["slide-left"].initial.x).toBeGreaterThan(0);
+    expect(ROUTE_VARIANTS["fade-up"].initial.scale).toBeLessThan(1);
+    // crossfade holds a sliver of the outgoing page instead of a hard 0.
+    expect(ROUTE_VARIANTS.crossfade.exit.opacity).toBeGreaterThan(0);
   });
 });

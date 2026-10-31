@@ -33,14 +33,14 @@ export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
    swallowing the click the viewer just made while the new page is invisible. */
 export const ROUTE_VARIANTS = {
   "fade-up-subtle": {
-    initial: { opacity: 0, y: 10, scale: 0.995, transform: "translateZ(0)", willChange: "transform, opacity" },
-    animate: { opacity: 1, y: 0, scale: 1, transform: "translateZ(0)", willChange: "auto" },
-    exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", transform: "translateZ(0)", willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 10, scale: 0.995, translateZ: 0, willChange: "transform, opacity" },
+    animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
+    exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
   "fade-up": {
-    initial: { opacity: 0, y: 14, scale: 0.994, transform: "translateZ(0)", willChange: "transform, opacity" },
-    animate: { opacity: 1, y: 0, scale: 1, transform: "translateZ(0)", willChange: "auto" },
-    exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", transform: "translateZ(0)", willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 14, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
+    exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
   "fade-only": {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },

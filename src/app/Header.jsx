@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, Settings, ChevronLeft } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
+import { DURATION, EASE_OUT } from "../constants/motion";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
 import AccountMenu from "./AccountMenu";
@@ -158,7 +159,7 @@ function Header() {
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: 0.2, ease: [0.25, 0.8, 0.25, 1] }}
+            transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
           type="button"
           className="back-btn"
           aria-label="Go back"
