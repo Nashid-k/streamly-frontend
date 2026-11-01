@@ -6983,3 +6983,30 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   that wrapper for the CSS keyframe pattern already used by the rails would drop
   one motion instance per card; per-card `content-visibility: auto` is not safe
   here because its paint containment clips the card hover lift/shadow.
+
+
+## 2026-11-01 - Domain: streamly.is-a.dev registration PR
+
+- **DNS checked first.** `streamly.is-a.dev` was unregistered (is-a.dev serves a
+  wildcard that 302s unknown names to `is-a.dev/available?d=streamly`), and
+  `streamly` is absent from the register repo, `util/reserved.json` and
+  `util/internal.json`.
+- **`streamly.work.gd` is not wired to Vercel yet:** it still answers with an A
+  record at 193.186.4.136 (dnsexit), not Vercel, and it does not resolve through
+  the local resolver at all. The Vercel TXT (`_vercel.streamly.work.gd` =
+  `vc-domain-verify=streamly.work.gd,dcb3ed3dfbf1b9a511b8`) exists, but the
+  CNAME to `8a89eceabae7fa84.vercel-dns-017.com` was never applied there.
+- **PR opened:** https://github.com/is-a-dev/register/pull/59508 - one file,
+  `domains/streamly.json` (`owner` Nashid-k + email, `records.CNAME` =
+  `8a89eceabae7fa84.vercel-dns-017.com`, unproxied). Fork is
+  `Nashid-k/register`, branch `add-streamly`. Tests / Template / Label checks
+  all green.
+- **No `_vercel.streamly.json` yet, deliberately:** the token the user supplied
+  is scoped to `streamly.work.gd`, and `tests/records.test.js` rejects a
+  `vc-domain-verify` TXT whose domain does not match the file's subdomain. Once
+  `streamly.is-a.dev` is added in Vercel and it shows
+  `vc-domain-verify=streamly.is-a.dev,<hash>`, that file can be added to the
+  same PR.
+- **Still to do by the owner:** add `streamly.is-a.dev` to the Vercel project's
+  Domains tab (Vercel serves 404 for hostnames it does not know), then wait for
+  the is-a.dev PR to be merged.
