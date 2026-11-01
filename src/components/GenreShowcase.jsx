@@ -88,14 +88,18 @@ function GenreRail({ rail, mediaTypes, limit }) {
   }, [isError, error, rail.id]);
 
   useEffect(() => {
-    if (!isLoading && !isError && movies.length === 0) {
+    /* Gate on a settled result, not on `!isLoading`: a viewport-gated (disabled)
+       query is neither loading nor settled in react-query v5, so the old check
+       fired six false "rail empty" warnings on every Home view before any
+       request had been made. */
+    if (data !== undefined && !isError && movies.length === 0) {
       logEmptyData(
         "GenreShowcase",
         `Genre rail "${rail.id}" empty — /discover returned nothing. Check TMDB discover + genre ids.`,
         { rail: rail.id },
       );
     }
-  }, [isLoading, isError, movies.length, rail.id]);
+  }, [data, isError, movies.length, rail.id]);
 
   const title = railTitle(rail, mediaTypes);
   const section = {

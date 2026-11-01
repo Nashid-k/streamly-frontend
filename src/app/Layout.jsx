@@ -24,7 +24,15 @@ function Layout({ children }) {
   const prefs = useOptionalPreferences();
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
   const mainRef = useRef(null);
-  const routeKey = location.pathname + location.search;
+  /* The transition key is the PATH, never the full URL. Keying on the query
+     string remounted the whole page on every debounced `?q=` sync — the search
+     box lost its caret after each keystroke (the input was destroyed, then the
+     focus-main effect below claimed focus), typed characters that had not made
+     it into the URL yet were dropped, the document jumped to the top and a
+     full route transition played per letter. A query-string change is in-page
+     state (live search, browse filters, settings tabs): the mounted page must
+     survive it, so it animates nothing. */
+  const routeKey = location.pathname;
   const variant = getRouteVariant(location.pathname);
   const navigationType = useNavigationType();
 
@@ -42,7 +50,9 @@ function Layout({ children }) {
     const main = mainRef.current;
     if (main?.contains(document.activeElement)) return;
     main?.focus({ preventScroll: true });
-  }, [location.pathname, location.search]);
+    // Pathname only: a query-string update is in-page state, so it must not
+    // yank focus out of a live input (the search box) into the page shell.
+  }, [location.pathname]);
 
   /* `mode="popLayout"` is load-bearing for scroll correctness, not a taste
      choice. With `sync` both pages stay in normal flow for the whole

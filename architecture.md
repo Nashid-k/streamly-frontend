@@ -551,6 +551,13 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/app/` — app shell + routing (`@/app`). `routes.jsx` (default `AppRoutes`,
   lazy pages, route-keyed `ErrorBoundary` + `Suspense`), `Layout.jsx`, `Header.jsx`,
   `MobileBottomNav.jsx`, `AccountMenu.jsx`. `App.jsx` is a thin composition root.
+  **Route transitions are keyed on `location.pathname` only.** A query-string
+  change (`/search?q=…`, `/movies?genre=…`, `/settings?tab=…`) is in-page state:
+  it must never remount the page, steal focus, or reset the scroll position
+  (`useScrollRestoration` only resets on a pathname change; POP restores as
+  before). The search box distinguishes its own debounce echo (URL it pushed)
+  from an outside arrival (Back/Forward, chip, shared link, Ctrl+K) and only
+  restores caret focus for the latter.
 - `src/api/` — network boundary (`@/api`). `index.js` barrel. `tmdbClient.js` (proxy-first fetch+timeout+
   `[Streamly][tmdb]` logs, direct fallback), `movieService/` (directory facade —
   `{core,normalize,search,featured,detail,discover,editorial,person,index}.js`;

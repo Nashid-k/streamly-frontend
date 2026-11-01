@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { useLocation, useNavigate } from "react-router-dom";
 import SearchPage from "../pages/SearchPage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";
@@ -29,7 +30,18 @@ afterEach(() => {
 });
 
 function renderPage(q = "matrix") {
-  return renderWithProviders(<SearchPage />, { route: `/search?q=${encodeURIComponent(q)}` });
+  return renderWithProviders(
+    <>
+      <SearchPage />
+      <LocationProbe />
+    </>,
+    { route: `/search?q=${encodeURIComponent(q)}` },
+  );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="loc">{location.pathname + location.search}</span>;
 }
 
 const queryInput = () => document.querySelector(".search-panel__input");
@@ -192,6 +204,96 @@ describe("SearchPage search history", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect(addSearch).toHaveBeenCalledTimes(1);
     expect(addSearch).toHaveBeenCalledWith("matrix");
+  });
+});
+
+describe("SearchPage live typing", () => {
+  /* The reported defect: "in search for each letter i need to click again".
+     The route transition was keyed on the full URL, so every debounced ?q=
+     sync unmounted the page (and the input) and Layout then focused <main> —
+     the caret was gone after each character. These pin the input's identity,
+     its caret and the text across the debounced commit. */
+  it("keeps the caret and the typed text across the debounced URL commit", async () => {
+    renderPage("");
+    const input = queryInput();
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    fireEvent.change(input, { target: { value: "m" } });
+    fireEvent.change(input, { target: { value: "ma" } });
+    fireEvent.change(input, { target: { value: "mat" } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("loc").textContent).toBe("/search?q=mat"),
+    );
+
+    // Same node (no remount), still focused, and the URL echo did not revert
+    // the box to an older term.
+    expect(queryInput()).toBe(input);
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe("mat");
+
+    // The debounce collapses the prefix keystrokes into ONE request.
+    const terms = searchSpy.mock.calls.map(([q]) => q);
+    expect(terms).not.toContain("m");
+    expect(terms).not.toContain("ma");
+    expect(terms).toContain("mat");
+  });
+
+  it("keeps typing after the commit without another click", async () => {
+    renderPage("");
+    const input = queryInput();
+    input.focus();
+
+    fireEvent.change(input, { target: { value: "mat" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("loc").textContent).toBe("/search?q=mat"),
+    );
+
+    fireEvent.change(input, { target: { value: "matr" } });
+    fireEvent.change(input, { target: { value: "matri" } });
+
+    expect(input.value).toBe("matri");
+    expect(document.activeElement).toBe(input);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("loc").textContent).toBe("/search?q=matri"),
+    );
+    expect(queryInput()).toBe(input);
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("drops the caret into the box when a query arrives from outside", async () => {
+    function Chip() {
+      const navigate = useNavigate();
+      return (
+        <button type="button" onClick={() => navigate("/search?q=matrix")}>
+          quick chip
+        </button>
+      );
+    }
+    renderWithProviders(
+      <>
+        <SearchPage />
+        <Chip />
+      </>,
+      { route: "/search" },
+    );
+
+    fireEvent.click(screen.getByText("quick chip"));
+
+    await waitFor(() => expect(queryInput().value).toBe("matrix"));
+    expect(document.activeElement).toBe(queryInput());
+  });
+
+  it("returns the caret to the box after the clear button", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+
+    expect(queryInput().value).toBe("");
+    expect(document.activeElement).toBe(queryInput());
   });
 });
 

@@ -6896,3 +6896,51 @@ longer break, so late back-navigations refetched too.
 - **Not verifiable here:** cold-start restore feel in a real browser (jsdom
   cannot measure paint-on-hydrate); confirm by reloading the app after
   browsing — routes should paint instantly and refetch in the background.
+
+
+## 2026-11-01 - Search focus loss per keystroke, route-key churn, reveal race
+
+**Symptom:** "in search for each letter i need to click again" - every typed
+character moved focus out of the search box. Reproduced live (headless Chrome
+over CDP, typing `matrix` with 450ms gaps): `focused:false` after every letter.
+
+**Root cause.** `Layout` keyed the route-transition wrapper on
+`location.pathname + location.search`. The search page mirrors the debounced
+query into `?q=`, so each commit produced a NEW key: React unmounted and
+remounted the whole page (input, results, filters), and the remount threw the
+caret away. The same churn hit `/movies` filters and `/settings` tabs.
+
+- **`src/app/Layout.jsx`.** `routeKey = location.pathname`; the focus-main
+  effect depends on `location.pathname` only. A query-string change is in-page
+  state, never a route transition.
+- **`src/hooks/useScrollRestoration.js`.** PUSH/REPLACE scroll reset now skips
+  when `pathname` is unchanged (a filter/tab/keystroke must not yank the page
+  to the top). POP restore is untouched.
+- **`src/pages/SearchPage.jsx`.** `lastPushedRef` records the URL the debounce
+  itself pushed, so its own echo is ignored; an outside arrival (Back/Forward,
+  chip, shared link, Ctrl+K) still adopts the query AND focuses the box. The
+  debounce compares against `lastPushedRef` instead of the local value (kills
+  the stale-closure commit that could clobber a just-typed character), the
+  clear button returns the caret to the input, and scroll-to-top is skipped
+  while the box has focus.
+- **`src/components/NativePlayerView.jsx`.** `revealStageWhenReady`'s 2.5s
+  "no frame ever decoded" fallback now bails when a user audio switch is in
+  flight (`audioSwitchRef.current`). A pick made shortly after commit could be
+  blanked mid-switch by the stale fallback; the switch's own confirmation or
+  its timeout owns the stage.
+- **`src/components/GenreShowcase.jsx`.** The empty-rail diagnostic gated on
+  `!isLoading`, but a viewport-gated (disabled) query is neither loading nor
+  settled in react-query v5 - six false "Genre rail X empty" warnings on every
+  Home view. Now gated on `data !== undefined` (same condition as the render).
+- **Tests.** `SearchPage.test.jsx` +4 (caret/text across a debounced commit,
+  typing after commit, outside-arrival focus, clear-button focus);
+  `layoutRouteKey.test.jsx` (new - query updates must not remount/refocus);
+  `scrollRestoration.test.jsx` +1 (query-only nav keeps position). The two
+  heavy player files raise their own `testTimeout` to 20s: under a 119-env
+  suite a loaded machine stretched real player mounts past the 5s default and
+  turned assertions into spurious timeouts.
+- **Verified live (CDP, dev server :3001):** old key FAIL (`focused:false`
+  after each letter), fixed PASS (`focused:true`, value and URL intact) for
+  `matrix` and `matrix reloaded`. Production route audit (6 routes): no broken
+  images, no failed requests, no page exceptions.
+- **Gates:** lint 0 errors, test 119 files / 1423 tests green, build clean.

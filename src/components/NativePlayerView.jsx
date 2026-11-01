@@ -2374,6 +2374,12 @@ setScrubDragging(true);
       const finish = () => {
         revealCleanup();
         if (runRef.current !== run) return;
+        /* A user audio pick that armed after this reveal started owns the
+           stage now. The reveal's 2.5s fallback exists only for "no frame ever
+           decoded"; letting it fire mid-switch blanked the loader while the
+           new track was still loading (the switch's own confirmation or its
+           timeout clears the stage). */
+        if (audioSwitchRef.current) return;
         setStageWhileLoading(false);
         setServerSwitchStage(false);
         setSwitchingNote(null);

@@ -14,6 +14,11 @@
 import { describe, expect, it, beforeAll, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
+// Mounts the real player in jsdom with a mocked hls.js. The suite runs ~119
+// environments in parallel, so a loaded machine can stretch a single mount past
+// the 5s default and turn a real assertion into a spurious timeout.
+vi.setConfig({ testTimeout: 20000 });
+
 const hlsState = {
   instances: [],
   loadSourceCalls: [],

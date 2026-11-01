@@ -19,6 +19,10 @@
 import { describe, expect, it, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
+// Real player mount in jsdom; see playerAudioSwitchStage.test.jsx for why the
+// default 5s budget is not enough when the full suite saturates the machine.
+vi.setConfig({ testTimeout: 20000 });
+
 const hlsState = {
   levels: [],
   currentLevel: -1,

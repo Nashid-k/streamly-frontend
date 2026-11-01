@@ -33,6 +33,14 @@ function Page({ label }) {
       <button type="button" onClick={() => navigate("/b")}>
         toB
       </button>
+      <button
+        type="button"
+        onClick={() =>
+          navigate({ pathname: location.pathname, search: "?q=a" }, { replace: true })
+        }
+      >
+        filterA
+      </button>
       <button type="button" onClick={() => navigate(-1)}>
         back
       </button>
@@ -72,6 +80,22 @@ describe("useScrollRestoration × route-animation flag", () => {
     await waitFor(() =>
       expect(scrollToSpy).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "instant" }),
     );
+  });
+
+  it("keeps the reader's position for a query-string-only navigation", async () => {
+    mountHarness();
+    scrollToSpy.mockClear();
+
+    fireEvent.click(screen.getByText("filterA"));
+
+    // The URL changes (a filter/live-search update) but the page does not:
+    // throwing the document back to the top here was the per-keystroke jump.
+    await sleep(80);
+    expect(scrollToSpy).not.toHaveBeenCalledWith({
+      top: 0,
+      left: 0,
+      behavior: "instant",
+    });
   });
 
   it("defers the POP restore until the animation flag clears, then restores the saved position", async () => {

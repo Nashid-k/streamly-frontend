@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigationType } from "react-router-dom";
 import { logDebug } from "../utils/debugLogger";
 
@@ -95,7 +95,17 @@ export function useScrollRestoration() {
     };
   }, [location.key]);
 
+  /* A PUSH/REPLACE that only changed the query string is the same page (live
+     search, browse filters, settings tabs) — the reader keeps their position.
+     React Router mints a new location.key for `setSearchParams(..., { replace
+     })`, so without this guard the document was thrown to the top on every
+     debounced keystroke. Back/forward (POP) still restores the entry's saved
+     position, which is exactly how a return to a filtered view should behave. */
+  const lastPathRef = useRef(location.pathname);
+
   useEffect(() => {
+    const previousPath = lastPathRef.current;
+    lastPathRef.current = location.pathname;
     if (navType === "POP") {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {
@@ -129,6 +139,7 @@ export function useScrollRestoration() {
         };
       }
     } else {
+      if (previousPath === location.pathname) return;
       // PUSH: the reset must fire at commit, NOT after the animation. Under
       // AnimatePresence mode="popLayout" the document at commit is already the
       // entering page (the exiting one is out of flow), so this lands on the
@@ -144,5 +155,5 @@ export function useScrollRestoration() {
         window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       });
     }
-  }, [location.key, navType]);
+  }, [location.key, navType, location.pathname]);
 }

@@ -55,22 +55,32 @@ export default function SearchPage() {
     )
   );
 
-  useEffect(() => {
-    setLocalQuery(query);
-  }, [query]);
+  const searchInputRef = useRef(null);
+  const resultsRef = useRef(null);
+  /* The last term this box wrote into the URL. React Router round-trips that
+     write back through `query`, and the old "URL changed → setLocalQuery"
+     effect could not tell the echo from an outside arrival: a character typed
+     while the 300 ms debounce was landing got reverted to the older term (and
+     the caret was re-focused out of the results grid on every debounce). */
+  const lastPushedRef = useRef(query);
 
-  // Arriving at /search with a query (quick chip, did-you-mean, empty-state
-  // action, shared link) should drop the caret into the box — never require a
-  // click to keep typing.
+  // Adopt the URL only when the change came from OUTSIDE this box — Back/
+  // Forward, a quick chip, a shared link, or Ctrl+K carrying a term over.
   useEffect(() => {
+    if (query === lastPushedRef.current) return;
+    lastPushedRef.current = query;
+    setLocalQuery(query);
+    // An outside arrival means the viewer wants to type: put the caret back.
     if (query) searchInputRef.current?.focus();
   }, [query]);
 
   // Live / dynamic search — sync the input to the URL query (debounced)
   useEffect(() => {
-    if (localQuery.trim() === query) return;
+    const committed = localQuery.trim();
+    if (committed === lastPushedRef.current) return;
     const t = setTimeout(() => {
-      setSearchParams(localQuery.trim() ? { q: localQuery.trim() } : {}, { replace: true });
+      lastPushedRef.current = committed;
+      setSearchParams(committed ? { q: committed } : {}, { replace: true });
     }, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,6 +98,7 @@ export default function SearchPage() {
   const submitQuery = () => {
     const committed = localQuery.trim();
     if (!committed) return;
+    lastPushedRef.current = committed;
     setSearchParams({ q: committed }, { replace: true });
     addSearch(committed);
   };
@@ -200,6 +211,11 @@ export default function SearchPage() {
 
   useEffect(() => {
     setVisibleCount(20);
+    // Typing leaves the caret in the box, and the box sits at the top of the
+    // page anyway: a debounced keystroke must not throw the reader to the top
+    // (that jump used to fire once per letter). Chips and outside arrivals are
+    // clicks outside the box, so they still land at the top.
+    if (document.activeElement === searchInputRef.current) return;
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [query, filterType, sortBy]);
 
@@ -234,8 +250,6 @@ export default function SearchPage() {
      card itself — MovieCard already activates natively, so re-implementing
      that here would only double-fire navigation. Delegated from the section
      so cards added by the 20-item "load more" window are covered too. */
-  const searchInputRef = useRef(null);
-  const resultsRef = useRef(null);
 
   /* Header's Ctrl+K shortcut dispatches `streamly:search-focus` a frame after
      navigating here. `autoFocus` only covers a fresh mount, so when /search is
@@ -409,8 +423,12 @@ export default function SearchPage() {
                 className="search-panel__clear"
                 aria-label="Clear search"
                 onClick={() => {
+                  lastPushedRef.current = "";
                   setLocalQuery("");
                   setSearchParams({}, { replace: true });
+                  // The X is a button: without this the caret lands on it and
+                  // the next keystroke does nothing.
+                  searchInputRef.current?.focus();
                 }}
               >
                 <X size={16} />
