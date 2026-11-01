@@ -6944,3 +6944,42 @@ caret away. The same churn hit `/movies` filters and `/settings` tabs.
   `matrix` and `matrix reloaded`. Production route audit (6 routes): no broken
   images, no failed requests, no page exceptions.
 - **Gates:** lint 0 errors, test 119 files / 1423 tests green, build clean.
+
+
+### 2026-11-01 - App-wide fluidity audit (measured, not guessed)
+
+Method: headless Chrome over CDP against the deployed build at 1600x1000 -
+`Network` request ledger, `PerformanceObserver("longtask")`, a 90-frame rAF
+scroll probe, and a `Profiler` CPU profile of the first mount. Helper scripts
+live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
+`cdp-first-mount-profile.mjs`, `cdp-image-sizes.mjs`).
+
+| route | requests | DOM nodes | long tasks | worst task | scroll frames > 50ms |
+| --- | --- | --- | --- | --- | --- |
+| `/` (after scrolling) | 449 (431 unique, 659 KB) | 3914 | 14 / 1260ms | 192ms | 26 of 90 (max 280ms) |
+| `/movies` (after scrolling) | 360 | 7347, 200 cards | 13 / 2045ms | 1338ms | 27 of 90 (max 136ms) |
+
+- **`/movies` first mount** spends ~1.1s of JS: `MovieCard` and its
+  subcomponents (`CountdownBadge`, `ContentTag`, `RatingsCluster`) account for
+  ~546ms over the first ~20 visible cards (~27ms/card), plus ~505ms of
+  layout/paint. Cards already defer off-screen via `useVirtualRenderAdapter`
+  (400px margin), so this is the cost of the first screenful, not the grid.
+- **`MovieCard` blur-up placeholder** had no `loading` attribute, so every
+  mounted card eagerly fetched its 92px blur-up even far outside the viewport
+  (a rail mounts all ~18 cards at once) and queued ahead of the poster it
+  precedes. Now `loading="lazy" decoding="async"`.
+- **Genre rail warnings** were false positives (disabled query has
+  `isLoading === false` in react-query v5) - fixed above. The separate
+  "TMDB returned 0 results" warnings are the regional upcoming/airing sweeps and
+  are genuine: direct probes return 20 results for `ta/hi/ml/te/kn` and 15 for
+  `tv/ta` with the same params, so nothing is broken there.
+- **Known constant cost, left alone deliberately:** the three ambient blobs run
+  `blur(60px)` + `mix-blend-mode: screen` transform loops on every page. They
+  are GPU-composited and reduced-motion aware, but they keep the compositor busy
+  forever; disabling them would change the design, so this is recorded rather
+  than changed.
+- **Not done (needs a design decision):** the discovery grid keeps every page it
+  has loaded mounted, and each card is a framer `motion.div` wrapper. Swapping
+  that wrapper for the CSS keyframe pattern already used by the rails would drop
+  one motion instance per card; per-card `content-visibility: auto` is not safe
+  here because its paint containment clips the card hover lift/shadow.

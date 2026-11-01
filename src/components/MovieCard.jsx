@@ -220,6 +220,12 @@ const MovieCard = memo(function MovieCard({
                       movie.posterUrl || movie.backdropUrl,
                     )}
                     alt=""
+                    /* Lazy like the real poster: a rail mounts every card, and
+                       without this each one eagerly fetched its 92px blur-up
+                       even far outside the viewport, spending a request slot
+                       that the poster it precedes then had to queue behind. */
+                    loading="lazy"
+                    decoding="async"
                     style={{
                       width: "100%",
                       height: "100%",
