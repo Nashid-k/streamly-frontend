@@ -378,6 +378,11 @@ async function relayPlaylistText(url, refUrl, signal) {
 const PROBE_MEMO_TTL_MS = 120 * 1000;
 const PROBE_MEMO_MAX = 16;
 const probeMemo = new Map();
+// In-flight probes, keyed like the memo. A dub pick and the switch that follows
+// it (or two rapid clicks on the same row) used to run the serial
+// master -> media -> segment chain twice; sharing the promise makes the second
+// caller wait on the first instead of paying the whole chain again.
+const probeInFlight = new Map();
 
 function probeMemoKey(entryUrl, refUrl) {
   return `${refUrl || ""}|${entryUrl}`;
@@ -456,16 +461,45 @@ export async function probeSourcePlayable(entryUrl, refUrl, options = {}) {
     probeMemo.set(key, hit);
     return { ...hit.result };
   }
-  const result = await probeSourcePlayableOnce(entryUrl, refUrl, options);
-  if (result?.ok) {
-    probeMemo.set(key, { at: Date.now(), result });
-    while (probeMemo.size > PROBE_MEMO_MAX) {
-      const oldest = probeMemo.keys().next().value;
-      if (oldest === undefined) break;
-      probeMemo.delete(oldest);
-    }
+  // Join an identical probe already on the wire instead of starting a second
+  // one. The copy keeps callers from mutating a shared result object.
+  const running = probeInFlight.get(key);
+  if (running) return { ...(await running) };
+
+  const { signal, timeoutMs = 0 } = options;
+  // `timeoutMs` is the "never leave the stage up forever" bound for callers
+  // that own no signal (a user-initiated switch). When a caller DOES pass a
+  // signal, that signal owns cancellation.
+  let controller = null;
+  let timer = null;
+  let probeSignal = signal;
+  if (!signal && timeoutMs > 0) {
+    controller = new AbortController();
+    probeSignal = controller.signal;
+    timer = setTimeout(() => controller.abort(), timeoutMs);
   }
-  return result;
+  const task = (async () => {
+    try {
+      return await probeSourcePlayableOnce(entryUrl, refUrl, { signal: probeSignal });
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  })();
+  probeInFlight.set(key, task);
+  try {
+    const result = await task;
+    if (result?.ok) {
+      probeMemo.set(key, { at: Date.now(), result });
+      while (probeMemo.size > PROBE_MEMO_MAX) {
+        const oldest = probeMemo.keys().next().value;
+        if (oldest === undefined) break;
+        probeMemo.delete(oldest);
+      }
+    }
+    return result;
+  } finally {
+    probeInFlight.delete(key);
+  }
 }
 
 /* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in

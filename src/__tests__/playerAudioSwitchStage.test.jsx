@@ -319,4 +319,41 @@ describe("in-manifest audio switch", () => {
     });
     unmount();
   });
+
+  it("keeps the branded stage up when the switch confirms instantly", async () => {
+    const { unmount } = await mountPlayer();
+    // No deferred confirmation: the fake hls confirms on the next tick. That is
+    // exactly the case that used to clear `buffering` before the 700ms spinner
+    // debounce armed, so the branded stage never appeared at all (user report).
+    openAudioPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^Tamil/i }));
+
+    expect(await screen.findByText("Switching audio…")).toBeInTheDocument();
+    // The confirmation has already landed, yet the stage is still held for its
+    // minimum so the pick reads as an action instead of a flash.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+    expect(screen.getByText("Switching audio…")).toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(screen.queryByText("Switching audio…")).not.toBeInTheDocument();
+      },
+      { timeout: 2000 },
+    );
+    unmount();
+  });
+
+  it("closes the sheet when the row that is already playing is picked", async () => {
+    const { unmount } = await mountPlayer();
+    openAudioPanel();
+    // Row 0 is the track already playing. Selecting it is still an action: the
+    // sheet must close rather than sit there and look unresponsive.
+    fireEvent.click(screen.getByRole("button", { name: /^English/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: /^Audio track/i })).not.toBeInTheDocument();
+    });
+    unmount();
+  });
 });

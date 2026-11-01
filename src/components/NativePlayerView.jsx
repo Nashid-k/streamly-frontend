@@ -150,6 +150,17 @@ const SIBLING_WARM_DELAY_MS = 4000;
 // group's segments are already buffered). If the provider advertises a track it
 // never delivers, this bound keeps the branded stage from spinning forever.
 const AUDIO_SWITCH_TIMEOUT_MS = 6000;
+// A user-initiated switch must be SEEN. An in-manifest track change can be
+// confirmed in under a frame, and clearing the branded stage that fast made the
+// click read as a dead button: the art flashed in and out, or (when the 700ms
+// spinner debounce had not armed yet) never appeared. Hold the stage for this
+// long so a pick always reads as an action.
+const MIN_SWITCH_STAGE_MS = 600;
+// A dub switch probes the sibling manifest before committing. The provider's
+// resolve chain (mint -> servers -> MPD) is measured in seconds through the
+// relay, so this bound is generous — it exists to stop a hung request from
+// leaving the branded stage up indefinitely, not to race a healthy probe.
+const DUB_PROBE_TIMEOUT_MS = 12000;
 // ABR seed: hls.js starts its bandwidth estimate at 1Mbps, so Auto would climb
 // the ladder one relay round-trip at a time (a visible "loading" per rung).
 // 10Mbps starts Auto mid-ladder; the floor step-down still guards a bad pipe.
@@ -361,6 +372,9 @@ export default function NativePlayerView({
   const audioSwitchRef = useRef(null);
   const audioSwitchTokenRef = useRef(0);
   const audioSwitchTimerRef = useRef(null);
+  // When the branded stage was last armed by a user pick, so a switch that
+  // confirms instantly still holds the stage for MIN_SWITCH_STAGE_MS.
+  const audioStageArmedAtRef = useRef(0);
   // The track a pick last failed on. hls.js keeps the failed id selected after
   // a timeout, so without this the same row could never be retried.
   const audioFailedIndexRef = useRef(null);
@@ -592,7 +606,16 @@ export default function NativePlayerView({
   // picture, and without this a paused switch showed neither spinner (the
   // spinner gate wants `playing`) nor stage — just a black rectangle with no
   // progress indication until the new stream committed.
-  const showStage = !fatal && (spinner || serverSwitchStage) && (stageWhileLoading || !hasStartedRef.current);
+  //
+  // `stageWhileLoading` is armed the instant a switch starts, so it is honoured
+  // DIRECTLY: waiting for the debounced `spinner` meant an in-manifest audio
+  // pick that confirmed inside the 700ms anti-flash window cleared `buffering`
+  // before the spinner ever armed, and the branded stage never appeared at all
+  // (user report: "audio switching not showing the title image loader"). The
+  // debounced spinner still owns the warm-stall case, where the picture is
+  // worth keeping and only a light ring may appear.
+  const showStage =
+    !fatal && (stageWhileLoading || ((spinner || serverSwitchStage) && !hasStartedRef.current));
   // Why this particular wait is happening. "Loading…" alone is identical for a
   // cold open and for a server the viewer just picked, and those two deserve
   // different wording — one is the app working, the other is the app admitting
@@ -2717,9 +2740,21 @@ setScrubDragging(true);
               // ignore
             }
             audioSwitchTimerRef.current = null;
-            setBuffering(false);
-            setStageWhileLoading(false);
-            setSwitchingNote(null);
+            const finish = () => {
+              audioSwitchTimerRef.current = null;
+              if (runRef.current !== run) return;
+              setBuffering(false);
+              setStageWhileLoading(false);
+              setSwitchingNote(null);
+            };
+            // Confirmed in under a frame? Hold the stage for the rest of its
+            // minimum so the pick is visible (see MIN_SWITCH_STAGE_MS).
+            const remaining = MIN_SWITCH_STAGE_MS - (Date.now() - audioStageArmedAtRef.current);
+            if (remaining > 0) {
+              audioSwitchTimerRef.current = setTimeout(finish, remaining);
+              return;
+            }
+            finish();
           };
 
           // Startup audio loading moves the default track too. The menu must
@@ -3215,6 +3250,22 @@ setScrubDragging(true);
         hls.on(Hls.Events.ERROR, onFatal);
       });
       if (!isCurrent()) return false;
+      // Start the NEW manifest at the resume position. hls.js otherwise buffers
+      // from the first fragment and only then follows the element's seek, so a
+      // switch deep into a film paid a whole fragment fetch (and a seek round
+      // trip) for frames nobody ever saw. startLoad(position) is the documented
+      // way to set a start position on an engine that is already loaded.
+      const startAt = Number(t);
+      if (Number.isFinite(startAt) && startAt > 0 && typeof hls.startLoad === "function") {
+        try {
+          hls.startLoad(startAt);
+        } catch (error) {
+          logWarn("native", "hls.startLoad at the resume position was refused; seeking instead.", {
+            position: startAt,
+            message: error?.message,
+          });
+        }
+      }
       safeSeek(t);
       const video = videoRef.current;
       // Resume INSIDE the click's activation window: start the play() NOW, before
@@ -3484,14 +3535,30 @@ setScrubDragging(true);
 
   const pickAudio = (index) => {
     const hls = hlsRef.current;
-    if (!hls) return;
-    // hls.audioTrack is ALREADY the target when a previous pick timed out, so a
-    // plain equality guard made that row permanently unretryable. The failure
-    // mark is cleared on any confirmed switch.
-    if (index === hls.audioTrack && audioFailedIndexRef.current !== index) return;
+    if (!hls) {
+      // Still resolving: the sheet is the only surface, so say so instead of
+      // swallowing the click (a dead-looking row was the whole complaint).
+      setQualityNote("The player is still starting — try again in a moment.");
+      setControlsVisible(true);
+      return;
+    }
     const tracks = hls.audioTracks || [];
     const picked = tracks[index];
-    if (!picked) return;
+    if (!picked) {
+      setQualityNote("That audio track isn't in this stream. Try another server.");
+      setControlsVisible(true);
+      return;
+    }
+    // hls.audioTrack is ALREADY the target when a previous pick timed out, so a
+    // plain equality guard made that row permanently unretryable. The failure
+    // mark is cleared on any confirmed switch. Re-picking the row that is
+    // already playing is still an action — close the sheet instead of ignoring
+    // the click.
+    if (index === hls.audioTrack && audioFailedIndexRef.current !== index) {
+      setPanel(null);
+      poke();
+      return;
+    }
     // Capture what is playing BEFORE the optimistic preference overwrite. A
     // failed pick must not make that language sticky across every later resolve.
     let previousIndex = -1;
@@ -3528,6 +3595,7 @@ setScrubDragging(true);
     setServerSwitchStage(false);
     setSwitchingNote("Switching audio…");
     setBuffering(true);
+    audioStageArmedAtRef.current = Date.now();
     poke();
     // Close the sheet so the viewer actually sees the branded loader behind it.
     setPanel(null);
@@ -3604,9 +3672,19 @@ setScrubDragging(true);
     // A sibling is NOT provably the original — the provider's own player
     // highlights tracks[0] while playing the main URL — so the two lists must
     // never be conflated.
-    if (index === activeDubRef.current) return;
+    if (index === activeDubRef.current) {
+      // Re-picking the language already playing is still an action: close the
+      // sheet instead of leaving it open with no response.
+      setPanel(null);
+      poke();
+      return;
+    }
     const target = index === 0 ? null : dubTracks[index - 1];
-    if (index > 0 && !target?.uri) return;
+    if (index > 0 && !target?.uri) {
+      setQualityNote("That audio track isn't listed for this source. Try another server.");
+      setControlsVisible(true);
+      return;
+    }
     // This probe awaits the network. If another dub is picked, the server is
     // switched, or the source ladder is re-resolved before it returns, its
     // result belongs to a stream that is no longer playing.
@@ -3632,7 +3710,11 @@ setScrubDragging(true);
       index === 0
         ? (meta?.masterLevels ? meta?.entryUrl : meta?.variants?.[0]?.uri || meta?.entryUrl)
         : target.uri;
-    if (!targetUri) return;
+    if (!targetUri) {
+      setQualityNote("This source has no playable URL for that audio track.");
+      setControlsVisible(true);
+      return;
+    }
     poke();
     // Arm the branded loader BEFORE the probe — a user-initiated dub switch must
     // show the art stage the moment the row is clicked (the in-manifest pick
@@ -3642,12 +3724,16 @@ setScrubDragging(true);
     setServerSwitchStage(false);
     setSwitchingNote("Switching audio…");
     setBuffering(true);
+    audioStageArmedAtRef.current = Date.now();
     setPanel(null);
     // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
     // time-scoped, and a dead dub must not end up highlighted with the previous
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
+    // Bounded: a provider/relay that never answers must not leave the stage up
+    // forever. A timeout falls through to the switch itself, which still fails
+    // honestly through loadSource + the canplay gate.
     try {
-      const probe = await probeSourcePlayable(targetUri, meta?.refUrl);
+      const probe = await probeSourcePlayable(targetUri, meta?.refUrl, { timeoutMs: DUB_PROBE_TIMEOUT_MS });
       if (!isCurrent()) return;
       if (!probe.ok) {
         // The provider advertises this dub but does not serve it (verified live:
