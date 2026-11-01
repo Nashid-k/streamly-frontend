@@ -18,7 +18,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZxcResolveCache, zxcContractSeed, deriveZxcContractFromChunks } = await import("../../api/stream.js");
+const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZxcResolveCache, zxcContractSeed, deriveZxcContractFromChunks, fetchLiveZxcContract } = await import("../../api/stream.js");
 
 // Read the seed from the module so a provider rename (rewritten by the
 // sync-zxc-contract step) can NEVER strand this suite. The seed is what the
@@ -355,13 +355,13 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     + 'date:"e164931a39e5814b3027",imdbId:"f35a81943265e871c4933a725f",'
     + 'latestDate:"e9543416ad739e5814b3027"};'
     + 'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}'
-    + 'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/fucku",'
+    + 'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/wtfnigga",'
     + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}';
 
   it("reads the literal field-named params and the FIELD_MAP-fed mint path", () => {
     const c = deriveZxcContractFromChunks([FIELD_MAP_CHUNK]);
     expect(c).toBeTruthy();
-    expect(c.mintPath).toBe("/backend/fucku");
+    expect(c.mintPath).toBe("/backend/wtfnigga");
     expect(c.params).toEqual({
       tmdbId: "a7f39c821d604e5b91e547b",
       mediaType: "c81b306d28147a35632e816b",
@@ -401,9 +401,52 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     const withoutFToken = FIELD_MAP_CHUNK.replace(/,fToken:"[^"]+"/, "");
     const c = deriveZxcContractFromChunks([withoutFToken]);
     expect(c).toBeTruthy();
-    expect(c.mintPath).toBe("/backend/fucku");
+    expect(c.mintPath).toBe("/backend/wtfnigga");
     expect(c.params.fToken).toBe("");
     expect(c.params.tmdbId).toBe("a7f39c821d604e5b91e547b");
     expect(c.fTokenSalt).toBe("23423653");
+  });
+});
+
+describe("ZXC discovery chunk enumeration", () => {
+  /* The live bundle splits the contract across chunks: FIELD_MAP + salt ship in
+     `0apzubojwy9.n.js`, the mint `.post(…)` in `0f91~k5lj67ju.js`. The chunk
+     filename charset is not `[A-Za-z0-9._/-]` — it contains `~` — and a narrow
+     class silently skipped the mint chunk, so discovery reported "found nothing
+     usable" while the provider was perfectly reachable. That turned every rename
+     into an outage that self-heal could not repair. */
+  it("fetches and parses a mint chunk whose filename contains `~`", async () => {
+    // Built from the seed so a contract rewrite can never strand this fixture.
+    const s = zxcContractSeed();
+    const fieldMapOnly =
+      `let r="${s.fTokenSalt}",i={id:"${s.params.tmdbId}",fToken:"${s.params.fToken}",ts:"${s.params.ts}",`
+      + `token:"${s.params.token}",title:"${s.params.title}",year:"${s.params.year}",`
+      + `season:"${s.params.season}",episode:"${s.params.episode}",imdbId:"${s.imdbParam}",`
+      + `path:"${s.params.path}",mediaType:"${s.params.mediaType}",date:"${s.params.date}",`
+      + `latestDate:"${s.latestDateParam}"};`
+      + 'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}';
+    const mintOnly =
+      'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/splitmint",'
+      + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t})}}}';
+
+    vi.stubGlobal("fetch", vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes("/embed/")) {
+        return html(
+          '<!doctype html><script src="/_next/static/chunks/0apzubojwy9.n.js"></script>'
+          + '<script src="/_next/static/chunks/0f91~k5lj67ju.js"></script>',
+        );
+      }
+      if (url.includes("0f91~k5lj67ju.js")) return html(mintOnly);
+      if (url.includes("0apzubojwy9.n.js")) return html(fieldMapOnly);
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const contract = await fetchLiveZxcContract();
+    expect(requests.some((u) => u.includes("0f91~k5lj67ju.js"))).toBe(true);
+    expect(contract?.mintPath).toBe("/backend/splitmint");
+    expect(contract?.params.tmdbId).toBe(s.params.tmdbId);
+    expect(contract?.fTokenSalt).toBe(s.fTokenSalt);
   });
 });

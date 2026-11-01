@@ -189,7 +189,7 @@ const ZXC_ORIGIN = "https://zxcstream.cc";
 // below is rewritten in place from values the script derives from the
 // provider's own shipped chunk and then confirms by real playback. Do not
 // hand-edit inside the markers — edit the script instead.
-const ZXC_MINT_PATH = "/backend/fucku";
+const ZXC_MINT_PATH = "/backend/wtfnigga";
 /* The obfuscated parameter names the client sends. Read straight off the
    shipped bundle's `FIELD_MAP` export — renaming any of them makes the
    request fail closed. */
@@ -602,7 +602,11 @@ export async function fetchLiveZxcContract({ timeoutMs = 8000 } = {}) {
   const referer = `${ZXC_ORIGIN}/embed/movie/${ZXC_DISCOVERY_TMDB_ID}`;
   const html = await fetchUpstream(referer, { referer: `${ZXC_ORIGIN}/`, timeoutMs });
   const chunkPaths = [...new Set(
-    [...html.matchAll(/\/_next\/static\/chunks\/[A-Za-z0-9._/-]+\.js/g)].map((m) => m[0]),
+    // Next/Turbopack chunk names are NOT limited to word chars + dots: the live
+    // bundle ships `0f91~k5lj67ju.js`, and the chunk carrying the mint `.post(…)`
+    // is exactly one of those. A narrow class silently skips that chunk, which
+    // turns a real rename into "found nothing usable" and kills self-heal.
+    [...html.matchAll(/\/_next\/static\/chunks\/[^"'\s<>`]+?\.js/g)].map((m) => m[0]),
   )];
   if (chunkPaths.length === 0) {
     logWarn("zxc", "contract discovery found no client chunks in the embed page");

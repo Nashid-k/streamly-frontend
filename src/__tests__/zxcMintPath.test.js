@@ -37,7 +37,7 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcReso
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/fucku";
+const MINT_PATH = "/backend/wtfnigga";
 /* The current sources endpoint. Retired name: `/backend/servers/{server}`. */
 const SOURCES_PATH = "/backend_/sources/";
 
@@ -136,7 +136,7 @@ describe("ZXC mint endpoint", () => {
     // `fuckoffniggawtf`, `fuckoffniggawtaf`, `scrapeurfckingmom` and
     // `scrapeurfckingdad` are all retired mint names that answer the Next.js
     // HTML 404 page. `/backend/servers/` is the retired sources endpoint.
-    for (const dead of ["/backend/meow", "/backend/fuckyou", "/backend/fuckoffniggawtf", "/backend/fuckoffniggawtaf", "/backend/scrapeurfckingmom", "/backend/scrapeurfckingdad", "/backend/servers/"]) {
+    for (const dead of ["/backend/meow", "/backend/fuckyou", "/backend/fuckoffniggawtf", "/backend/fuckoffniggawtaf", "/backend/scrapeurfckingmom", "/backend/scrapeurfckingdad", "/backend/fucku", "/backend/servers/"]) {
       expect(requests.some((u) => u.includes(dead))).toBe(false);
     }
   });

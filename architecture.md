@@ -198,16 +198,15 @@ backends with different capabilities, not one source with quality rungs. **The
 roster ROTATES upstream**, so it is re-derived at runtime from the client chunk's
 shipped `ec=[…]` array (`parseZxcRoster` in `api/stream.js`: ordered `{name,
 server, dubSupport}`; the legacy `SERVERS` export is still parsed) and drives the
-menu order, the default, and the rotation tie-break. `ZXC_ROSTER_SEED` in
+menu order, the default, and the rotation tie-break. As of 2026-11-01 the shipped
+chunks no longer carry a roster array at all (no server name appears in any
+chunk), so discovery returns `null` and the seed stands. `ZXC_ROSTER_SEED` in
 `api/stream.js` is only the seed for before-discovery and offline, kept in the
 provider's own order (re-verified live 2026-10-16: Orion, Valstrax, Atlas, Ursa,
 Alatreon, Daedalus — Orion is the provider's Server 1 and the only multi-audio
 row; `resshin` is a separate download-only row outside the roster array).
 Minting is
-a single `POST {ZXC_ORIGIN}/backend/fucku` + the provider's current obfuscated
-mint path (`ZXC_MINT_PATH` in `api/stream.js`; upstream renames it — measured
-history `meow → fuckyou → fuckoffniggawtf → scrapeurfckingmom → scrapeurfckingdad
-→ fucku` — so it is read from the constant and never repeated here) whose body
+a single `POST {ZXC_ORIGIN}{ZXC_MINT_PATH}` whose body
 carries the obfuscated field keys (`ZXC_PARAM`: `id`, `mediaType`, `path` for the
 server, plus `season`/`episode` for TV) **and the browser-proof `fToken`/`ts`
 pair** — `ts = Date.now()` and
@@ -229,6 +228,12 @@ provider's own shipped chunk and retries once. The parser accepts single- or
 double-quoted literals (minifiers flip quote style) and `let`/`const` salt
 declarations; discovery fetches the bundle chunk-by-chunk and retries only FAILED
 chunk paths once, because FIELD_MAP and the mint path ship in different chunks.
+Chunk names are NOT restricted to `[A-Za-z0-9._/-]` — the live mint chunk is
+`0f91~k5lj67ju.js`, so the enumeration regex accepts the full filename charset
+(a narrow class silently skipped the mint chunk and made a reachable provider
+look unreachable). Retired `ZXC_MINT_PATH` names: `meow → fuckyou →
+fuckoffniggawtf → scrapeurfckingmom → scrapeurfckingdad → fucku`; the CURRENT
+value lives only in the constant and the test pin, so a rename touches one place.
 Discovery is throttled three ways: 60s after a successful discovery, 10s after a
 failed one, and 10s for the sources-side forced path. A successful discovery
 clears the MPD and resolve caches so the old contract's URLs are never replayed,

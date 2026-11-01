@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
-const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache } = await import("../../api/stream.js");
+const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
 
 const RELAY_URL = "https://script.google.com/macros/s/TEST/exec?token=secret";
 
@@ -108,7 +108,9 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
 
     const mintCall = fetchMock.mock.calls.find(([u]) => {
       if (!String(u).startsWith(RELAY_URL)) return false;
-      return String(new URL(u).searchParams.get("url")).includes("/backend/fucku");
+      // Read the seed, not a frozen literal: a provider rename must not strand
+      // this suite (the seed is what the handler mints through first).
+      return String(new URL(u).searchParams.get("url")).includes(zxcContractSeed().mintPath);
     });
     expect(mintCall).toBeTruthy();
     const [mintUrl, mintInit] = mintCall;
