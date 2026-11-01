@@ -7,6 +7,11 @@
 
  ## Done (in order)
 
+- [x] **Fix attempt executed: mint re-discovery blocked from sandbox — playback still FAIL (user: "fix it and push") — 2026-11-01.**
+  - Ran `node scripts/sync-zxc-contract.mjs`: re-discovery from the live chunk again found nothing usable ("provider mint contract re-discovery found nothing usable; keeping current"); mint kept at the stale `ZXC_MINT_PATH = "/backend/fucku"`.
+  - Playback verification: every server (orion/valstrax/atlas/ursa/alatreon/daedalus) → `ZXC server returned no stream { server: …, message: 'Upstream 404' }`; movie FAIL, series FAIL (series incl. the user's "Vision Quest" title).
+  - **Fix is therefore NOT completable from this sandbox** — re-derivation needs a network-capable runner (GHA `workflow_dispatch`, Vercel cron, local dev machine). No source change was made; the stale seed was kept deliberately.
+
 - [x] **Motion drift sweep #2 + extended audit pass (user: "do more audits in the entire streamly and do the improvements and optimisations also verify all servers working with multiple movies/series and update needed") — 2026-11-01.**
   - **Audit.** Post-sweep grep over `src/` for hardcoded transitions left outside the token vocabulary after the first motion sweep (`b6325ff`).
   - **Found & fixed (3 drift sites).** Player chrome inline CSS transitions hand-typed instead of the token-var form:
