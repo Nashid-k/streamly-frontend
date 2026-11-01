@@ -51,7 +51,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
         fontSize: 14.5,
-        transition: "background 0.15s ease",
+        transition: "background var(--duration-fast) var(--ease-out)",
       }}
     >
       <span className="np-dialog-row-icon" style={{ width: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 12 }}>

@@ -171,7 +171,7 @@ export default function BottomChrome({
             width: "100%",
             background: TRACK,
             borderRadius: "var(--radius-full)",
-            transition: "height 0.15s ease",
+            transition: "height var(--duration-fast) var(--ease-out)",
           }}
         >
           {duration > 0 &&
@@ -223,7 +223,7 @@ export default function BottomChrome({
               borderRadius: "50%",
               background: ACCENT,
               transform: "translateY(-50%)",
-              transition: "width 0.15s ease, height 0.15s ease",
+              transition: "width var(--duration-fast) var(--ease-out), height var(--duration-fast) var(--ease-out)",
               boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
             }}
           />

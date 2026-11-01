@@ -7,6 +7,17 @@
 
  ## Done (in order)
 
+- [x] **Motion drift sweep #2 + extended audit pass (user: "do more audits in the entire streamly and do the improvements and optimisations also verify all servers working with multiple movies/series and update needed") — 2026-11-01.**
+  - **Audit.** Post-sweep grep over `src/` for hardcoded transitions left outside the token vocabulary after the first motion sweep (`b6325ff`).
+  - **Found & fixed (3 drift sites).** Player chrome inline CSS transitions hand-typed instead of the token-var form:
+    1. `player/chrome/BottomChrome.jsx` — `height 0.15s ease` → `height var(--duration-fast) var(--ease-out)`; `width 0.15s ease, height 0.15s ease` → token-var equivalents.
+    2. `player/chrome/CenterStack.jsx` — `transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)` → `transform var(--duration-fast) var(--ease-out)`.
+    3. `player/chrome/DialogRow.jsx` — `background 0.15s ease` → `background var(--duration-fast) var(--ease-out)`.
+    Remaining grep hits were already token-var (`var(--duration-fast) var(--ease-out)`); only these were hardcoded.
+  - **Audit side-findings (no action this round).** Bare `catch {}` blocks remain in several api/hook/context files (silent-failure follow-up sweep pending); React Query defaults re-confirmed clean (staleTime 30min / gcTime 30min / refetchOnWindowFocus false).
+  - **Server roster.** `src/constants/sources.js` re-read — 6 live rows (Orion S1 multi-audio, Valstrax S2, Atlas S3 multi-audio, Ursa S4, Alatreon S5, Daedalus S6) + Auto; retired rows (MilkyWay, VidRack, Vidsrc, NHD) gone. Full multi-movie/series live verification and the next ZXC mint repin remain gated on a network-capable runner.
+  - **Gates.** `npm run lint` OK; `npx vitest run --maxWorkers=4` — 118 files / 1,414 tests all green; `npm run build` OK.
+
 - [x] **Audio switching loader fix + extreme end-to-end optimisation audit pass (user: "do extreme end to end audit to the app for optimisation in each and every corner, still audio swtiching not showing the title image loader as well as as soon i click the audio switching nothing happens it takes atleast 10-15 seconds") — 2026-11-01.**
   - **Audit.** End-to-end pass over the playback + shell layers (motion, cache, search, player audio) to hunt optimisation gaps.
   - **Audio switch defect found & fixed (`src/components/NativePlayerView.jsx`).**

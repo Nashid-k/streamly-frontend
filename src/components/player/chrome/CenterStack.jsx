@@ -183,7 +183,7 @@ export default function CenterStack({
               justifyContent: "center",
               pointerEvents: "auto",
               boxShadow: "0 16px 44px rgba(0,0,0,0.55)",
-              transition: "transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1)",
+              transition: "transform var(--duration-fast) var(--ease-out)",
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "scale(1.04)";
