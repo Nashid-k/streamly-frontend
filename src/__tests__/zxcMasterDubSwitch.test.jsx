@@ -201,6 +201,10 @@ describe("ZXC DASH master — dub switching", () => {
     }, { timeout: 3000 });
     expect(hlsState.loadSourceCalls).not.toContain(FRENCH_DUB);
 
+    // A successful dub switch closes the sheet so the loader owns the stage;
+    // reopening it is how the viewer walks back to the original track.
+    openAudioPanel();
+
     // ...and going back to the original drops the sibling dub parameter instead
     // of keeping a stale dub pinned. It restores via variants[0] (the
     // original-language entry), which is deliberately not the master URL.

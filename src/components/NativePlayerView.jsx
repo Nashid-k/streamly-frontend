@@ -3634,6 +3634,15 @@ setScrubDragging(true);
         : target.uri;
     if (!targetUri) return;
     poke();
+    // Arm the branded loader BEFORE the probe — a user-initiated dub switch must
+    // show the art stage the moment the row is clicked (the in-manifest pick
+    // already does; the dub path did not, so a click read as "nothing happens"
+    // until the probe + swap finished, with the sheet left open over the stage).
+    setStageWhileLoading(true);
+    setServerSwitchStage(false);
+    setSwitchingNote("Switching audio…");
+    setBuffering(true);
+    setPanel(null);
     // Prove the target manifest flows BEFORE committing the pick — NHD tokens are
     // time-scoped, and a dead dub must not end up highlighted with the previous
     // audio still playing. (The same gate pickQuality applies to quality rungs.)
@@ -3654,7 +3663,13 @@ setScrubDragging(true);
           next.add(index);
           return next;
         });
+        setStageWhileLoading(false);
+        setBuffering(false);
+        setSwitchingNote(null);
         setControlsVisible(true);
+        // The dead-row explanation renders inside the audio sheet — the armed
+        // stage closed it on click, so reopen before handing control back.
+        setPanel("audio");
         return;
       }
     } catch {
@@ -3693,6 +3708,9 @@ setScrubDragging(true);
           : audioTrackList[index]?.label || "That audio track";
       setQualityNote(`${label} didn't start — keeping the previous audio.`);
       setControlsVisible(true);
+      // The armed stage closed the sheet on click; the failure explanation
+      // renders inside it, so reopen to keep the rollback visible.
+      setPanel("audio");
     }
   };
 

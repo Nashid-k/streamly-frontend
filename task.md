@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Audio switching loader fix + extreme end-to-end optimisation audit pass (user: "do extreme end to end audit to the app for optimisation in each and every corner, still audio swtiching not showing the title image loader as well as as soon i click the audio switching nothing happens it takes atleast 10-15 seconds") — 2026-11-01.**
+  - **Audit.** End-to-end pass over the playback + shell layers (motion, cache, search, player audio) to hunt optimisation gaps.
+  - **Audio switch defect found & fixed (`src/components/NativePlayerView.jsx`).**
+    1. `pickDub` never armed the branded art stage nor closed the audio sheet on click — only the in-manifest `pickAudio` did. The dub path armed the stage later (after probe + swap), so a click read as "nothing happens" until the chain finished (~10-15 s) and the title-image loader was late/absent.
+    2. Failure paths left the sheet closed while the failure explanation renders *inside* the open sheet — invisible to the viewer.
+  - **Fixes shipped.** `pickDub` arms the stage (`Switching audio…`, buffering, panel close) before the probe; probe-fail and switch-refused paths reopen the sheet to surface the note. UX updated: success closes the sheet, failure reopens it.
+
 - [x] **Search friction fixes + optimisation audit pass (user: "do an full audit and find all the ways to optimise our app, also in search for each letter i need to click again .find all the problems in the search and fix") — 2026-11-01.**
   - **Audit.** Re-walked the recently hardened layers (motion token adoption, session-scale query freshness, ZXC mint self-heal) and the full search stack end-to-end: input → debounce → URL query → React Query (`placeholderData` / `enabled` / abort signal) → ranking → filter/sort → grid (virtual render adapter + scroll sentinel) → keyboard nav → history/quick starts/did-you-mean.
   - **Search problems found & fixed.**
