@@ -6997,16 +6997,22 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   `vc-domain-verify=streamly.work.gd,dcb3ed3dfbf1b9a511b8`) exists, but the
   CNAME to `8a89eceabae7fa84.vercel-dns-017.com` was never applied there.
 - **PR opened:** https://github.com/is-a-dev/register/pull/59508 - two files,
-  `domains/streamly.json` (`owner` Nashid-k + email, `records.CNAME` =
-  `8a89eceabae7fa84.vercel-dns-017.com`, unproxied) and
-  `domains/_vercel.streamly.json`. Fork is `Nashid-k/register`, branch
-  `add-streamly`. Tests / Template / Label checks all green.
+  `domains/streamly.json` (`owner` Nashid-k + email, `records.A` =
+  `["216.198.79.1"]`) and `domains/_vercel.streamly.json`. Fork is
+  `Nashid-k/register`, branch `add-streamly`. Tests / Template / Label checks
+  all green.
+- **Record is A, not CNAME, on purpose.** Vercel's domain card for
+  `streamly.is-a.dev` shows `A @ 216.198.79.1`, and their KB is explicit: "the
+  card is the source of truth... verification checks for the exact A record your
+  project expects". The `8a89eceabae7fa84.vercel-dns-017.com` CNAME the user
+  pasted belongs to the `streamly.work.gd` card, so it was replaced. A and CNAME
+  cannot coexist on one is-a.dev name anyway unless proxied.
 - **`_vercel.streamly.json` added** with Vercel's ownership TXT for this domain,
   `vc-domain-verify=streamly.is-a.dev,c9ed09afde89729d0f03` (Vercel reported the
   name as "linked to another Vercel account", i.e. a claim made without DNS
   control; the TXT proves control). The earlier token the user supplied was
   scoped to `streamly.work.gd`, which `tests/records.test.js` rejects in this
   file, so it was not used.
-- **Still to do by the owner:** add `streamly.is-a.dev` to the Vercel project's
-  Domains tab (Vercel serves 404 for hostnames it does not know), then wait for
-  the is-a.dev PR to be merged.
+- **Still to do by the owner:** keep the domain on **Production** (not
+  "Redirect to another domain"), leave Vercel's "redirect to www" toggle off,
+  then wait for the is-a.dev PR to be merged before pressing Verify.
