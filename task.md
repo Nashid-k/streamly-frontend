@@ -7007,12 +7007,22 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   project expects". The `8a89eceabae7fa84.vercel-dns-017.com` CNAME the user
   pasted belongs to the `streamly.work.gd` card, so it was replaced. A and CNAME
   cannot coexist on one is-a.dev name anyway unless proxied.
-- **`_vercel.streamly.json` added** with Vercel's ownership TXT for this domain,
-  `vc-domain-verify=streamly.is-a.dev,c9ed09afde89729d0f03` (Vercel reported the
-  name as "linked to another Vercel account", i.e. a claim made without DNS
-  control; the TXT proves control). The earlier token the user supplied was
-  scoped to `streamly.work.gd`, which `tests/records.test.js` rejects in this
-  file, so it was not used.
+- **`_vercel.streamly.json` added** with Vercel's ownership TXT for this domain
+  (Vercel reported the name as "linked to another Vercel account", i.e. a claim
+  made without DNS control; the TXT proves control). The token is
+  `vc-domain-verify=streamly.is-a.dev,629251529497238591fd`; Vercel rotated it
+  once (was `c9ed09afde89729d0f03`) after the domain was re-added, so re-adding or
+  re-running Troubleshoot rotates it again and the merged record goes stale. The
+  token the user first supplied was scoped to `streamly.work.gd`, which
+  `tests/records.test.js` rejects in this file, so it was never used.
+- **Verification cannot pass before the merge.** Checked against the
+  authoritative nameservers: `_vercel.streamly.is-a.dev` returns SOA (no TXT),
+  and `streamly.is-a.dev` still answers with is-a.dev's wildcard
+  `104.18.4.103 / 104.18.5.103`, not `216.198.79.1`. Pressing Verify in Vercel
+  only re-checks DNS, so it will keep saying "Verification Required" until
+  is-a.dev merges the PR and publishes both records.
 - **Still to do by the owner:** keep the domain on **Production** (not
   "Redirect to another domain"), leave Vercel's "redirect to www" toggle off,
-  then wait for the is-a.dev PR to be merged before pressing Verify.
+  then wait for the is-a.dev PR to be merged before pressing Verify. If the
+  maintainers reject the name, `streamly.work.gd` is the fallback - it already
+  has its Vercel TXT and only needs `A 216.198.79.1` in dnsexit.
