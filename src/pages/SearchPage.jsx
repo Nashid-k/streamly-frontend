@@ -59,6 +59,13 @@ export default function SearchPage() {
     setLocalQuery(query);
   }, [query]);
 
+  // Arriving at /search with a query (quick chip, did-you-mean, empty-state
+  // action, shared link) should drop the caret into the box — never require a
+  // click to keep typing.
+  useEffect(() => {
+    if (query) searchInputRef.current?.focus();
+  }, [query]);
+
   // Live / dynamic search — sync the input to the URL query (debounced)
   useEffect(() => {
     if (localQuery.trim() === query) return;
@@ -276,6 +283,19 @@ export default function SearchPage() {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       focusResultCard(0);
+      return;
+    }
+    // From the query box the walk can also jump straight to either end — a
+    // keyboard viewer should never have to click into the grid to position.
+    if (e.key === "Home") {
+      e.preventDefault();
+      focusResultCard(0);
+      return;
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      focusResultCard(resultCards().length - 1);
+      return;
     }
   };
 
@@ -376,6 +396,11 @@ export default function SearchPage() {
               onKeyDown={handleInputKeyDown}
               placeholder={t("search.placeholder")}
               aria-label={t("nav.search")}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="search"
               autoFocus={!isTouchDevice}
             />
             {localQuery && (
