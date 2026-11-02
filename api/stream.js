@@ -195,20 +195,20 @@ const ZXC_MINT_PATH = "/backend/wtfnigga";
    shipped bundle's `FIELD_MAP` export — renaming any of them makes the
    request fail closed. */
 const ZXC_PARAM = {
-  tmdbId: "a7f39c821d604e5b91e547b",
-  mediaType: "c81b306d28147a35632e816b",
-  path: "6b491e258d392e7561a9384c",
-  season: "d8427b5c38a2f957c3613e85b",
-  episode: "91c6ea753d1f785c92346b713d",
-  fToken: "e83c4b719a52105479c1635a",
-  ts: "61d9a5274c8e3b2f38c291e6",
-  token: "c492f7a183d01e436c538a716d",
-  title: "5e28c9147a06d1e29f3674b392a1",
-  year: "b731e6c94f8675f8341c306e",
-  date: "e164931a39e5814b3027",
+  tmdbId: "a7f39c821d604e5b91e57b",
+  mediaType: "c81306d28147a35632e816b",
+  path: "6b491e258392e7561a9384c",
+  season: "d8427b5c382f957c3613e85b",
+  episode: "91c6ea75d1f785c92346b713d",
+  fToken: "e83c4b719a5210579c1635a",
+  ts: "61d9a5274c8e3b2f38291e6",
+  token: "c492f7a183d01e36c538a716d",
+  title: "5e28c9147a06de29f3674b392a1",
+  year: "b731e6c94f867f8341c306e",
+  date: "e16493139e5814b3027",
 };
-const ZXC_IMDB_PARAM = "f35a81943265e871c4933a725f";
-const ZXC_LATEST_DATE_PARAM = "e9543416ad739e5814b3027";
+const ZXC_IMDB_PARAM = "f35a8194265e871c4933a725f";
+const ZXC_LATEST_DATE_PARAM = "e953416ad739e5814b3027";
 /* Salt for `sha512(ts:salt:tmdbId)`, the provider's per-request fToken. */
 const ZXC_FTOKEN_SALT = "23423653";
 // <zxc-contract:end>
