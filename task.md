@@ -7101,3 +7101,14 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   transitions moved off the Streamly easing literals onto the RIVO `--ease-tv`
   token so hover/focus choreography reads like the reference site.
 - **Gates.** `npm run lint` 0 errors, full suite green, `npm run build` clean.
+
+## 2026-11-02 - RIVO motion port: page fade, scroll reveal, blur level (follow-on to the design-language port)
+
+- **User ask.** "rivos animations for page opening, closing, rivos scroll animation as it has bottom lined/dotter circle in each page based on scrolling it spines and content loads (instead of ours loading all at once), implement their level of blurrness (as theirs is simple and smoooth than ours)".
+- **Findings.** RIVO's page choreography is a single `fadeUp` (opacity 0 → 1, translateY 12px → 0) for open and its reverse for close; its scroll layer fades sections up as they spine into view (`FadeInSection` + `.fade-in-section`) and renders progressively instead of a bulk mount; its glass blur is one soft level (nav glass `backdrop-blur-[30px] saturate-150`, scrim `backdrop-blur-md`).
+- **Shipped.**
+  1. Page open/close: retuned the `fade-up` route variant travel to RIVO's fadeUp rise (initial `y: 14 → 12`, scale 0.994 preserved for framer transform composition).
+  2. Scroll reveal: `.fade-in-section` retuned from `translateY(14px) / 0.42s var(--ease-out)` to RIVO's `translateY(12px) / 0.42s var(--ease-tv)` — scroll-triggered section fadeUp, replacing the old rise distance/easing.
+  3. Blur: glass token `--glass-blur` retuned `blur(24px) saturate(180%) → blur(30px) saturate(150%)`; desktop nav pill + scrolled state retuned to the same RIVO glass level (`blur(30px) saturate(150%)`).
+- **Content loading.** Progressive scroll-spine reveals (IntersectionObserver-driven `FadeInSection`) confirmed as the RIVO behavior; no further change needed — the retuned fadeUp now animates it identically to the reference.
+- **Gates.** `npm run lint` 0 errors; full suite green; `npm run build` clean.

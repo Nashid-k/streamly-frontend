@@ -38,7 +38,7 @@ export const ROUTE_VARIANTS = {
     exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
   "fade-up": {
-    initial: { opacity: 0, y: 14, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 12, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
     exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
