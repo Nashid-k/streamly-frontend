@@ -209,10 +209,12 @@ movie 1339713 and tv 1399 S1E1 it returns eight language-tagged 1080p masters
 Arabic sub). The upstream contract differs from ZXC's, hence the separate action.
 
 **VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes SIX
-separate Servers-menu rows** — `zxc-valstrax`, `zxc-atlas`, `zxc-ursa`,
-`zxc-alatreon`, `zxc-daedalus` (Server 2–6, unchanged) and `zxc-orion`
-(now Server 7, kept because the ZXC auto rotation can still serve it and a
-backend the player can play must stay nameable in the menu) — because it fronts
+separate Servers-menu rows** — `zxc-orion`, `zxc-atlas`, `zxc-valstrax,
+`zxc-ursa`, `zxc-alatreon`, `zxc-daedalus` (Server 2–7; re-numbered 2026-11-02 so
+the multi-audio rows lead the ZXC family — Orion at Server 2, Atlas at Server 3,
+followed by the Original-audio rows; Orion kept a row because the ZXC auto
+rotation can still serve it and a backend the player can play must stay
+nameable in the menu) — because it fronts
 independent backends with different capabilities, not one source with quality
 rungs. **The roster ROTATES upstream**, so it is re-derived at runtime from the
 client chunk's shipped `ec=[…]` array (`parseZxcRoster` in `api/stream.js`:
@@ -300,15 +302,16 @@ are read per response, not frozen. The seed roster maps each backend to a row:
 
 | row | backend | multi-audio |
 | --- | --- | --- |
-| Server 2 Valstrax | `valstrax` | no |
-| Server 3 Atlas | `atlas` | no |
-| Server 4 Ursa | `ursa` | no |
-| Server 5 Alatreon | `alatreon` | no |
-| Server 6 Daedalus | `daedalus` | no |
-| Server 7 Orion | `orion` | yes |
+| Server 2 Orion | `orion` | yes |
+| Server 3 Atlas | `atlas` | yes |
+| Server 4 Valstrax | `valstrax` | no |
+| Server 5 Ursa | `ursa` | no |
+| Server 6 Alatreon | `alatreon` | no |
+| Server 7 Daedalus | `daedalus` | no |
 
-(Server 1 is RIVO's multi-audio backend since 2026-11-02; Orion keeps a row at
-the end so a backend the ZXC auto rotation can still serve is always nameable.)
+(Server 1 is RIVO's multi-audio backend since 2026-11-02; our multi-audio server
+from zxcstream, ZXC Orion, took Server 2 on 2026-11-02 so the two multi-audio servers
+read as a pair.)
 
 **The no-pick path resolves through AUTO, not a row-by-row client walk.** The
 Servers menu leads with Server 1 (RIVO), but when the viewer has NOT picked a row

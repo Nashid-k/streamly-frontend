@@ -102,9 +102,10 @@ describe("manual server rows", () => {
 describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
+    expect(sourceLabel("zxc-orion")).toBe("Server 2");
     expect(sourceLabel("zxc-atlas")).toBe("Server 3");
-    // ZXC Orion kept a row (last) because the ZXC auto rotation can still serve it.
-    expect(sourceLabel("zxc-orion")).toBe("Server 7");
+    expect(sourceLabel("zxc-valstrax")).toBe("Server 4");
+    // ZXC Orion — our multi-audio server from zxcstream — took the Server 2 slot (2026-11-02).
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });
 });

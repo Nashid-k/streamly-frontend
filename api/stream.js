@@ -2080,13 +2080,15 @@ async function handleSegment(body, res) {
 
    Every RIVO source is itself a MASTER playlist, so the payload is re-shaped to
    the player's contract instead of copied:
-     · `source`      = the first master (multiLevelMaster, so hls.js keeps its
+     · `source`      = the title's original master (the first row when the roster
+                       is fully language-tagged; multiLevelMaster, so hls.js keeps its
                        own ABR and audio groups),
      · `variants`    = that master's real ladder (Quality menu),
      · `audioTracks` = the other language-tagged masters. Server 1 lists one
                        master PER LANGUAGE ("1080p (English)", "1080p (French)"…)
                        which is exactly the sibling-full-manifest dub model the
-                       player already switches for ZXC Centaurus / NHD. */
+                       player already switches for ZXC Centaurus / NHD. The upstream
+                       `subtitles` roster rides through untouched. */
 
 const RIVO_SOURCE_BASE = "https://f.rivo.st/api/source";
 const RIVO_REFERER = "https://f.rivo.st/";
@@ -2116,6 +2118,7 @@ async function handleResolveRivo(body, res) {
   const upstreamUrl = `${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`;
 
   let sources = [];
+  let subtitles;
   let serverName = server;
   let providerName = "rivo";
   try {
@@ -2139,6 +2142,7 @@ async function handleResolveRivo(body, res) {
     serverName = String(data?.server || server);
     providerName = String(data?.provider || "rivo");
     sources = Array.isArray(data?.sources) ? data.sources.filter((s) => s && s.url) : [];
+    subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
   } catch (error) {
     logWarn("stream", "RIVO source resolve failed", { message: error?.message });
     json(res, 200, { ok: false, error: "RIVO source host unreachable", code: "upstream" });
@@ -2150,7 +2154,9 @@ async function handleResolveRivo(body, res) {
     return;
   }
 
-  const entry = sources[0];
+  const entry =
+    sources.find((s) => s && s.kind === "hls" && !String(s.quality || "").includes("(")) ||
+    sources[0];
   if (entry.kind && entry.kind !== "hls") {
     json(res, 200, { ok: false, error: `RIVO ${serverName} served a non-HLS source`, code: "unsupported-kind" });
     return;
@@ -2175,9 +2181,11 @@ async function handleResolveRivo(body, res) {
 
   // Sibling dubs: every other language-tagged master is a full alternate
   // stream. De-duped on label, and the relay fence is told about each host now
-  // so an audio switch does not have to re-resolve.
+  // so an audio switch does not have to re-resolve. The entry master (the
+  // original) is skipped — it is the stream, not a dub.
   const audioTracks = [];
-  for (const source of sources.slice(1)) {
+  for (const source of sources) {
+    if (source.url === entry.url) continue;
     const label = rivoAudioLabel(source.quality);
     if (!label || source.kind !== "hls") continue;
     if (audioTracks.some((track) => track.label.toLowerCase() === label.toLowerCase())) continue;
@@ -2190,6 +2198,7 @@ async function handleResolveRivo(body, res) {
     source: { kind: "hls", url: entry.url, refUrl: RIVO_REFERER, multiLevelMaster: true },
     variants,
     audioTracks,
+    subtitles,
     audioOriginalLang: "",
     sourceVariants: [],
     server: serverName,

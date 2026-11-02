@@ -125,12 +125,12 @@ describe("no-pick resolve uses auto and reflects the chosen server", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
     // The Servers row's sub-line names the server that is actually playing.
-    expect(screen.getByRole("button", { name: /servers/i }).textContent).toContain("Server 7");
+    expect(screen.getByRole("button", { name: /servers/i }).textContent).toContain("Server 2");
     fireEvent.click(screen.getByRole("button", { name: /servers/i }));
 
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    const served = rows.find((r) => r.textContent.includes("Server 7"));
+    const served = rows.find((r) => r.textContent.includes("Server 2"));
     const other = rows.find((r) => r.textContent.includes("Server 5"));
     expect(served).toHaveAttribute("aria-pressed", "true");
     expect(other).not.toHaveAttribute("aria-pressed");
@@ -158,7 +158,7 @@ describe("manual server pick prefers then falls back fast", () => {
 
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
     const pick = hlsState.resolveCalls[1];
-    expect(pick.prefer).toBe("valstrax");
+    expect(pick.prefer).toBe("orion");
     expect(pick.server).toBeUndefined();
     expect(pick.auto).toBeUndefined();
   });
@@ -167,20 +167,20 @@ describe("manual server pick prefers then falls back fast", () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
-    // The picked row will be Server 2, but the backend serves ZXC Orion (Server
-    // 7) anyway — the exact "no source on the server I picked" case.
+    // The picked row will be Server 4, but the backend serves ZXC Orion (Server
+    // 2) anyway — the exact "no source on the server I picked" case.
     hlsState.server = "orion";
     hlsState.deferProbe = true; // hold the stage so the note is observable
 
     openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
-    const server2 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 2"));
-    fireEvent.click(server2);
+    const server4 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 4"));
+    fireEvent.click(server4);
 
-    // The note starts as "Switching to Server 2…" and is replaced by the honest
-    // fallback once the response names ZXC Orion (Server 7).
-    await waitFor(() => expect(screen.getByText(/Server 2 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
-    expect(screen.getByText(/playing Server 7/i)).toBeInTheDocument();
+    // The note starts as "Switching to Server 4…" and is replaced by the honest
+    // fallback once the response names ZXC Orion (Server 2).
+    await waitFor(() => expect(screen.getByText(/Server 4 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByText(/playing Server 2/i)).toBeInTheDocument();
 
     hlsState.deferProbe = false;
     hlsState.releaseProbe?.();

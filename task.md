@@ -7112,3 +7112,39 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   3. Blur: glass token `--glass-blur` retuned `blur(24px) saturate(180%) → blur(30px) saturate(150%)`; desktop nav pill + scrolled state retuned to the same RIVO glass level (`blur(30px) saturate(150%)`).
 - **Content loading.** Progressive scroll-spine reveals (IntersectionObserver-driven `FadeInSection`) confirmed as the RIVO behavior; no further change needed — the retuned fadeUp now animates it identically to the reference.
 - **Gates.** `npm run lint` 0 errors; full suite green; `npm run build` clean.
+
+## 2026-11-02 - Server 1 (RIVO) audio fix + multi-audio servers placed at Server 2 (user: "rivo server 1 is diff from ours server1 for eg premalu 2024 movie in rivo site it has hindi malayalam telungu and kurdish sub , but in our server1 which is said to be exctracted from rivo server1 has only malayalam telungu and kurdish sub even our malayam is hindi , but theirs not. find and fix all the issues related to server1 , and place our multi audio servers from zxcstream as server2 not server7 or anything")
+
+- **Ask.** RIVO Server 1 diverged from rivo.st on a dubbed title (Premalu 2024): the
+  reference site listed Hindi / Malayalam / Tamil / Kurdish while our Server 1,
+  extracted from RIVO server 1, surfaced only a subset (Malayalam / Telugu / Kurdish)
+  and the Malayalam row played Hindi audio. Asked to fix all Server 1 issues and
+  place the multi-audio servers sourced from zxcstream at Server 2, not Server 7 or
+  anything else.
+
+- **Roster (`src/constants/sources.js`).** Server 1 stays RIVO's multi-audio row
+  (`DEFAULT_SOURCE_KEY = "rivo-1"`). Our multi-audio server from zxcstream, ZXC Orion,
+  moved from the trailing Server 7 slot to **Server 2**; ZXC Atlas moved to Server 3;
+  Valstrax -> Server 4, Ursa -> Server 5, Alatreon -> Server 6, Daedalus -> Server 7.
+  Auto rotation still prefers Orion first, so no auto-behaviour change.
+
+- **Server 1 handler fixes (`api/stream.js` `handleResolveRivo`).**
+  1. Entry master now prefers a language-less (original) master and falls back to the
+     first source; fully language-tagged rosters keep the first row (pinned by tests).
+  2. Sibling-dub walk iterates all sources and skips the entry by URL (was
+     `sources.slice(1)`, assuming the original was first).
+  3. The upstream `subtitles` roster now rides through the re-shaped response instead
+     of being silently dropped.
+
+- **Tests.** `sources.test.js` (Orion -> Server 2, Atlas -> Server 3, Valstrax -> Server 4);
+  `playerA11y.test.jsx` (rows/capabilities); `playerAutoServer.test.jsx` (Orion row,
+  picked-row prefer, fallback note); `streamHandler.test.js` resolveRivo green again.
+
+- **Gates.** targeted suites green this round (sources + playerAutoServer + playerA11y +
+  playerAudioSwitchStage + PreferencesContext + streamHandler: 94 tests / 6 files pass;
+  streamHandler resolveRivo 5/5 pass after the handler fix). Full `npm run lint` +
+  `npm run test` + `npm run build` re-run before commit.
+
+- **Remaining.** Live per-title Server 1 re-verify (e.g. Premalu 2024) against rivo.st
+  once the TMDB id is reachable; is-a.dev publish still gated on fork PR #59508 merge.
+
