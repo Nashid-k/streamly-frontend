@@ -7148,3 +7148,51 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 - **Remaining.** Live per-title Server 1 re-verify (e.g. Premalu 2024) against rivo.st
   once the TMDB id is reachable; is-a.dev publish still gated on fork PR #59508 merge.
 
+## 2026-11-02 - Start of line (Server 1 → 2 → 3), server-switch logo, audio-switch pause/resume (user: "server 3 and 7 has multi audio ... place both after server1 rivo. and playing any show or video or anything start from server1,2,3 etc. but right now its not like that directly jump to server7 find the cause and fix everything. also server switching not showing the loader logo image, as well as while siwtching the audio pause and once switched play automatically. now while switching audio old audio plays in bg till new audio is switched")
+
+- **Placement.** Already satisfied by the roster commit bdc86e2: the two
+  multi-audio ZXC rows now sit directly after RIVO's Server 1 — ZXC Orion
+  (multi-audio) = Server 2, ZXC Atlas (multi-audio) = Server 3. The viewer was
+  seeing them at Server 3 and Server 7 because that is where the old roster had
+  them; the remaining rows shifted down (Valstrax 4, Ursa 5, Alatreon 6,
+  Daedalus 7).
+- **Start order (`src/constants/sources.js`).** `AUTO_SOURCE` now resolves RIVO
+  Server 1 first (`resolveRivo({ server: "1" })`) and only falls through to ZXC
+  with `prefer: "orion"` (Server 2 first, then that backend's own rotation) when
+  RIVO has no source. The old mount asked for `auto: true` with no server, so the
+  backend's health rotation answered with a LATE row — Server 7 under the old
+  numbering — which was the reported jump. `warmResolve` already mints through
+  `AUTO_SOURCE`, so the details-page warm token now warms the same start of line.
+- **Server-switch logo (`NativePlayerView.pickServer`).** pickServer handed
+  `LoadingStage` the captured pre-switch frame, and a captured frame takes the
+  logo's slot (`showArt` requires no frame). A mid-film server switch therefore
+  showed a dim still, never the title art. pickServer now clears `switchFrame`;
+  the reload carry still preserves position, and quality/source switches keep
+  their frame.
+- **Audio pause/resume (`NativePlayerView`).** Both audio paths pause the
+  outgoing language for the switch's whole life and play again when it settles:
+  1. In-manifest picks (`pickAudio`) pause on the click. The resume lives in
+     `clearAudioSwitch`, not in the `AUDIO_TRACK_SWITCHED` listener: hls.js fires
+     `AUDIO_TRACK_LOADED` first and that handler also clears the switch, so
+     resuming only from the later event left playback stopped whenever the load
+     event won. A refused `play()` logs and arms the same one-shot resume a
+     refused quality switch uses; the setter-throw and timeout rollbacks resume
+     too.
+  2. Sibling-manifest dubs (`pickDub`) pause before the probe (probe + manifest
+     swap is seconds long) and resume on success, on a dead advertised track, and
+     on a failed swap.
+- **Tests.** `sources.test.js` (RIVO-first + Orion fallback), `warmResolve.test.js`
+  (same contract for the warm leg), `playerAutoServer.test.jsx` (no-pick asks
+  Server 1 then Server 2 prefer; RIVO leg stubbed), `playerAudioSwitchStage.test.jsx`
+  (new pause-then-play test), `playerSwitchResume.test.jsx` (dub switches now
+  pause then resume; a paused switch still stays silent), and the player harnesses
+  stub `resolveRivo` so the no-pick leg no longer reaches for the network in jsdom.
+- **Docs.** `architecture.md` no-pick paragraph rewritten (Server 1 first, Server 2
+  prefer fallback); roster table unchanged from bdc86e2.
+- **Gates.** `npm run lint` 0 errors (47 pre-existing warnings); full
+  `npm run test` 119 files pass; `npm run build` clean. No `api/stream.js` change
+  this round, so the handler gate was not re-run.
+- **Remaining.** Live per-title check of the Server 1 start and the audio
+  pause/resume against RIVO once a TMDB key is available locally; is-a.dev
+  publish still gated on fork PR #59508.
+

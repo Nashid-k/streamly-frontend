@@ -1,12 +1,16 @@
 // Verification harness for the user report: "on switching quality or audio the
 // video stays paused and I need to explicitly play it."
 //
-// The player's switch paths must not pause a PLAYING session, and a switch made
-// while PAUSED is documented design (the "paused switch feels instant" rule in
-// pickQuality): it records `wasPaused` and only resumes (`video.play()`) when it
-// was NOT paused. This test makes both contracts observable on a mounted player:
+// The player's switch paths must never leave a PLAYING session needing a manual
+// play, and a switch made while PAUSED is documented design (the "paused switch
+// feels instant" rule in pickQuality): it records `wasPaused` and only resumes
+// (`video.play()`) when it was NOT paused. A QUALITY switch keeps the picture (and
+// the sound) running; an AUDIO switch pauses the outgoing language for the whole
+// swap — user order, so the old dub does not play under the loader — and resumes
+// once the new track commits. This test makes those contracts observable on a
+// mounted player:
 //   · in-manifest quality pick (hls.currentLevel)  -> touches nothing
-//   · full-reload source swap (dub/audio) playing   -> video.play() IS called
+//   · full-reload audio swap (dub) playing         -> pause(), then play()
 //   · full-reload source swap while paused          -> play() NOT called (design)
 // The resume play() runs outside the click gesture (after the manifest reload +
 // canplay), so a strict autoplay policy CAN reject it; pickQuality must not
@@ -102,6 +106,9 @@ vi.mock("../api/streamResolve", async (orig) => {
       ...actual.streamResolve,
       resolve: zxc,
       resolveZxc: zxc,
+      // The no-pick path asks Server 1 (RIVO) first; answer with the same fake
+      // instead of letting the real resolver reach for the network.
+      resolveRivo: zxc,
     },
   };
 });
@@ -228,8 +235,10 @@ describe("switch while PLAYING must never leave the video needing a manual play"
     await waitFor(() => expect(hlsState.loadSourceCalls).toContain(FRENCH_DUB), { timeout: 3000 });
 
     await waitFor(() => expect(video.play).toHaveBeenCalled(), { timeout: 3000 });
-    expect(video.pause).not.toHaveBeenCalled();
-    // The resume play() RESOLVED -> the element is genuinely playing again.
+    // User order: the outgoing language must NOT keep playing under the loader,
+    // so the pick pauses it for the switch's whole life...
+    expect(video.pause).toHaveBeenCalled();
+    // ...and the committed switch starts it again (play() RESOLVED).
     expect(playingState.playing).toBe(true);
   });
 
@@ -257,8 +266,9 @@ describe("switch while PLAYING must never leave the video needing a manual play"
 
     // Exactly one attempt - no self-healing retry inside the switch.
     expect(video.play).toHaveBeenCalledTimes(1);
-    expect(video.pause).not.toHaveBeenCalled();
-    // The rejection left the element PAUSED, but armed for the next gesture.
+    // The pick paused the old language (user order), and the rejected resume
+    // left the element PAUSED — armed for the next gesture.
+    expect(video.pause).toHaveBeenCalled();
     expect(playingState.playing).toBe(false);
   });
 
@@ -281,6 +291,9 @@ describe("switch while PLAYING must never leave the video needing a manual play"
     // listener re-drives play() itself, deferred past the press so the video's
     // own click-to-toggle still wins whenever it fires.
     video.play.mockClear();
+    // The pick paused the old language (user order); this assertion is about
+    // the post-rejection interaction, not that earlier pause.
+    video.pause.mockClear();
     fireEvent.pointerDown(container.querySelector(".np-root"));
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
 

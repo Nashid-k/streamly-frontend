@@ -1,7 +1,8 @@
 // The no-pick ("auto") path end to end: the player mounts without a selected
-// server, resolves through AUTO_SOURCE (the backend picks one), and then maps
-// the echoed server name back onto the real Servers-menu row — so the viewer
-// sees WHICH server is actually playing, never a stale label.
+// server, resolves through AUTO_SOURCE — Server 1 (RIVO) first, then Server 2
+// (ZXC Orion, `prefer`) only when RIVO has no source — and then maps the echoed
+// server name back onto the real Servers-menu row, so the viewer sees WHICH
+// server is actually playing, never a stale label.
 import { describe, expect, it, beforeAll, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
@@ -66,7 +67,16 @@ vi.mock("../api/streamResolve", async (orig) => {
     // mimic resolveZxc: normalize, then carry the server the backend used.
     return { ...actual.streamResolve.normalizeResolved({ ...RESOLVE_PAYLOAD, server: hlsState.server }), server: hlsState.server };
   };
-  return { ...actual, streamResolve: { ...actual.streamResolve, resolveZxc: zxc } };
+  // RIVO leads the no-pick line, so its call must be visible to the assertions
+  // too. This fake models the case that matters for the fallback: RIVO has no
+  // source for THIS title (its real host is unreachable in jsdom anyway).
+  const rivo = (args) => {
+    hlsState.resolveCalls.push(args);
+    const error = new Error("no source on RIVO");
+    error.code = "no-source";
+    throw error;
+  };
+  return { ...actual, streamResolve: { ...actual.streamResolve, resolveRivo: rivo, resolveZxc: zxc } };
 });
 
 vi.mock("../api/nativeHlsLoader", async (orig) => {
@@ -109,14 +119,19 @@ beforeEach(() => {
   hlsState.releaseProbe = null;
 });
 
-describe("no-pick resolve uses auto and reflects the chosen server", () => {
-  it("resolves once with auto:true (no server named)", async () => {
+describe("no-pick resolve starts at Server 1 and reflects the chosen server", () => {
+  it("asks Server 1 (RIVO) first, then falls through to Server 2 with prefer", async () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
-    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(0), { timeout: 5000 });
-    expect(hlsState.resolveCalls[0].auto).toBe(true);
-    expect(hlsState.resolveCalls[0].server).toBeUndefined();
-    // One resolve, not a five-row client walk.
-    expect(hlsState.resolveCalls.length).toBe(1);
+    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 5000 });
+    // Server 1 leads the line (the old path asked for `auto` and the backend's
+    // health rotation answered with a LATE row — "Server 7" under the old
+    // numbering — which is the jump this pins against).
+    expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
+    expect(hlsState.resolveCalls[0].auto).toBeUndefined();
+    // RIVO had no source: the fallback is Server 2 (Orion) by NAME, not `auto`.
+    expect(hlsState.resolveCalls[1]).toMatchObject({ type: "movie", id: "12345", prefer: "orion" });
+    expect(hlsState.resolveCalls[1].auto).toBeUndefined();
+    expect(hlsState.resolveCalls.length).toBe(2);
   });
 
   it("highlights the resolved backend's row in the Servers menu", async () => {

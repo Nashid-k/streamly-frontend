@@ -112,7 +112,9 @@ vi.mock("../api/streamResolve", async (orig) => {
   const resolve = () => actual.streamResolve.normalizeResolved(RESOLVE_PAYLOAD);
   return {
     ...actual,
-    streamResolve: { ...actual.streamResolve, resolve, resolveZxc: resolve },
+    // The no-pick path asks Server 1 (RIVO) first; answer with the same fake
+    // instead of letting the real resolver reach for the network.
+    streamResolve: { ...actual.streamResolve, resolve, resolveZxc: resolve, resolveRivo: resolve },
   };
 });
 
@@ -347,6 +349,50 @@ describe("in-manifest audio switch", () => {
       },
       { timeout: 2000 },
     );
+    unmount();
+  });
+
+  it("pauses the outgoing track for the switch and plays again once it confirms", async () => {
+    const { container, unmount } = await mountPlayer();
+    hlsState.deferSwitch = true;
+
+    // A controllable media element: jsdom pins `paused` to true, which would
+    // hide the whole contract (the pick only pauses a playing element).
+    const playingState = { playing: true };
+    const video = container.querySelector("video");
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      get: () => !playingState.playing,
+    });
+    video.pause = vi.fn(() => {
+      playingState.playing = false;
+    });
+    video.play = vi.fn(() => {
+      playingState.playing = true;
+      return Promise.resolve();
+    });
+
+    openAudioPanel();
+    fireEvent.click(screen.getByRole("button", { name: /^Tamil/i }));
+
+    // Paused the moment the row is picked: the old audio must not keep playing
+    // in the background while the new track loads.
+    expect(video.pause).toHaveBeenCalledTimes(1);
+    expect(playingState.playing).toBe(false);
+    expect(video.play).not.toHaveBeenCalled();
+
+    const instance = hlsState.switchedInstance;
+    expect(instance.audioTrack).toBe(1);
+    instance._fire("audioTrackSwitched", {});
+
+    // The confirmation clears the stage (after its minimum hold) AND resumes.
+    await waitFor(
+      () => {
+        expect(playingState.playing).toBe(true);
+      },
+      { timeout: 2000 },
+    );
+    expect(video.play).toHaveBeenCalledTimes(1);
     unmount();
   });
 

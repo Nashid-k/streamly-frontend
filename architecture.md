@@ -313,13 +313,16 @@ are read per response, not frozen. The seed roster maps each backend to a row:
 from zxcstream, ZXC Orion, took Server 2 on 2026-11-02 so the two multi-audio servers
 read as a pair.)
 
-**The no-pick path resolves through AUTO, not a row-by-row client walk.** The
-Servers menu leads with Server 1 (RIVO), but when the viewer has NOT picked a row
-the player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
-`resolvezxc` request with `auto: true` and no `server`, and the function walks
-the backends itself in health order (healthy first, then most-recently-
-successful, then the Servers-menu order). Auto stays on the ZXC family because
-RIVO exposes no equivalent internal rotation. Soft misses (server up, title absent)
+**The no-pick path starts at Server 1, then falls through the ZXC rotation.** When
+the viewer has NOT picked a row the player resolves through `AUTO_SOURCE`
+(`src/constants/sources.js`): it asks RIVO's multi-audio Server 1 first
+(`resolverivo` with `server:"1"`), and only when RIVO has no source for the title
+does it call `resolvezxc` with `prefer:"orion"` — Server 2 first, then the SAME
+request walks the ZXC backends in health order (healthy first, then
+most-recently-successful, then the Servers-menu order). It used to ask for
+`auto: true` with no server named, which let the backend's own health rotation
+answer with a LATE row (Server 7 under the old numbering) instead of the start of
+the line. Soft misses (server up, title absent)
 continue to the next backend; the walk ends early after 3 HARD transport
 failures. A backend that fails HARD (its own HTTP 4xx/5xx — the provider's
 `atlas` delivery host answering `427` is the current motivating case — or a

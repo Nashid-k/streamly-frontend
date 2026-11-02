@@ -7,18 +7,19 @@ import {
 } from "../api/warmResolve";
 import { DEFAULT_SOURCE_KEY } from "../constants/sources";
 
-/* The warm token is minted through `AUTO_SOURCE` (no server named), so the
-   backend picks the healthiest backend in one round trip. The mock therefore has
-   to answer resolveZxc - and this suite asserts `{ auto: true }` on purpose: the
-   default used to be a hardcoded row, so moving the default silently warmed a
-   server the player would refuse. These tests fail if either side hardcodes a
-   row again. */
-const { resolveZxcMock } = vi.hoisted(() => ({
+/* The warm token is minted through `AUTO_SOURCE` — the SAME mount the player's
+   no-pick path resolves through — so a warm handover can never deliver a token
+   for a server the player would refuse. That mount now asks Server 1 (RIVO)
+   first and only falls through to Server 2 (ZXC Orion, `prefer`) when RIVO has
+   no source. These tests fail if either side hardcodes a row again, or if the
+   warm leg drifts away from the player's start-of-line order. */
+const { resolveZxcMock, resolveRivoMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
+  resolveRivoMock: vi.fn(),
 }));
 
 vi.mock("../api/streamResolve", () => ({
-  streamResolve: { resolveZxc: resolveZxcMock },
+  streamResolve: { resolveZxc: resolveZxcMock, resolveRivo: resolveRivoMock },
 }));
 
 const MOVIE_ARGS = { type: "movie", id: "550" };
@@ -30,38 +31,54 @@ afterEach(() => {
 });
 
 describe("warmResolve", () => {
-  it("mints the AUTO path (no server named), not a hardcoded row", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+  it("mints the player's start of line — Server 1 (RIVO) — not a hardcoded row", () => {
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     warmResolve(MOVIE_ARGS);
-    expect(resolveZxcMock).toHaveBeenCalledTimes(1);
+    expect(resolveRivoMock).toHaveBeenCalledTimes(1);
+    expect(resolveRivoMock).toHaveBeenCalledWith(
+      { ...MOVIE_ARGS, server: "1" },
+      expect.anything(),
+    );
+    // Server 1 answered: no ZXC request is burned on the warm leg.
+    expect(resolveZxcMock).not.toHaveBeenCalled();
+  });
+
+  it("falls through to Server 2 (Orion, prefer) only when RIVO has no source", async () => {
+    resolveRivoMock.mockRejectedValue(new Error("no source"));
+    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+    await warmResolve(MOVIE_ARGS).catch(() => {});
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { ...MOVIE_ARGS, auto: true },
+      { ...MOVIE_ARGS, prefer: "orion" },
       expect.anything(),
     );
   });
 
   it("resolves once and coalesces duplicate calls for the same title", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     warmResolve(MOVIE_ARGS);
     warmResolve(MOVIE_ARGS);
-    expect(resolveZxcMock).toHaveBeenCalledTimes(1);
+    expect(resolveRivoMock).toHaveBeenCalledTimes(1);
   });
 
   it("a different title mints its own warm token", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [] });
+    resolveRivoMock.mockResolvedValue({ variants: [] });
     warmResolve(MOVIE_ARGS);
     warmResolve(TV_ARGS);
-    expect(resolveZxcMock).toHaveBeenCalledTimes(2);
+    expect(resolveRivoMock).toHaveBeenCalledTimes(2);
   });
 
   it("never throws from the fire path when resolve fails", async () => {
+    resolveRivoMock.mockRejectedValue(new Error("mint died"));
     resolveZxcMock.mockRejectedValue(new Error("mint died"));
     expect(() => warmResolve(MOVIE_ARGS)).not.toThrow();
-    await vi.waitFor(() => expect(resolveZxcMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(resolveRivoMock).toHaveBeenCalled());
+    // The chain has two legs now (RIVO then ZXC), so give the rejection time to
+    // settle and clear the entry before the re-fire.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     // The poisoned entry is cleared — a fresh call re-fires, not re-rejects.
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 720 }] });
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 720 }] });
     warmResolve(MOVIE_ARGS);
-    expect(resolveZxcMock).toHaveBeenCalledTimes(2);
+    expect(resolveRivoMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not fire when the signal is already aborted", () => {
@@ -69,13 +86,14 @@ describe("warmResolve", () => {
     controller.abort();
     const result = warmResolve(MOVIE_ARGS, { signal: controller.signal });
     expect(result).toBeNull();
+    expect(resolveRivoMock).not.toHaveBeenCalled();
     expect(resolveZxcMock).not.toHaveBeenCalled();
   });
 });
 
 describe("takeWarmResolve handover", () => {
   it("hands the token to the player once, only for the no-pick path", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     const promise = warmResolve(MOVIE_ARGS);
     const taken = takeWarmResolve(MOVIE_ARGS, { sourceKey: null });
     expect(taken).toBe(promise);
@@ -84,7 +102,7 @@ describe("takeWarmResolve handover", () => {
   });
 
   it("refuses ANY manual pick — even the default row (it must resolve ITS server)", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     warmResolve(MOVIE_ARGS);
     expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: "zxc-andromeda" })).toBeNull();
     expect(takeWarmResolve(MOVIE_ARGS, { sourceKey: DEFAULT_SOURCE_KEY })).toBeNull();
@@ -93,7 +111,7 @@ describe("takeWarmResolve handover", () => {
   });
 
   it("refuses a different title (wrong episode tapped)", () => {
-    resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
+    resolveRivoMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     warmResolve(TV_ARGS);
     expect(takeWarmResolve({ ...TV_ARGS, episode: 2 }, { sourceKey: null })).toBeNull();
   });

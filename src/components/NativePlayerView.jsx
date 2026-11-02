@@ -2738,7 +2738,8 @@ setScrubDragging(true);
           hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => attachAudio(hls));
 
           const clearAudioSwitch = () => {
-            if (!audioSwitchRef.current) return;
+            const pending = audioSwitchRef.current;
+            if (!pending) return;
             audioSwitchRef.current = null;
             audioFailedIndexRef.current = null;
             try {
@@ -2747,12 +2748,36 @@ setScrubDragging(true);
               // ignore
             }
             audioSwitchTimerRef.current = null;
+            // The pick paused the outgoing track for the switch's whole life, so
+            // the resume lives HERE — not in the AUDIO_TRACK_SWITCHED listener.
+            // hls.js fires AUDIO_TRACK_LOADED first and that handler also calls
+            // us; resuming only from the later event left the element paused
+            // forever whenever the load event won the race (user report: audio
+            // switched but playback stayed stopped).
+            const resumeAfterSwitch = () => {
+              if (!pending.resume) return;
+              const video = videoRef.current;
+              // A viewer who pressed play during the hold owns the element now.
+              if (!video || !video.paused) return;
+              // A strict autoplay policy can reject this (it runs outside the
+              // click gesture): log it and arm the same one-shot resume a
+              // refused quality switch uses, instead of mounting a second
+              // blocked play() attempt here.
+              Promise.resolve(video.play()).catch((error) => {
+                pendingResumeRef.current = true;
+                logWarn("native", "Browser refused the post-audio-switch auto-resume; playback starts on the next tap.", {
+                  index: pending.index,
+                  code: error?.name || String(error),
+                });
+              });
+            };
             const finish = () => {
               audioSwitchTimerRef.current = null;
               if (runRef.current !== run) return;
               setBuffering(false);
               setStageWhileLoading(false);
               setSwitchingNote(null);
+              resumeAfterSwitch();
             };
             // Confirmed in under a frame? Hold the stage for the rest of its
             // minimum so the pick is visible (see MIN_SWITCH_STAGE_MS).
@@ -2800,6 +2825,8 @@ setScrubDragging(true);
               } catch {
                 // fall through: the event itself is the confirmation
               }
+              // clearAudioSwitch resumes the paused element once the stage has
+              // served its minimum — the confirmation is all this listener owes.
               clearAudioSwitch();
               syncAudioIndex();
             });
@@ -3386,12 +3413,17 @@ setScrubDragging(true);
     switchTokenRef.current += 1;
     cancelAudioSwitch();
     pendingSourceHeightRollbackRef.current = null;
-    // The teardown below detaches the media element (currentTime → 0) and the
-    // stage replaces the picture: carry the position/paused state and the last
-    // frame across, or a switch mid-film restarted at the beginning behind a
-    // static art card.
+    // The teardown below detaches the media element (currentTime → 0): carry
+    // the position/paused state across, or a switch mid-film restarted at the
+    // beginning behind the stage.
     armReloadCarry();
-    setSwitchFrame(captureFrameUrl());
+    // A server switch must show the branded TITLE LOGO stage (user report: the
+    // loader logo never appeared when switching servers). pickServer used to
+    // hand LoadingStage the captured pre-switch frame, and a frame takes the
+    // logo's slot — a mid-film switch showed a dim still instead of the art.
+    // The reload carry keeps the position, so nothing is lost; the art keeps
+    // the title's identity while the new backend loads.
+    setSwitchFrame(null);
     // Overlap: start the target's resolve NOW, while the previous frame is still
     // on screen, instead of after React tears the current run down and
     // re-renders. The player's own resolve for this row coalesces onto this
@@ -3592,7 +3624,12 @@ setScrubDragging(true);
     const token = (audioSwitchTokenRef.current += 1);
     const hlsAtPick = hls;
     const runAtPick = runRef.current;
-    audioSwitchRef.current = { index, token };
+    // Pause the outgoing track for the switch's whole life — the swap must not
+    // leave the old audio running in the background while the new one loads.
+    // `resume` remembers the viewer was listening, so the confirmed-switch
+    // path can pick playback up again the moment the new track lands.
+    const wasPlayingAtPick = Boolean(videoRef.current && !videoRef.current.paused);
+    audioSwitchRef.current = { index, token, resume: wasPlayingAtPick };
     try {
       clearTimeout(audioSwitchTimerRef.current);
     } catch {
@@ -3627,6 +3664,11 @@ setScrubDragging(true);
         }
       }
       setAudioIndex(previousIndex >= 0 ? previousIndex : 0);
+      // The switch never confirmed — the outgoing track is back and the viewer
+      // was listening, so take playback away from the paused element again.
+      if (wasPlayingAtPick && previousIndex >= 0) {
+        videoRef.current?.play().catch(() => {});
+      }
       setBuffering(false);
       setStageWhileLoading(false);
       setSwitchingNote(null);
@@ -3634,6 +3676,7 @@ setScrubDragging(true);
       setControlsVisible(true);
     }, AUDIO_SWITCH_TIMEOUT_MS);
     try {
+      if (wasPlayingAtPick) videoRef.current?.pause();
       hls.audioTrack = index;
       setAudioIndex(index);
     } catch (error) {
@@ -3658,6 +3701,9 @@ setScrubDragging(true);
       } catch {
         setAudioIndex(0);
       }
+      // The pick already paused the outgoing track; the switch never started, so
+      // hand playback back instead of leaving the viewer on a paused frame.
+      if (wasPlayingAtPick) videoRef.current?.play().catch(() => {});
       setBuffering(false);
       setStageWhileLoading(false);
       setSwitchingNote(null);
@@ -3722,6 +3768,28 @@ setScrubDragging(true);
       setControlsVisible(true);
       return;
     }
+    // A dub is a whole sibling manifest, so the swap re-downloads the playlist
+    // and its first fragments while the OUTGOING language keeps playing — user
+    // report: "old audio plays in the bg till the new audio switches". Pause for
+    // the switch's whole life and take playback up again when it settles (or
+    // when the swap turns out to be impossible and the old track stays).
+    const wasPlayingAtPick = Boolean(videoRef.current && !videoRef.current.paused);
+    if (wasPlayingAtPick) videoRef.current.pause();
+    const resumePausedPlayback = () => {
+      if (!wasPlayingAtPick) return;
+      const video = videoRef.current;
+      // A viewer who pressed play meanwhile owns the element now.
+      if (!video || !video.paused) return;
+      Promise.resolve(video.play()).catch((error) => {
+        // Same contract as a refused quality resume: log and arm the one-shot
+        // resume so the next interaction starts playback.
+        pendingResumeRef.current = true;
+        logWarn("native", "Browser refused the post-dub-switch auto-resume; playback starts on the next tap.", {
+          index,
+          code: error?.name || String(error),
+        });
+      });
+    };
     poke();
     // Arm the branded loader BEFORE the probe — a user-initiated dub switch must
     // show the art stage the moment the row is clicked (the in-manifest pick
@@ -3763,6 +3831,8 @@ setScrubDragging(true);
         // The dead-row explanation renders inside the audio sheet — the armed
         // stage closed it on click, so reopen before handing control back.
         setPanel("audio");
+        // The old language never left: hand playback back to the viewer.
+        resumePausedPlayback();
         return;
       }
     } catch {
@@ -3804,7 +3874,12 @@ setScrubDragging(true);
       // The armed stage closed the sheet on click; the failure explanation
       // renders inside it, so reopen to keep the rollback visible.
       setPanel("audio");
+      // The previous language is still the live manifest: resume it.
+      resumePausedPlayback();
+      return;
     }
+    // The new sibling manifest committed — pick up where the pause left off.
+    resumePausedPlayback();
   };
 
   /* Subtitles: OpenSubtitles track list for THIS title (mirrors

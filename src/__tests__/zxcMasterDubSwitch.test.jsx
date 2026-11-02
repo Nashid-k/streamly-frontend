@@ -113,6 +113,8 @@ vi.mock("../api/streamResolve", async (orig) => {
       ...actual.streamResolve,
       resolve: zxc,
       resolveZxc: zxc,
+      // The no-pick path asks Server 1 (RIVO) first; answer with the same fake.
+      resolveRivo: zxc,
     },
   };
 });

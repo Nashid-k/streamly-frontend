@@ -59,13 +59,27 @@ describe("AUTO_SOURCE", () => {
     expect(sourceByKey(AUTO_SOURCE.key)).toBeNull();
   });
 
-  it("resolves with auto:true and no server name", () => {
+  it("resolves the no-pick start point at Server 1 (RIVO) first", async () => {
+    resolveRivoMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
+    const result = await AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
+    // No pick -> Server 1 leads the line, so the stream starts there…
+    expect(resolveRivoMock).toHaveBeenCalledWith({ type: "movie", id: "550", server: "1" }, { signal: undefined });
+    // The row is named, so `sourceByServer` can still re-derive Server 1 when
+    // the backend echoes its own server label.
+    expect(result).toEqual({ source: {}, variants: [], audioTracks: [], server: "1" });
+  });
+
+  it("falls through to Server 2 (Orion, prefer) only when RIVO has no source for the title", async () => {
+    resolveRivoMock.mockRejectedValue(new Error("no source"));
     resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
-    AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
+    const result = await AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
+    // Menu order, not the backend's health pick: Server 1 -> Server 2 -> its own
+    // rotation. `auto` would jump straight to whichever backend wins.
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { type: "movie", id: "550", auto: true },
+      { type: "movie", id: "550", prefer: "orion" },
       { signal: undefined },
     );
+    expect(result).toEqual({ source: {}, variants: [], audioTracks: [] });
   });
 });
 

@@ -186,10 +186,15 @@ export const PLAYER_SOURCES = [
 export const DEFAULT_SOURCE_KEY = "rivo-1";
 
 /* The automatic rotation's mount. When the viewer has NOT picked a row, the
-   player resolves through THIS instead of walking the rows above: the server
-   picks the healthiest ZXC backend and falls through in ONE round trip. (The
-   auto path stays on the ZXC family on purpose — RIVO exposes no equivalent
-   internal rotation, so auto keeps the backend that can fail over by itself.)
+   player resolves through THIS instead of walking the rows above: the stream
+   starts at Server 1 (RIVO's multi-audio backend) and, only when RIVO has no
+   source for the title, falls through to Server 2 (ZXC Orion) with `prefer`,
+   which tries Orion first and then walks its health-ordered backends.
+   (Before this, the no-pick path went straight to the ZXC auto pick, which
+   asked the backend for its healthiest server and jumped the viewer to a LATE
+   row — Server 7 under the old numbering — instead of starting at Server 1.
+   The fallback keeps `prefer` for the same reason: the start of the line is a
+   menu position, not whatever backend the rotation happens to like first.)
    `key` is a sentinel (never in PLAYER_SOURCES, so it never shows in the menu);
    after a resolve the player re-derives the REAL row from the server the
    backend chose (`sourceByServer`), so the Servers menu still reflects truth. */
@@ -198,7 +203,17 @@ export const AUTO_SOURCE = {
   label: "Auto",
   tag: "Best available",
   provider: "ZXC auto",
-  resolve: (a, o) => streamResolve.resolveZxc({ ...a, auto: true }, o),
+  resolve: async (a, o) => {
+    try {
+      const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
+      // RIVO answered — Server 1 is the start of the line, done.
+      return { ...rivo, server: rivo.server || "1" };
+    } catch {
+      // RIVO has no source for this title — start the ZXC family at Server 2
+      // (Orion) and let its own rotation walk the rest of the backends.
+      return streamResolve.resolveZxc({ ...a, prefer: "orion" }, o);
+    }
+  },
 };
 
 /* Every live server label, in menu order. A saved `serverOrder` from before a
