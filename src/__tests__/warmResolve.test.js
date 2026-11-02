@@ -48,7 +48,7 @@ describe("warmResolve", () => {
     resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     await warmResolve(MOVIE_ARGS).catch(() => {});
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { ...MOVIE_ARGS, prefer: "orion" },
+      { ...MOVIE_ARGS, auto: true },
       expect.anything(),
     );
   });

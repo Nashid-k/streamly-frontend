@@ -183,21 +183,18 @@ export const PLAYER_SOURCES = [
 ];
 
 
-export const DEFAULT_SOURCE_KEY = "rivo-1";
-
-/* The automatic rotation's mount. When the viewer has NOT picked a row, the
-   player resolves through THIS instead of walking the rows above: the stream
-   starts at Server 1 (RIVO's multi-audio backend) and, only when RIVO has no
-   source for the title, falls through to Server 2 (ZXC Orion) with `prefer`,
-   which tries Orion first and then walks its health-ordered backends.
-   (Before this, the no-pick path went straight to the ZXC auto pick, which
-   asked the backend for its healthiest server and jumped the viewer to a LATE
-   row — Server 7 under the old numbering — instead of starting at Server 1.
-   The fallback keeps `prefer` for the same reason: the start of the line is a
-   menu position, not whatever backend the rotation happens to like first.)
-   `key` is a sentinel (never in PLAYER_SOURCES, so it never shows in the menu);
-   after a resolve the player re-derives the REAL row from the server the
-   backend chose (`sourceByServer`), so the Servers menu still reflects truth. */
+export const DEFAULT_SOURCE_KEY = "rivo-1";   /* The automatic rotation's mount. When the viewer has NOT picked a row, the
+   player resolves through THIS instead of walking the rows above. A real pick
+   (a server row in PLAYER_SOURCES) always wins over this sentinel — the player
+   only falls back to AUTO_SOURCE when no server was chosen, which is the same end
+   state as picking "Server 1" when Server 1 is the DEFAULT_SOURCE_KEY, so the no-pick
+   start and the explicit Server 1 start land on the same real row. (Before this the
+   no-pick path walked every ZXC backend internally and resumed on whichever one answered
+   first, which could surface a later row and make the Servers menu sit on, e.g.,
+   "Server 7" with no pick at all.) `key` is a sentinel (never in PLAYER_SOURCES, so it
+   never shows in the menu) and after a resolve the player re-derives the REAL row from
+   the server the backend chose (`sourceByServer`), so the Servers menu still reflects
+   truth. */
 export const AUTO_SOURCE = {
   key: "__auto__",
   label: "Auto",
@@ -207,14 +204,13 @@ export const AUTO_SOURCE = {
     try {
       const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
       // RIVO answered — Server 1 is the start of the line, done.
-      return { ...rivo, server: rivo.server || "1" };
-    } catch {
-      // RIVO has no source for this title — start the ZXC family at Server 2
-      // (Orion) and let its own rotation walk the rest of the backends.
-      return streamResolve.resolveZxc({ ...a, prefer: "orion" }, o);
+      return { ...rivo, server: rivo.server || "1" };        } catch {
+      // RIVO has no source for this title — walk the ZXC auto rotation.
+      return await streamResolve.resolveZxc({ ...a, auto: true }, o);
     }
   },
 };
+
 
 /* Every live server label, in menu order. A saved `serverOrder` from before a
    retirement can still name a row that no longer exists (Server 6/7 = VidSrc,

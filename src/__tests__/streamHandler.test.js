@@ -386,7 +386,7 @@ describe("POST /api/stream — zxcintro", () => {
 /* RIVO is a separate upstream contract (rivo.st / f.rivo.st), so it gets its
    own action and its own guard: the payload must be RE-SHAPED, not copied.
    Every RIVO source is a master playlist and Server 1 lists one master per
-   language � those become the entry source, the Quality ladder and the Audio
+   language — those become the entry source, the Quality ladder and the Audio
    menu's sibling dubs respectively. */
 describe("resolveRivo", () => {
   const MASTER = [

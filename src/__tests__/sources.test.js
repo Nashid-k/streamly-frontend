@@ -84,7 +84,7 @@ describe("AUTO_SOURCE", () => {
     // Menu order, not the backend's health pick: Server 1 -> Server 2 -> its own
     // rotation. `auto` would jump straight to whichever backend wins.
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { type: "movie", id: "550", prefer: "orion" },
+      { type: "movie", id: "550", auto: true },
       { signal: undefined },
     );
     expect(result).toEqual({ source: {}, variants: [], audioTracks: [] });
