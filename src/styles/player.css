@@ -655,17 +655,38 @@
 
 /* Menu / panel rows: their zinc hover + selected state */
 .np-dialog-row {
+  /* Anchored so the cursor glow below is clipped to THIS row. A static row made
+     `::before { inset: 0 }` resolve against the panel's own positioning context,
+     so the pool covered the whole card instead of following the pointer inside
+     one row. */
+  position: relative;
   border-radius: var(--zxc-radius);
+  /* `transform` is in the list so the press scale eases instead of snapping:
+     without it every tap on a row was a one-frame jolt. */
   transition: background var(--zxc-t-fast) var(--zxc-ease),
     color var(--zxc-t-fast) var(--zxc-ease),
-    padding-left var(--zxc-t-med) var(--zxc-ease);
+    padding-left var(--zxc-t-med) var(--zxc-ease),
+    transform var(--zxc-t-instant) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
-.np-dialog-row:hover:not(:disabled) {
+/* Hover deliberately skips the active row: it must not be possible to make the
+   CURRENT choice look like an idle row just by moving the pointer over it. */
+.np-dialog-row:hover:not(:disabled):not([aria-pressed="true"]) {
   background: var(--zxc-surface-2) !important;
   padding-left: 6px;
 }
+/* The current choice has to be readable at a glance — a brand-red rail, a
+   brighter plate and full-white label — instead of being inferred from which
+   row happens to look slightly lighter behind the glass (user report: the
+   active server/audio row did not read as selected). */
 .np-dialog-row[aria-pressed="true"] {
-  background: var(--zxc-surface-2);
+  background: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: inset 2px 0 0 #f03, inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  color: #fff !important;
+  padding-left: 8px;
+}
+.np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.22) !important;
 }
 .np-dialog-row:active:not(:disabled) {
   transform: scale(var(--press-scale-row));
@@ -736,11 +757,10 @@
 .np-episode-card {
   border-radius: var(--zxc-radius-lg) !important;
 }
-/* Selected menu row: their check keeps the brand red, the row gains the
-   zinc surface so the active choice reads at a glance. */
-.np-dialog-row[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 1px var(--zxc-line-strong);
-}
+/* Selected menu row: the brand rail + plate are defined with the row itself
+   above; this block is intentionally empty of a second `box-shadow` so the two
+   rules cannot overwrite each other (they did — the later one dropped the
+   rail). */
 /* Volume slider: zinc track, brand thumb */
 .np-volume-slider::-webkit-slider-runnable-track {
   background: var(--zxc-line-strong);
@@ -1094,52 +1114,21 @@
    The body is keyed by panel, so remounting replays this slide in the direction
    of travel (data-nav), and the header title fades with it. CSS rather than a
    delayed exit keeps the new page's rows tappable immediately. */
+/* The page slide itself is framer-motion's (PlayerPanel), which writes the
+   transform inline on the frame the page mounts. It used to be a keyframe here,
+   and the user reported the to/from transitions as "zero animation" — an
+   `animation:` in a stylesheet is silently lost to any override, and it also
+   fought framer for `transform` on the same node. This block now carries ONLY
+   layout; the motion lives where it cannot be overridden. */
 .np-panel-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  animation: np-panel-in-forward 190ms var(--zxc-ease) both;
 }
-.np-panel-body[data-nav="back"] {
-  animation-name: np-panel-in-back;
-}
-.np-panel-body[data-nav="none"] {
-  animation: none;
-}
-@keyframes np-panel-in-forward {
-  from {
-    opacity: 0;
-    transform: translateX(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-@keyframes np-panel-in-back {
-  from {
-    opacity: 0;
-    transform: translateX(-14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
+/* The title inherits the same rule: framer animates it (see PlayerPanel). */
 .np-panel-title {
   display: inline-block;
-  animation: np-panel-title-in 190ms var(--zxc-ease) both;
-}
-@keyframes np-panel-title-in {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Cursor-tracked settings glow. DialogRow writes --np-glow-x/y on pointer move
@@ -1170,12 +1159,16 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .np-panel-body,
-  .np-panel-title,
+  /* Framer collapses the page slide and the dim; this covers the CSS half — the
+     glow must not fade and the row must not scale on press. */
+  .np-dialog-row,
   .np-dialog-row::before {
     animation: none !important;
     -webkit-animation: none !important;
     transition: none !important;
     -webkit-transition: none !important;
+  }
+  .np-dialog-row:active:not(:disabled) {
+    transform: none !important;
   }
 }

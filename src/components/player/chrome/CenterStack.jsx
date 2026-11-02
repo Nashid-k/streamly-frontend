@@ -11,8 +11,8 @@
 //
 // Each branch fades via AnimatePresence — a `transition` on a conditionally
 // mounted node never plays, which is why the spinner once looked frozen.
-import { AnimatePresence, motion } from "framer-motion";
-import { useMotionTokens, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useMotionTokens, DURATION, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 import { IconSkipBack10, IconSkipForward10, IconPlay, IconReplay } from "./icons";
@@ -41,7 +41,10 @@ export default function CenterStack({
      configurable. */
   skipSeconds = 10,
 }) {
-  const M = useMotionTokens();
+  // Resolve the preference here rather than relying on the global
+  // MotionConfig: the tokens are the contract, and a call site that skips the
+  // flag silently loses the reduced-motion cut.
+  const M = useMotionTokens(useReducedMotion());
   return (
     <>
       {/* Cold wait: no frame to preserve, so the stage is the picture. */}
@@ -232,8 +235,13 @@ export default function CenterStack({
           </button>
         </motion.div>
       )}
+      {/* End state. Wrapped so the button can LEAVE on the same spring it
+          arrived on: replaying used to delete it in one frame, which is the
+          half of "to and fro" that was missing everywhere in this file. */}
+      <AnimatePresence>
       {!buffering && ended && (
         <motion.button
+          key="np-replay"
           type="button"
           className="np-replay"
           onClick={onReplay}
@@ -243,8 +251,9 @@ export default function CenterStack({
           // the eye is pulled to the only action on screen.
           initial={{ opacity: 0, scale: 0.7 }}
           animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
+          exit={{ opacity: 0, scale: 0.9 }}
           transition={{
-            opacity: { duration: 0.2, ease: EASE_OUT },
+            opacity: { duration: DURATION.FAST, ease: EASE_OUT },
             scale: M.SPRING.PRESS,
           }}
           whileHover={{ scale: 1.08 }}
@@ -271,6 +280,7 @@ export default function CenterStack({
           <IconReplay size={42} />
         </motion.button>
       )}
+      </AnimatePresence>
     </>
   );
 }

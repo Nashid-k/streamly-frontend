@@ -421,6 +421,13 @@ describe("player Servers menu", () => {
       expect(rows[i].textContent).toContain(label);
       expect(rows[i].textContent).toContain(cap);
     });
+    // Exactly ONE row is the current choice, and it is Server 1 (the no-pick
+    // default). `aria-pressed` is what the selected plate + brand rail key off,
+    // so this is the wiring the highlight depends on (user report: the active
+    // server row did not read as selected).
+    const selectedRows = rows.filter((r) => r.getAttribute("aria-pressed") === "true");
+    expect(selectedRows).toHaveLength(1);
+    expect(selectedRows[0].textContent).toContain("Server 1");
   });
 
   it("never leaks a provider's own name into the menu", () => {

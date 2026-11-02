@@ -4,14 +4,14 @@
 // session-once gate); this owns the presentation and the two actions. The
 // bottom-right corner matches the episodes rail, whose gradient is transparent
 // at the top, so it does not show through an open panel.
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
-  const M = useMotionTokens();
+  const M = useMotionTokens(useReducedMotion());
   return (
     <AnimatePresence>
       {offer && (

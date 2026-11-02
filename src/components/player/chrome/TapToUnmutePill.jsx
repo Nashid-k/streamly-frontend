@@ -3,13 +3,13 @@
 // Shows only when playback had to start muted because the autoplay policy
 // blocked sound, and yields to an open panel for the same reason the skip pill
 // does. Lives bottom-left so it never collides with the skip pill on the right.
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, PRESS_SCALE } from "../../../constants/motion";
 import { IconVolumeMute } from "./icons";
 import { ACCENT } from "./theme";
 
 export default function TapToUnmutePill({ visible, onUnmute }) {
-  const M = useMotionTokens();
+  const M = useMotionTokens(useReducedMotion());
   return (
     <AnimatePresence>
       {visible && (

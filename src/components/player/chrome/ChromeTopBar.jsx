@@ -4,14 +4,16 @@
 // title that hands off to a sidebar/X-ray) without touching the engine. It owns
 // nothing but presentation and the back action; the close policy stays with the
 // player via `onBack`.
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconArrowLeft } from "./icons";
 import { TEXT_DIM } from "./theme";
 
 export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
-  const M = useMotionTokens();
+  // Matches the transport row: both bars resolve the preference themselves so
+  // they hide/show on the same curve, cuts included.
+  const M = useMotionTokens(useReducedMotion());
   return (
     <motion.div
       initial={false}

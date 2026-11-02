@@ -7,7 +7,7 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { buildAudioTrackList, languageNameFromCode } from "../utils/audioLabels";
 import {
   IconAspect,
@@ -71,6 +71,7 @@ import {
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { subtitleFontFamily, findSubtitleTrack } from "../constants/settings";
+import { FADE } from "../constants/motion";
 import { useOptionalPreferences } from "../context/preferences";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import {
@@ -668,6 +669,9 @@ export default function NativePlayerView({
   );
   // Netflix chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
+  // The panel dim follows the viewer's motion preference like every other
+  // surface in the player (see useMotionTokens).
+  const dimReducedMotion = useReducedMotion();
   // The global key handler binds once per panel flip, so it cannot read the
   // latest `controlsVisible` from its closure. A ref keeps the Tab-to-reveal
   // path honest without re-binding (and resetting Space-hold state) on every
@@ -4473,21 +4477,33 @@ const showSkipOutro = shouldShowSkipOutro({
         {/* Dim the picture while a dialog panel is open (Netflix does this) so
             the rows read against the frame, not against the movie. Tapping the
             dim (outside the sheet) closes the panel — mobile has no Esc. */}
-        {panel && (
-          <div
-            aria-hidden="true"
-            onClick={() => {
-              setPanel(null);
-              poke();
-            }}
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: "rgba(0,0,0,0.55)",
-              zIndex: 5,
-            }}
-          />
-        )}
+        {/* The dim used to snap on, which made every panel open read as two
+            disconnected events (a hard black flash, then the sheet). It now
+            fades in and out over the same window as the sheet, so the dim and
+            the card arrive as one gesture. */}
+        <AnimatePresence>
+          {panel && (
+            <motion.div
+              key="np-panel-dim"
+              aria-hidden="true"
+              initial={dimReducedMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              // Same fade token as the cold/warm stage, so one dim speed exists.
+              transition={dimReducedMotion ? { duration: 0 } : FADE.transition}
+              onClick={() => {
+                setPanel(null);
+                poke();
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(0,0,0,0.55)",
+                zIndex: 5,
+              }}
+            />
+          )}
+        </AnimatePresence>
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
         <SubtitleOverlay
@@ -5233,16 +5249,27 @@ const showSkipOutro = shouldShowSkipOutro({
           )}
         </AnimatePresence>
       </div>
-{!panel && (
-        <FatalBanner
-          message={fatal}
-          onRetry={retryLoad}
-          onBack={() => {
-            if (onCloseRef.current) onCloseRef.current();
-            else window.history.back();
-          }}
-        />
-      )}
+        {/* `!panel` stays OUTSIDE the AnimatePresence on purpose: opening a
+            sheet must remove the banner on the SAME frame (it sits above the
+            sheet on the same bottom strip and swallows the server rows its own
+            message points at). Only the recovery case — the fatal message
+            clearing while no sheet is open — animates out, which is what the
+            banner was missing: it returned null internally, so nothing could
+            ever play an exit and it vanished in a single frame. */}
+        {!panel && (
+          <AnimatePresence>
+            {fatal ? (
+              <FatalBanner
+                message={fatal}
+                onRetry={retryLoad}
+                onBack={() => {
+                  if (onCloseRef.current) onCloseRef.current();
+                  else window.history.back();
+                }}
+              />
+            ) : null}
+          </AnimatePresence>
+        )}
     </div>
   );
 }

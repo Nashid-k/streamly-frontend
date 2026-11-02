@@ -6,18 +6,23 @@
 // the wrapper would make a live region announce "…cannot run here.Try againBack"
 // as one string. "Try again" re-runs the load effect via the engine's reload
 // token; the back button leaves the player.
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function FatalBanner({ message, onRetry, onBack }) {
-  const M = useMotionTokens();
+  const M = useMotionTokens(useReducedMotion());
   if (!message) return null;
   return (
     <motion.div
       key="np-fatal"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      // The banner used to have no exit AT ALL, so recovering (or failing over)
+      // made it vanish in a single frame while it had arrived on a spring. The
+      // exit is the entry played backwards, and the caller now mounts it inside
+      // an AnimatePresence so the exit can actually run.
+      exit={{ opacity: 0, y: 16 }}
       transition={M.SPRING.SHEET}
       className="np-fatal"
       style={{

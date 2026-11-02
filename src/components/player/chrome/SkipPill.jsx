@@ -11,13 +11,13 @@
 //
 // Behaviour note (do not "fix" this into an auto-jump): a wrong tail estimate is
 // always a visible button, never an unrequested seek. This seeks only on press.
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, PRESS_SCALE } from "../../../constants/motion";
 import { IconSkipForward10 } from "./icons";
 import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function SkipPill({ label, ariaLabel, title, onClick, progress = 0 }) {
-  const M = useMotionTokens();
+  const M = useMotionTokens(useReducedMotion());
   return (
     <motion.button
       type="button"

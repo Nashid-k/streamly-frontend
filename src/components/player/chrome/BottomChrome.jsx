@@ -13,7 +13,7 @@
 // hold callbacks, so quick-press-vs-hold discrimination is not duplicated.
 // (Audio-track switching is NOT a chrome button — the design clubs it inside the
 // Settings menu, so there is no `showAudioButton` here.)
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import Tooltip from "./Tooltip";
@@ -92,7 +92,9 @@ export default function BottomChrome({
   // Gear "HD" quality badge (design's crimson chip next to the cog)
   hdBadge,
 }) {
-  const M = useMotionTokens();
+  // Resolved here (not left to the global MotionConfig) so the show/hide of the
+  // whole transport row honours the same token contract as every other surface.
+  const M = useMotionTokens(useReducedMotion());
   const VolumeIcon = muted || volume === 0 ? IconVolumeMute : volume < 0.5 ? IconVolumeLow : IconVolumeHigh;
   const pillSize = IS_TOUCH ? 56 : 52;
   const playSize = IS_TOUCH ? 68 : 60;

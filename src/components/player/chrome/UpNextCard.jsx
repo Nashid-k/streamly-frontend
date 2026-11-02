@@ -3,7 +3,7 @@
 // Shown when a TV episode has ended and a next installment exists. The engine
 // owns the countdown timer and the auto-advance; this owns the card and the
 // Play now / cancel actions.
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconClose, IconPlay } from "./icons";
@@ -11,7 +11,7 @@ import { IS_TOUCH } from "./constants";
 import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
-  const M = useMotionTokens();
+  const M = useMotionTokens(useReducedMotion());
   return (
     <AnimatePresence>
       {upNext && (

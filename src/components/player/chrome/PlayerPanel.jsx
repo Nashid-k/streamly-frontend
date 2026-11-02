@@ -7,6 +7,7 @@
 // Back-chevron header navigates between submenus and root settings.
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { DURATION, EASE_OUT, motionSafe, useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
@@ -67,15 +68,41 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
   // A closed panel (null) is a fade for the sheet itself; the body animation
   // only matters while one page replaces another.
   const reduceMotion = useReducedMotion();
-  const nav = reduceMotion ? "none" : directionRef.current < 0 ? "back" : "forward";
+  // The card itself rides the SAME spring as every other sheet in the player
+  // (transport, resume/up-next cards, episodes rail). It used to carry a
+  // one-off `{ duration: 0.16, ease: [0.2, 0, 0, 1] }` — a curve that appears
+  // nowhere else in the repo — so the card and its own contents decelerated on
+  // two different engines. Tokens also give it the reduced-motion cut for free.
+  const M = useMotionTokens(reduceMotion);
+  const back = directionRef.current < 0;
+  /* The page slide is FRAMER's, not a CSS keyframe. It used to be a keyframe on
+     the keyed body, which a stylesheet can silently lose (an overriding
+     `animation: none`, a reset, a sibling rule) and which the user reported as
+     "zero animation" between pages. Framer writes the transform inline on the
+     frame the page mounts, so the motion is not something a stylesheet can eat.
+     Entry from the side it came from: forward pages from the right, back from
+     the left. No exit animation — the new page's rows have to be tappable on
+     the frame they appear, not 200ms later. */
+  const bodyMotion = {
+    initial: reduceMotion ? false : { opacity: 0, x: back ? -26 : 26 },
+    animate: { opacity: 1, x: 0 },
+    transition: motionSafe(reduceMotion, { duration: DURATION.MED, ease: EASE_OUT }),
+  };
+  const titleMotion = {
+    initial: reduceMotion ? false : { opacity: 0, y: 4 },
+    animate: { opacity: 1, y: 0 },
+    transition: motionSafe(reduceMotion, { duration: DURATION.FAST, ease: EASE_OUT }),
+  };
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
         <motion.aside
           initial={{ opacity: 0, scale: 0.94, y: 10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
+          // Mirrored exit: closing is the arrival played backwards, not a
+          // different gesture (same shape, same spring, same distance).
           exit={{ opacity: 0, scale: 0.94, y: 10 }}
-          transition={{ duration: 0.16, ease: [0.2, 0, 0, 1] }}
+          transition={M.SPRING.SHEET}
           ref={panelRef}
           role="dialog"
           aria-label={ARIA_LABELS[panel] || TITLES[panel] || "Settings"}
@@ -153,9 +180,10 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                   <IconChevronLeft size={18} strokeWidth={2.4} />
                 </button>
               )}
-              <span
+              <motion.span
                 key={panel}
                 className="np-panel-title"
+                {...titleMotion}
                 style={{
                   color: "#fff",
                   fontWeight: 500,
@@ -164,19 +192,23 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                 }}
               >
                 {TITLES[panel] || "Settings"}
-              </span>
+              </motion.span>
             </div>
             <IconBtn label="Close panel" onClick={onClose} size={28} style={{ opacity: 0.7 }}>
               <IconClose size={15} />
             </IconBtn>
           </div>
-          {/* Keyed by page: navigating remounts the body, which replays the
-              direction-aware slide from player.css. CSS (not a delayed exit)
-              keeps the new page's rows available immediately, so a tap can
-              land the instant the header changes. */}
-          <div key={panel} className="np-panel-body" data-nav={nav}>
+          {/* Keyed by page: navigating remounts the body and replays the
+              direction-aware slide. No exit animation, so a tap can land the
+              instant the header changes. */}
+          <motion.div
+            key={panel}
+            className="np-panel-body"
+            data-nav={back ? "back" : "forward"}
+            {...bodyMotion}
+          >
             {children}
-          </div>
+          </motion.div>
         </motion.aside>
       )}
     </AnimatePresence>
