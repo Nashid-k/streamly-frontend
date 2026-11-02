@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
 import { ROUTE_VARIANTS } from "../constants/routeMotion";
 import { SPRING as REEXPORTED } from "../constants/playerUi";
+import { RIVO_MOTION } from "../components/player/chrome/theme";
 
 /* Walks a directory for source files, so the contract tests below cover every
    player surface rather than the three files this test happens to know about. */
@@ -69,11 +70,10 @@ describe("motion tokens", () => {
     expect(EASE_OUT[0]).toBeLessThan(EASE_OUT[3]);
   });
 
-  it("publishes one duration scale in CSS, aliased by the player", () => {
+  it("publishes one app duration scale, and RIVO's measured scale inside the player", () => {
     // Three scales used to coexist (motion.js 180/280/450, tokens.css
     // 150/250/400, player.css 150/300/500), so retuning motion.js changed
-    // almost nothing on screen. CSS is the one the whole app reads, so it is
-    // the one that has to agree with DURATION.
+    // almost nothing on screen. The APP therefore reads tokens.css only.
     const tokens = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
     const player = readFileSync(join(process.cwd(), "src", "styles", "player.css"), "utf8");
     const ms = (src, name) => Number(src.match(new RegExp(`${name}:\\s*(\\d+)ms`))?.[1]);
@@ -81,10 +81,21 @@ describe("motion tokens", () => {
     expect(ms(tokens, "--duration-normal")).toBe(DURATION.MED * 1000);
     expect(ms(tokens, "--duration-slow")).toBe(DURATION.SLOW * 1000);
     expect(ms(tokens, "--duration-fast")).toBe(DURATION.FAST * 1000);
-    // player.css must alias the scale, never redeclare it.
-    expect(player).toMatch(/--zxc-t-med:\s*var\(--duration-normal\)/);
-    expect(player).toMatch(/--zxc-t-slow:\s*var\(--duration-slow\)/);
-    expect(player).not.toMatch(/--zxc-t-\w+:\s*\d+ms/);
+
+    /* The player is the one surface allowed a scale of its own, by user order
+       ("change our player to exactly like" rivo.st). rivo.st ships
+       transition-duration .15s (x10) / .3s (x6) / .5s (x2) on
+       cubic-bezier(.2,.8,.2,1) — measured from their stylesheet — and the
+       player now uses exactly those. The cross-check against RIVO_MOTION keeps
+       the CSS half and the framer half from drifting apart: retune the JS step
+       and this test fails until the CSS matches. */
+    expect(ms(player, "--zxc-t-instant")).toBe(RIVO_MOTION.MICRO.duration * 1000);
+    expect(ms(player, "--zxc-t-fast")).toBe(RIVO_MOTION.MICRO.duration * 1000);
+    expect(ms(player, "--zxc-t-med")).toBe(RIVO_MOTION.STANDARD.duration * 1000);
+    expect(ms(player, "--zxc-t-slow")).toBe(RIVO_MOTION.SURFACE.duration * 1000);
+    expect(player).toMatch(/--zxc-ease:\s*cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/);
+    // tokens.css `--ease-tv` is RIVO's own curve, not Tailwind's default.
+    expect(tokens).toMatch(/--ease-tv:\s*cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/);
   });
 
   describe("shared enter/exit shapes", () => {

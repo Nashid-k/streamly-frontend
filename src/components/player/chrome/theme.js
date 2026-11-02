@@ -36,7 +36,32 @@ export const PILL_BG_HOVER = "rgba(0,0,0,0.55)";
 export const GLASS_BG = "rgba(0,0,0,0.62)";
 export const GLASS_BG_STRONG = "rgba(0,0,0,0.7)";
 export const GLASS_BORDER = "rgba(255,255,255,0.16)";
-export const GLASS_BLUR = "blur(12px)";
+/* rivo.st's shipped stylesheet uses backdrop-filter:blur(24px) most often (x4),
+   then 20px (x2) and 40px once — never 12px. Ours was half their strength, which
+   is most of why our sheets read as flat grey instead of their glass. */
+export const GLASS_BLUR = "blur(24px)";
+
+/* RIVO motion, read off their shipped CSS rather than guessed. Their player has
+   no custom chrome — it is a native-controls <video> inside this shell — so the
+   player-side half of "be like RIVO" is this vocabulary:
+     · SURFACE  — their `fadeUp`: opacity 0 + translateY(12px) → settled, 0.5s
+     · STANDARD — their `transition-duration:.3s` step (x6 in their CSS)
+     · MICRO    — their `transition-duration:.15s` step (x10 in their CSS), on
+                  their ordinary utility curve (.4,0,.2,1)
+   Surfaces use `ease-tv`; micro-interactions use the utility curve, exactly as
+   their own rules split them. */
+export const RIVO_MOTION = {
+  SURFACE: { duration: 0.5, ease: [0.2, 0.8, 0.2, 1] },
+  STANDARD: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
+  MICRO: { duration: 0.15, ease: [0.4, 0, 0.2, 1] },
+};
+
+/** Their `fadeUp` entrance shape, as framer props (exit = the same, reversed). */
+export const RIVO_FADE_UP = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 12 },
+};
 
 // Geometry.
 export const RADIUS = { pill: 999, control: 14, card: 14, sheet: 14 };

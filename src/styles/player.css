@@ -590,15 +590,18 @@
   --zxc-danger: #ff6568;
   --zxc-radius: 0.45rem;
   --zxc-radius-lg: 0.75rem;
-  --zxc-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  /* Aliases, not a scale of their own: the player used to declare
-     150/300/500ms next to tokens.css's 150/250/400 and motion.js's
-     180/280/450, so "fast" meant three different things. These now resolve to
-     the single scale in tokens.css. */
-  --zxc-t-instant: var(--duration-instant);
-  --zxc-t-fast: var(--duration-fast);
-  --zxc-t-med: var(--duration-normal);
-  --zxc-t-slow: var(--duration-slow);
+  /* RIVO's measured player motion (rivo.st shipped CSS, 2026-11-02):
+       .ease-tv { transition-timing-function: cubic-bezier(.2,.8,.2,1) }
+       transition-duration: .15s (x10), .3s (x6), .5s (x2)
+     The player previously aliased tokens.css's 120/200/280/450ms on a different
+     curve, so every hover and sheet in here decelerated at a tempo RIVO never
+     uses. These are their three steps, on their curve — the same numbers for the
+     CSS half and the framer half (chrome/theme.js RIVO_MOTION). */
+  --zxc-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --zxc-t-instant: 150ms;
+  --zxc-t-fast: 150ms;
+  --zxc-t-med: 300ms;
+  --zxc-t-slow: 500ms;
   /* The start loader's sweep period. Its own value (not an interaction
      duration) but kept as a token so no bare `Ns` literal lives in a player
      `animation:` declaration — same rule the Tailspin period follows. */
@@ -695,8 +698,9 @@
 /* Panel surface: zinc glass sheet, hairline left border */
 .np-panel-surface {
   background: color-mix(in srgb, var(--zxc-bg) 92%, transparent);
-  backdrop-filter: blur(22px) saturate(1.3);
-  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  /* 24px: the blur strength rivo.st actually ships most often. */
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
   border: 1px solid var(--zxc-line) !important;
   box-shadow: 0 16px 48px rgba(var(--black-rgb), 0.6);
 }

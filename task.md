@@ -7297,3 +7297,26 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 - **Eight call sites dropped the reduced-motion flag.** `CenterStack`, `BottomChrome`, `ChromeTopBar`, `FatalBanner`, `ResumeCard`, `UpNextCard`, `SkipPill`, `TapToUnmutePill` all called `useMotionTokens()` with no argument, making `motionSafe` a no-op and leaving them on framer's global `MotionConfig` (which only suppresses transforms). Every player surface now resolves the preference itself, so a reduced-motion viewer gets the same cut everywhere.
 - **Tooltip** used a fifth duration (`0.15`) → `DURATION.FAST`.
 - **Gates.** `npm run lint` 0 errors (53 pre-existing warnings), `npm run build` clean, full `npm run test` 118/119 files with ONE failure in `ssrfGuard.test.js` ("refuses a name that does not resolve") — a live DNS lookup, unrelated to this change, which passes when the file is run on its own and passes in the earlier full run of the same tree.
+
+## 2026-11-02 - RIVO player reverse-engineering: motion + glass ported by measurement (user: "reverse enginer its player ui/ux, animations and change our player to exactly like this, https://rivo.st/movie/1149791-premalu")
+
+**What their player actually is (measured, not assumed).** Fetching `https://rivo.st/movie/1149791-premalu` with browser headers (200, 373 KB) gives a Next.js App Router page. Every `src` chunk listed in the HTML was downloaded (16 files) and the flight data was scraped for lazy chunk names: there is **no custom player component**. The markup contains no `<video>` mount, no control/pip/seek class names, and neither shipped stylesheet (`3991e846…`, `924d206e…`, 113 KB) has a single player rule — only site keyframes (`fadeUp`, `floatUp`, `drift`, `shimmer`, `shake`, `pulse`). `https://layla.wtf/embed/s_ZSSjtSWSv_80P2IW.js` turned out to be a push-notification service-worker registration, not a player. `/watch/...` routes 404. Conclusion: their watch view is the browser's **native-controls `<video>`** inside their glass/TV shell, so there is no chrome to clone — what IS transferable is their motion and their glass, both of which ship as literal values.
+
+**Measured values taken from their CSS.**
+- `.ease-tv{transition-timing-function:cubic-bezier(.2,.8,.2,1)}`
+- `transition-duration`: `.15s` x10, `.3s` x6, `.5s` x2; `cubic-bezier(.4,0,.2,1)` x16 (their ordinary utility default)
+- `@keyframes fadeUp{0%{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}` at `.5s cubic-bezier(.2,.8,.2,1)`
+- `backdrop-filter: blur(24px)` x4, `blur(20px)` x2, `blur(40px)` x1
+
+**Ported (with the drift it exposed).**
+- `tokens.css` — `--ease-tv` was `cubic-bezier(.4,0,.2,1)`: that is rivo.st's *utility default*, not their named `ease-tv`. Every surface we had "ported from RIVO" therefore decelerated like Material. Now `cubic-bezier(.2,.8,.2,1)`, cited inline.
+- `player.css` `.np-root` — the player aliased our 120/200/280/450ms scale on a different curve, so no hover or sheet in it moved at a tempo RIVO uses. It now publishes their 150/150/300/500ms on `ease-tv`, and the panel surface blur went 22px → 24px (their shipped strength).
+- `theme.js` — new `RIVO_MOTION` (SURFACE .5s, STANDARD .3s, MICRO .15s on their two curves) and `RIVO_FADE_UP` (their `fadeUp` shape); `GLASS_BLUR` 12px → 24px.
+- `PlayerPanel.jsx` — the settings card drops our scale-in SHEET spring for their `fadeUp`: opacity 0 + `translateY(12px)` → settled, 0.5s `ease-tv`, exit the same shape backwards. Page swap `.3s` and title `.15s` on their steps.
+- `NativePlayerView.jsx` — the panel dim uses the same `.3s` `ease-tv` step, so veil and card land together.
+
+**Deliberately NOT done:** replacing our chrome with the native `<video controls>` RIVO effectively uses. That would delete the settings/servers/audio/quality system this repo has built, and the user has asked repeatedly for that system to work better — so the port is their motion identity, not their absence of UI.
+
+**Tests.** `motion.test.js`'s "player aliases the app duration scale" contract became "app scale in tokens.css + RIVO's measured scale in the player", cross-checked against `RIVO_MOTION` so the CSS and framer halves cannot drift, plus assertions that `--ease-tv` and `--zxc-ease` carry `cubic-bezier(.2,.8,.2,1)`.
+
+**Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files pass, `npm run build` clean.

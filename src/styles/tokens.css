@@ -190,7 +190,13 @@
   /* RIVO's own easing — the silk-ish TV curve (`ease-tv`) used by nav pills,
      chips and card hovers on the reference site. Published as a token so the
      RIVO surfaces can adopt it without restating the cubic-bezier per rule. */
-  --ease-tv: cubic-bezier(0.4, 0, 0.2, 1);
+  /* Measured from rivo.st's shipped CSS (2026-11-02):
+       .ease-tv{transition-timing-function:cubic-bezier(.2,.8,.2,1)}
+     This token previously carried Tailwind's DEFAULT curve (.4,0,.2,1) — which
+     rivo.st uses 16 times as its ordinary utility easing, a different job. So
+     every surface we ported from them decelerated like Material, never like
+     RIVO. Their real curve rises fast and lands soft. */
+  --ease-tv: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* ── RIVO motion keyframes (reverse-engineered from rivo.st) ───────────── */

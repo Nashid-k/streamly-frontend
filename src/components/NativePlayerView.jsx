@@ -71,7 +71,7 @@ import {
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { subtitleFontFamily, findSubtitleTrack } from "../constants/settings";
-import { FADE } from "../constants/motion";
+import { RIVO_MOTION } from "./player/chrome/theme";
 import { useOptionalPreferences } from "../context/preferences";
 import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import {
@@ -4489,8 +4489,9 @@ const showSkipOutro = shouldShowSkipOutro({
               initial={dimReducedMotion ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              // Same fade token as the cold/warm stage, so one dim speed exists.
-              transition={dimReducedMotion ? { duration: 0 } : FADE.transition}
+              // RIVO's `.3s` step on `ease-tv` — the same curve and duration as
+              // the panel page swap, so the veil and the card arrive together.
+              transition={dimReducedMotion ? { duration: 0 } : RIVO_MOTION.STANDARD}
               onClick={() => {
                 setPanel(null);
                 poke();

@@ -7,10 +7,10 @@
 // Back-chevron header navigates between submenus and root settings.
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { DURATION, EASE_OUT, motionSafe, useMotionTokens } from "../../../constants/motion";
+import { motionSafe } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RIVO_FADE_UP, RIVO_MOTION } from "./theme";
 
 const TITLES = {
   settings: "Settings",
@@ -68,12 +68,10 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
   // A closed panel (null) is a fade for the sheet itself; the body animation
   // only matters while one page replaces another.
   const reduceMotion = useReducedMotion();
-  // The card itself rides the SAME spring as every other sheet in the player
-  // (transport, resume/up-next cards, episodes rail). It used to carry a
-  // one-off `{ duration: 0.16, ease: [0.2, 0, 0, 1] }` — a curve that appears
-  // nowhere else in the repo — so the card and its own contents decelerated on
-  // two different engines. Tokens also give it the reduced-motion cut for free.
-  const M = useMotionTokens(reduceMotion);
+  // rivo.st ships NO custom player chrome (measured 2026-11-02: their watch view
+  // is a native-controls <video> inside their shell), so the card adopts THEIR
+  // surface motion instead of our SHEET spring: `fadeUp`, 0.5s on `ease-tv`.
+  // See theme.js RIVO_MOTION / RIVO_FADE_UP.
   const back = directionRef.current < 0;
   /* The page slide is FRAMER's, not a CSS keyframe. It used to be a keyframe on
      the keyed body, which a stylesheet can silently lose (an overriding
@@ -83,26 +81,31 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
      Entry from the side it came from: forward pages from the right, back from
      the left. No exit animation — the new page's rows have to be tappable on
      the frame they appear, not 200ms later. */
+  /* Timings are RIVO's own (see theme.js RIVO_MOTION): the page swap is their
+     `.3s` step on `ease-tv`, the title their `.15s` micro step — the same two
+     numbers their own stylesheet uses for every surface and hover. */
   const bodyMotion = {
     initial: reduceMotion ? false : { opacity: 0, x: back ? -26 : 26 },
     animate: { opacity: 1, x: 0 },
-    transition: motionSafe(reduceMotion, { duration: DURATION.MED, ease: EASE_OUT }),
+    transition: motionSafe(reduceMotion, RIVO_MOTION.STANDARD),
   };
   const titleMotion = {
     initial: reduceMotion ? false : { opacity: 0, y: 4 },
     animate: { opacity: 1, y: 0 },
-    transition: motionSafe(reduceMotion, { duration: DURATION.FAST, ease: EASE_OUT }),
+    transition: motionSafe(reduceMotion, RIVO_MOTION.MICRO),
   };
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
         <motion.aside
-          initial={{ opacity: 0, scale: 0.94, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          // Mirrored exit: closing is the arrival played backwards, not a
-          // different gesture (same shape, same spring, same distance).
-          exit={{ opacity: 0, scale: 0.94, y: 10 }}
-          transition={M.SPRING.SHEET}
+          // RIVO's `fadeUp`, exactly: opacity 0 + translateY(12px) into place over
+          // 0.5s on `ease-tv`. Their shell has no scale-in anywhere — the card
+          // scaling up was our idiom, not theirs.
+          initial={reduceMotion ? false : RIVO_FADE_UP.initial}
+          animate={RIVO_FADE_UP.animate}
+          // Closing is the arrival played backwards.
+          exit={RIVO_FADE_UP.exit}
+          transition={motionSafe(reduceMotion, RIVO_MOTION.SURFACE)}
           ref={panelRef}
           role="dialog"
           aria-label={ARIA_LABELS[panel] || TITLES[panel] || "Settings"}
