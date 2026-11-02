@@ -256,8 +256,17 @@ export default function NativePlayerView({
   // and the player's own resolve sign the SAME streamResolve cache key — that
   // identity is what lets a prefetch coalesce with the click instead of racing.
   const resolveArgs = useMemo(
-    () => ({ type, id, season: type === "tv" ? season : undefined, episode: type === "tv" ? episode : undefined, title }),
-    [type, id, season, episode, title],
+    () => ({
+      type,
+      id,
+      season: type === "tv" ? season : undefined,
+      episode: type === "tv" ? episode : undefined,
+      title,
+      // TMDB's original_language. RIVO needs it to choose WHICH per-language
+      // master is the entry (Server 1 lists Hindi before Malayalam for Premalu).
+      originalLanguage,
+    }),
+    [type, id, season, episode, title, originalLanguage],
   );
   /* Settings → Servers drag order. It was a real preference that the player
      never read: the menu stayed in catalogue order and the auto path ignored it.
@@ -2438,6 +2447,10 @@ setScrubDragging(true);
         season: type === "tv" ? season : undefined,
         episode: type === "tv" ? episode : undefined,
         title,
+        // Which language the film is actually in (TMDB). RIVO's Server 1 lists
+        // one master per language and does NOT put the original first, so the
+        // handler cannot choose the entry master without this.
+        originalLanguage,
         // Raw-source resolution pin (0/undefined = Auto) — see pickSourceQuality.
         sourceHeight: sourceHeightRef.current || undefined,
       };
@@ -3143,14 +3156,21 @@ setScrubDragging(true);
     const hls = hlsRef.current;
     if (!videoRef.current) return false;
     if (!hls) return false;
-    // A pinned NHD dub IS the manifest — the source serves one rung per dub, so
-    // a quality pick while a dub plays would silently swap the viewer back to
-    // the original language instead of changing quality. Honest answer: fixed.
+    // A sibling dub is its OWN manifest. When that manifest carries a real
+    // ladder (RIVO and ZXC dubs are full masters), a rung pick is pinned right
+    // here in the CURRENT manifest — the old blanket refusal made the viewer
+    // switch back to Original first just to change quality (user report).
+    // Only a genuinely single-rung dub cannot change quality without dropping
+    // the language, and that keeps an honest note.
     // (Dub switches pass dubSwitch — pickDub commits the ref only after its own
     // probe passed, and picking "Original" clears the ref first.)
-    if (activeDubRef.current > 0 && !opts.dubSwitch) {
+    const dubHasLadder =
+      Boolean(metaRef.current?.masterLevels) &&
+      Array.isArray(hls.levels) &&
+      hls.levels.length > 1;
+    if (activeDubRef.current > 0 && !opts.dubSwitch && !dubHasLadder) {
       setBuffering(false);
-      setQualityNote("Switch audio back to Original to change quality");
+      setQualityNote("This audio track is single-quality — switch to Original to change quality");
       return false;
     }
     // Stamp this pick before any await: a newer pick or a server switch bumps

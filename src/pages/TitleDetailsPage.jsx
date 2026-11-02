@@ -717,6 +717,11 @@ export default function TitleDetails() {
       id: warmNumericId,
       season: isTvContent ? selectedSeason : undefined,
       episode: warmEpisode,
+      // RIVO's Server 1 lists one master per language and does NOT put the
+      // film's original first (Premalu: Hindi first, Malayalam second), so a
+      // warm token minted without this would pre-load the Hindi entry — and the
+      // player consumes warm tokens by title, so it would play that entry.
+      originalLanguage: movie?.originalLanguage || undefined,
     };
     const controller = new AbortController();
     const timer = setTimeout(() => {

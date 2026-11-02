@@ -246,9 +246,22 @@ export const streamResolve = {
       `{ source, variants, audioTracks, … }` shape. RIVO's Server 1 lists one
       master PER LANGUAGE, so those sibling masters surface as `audioTracks`
       (the same full-alternate-stream dub model the player already switches). */
-  resolveRivo({ type, id, season, episode, server, sourceHeight }, { signal, bypass } = {}) {
+  resolveRivo(
+    { type, id, season, episode, server, sourceHeight, originalLanguage },
+    { signal, bypass } = {},
+  ) {
     const kind = type === "tv" ? "tv" : "movie";
-    const key = [kind, String(id || ""), season || "", episode || "", `server:${server || ""}`, sourceHeight ? `:src${sourceHeight}` : ""].join("|");
+    const key = [
+      kind,
+      String(id || ""),
+      season || "",
+      episode || "",
+      `server:${server || ""}`,
+      sourceHeight ? `:src${sourceHeight}` : "",
+      // RIVO picks WHICH language master is the entry from this, so two
+      // requests that differ only here are not the same stream.
+      originalLanguage ? `:lang${String(originalLanguage).toLowerCase()}` : "",
+    ].join("|");
     if (!bypass) {
       const hit = resolveRivoCache.get(key);
       if (hit && Date.now() - hit.at < RIVO_RESOLVE_TTL_MS) return hit.promise;
@@ -257,6 +270,9 @@ export const streamResolve = {
     const run = (async () => {
       const body = { action: "resolveRivo", type: kind, id: String(id || "") };
       if (server) body.server = String(server);
+      // TMDB's original_language: the handler needs it to pick the entry master
+      // when every RIVO row is language-tagged (Hindi can sit first).
+      if (originalLanguage) body.originalLanguage = String(originalLanguage);
       if (kind === "tv") {
         if (season != null) body.season = String(season);
         if (episode != null) body.episode = String(episode);

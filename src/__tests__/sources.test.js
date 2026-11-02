@@ -61,9 +61,17 @@ describe("AUTO_SOURCE", () => {
 
   it("resolves the no-pick start point at Server 1 (RIVO) first", async () => {
     resolveRivoMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
-    const result = await AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
+    // The player passes the film's TMDB language through: RIVO's Server 1 lists
+    // one master per language and does not put the original first.
+    const result = await AUTO_SOURCE.resolve(
+      { type: "movie", id: "550", originalLanguage: "ml" },
+      { signal: undefined },
+    );
     // No pick -> Server 1 leads the line, so the stream starts there…
-    expect(resolveRivoMock).toHaveBeenCalledWith({ type: "movie", id: "550", server: "1" }, { signal: undefined });
+    expect(resolveRivoMock).toHaveBeenCalledWith(
+      { type: "movie", id: "550", originalLanguage: "ml", server: "1" },
+      { signal: undefined },
+    );
     // The row is named, so `sourceByServer` can still re-derive Server 1 when
     // the backend echoes its own server label.
     expect(result).toEqual({ source: {}, variants: [], audioTracks: [], server: "1" });

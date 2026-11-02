@@ -210,6 +210,53 @@ describe("streamResolve.resolveZxc", () => {
   });
 });
 
+describe("streamResolve.resolveRivo", () => {
+  it("sends the film language and carries the source's own original track through", async () => {
+    let capturedBody = null;
+    const fetchMock = vi.fn().mockImplementation(async (url, init) => {
+      capturedBody = JSON.parse(init.body);
+      return jsonResponse({
+        ok: true,
+        source: {
+          kind: "hls",
+          url: "https://cdn.test/rivo/ml/master.m3u8",
+          refUrl: "https://f.rivo.st/",
+          multiLevelMaster: true,
+        },
+        variants: [{ uri: "https://cdn.test/rivo/ml/master.m3u8", bandwidth: 0, height: 0 }],
+        audioTracks: [{ label: "Hindi", uri: "https://cdn.test/rivo/hi.m3u8" }],
+        audioOriginalLang: "ml",
+        server: "Server 1",
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const resolved = await streamResolve.resolveRivo({
+      type: "movie",
+      id: "1149791",
+      server: "1",
+      originalLanguage: "ml",
+    });
+    // RIVO cannot pick the right master without the film's language: Premalu
+    // lists Hindi before Malayalam.
+    expect(capturedBody).toMatchObject({
+      action: "resolveRivo",
+      type: "movie",
+      id: "1149791",
+      server: "1",
+      originalLanguage: "ml",
+    });
+    // The row-0 label is the ENTRY master's language, not TMDB's assumption.
+    expect(resolved.audioOriginalLang).toBe("ml");
+    expect(resolved.server).toBe("Server 1");
+
+    // The language is part of the cache key: a different one is a different
+    // stream (a different entry master), never a cached replay.
+    await streamResolve.resolveRivo({ type: "movie", id: "1149791", server: "1", originalLanguage: "hi" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("getZxcCapabilities", () => {
   it("reports native when the server says the relay is configured", async () => {
     clearZxcCapabilitiesCacheForTests();

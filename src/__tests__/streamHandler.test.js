@@ -481,6 +481,96 @@ describe("resolveRivo", () => {
     expect(body.audioTracks).toHaveLength(2);
   });
 
+  it("picks the film-language master when the roster is fully language-tagged", async () => {
+    // The live Premalu (tmdb 1149791) Server 1 shape, measured 2026-11-02:
+    // Hindi first, Malayalam second, plus a second Malayalam rung. Treating
+    // sources[0] as the original played Hindi under a row the player labeled
+    // Malayalam from TMDB (user report).
+    const tagged = {
+      provider: "rivo",
+      server: "Server 1",
+      sources: [
+        { url: "https://cdn.example/hi/master.m3u8", kind: "hls", quality: "1080p (Hindi)" },
+        { url: "https://cdn.example/ml/master.m3u8", kind: "hls", quality: "1080p (Malayalam)" },
+        { url: "https://cdn.example/te/master.m3u8", kind: "hls", quality: "1080p (Telugu)" },
+        { url: "https://cdn.example/ml2/master.m3u8", kind: "hls", quality: "480p (Malayalam)" },
+      ],
+      subtitles: [],
+    };
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        return new Response(JSON.stringify(tagged), { status: 200 });
+      }
+      if (target === tagged.sources[1].url) {
+        return new Response(MASTER, { status: 200 });
+      }
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({
+      action: "resolveRivo",
+      type: "movie",
+      id: "1149791",
+      server: "1",
+      originalLanguage: "ml",
+    });
+    const body = JSON.parse(res.body);
+    // The Malayalam master IS the stream now, and it was the one loaded for the
+    // ladder (not the Hindi master that happens to sit first).
+    expect(body.source.url).toBe(tagged.sources[1].url);
+    expect(fetchMock.mock.calls.map((c) => String(c[0]))).toContain(tagged.sources[1].url);
+    // Row 0 is named from the SOURCE's own language, not from TMDB.
+    expect(body.audioOriginalLang).toBe("ml");
+    // The other languages remain; the 480p Malayalam sibling is the same audio
+    // at another rung, not a second track.
+    expect(body.audioTracks).toEqual([
+      { label: "Hindi", uri: tagged.sources[0].url },
+      { label: "Telugu", uri: tagged.sources[2].url },
+    ]);
+  });
+
+  it("labels the entry with its OWN language when the film language is not offered", async () => {
+    // Same all-tagged shape, but this roster has no Malayalam at all. The handler
+    // must fall back to the provider's first row AND say that row is Hindi —
+    // calling it Malayalam was the audible lie.
+    const onlyHiTe = {
+      provider: "rivo",
+      server: "Server 1",
+      sources: [
+        { url: "https://cdn.example/hi/master.m3u8", kind: "hls", quality: "1080p (Hindi)" },
+        { url: "https://cdn.example/te/master.m3u8", kind: "hls", quality: "1080p (Telugu)" },
+      ],
+      subtitles: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const target = String(url);
+        if (target.startsWith("https://f.rivo.st/api/source/")) {
+          return new Response(JSON.stringify(onlyHiTe), { status: 200 });
+        }
+        if (target === onlyHiTe.sources[0].url) {
+          return new Response(MASTER, { status: 200 });
+        }
+        return new Response("nope", { status: 404 });
+      }),
+    );
+
+    const res = await call({
+      action: "resolveRivo",
+      type: "movie",
+      id: "1149791",
+      server: "1",
+      originalLanguage: "ml",
+    });
+    const body = JSON.parse(res.body);
+    expect(body.source.url).toBe(onlyHiTe.sources[0].url);
+    expect(body.audioOriginalLang).toBe("hi");
+    expect(body.audioTracks).toEqual([{ label: "Telugu", uri: onlyHiTe.sources[1].url }]);
+  });
+
   it("rejects a malformed id with a 400, not a 500", async () => {
     const res = await call({ action: "resolveRivo", type: "movie", id: "not-a-number", server: "1" });
     expect(res.statusCode).toBe(400);

@@ -251,11 +251,10 @@ describe("quality switch DISPLAY fixes", () => {
     await waitFor(() => expect(screen.getByText("Now 480p · adjusts with your connection")).toBeInTheDocument(), { timeout: 3000 });
   });
 
-  it("quality pick while a pinned dub plays shows an honest note instead of a dead click", async () => {
-    // A dub is pinned (activeDubRef > 0) so a quality pick must be refused -
-    // refuse WITH a visible reason (Switch audio back to Original...) rather
-    // than the old silent early-return. Reproduced via a second playable audio
-    // track and a manual dub pick puts activeDubRef > 0.
+  it("quality pick during a dub pins the rung in the dub's OWN ladder — no switch-back", async () => {
+    // A sibling dub is a FULL master with its own ladder (RIVO/ZXC). The pick is
+    // pinned right inside that manifest, so changing quality no longer forces
+    // the viewer back to Original first (user report).
     RESOLVE_PAYLOAD = resolveFor({ multiLevelMaster: true, variantHeights: [1080, 720, 480] });
     RESOLVE_PAYLOAD.audioTracks = [{ label: "French dub", uri: FRENCH_DUB }];
     hlsState.levels = [{ height: 1080 }, { height: 720 }, { height: 480 }];
@@ -276,7 +275,35 @@ describe("quality switch DISPLAY fixes", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^720p/ }));
 
-    expect(screen.getByText("Switch audio back to Original to change quality")).toBeInTheDocument();
-    expect(hlsState.loadSourceCalls.filter((u) => !u.includes("&zd=fr")).length).toBe(1); // no reload for the refusal
+    await waitFor(() => expect(hlsState.currentLevel).toBe(1), { timeout: 3000 });
+    // The pick landed inside the dub: no refusal note, no reload of the
+    // original-language master, and the clicked row is the one lit.
+    expect(screen.queryByText(/switch to Original to change quality/i)).toBeNull();
+    expect(hlsState.loadSourceCalls.filter((u) => !u.includes("&zd=fr")).length).toBe(1);
+    expect(screen.getByRole("button", { name: /^720p/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("a single-rung dub still explains why quality is locked", async () => {
+    // The honest half of the old contract: if the dub manifest really carries
+    // ONE rung, no pin can exist — say so instead of silently doing nothing or
+    // dropping the language.
+    RESOLVE_PAYLOAD = resolveFor({ multiLevelMaster: true, variantHeights: [1080, 720, 480] });
+    RESOLVE_PAYLOAD.audioTracks = [{ label: "French dub", uri: FRENCH_DUB }];
+    hlsState.levels = [{ height: 1080 }];
+    const { playingState } = await mountPlayer();
+    playingState.playing = true;
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Audio/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^French/i }));
+    await waitFor(() => expect(hlsState.loadSourceCalls).toContain(FRENCH_DUB), { timeout: 3000 });
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Video Quality/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^720p/ }));
+
+    expect(screen.getByText(/single-quality/i)).toBeInTheDocument();
+    expect(hlsState.loadSourceCalls.filter((u) => !u.includes("&zd=fr")).length).toBe(1);
   });
 });

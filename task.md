@@ -7196,3 +7196,86 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   pause/resume against RIVO once a TMDB key is available locally; is-a.dev
   publish still gated on fork PR #59508.
 
+## 2026-11-02 - Server 1 language fix: Premalu played Hindi as Malayalam (user: "in this site from where we reverse enginered server1. it has premalu malayalam but ours server1 has hindi as malayalam,find the cause and fix everything related to server1, https://rivo.st/movie/1149791-premalu")
+
+- **Live evidence.** `GET https://f.rivo.st/api/source/movie/1149791?server=1`
+  (with the handler's headers) returns a FULLY language-tagged roster in this
+  order: `1080p (Hindi)`, `1080p (Malayalam)`, `1080p (Telugu)`,
+  `480p (Malayalam)`, … — there is no language-less master, and the film's
+  original (Malayalam, confirmed on rivo.st) is SECOND. rivo.st itself labels the
+  title Original/Spoken = Malayalam.
+- **Cause (`api/stream.js` `handleResolveRivo`).** The entry master was chosen as
+  "the first HLS source whose quality has no parenthesised language, else
+  `sources[0]`". With every row tagged, that fallback picked the HINDI master,
+  while the player labeled row 0 from TMDB (`originalLanguage: "ml"`) — so the
+  audio menu said Malayalam and played Hindi. The same handler also returned
+  `audioOriginalLang: ""`, which guaranteed the TMDB guess.
+- **Fix.**
+  1. The handler now takes the film's TMDB language (`body.originalLanguage`,
+     validated to a short string) and picks: a language-less master when one
+     exists (the provider's own "original" row — old behaviour preserved), else
+     the master whose quality label matches that language (`Malayalam` -> `ml`,
+     via a name/code map), else `sources[0]` as the last resort.
+  2. `audioOriginalLang` is now the ENTRY master's own language code, so the
+     player names row 0 from the source instead of guessing from TMDB. If the
+     film language is not offered, row 0 truthfully says the language that IS
+     playing (e.g. Hindi).
+  3. Dubs skip any sibling in the entry's language: Premalu also lists
+     `480p (Malayalam)`, which is the same audio at a lower rung, not a second
+     track.
+  4. `src/api/streamResolve.js` forwards `originalLanguage` in the `resolveRivo`
+     body and includes it in the cache key (a different language is a different
+     entry master, never a cached replay).
+  5. `src/components/NativePlayerView.jsx` passes `originalLanguage` in both the
+     resolve args and the Servers-menu prefetch args; `TitleDetailsPage`'s warm
+     mint carries it too, so the pre-minted token cannot be the Hindi entry.
+- **Tests.** `streamHandler.test.js` +2 through the REAL handler: the live
+  Premalu shape selects the Malayalam master, reports `audioOriginalLang: "ml"`
+  and drops the duplicate Malayalam rung; a roster without the film language
+  falls back to the first row but labels it `hi`. `streamResolve.test.js` +1
+  (`originalLanguage` reaches the request body; language is part of the cache
+  key; `audioOriginalLang` survives normalization). `sources.test.js` now pins
+  that AUTO_SOURCE forwards the film language to the Server 1 resolver.
+- **Docs.** `architecture.md` RIVO paragraph rewritten (entry selection by
+  language, dubs excluding the entry language, `audioOriginalLang`).
+- **Gates.** `node --check api/stream.js` clean; `npm run lint` 0 errors;
+  full `npm run test` 119 files pass; `npm run build` clean.
+- **Remaining.** Other RIVO titles are still verified only by the handler
+  contract and the live Premalu roster; a per-title sweep is worth doing when
+  the live host is reachable from the dev machine (it is, with the handler's
+  headers).
+
+## 2026-11-02 - Quality inside a dub, connected player-panel motion, cursor glow (user: "the player has some issues/server has. some times to change quality i need to switch back to orginal audio, fix that as well as player ui/ux dont have connected animations/transitions. on clicking anything/going back no fluid/flow/connected animations/transistions/smoothness to make it living. also add cursor hover glow in player setings")
+
+- **Quality while a sibling dub is active (`NativePlayerView.pickQuality`).**
+  The old guard refused EVERY quality pick while `activeDubRef > 0`, because a
+  dub is its own manifest, so the viewer had to switch to Original first. RIVO
+  and ZXC dubs are full masters with their own ladders, so the pick now pins the
+  rung in the CURRENT (dub) manifest through the existing in-manifest path —
+  language kept, no reload, clicked row lit. A genuinely single-rung dub keeps
+  an honest note ("This audio track is single-quality — switch to Original to
+  change quality").
+- **Connected player panel navigation (`PlayerPanel.jsx` + `player.css`).** The
+  sheet already animated open/close, but every page inside it swapped with a
+  hard cut (open a submenu, press back: no flow). The body is now keyed by panel
+  and slides in the direction of travel from a small depth map (root 0,
+  submenus 1, Subtitle style 2): forward from the right, back from the left,
+  with the header title fading in step. CSS animation rather than a delayed
+  exit, so the new page's rows are tappable immediately; the card also grows out
+  of the gear (`transform-origin: 100% 100%`).
+- **Cursor hover glow (`DialogRow.jsx` + `player.css`).** Rows track the pointer
+  and write `--np-glow-x/--np-glow-y`; a soft radial pool (white + brand tint)
+  follows the cursor across the settings/audio/servers/quality rows. Pure
+  decoration under the row content, no re-render per pointer move, skipped for
+  disabled rows.
+- **Tests.** `qualitySwitchDisplay.test.jsx`: the old "quality is refused during
+  a dub" test became "quality pins inside the dub's own ladder" (level moves, no
+  refusal note, no original reload, clicked row lit) plus a NEW single-rung dub
+  test that still asserts the honest note.
+- **Reduced motion.** Panel slide/title/glow fades are disabled under
+  `prefers-reduced-motion`; the glow itself stays static.
+- **Docs.** `architecture.md` sibling-dub paragraph now states the
+  quality-inside-the-dub contract.
+- **Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full
+  `npm run test` 119 files pass, `npm run build` clean.
+

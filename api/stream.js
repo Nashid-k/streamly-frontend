@@ -2100,6 +2100,78 @@ function rivoAudioLabel(quality) {
   return match ? match[1].trim() : "";
 }
 
+/* RIVO names each master's language in its quality label ("1080p (Malayalam)"),
+   and its roster is NOT ordered with the film's original first: Premalu
+   (tmdb 1149791) lists Hindi first and Malayalam second. Treating sources[0] as
+   the original therefore played Hindi under a row the player had labeled
+   Malayalam from TMDB (user report: "ours server1 has hindi as malayalam").
+   These maps let the handler pick the master the film is actually in and report
+   that master's OWN language back in `audioOriginalLang`, so the player labels
+   row 0 from the source instead of guessing from TMDB. */
+const RIVO_LANG_CODES = {
+  english: "en",
+  hindi: "hi",
+  malayalam: "ml",
+  tamil: "ta",
+  telugu: "te",
+  kannada: "kn",
+  bengali: "bn",
+  punjabi: "pa",
+  marathi: "mr",
+  gujarati: "gu",
+  urdu: "ur",
+  french: "fr",
+  german: "de",
+  spanish: "es",
+  italian: "it",
+  portuguese: "pt",
+  russian: "ru",
+  japanese: "ja",
+  korean: "ko",
+  chinese: "zh",
+  arabic: "ar",
+  turkish: "tr",
+  vietnamese: "vi",
+  thai: "th",
+  indonesian: "id",
+  malay: "ms",
+  polish: "pl",
+  dutch: "nl",
+  swedish: "sv",
+  norwegian: "no",
+  danish: "da",
+  finnish: "fi",
+  czech: "cs",
+  hungarian: "hu",
+  romanian: "ro",
+  greek: "el",
+  hebrew: "he",
+  ukrainian: "uk",
+  persian: "fa",
+};
+
+/* "Malayalam" -> "malayalam" / "TAMIL" -> "tamil" / "pt-BR" -> "ptbr". */
+function rivoLangKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/* A language label (or code) to an ISO 639-1 code, "" when unknown. */
+function rivoLanguageCode(label) {
+  const key = rivoLangKey(label);
+  if (!key) return "";
+  return RIVO_LANG_CODES[key] || (key.length === 2 ? key : "");
+}
+
+function rivoMatchesLanguage(source, wantedKey) {
+  const key = rivoLangKey(rivoAudioLabel(source?.quality));
+  if (!key || !wantedKey) return false;
+  if (key === wantedKey) return true;
+  const labelCode = RIVO_LANG_CODES[key];
+  return Boolean(labelCode && labelCode === wantedKey);
+}
+
 async function handleResolveRivo(body, res) {
   const kind = body.type === "tv" ? "tv" : "movie";
   const tmdbId = String(body.id || "").trim();
@@ -2154,9 +2226,20 @@ async function handleResolveRivo(body, res) {
     return;
   }
 
-  const entry =
-    sources.find((s) => s && s.kind === "hls" && !String(s.quality || "").includes("(")) ||
-    sources[0];
+  /* The film's language, sent by the player from TMDB. A language-less master
+     stays the provider's own "original" row and keeps priority (the old
+     behaviour); when EVERY row is language-tagged, the film's language decides.
+     `sources[0]` is only the last resort — it is a provider ordering, not a
+     language claim, which is exactly how Premalu played Hindi as Malayalam. */
+  const requestedLang = rivoLangKey(String(body.originalLanguage || "").slice(0, 40));
+  const untaggedMaster = sources.find(
+    (s) => s && s.kind === "hls" && !String(s.quality || "").includes("("),
+  );
+  const languageMaster = requestedLang
+    ? sources.find((s) => s && s.kind === "hls" && rivoMatchesLanguage(s, requestedLang))
+    : null;
+  const entry = untaggedMaster || languageMaster || sources[0];
+  const entryLabel = rivoAudioLabel(entry.quality);
   if (entry.kind && entry.kind !== "hls") {
     json(res, 200, { ok: false, error: `RIVO ${serverName} served a non-HLS source`, code: "unsupported-kind" });
     return;
@@ -2188,6 +2271,9 @@ async function handleResolveRivo(body, res) {
     if (source.url === entry.url) continue;
     const label = rivoAudioLabel(source.quality);
     if (!label || source.kind !== "hls") continue;
+    // A sibling in the ENTRY's own language (Premalu also lists 480p Malayalam)
+    // is the same audio at another rung, not a second track.
+    if (entryLabel && label.toLowerCase() === entryLabel.toLowerCase()) continue;
     if (audioTracks.some((track) => track.label.toLowerCase() === label.toLowerCase())) continue;
     audioTracks.push({ label, uri: source.url });
     issueHost(source.url);
@@ -2199,7 +2285,9 @@ async function handleResolveRivo(body, res) {
     variants,
     audioTracks,
     subtitles,
-    audioOriginalLang: "",
+    // The ENTRY's own language — "" when the provider's original row carries no
+    // language tag, which leaves the player's TMDB fallback in charge.
+    audioOriginalLang: rivoLanguageCode(entryLabel),
     sourceVariants: [],
     server: serverName,
     provider: providerName,

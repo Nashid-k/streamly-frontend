@@ -189,7 +189,10 @@ is HLS-only). The winning `playUrl` is a tokenized `nhdapi.streamfinder.st`
 HLS manifest (CORS *, no referer needed), and dubbed titles ship SIBLING
 full-stream URLs (one manifest per dub, each individually verified) in
 `audioTracks`, which the player's Audio menu surfaces as a position-preserving
-manifest swap rather than hls.js audio groups.
+manifest swap rather than hls.js audio groups. A quality pick while a sibling
+dub is active pins the rung inside that dub's OWN master (dubs are full ladders,
+so changing quality no longer requires switching audio back to Original); only
+a single-rung dub refuses, with a visible note.
 
 **RIVO (`resolveRivo`) is a SIXTH source family and owns Servers-menu Server 1**
 (2026-11-02) — rivo.st's own player backend (f.rivo.st) serves
@@ -199,11 +202,19 @@ player sources from RIVO without the ZXC mint/relay. `api/stream.js` gained the
 `resolveRivo` action, `src/api/streamResolve.js` the matching client resolver
 (`resolveRivo`, same normalize/caching envelope), and `src/constants/sources.js`
 the `rivo-1` row. Every RIVO source is itself a MASTER playlist, so the action
-re-shapes it: `source` is the first master with `multiLevelMaster: true`,
-`variants` is that master's real ladder (fetched and parsed server-side, one
-`Auto` rung if the fetch fails), and the other language-tagged masters become
-`audioTracks` — the same sibling-full-manifest model the player already switches
-for ZXC Centaurus/NHD. Server 1 of RIVO is the multi-audio one: measured live on
+re-shapes it: `source` is a language-less master when the provider ships one,
+otherwise the master whose quality label matches the film's TMDB
+`original_language` (sent by the resolver), and only then the first master —
+RIVO does NOT order the original first (Premalu `1149791` lists Hindi, then
+Malayalam, so `sources[0]` played Hindi under a row the player had labeled
+Malayalam from TMDB). It keeps `multiLevelMaster: true`; `variants` is that
+master's real ladder (fetched and parsed server-side, one `Auto` rung if the
+fetch fails), and the other language-tagged masters become `audioTracks` — the
+same sibling-full-manifest model the player already switches for ZXC
+Centaurus/NHD. The entry's OWN language is reported as `audioOriginalLang`, so
+row 0 is named from the source rather than guessed from TMDB, and a sibling in
+the entry's language (a lower rung of the same dub) is not listed as a second
+track. Server 1 of RIVO is the multi-audio one: measured live on
 movie 1339713 and tv 1399 S1E1 it returns eight language-tagged 1080p masters
 (English, French, Latin American Spanish, Brazilian Portuguese, Spanish, Yoruba,
 Arabic sub). The upstream contract differs from ZXC's, hence the separate action.

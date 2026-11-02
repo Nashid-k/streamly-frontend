@@ -12,6 +12,19 @@ import { ACCENT } from "./theme";
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
   const M = useMotionTokens(useReducedMotion());
 
+  /* Cursor-tracked glow: the row's highlight follows the pointer instead of
+     being a flat wash (user ask: "cursor hover glow in player settings"). The
+     position is written straight to CSS vars on the element — a pointer move
+     must never re-render the whole panel. */
+  const trackGlow = (event) => {
+    if (disabled) return;
+    const el = event.currentTarget;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    el.style.setProperty("--np-glow-x", `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    el.style.setProperty("--np-glow-y", `${((event.clientY - rect.top) / rect.height) * 100}%`);
+  };
+
   const renderTitle = (t) => {
     if (typeof t !== "string") return t;
     const m = t.match(/^(.*?)\s+(HD|4K)$/);
@@ -33,6 +46,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
       type="button"
       className={["np-dialog-row", selected ? "selected" : ""].filter(Boolean).join(" ")}
       onClick={disabled ? undefined : onClick}
+      onPointerMove={trackGlow}
       disabled={disabled}
       aria-pressed={selected ? true : undefined}
       style={{

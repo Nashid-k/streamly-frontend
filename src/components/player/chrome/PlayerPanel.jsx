@@ -5,7 +5,8 @@
 // full-width bottom sheet, which on a phone buried the picture behind a wall of
 // chrome — the viewer asked for the desktop-sized card on mobile too.
 // Back-chevron header navigates between submenus and root settings.
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
 import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
@@ -36,7 +37,37 @@ const ARIA_LABELS = {
   substyle: "Subtitle style",
 };
 
+/* Menu depth, so a submenu opens FORWARD (content slides in from the right)
+   and a back-chevron return plays the SAME motion in reverse. Depth 0 is the
+   root; Subtitle style is the one second-level page. */
+const DEPTH = {
+  settings: 0,
+  subs: 1,
+  audio: 1,
+  video: 1,
+  speed: 1,
+  aspect: 1,
+  servers: 1,
+  sourcequality: 1,
+  sleep: 1,
+  substyle: 2,
+};
+
 export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings, children }) {
+  // Direction of the LAST navigation, kept across the panel swap so the body
+  // that mounts is the body that knows which way it came from.
+  const prevPanelRef = useRef(panel);
+  const directionRef = useRef(1);
+  if (panel !== prevPanelRef.current) {
+    const from = DEPTH[prevPanelRef.current] ?? 0;
+    const to = DEPTH[panel] ?? 0;
+    directionRef.current = to >= from ? 1 : -1;
+    prevPanelRef.current = panel;
+  }
+  // A closed panel (null) is a fade for the sheet itself; the body animation
+  // only matters while one page replaces another.
+  const reduceMotion = useReducedMotion();
+  const nav = reduceMotion ? "none" : directionRef.current < 0 ? "back" : "forward";
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
@@ -74,6 +105,9 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             padding: "4px 0 8px",
             zIndex: 6,
             outline: "none",
+            // The card grows out of the gear that opened it, so the open/close
+            // reads as one connected gesture instead of a floating pop.
+            transformOrigin: "100% 100%",
           }}
         >
           <div
@@ -120,6 +154,8 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                 </button>
               )}
               <span
+                key={panel}
+                className="np-panel-title"
                 style={{
                   color: "#fff",
                   fontWeight: 500,
@@ -134,7 +170,13 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
               <IconClose size={15} />
             </IconBtn>
           </div>
-          {children}
+          {/* Keyed by page: navigating remounts the body, which replays the
+              direction-aware slide from player.css. CSS (not a delayed exit)
+              keeps the new page's rows available immediately, so a tap can
+              land the instant the header changes. */}
+          <div key={panel} className="np-panel-body" data-nav={nav}>
+            {children}
+          </div>
         </motion.aside>
       )}
     </AnimatePresence>
