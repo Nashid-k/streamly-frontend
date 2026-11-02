@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { DURATION, EASE_OUT } from "../../constants/motion";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import MovieCard from "../MovieCard";
 import RailArrow from "../RailArrow";
 import useRailArrows from "../../hooks/useRailArrows";
@@ -109,15 +107,11 @@ const MovieRail = React.memo(
         className="movie-rail-wrapper"
         style={{ position: "relative" }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: "0.25rem",
-            paddingLeft: "0.25rem",
-          }}
-        >
+        {/* rivo.st's row head: `gutter mb-1 flex items-end justify-between gap-4`
+            — title on the left, a quiet `See all` on the right that goes white on
+            hover. Ours used `align-items: baseline`, which left the two ends of
+            the row sitting on different lines of type. */}
+        <div className="rail-head" style={{ paddingLeft: "0.25rem" }}>
           <h3
             className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
             style={{
@@ -134,19 +128,10 @@ const MovieRail = React.memo(
             <Link
               to={`/category/${encodeURIComponent(category.name)}`}
               state={{ movies: category.movies, name: category.name }}
-              style={{
-                fontSize: "0.72rem",
-                color: "rgba(255,255,255,0.35)",
-                textDecoration: "none",
-                fontWeight: 500,
-                padding: "2px 8px",
-                borderRadius: "4px",
-                border: "none",
-                transition: "color var(--duration-fast) var(--ease-out)",
-                background: "transparent",
-              }}
+              className="rail-see-all"
+              style={{ textDecoration: "none" }}
             >
-              Show all ›
+              See all
             </Link>
           )}
         </div>
@@ -167,26 +152,22 @@ const MovieRail = React.memo(
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                padding: "0.75rem 0.5rem",
+                /* Block padding lives in rails.css (RIVO's py-6 / sm:py-8); only
+                   the lateral inset is inline, so the CSS step can apply. */
+                paddingInline: "0.5rem",
               }}
             >
-              {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount).map((movie, i) => (
-                <motion.div
-                  key={movie.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-10px" }}
-                  transition={{
-                    duration: DURATION.MED,
-                    delay: Math.min((i % 10) * 0.03, 0.15),
-                    ease: EASE_OUT,
-                  }}
-                  style={{ flexShrink: 0 }}
-                >
+              {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount                ).map((movie) => (
+                /* No per-card entrance: rivo.st's rows reveal as ONE block
+                   (`fadeUp` on the section), and the per-card `whileInView`
+                   stagger here animated up to 15 framer nodes per rail on top
+                   of that block fade — two entrances for one row, plus main-
+                   thread work on every scroll. */
+                <div key={movie.id} style={{ flexShrink: 0 }}>
                   <div className="movie-rail-item">
                     <MovieCard movie={movie} />
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           </>

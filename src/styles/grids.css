@@ -15,15 +15,10 @@
   gap: 0.6rem;
   color: rgba(var(--white-rgb),0.95);
 }
-.section-title::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: 1em;
-  border-radius: var(--radius-full);
-  background: var(--accent-gradient, linear-gradient(180deg, var(--accent-color), #5ce21c));
-  box-shadow: 0 0 12px var(--accent-glow, rgba(149, 255, 80, 0.25));
-}
+/* The accent bar is gone. rivo.st's row titles are plain text — no rule sits
+   anywhere on their home page (checked the shipped markup: `row-title`, no
+   pseudo-element) — so a 3px gradient bar in front of every section heading was
+   the loudest thing on our page that their page does not have. */
 
 .movie-grid {
   display: grid;
@@ -152,25 +147,22 @@
   opacity: 0;
   transition: opacity var(--duration-normal) var(--ease-tv);
 }
+/* rivo.st's card overlay: `translate-y-2 ... opacity-0 transition duration-300
+   ease-tv group-hover/card:translate-y-0 group-hover/card:opacity-100`. One
+   band, one 8px rise, 300ms on their curve — their cards have no centred play
+   disc (clicking the card IS the action), so the old curtain's play button and
+   its staged delays are gone with it. */
 .card-curtain {
   opacity: 0;
-  transform: translateY(24%);
-  pointer-events: none;
-  transition: opacity var(--duration-normal) var(--ease-tv), transform var(--duration-normal) var(--ease-tv);
-}
-.curtain-meta {
-  opacity: 0;
   transform: translateY(8px);
-  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-}
-.curtain-play-btn {
-  opacity: 0;
-  translate: 0 10px;
   pointer-events: none;
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    translate var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+  transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
+}
+/* Their meta line: 13px, semibold, white/90, amber star, gap 6px. */
+.curtain-meta {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
 }
 .card-badges {
   transition: opacity var(--duration-instant) var(--ease-out);
@@ -190,32 +182,9 @@
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
-    transition:
-      opacity var(--duration-slow) var(--ease-tv) 80ms,
-      transform var(--duration-slow) var(--ease-tv) 80ms;
-  }
-  .movie-card:hover .curtain-meta {
-    opacity: 1;
-    transform: translateY(0);
-    transition:
-      opacity var(--duration-fast) var(--ease-tv) 180ms,
-      transform var(--duration-fast) var(--ease-tv) 180ms;
-  }
-  .movie-card:hover .curtain-play-btn {
-    opacity: 1;
-    translate: 0 0;
-    pointer-events: auto;
-    transition:
-      opacity var(--duration-fast) var(--ease-tv) 240ms,
-      translate var(--duration-fast) var(--ease-tv) 240ms,
-      transform var(--duration-fast) var(--ease-tv);
-  }
-  .movie-card:hover .card-badges {
-    opacity: 0;
-  }
-  .movie-card:hover .curtain-play-btn:hover {
-    opacity: 0.88;
-    transform: scale(1.03);
+    /* 300ms, undelayed — their band is one transition, not a three-stage
+       choreography. */
+    transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
   }
 }
 
@@ -234,32 +203,7 @@
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  transition:
-    opacity var(--duration-slow) var(--ease-tv) 80ms,
-    transform var(--duration-slow) var(--ease-tv) 80ms;
-}
-.movie-card:focus-visible .curtain-meta {
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity var(--duration-fast) var(--ease-tv) 180ms,
-    transform var(--duration-fast) var(--ease-tv) 180ms;
-}
-.movie-card:focus-visible .curtain-play-btn {
-  opacity: 1;
-  translate: 0 0;
-  pointer-events: auto;
-  transition:
-    opacity var(--duration-fast) var(--ease-tv) 240ms,
-    translate var(--duration-fast) var(--ease-tv) 240ms,
-    transform var(--duration-fast) var(--ease-tv);
-}
-.movie-card:focus-visible .card-badges {
-  opacity: 0;
-}
-.movie-card:focus-visible .curtain-play-btn:hover {
-  opacity: 0.88;
-  transform: scale(1.03);
+  transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
 }
 
 /* Press sink — last so it beats the matching :hover/:focus-visible lift while

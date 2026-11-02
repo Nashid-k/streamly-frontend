@@ -32,10 +32,15 @@ textarea:focus-visible {
   }
 }
 
-/* Off-screen rails get deferred rendering for faster initial paint */
+/* Off-screen rails get deferred rendering for faster initial paint.
+   `auto 420px` is rivo.st's own value (`[contain-intrinsic-size:auto_420px]` on
+   every `group/row`): with `auto` the browser remembers the rail's real height
+   after first render, so the placeholder only has to be right ONCE instead of
+   permanently over-reserving (ours reserved 520px always, which left a 100px
+   seam above every defered rail). */
 .movie-rail-wrapper {
   content-visibility: auto;
-  contain-intrinsic-size: 0 520px;
+  contain-intrinsic-size: auto 420px;
   position: relative;
   padding: 0.2rem 0 0;
   margin: 0;
@@ -62,9 +67,18 @@ textarea:focus-visible {
 
 .movie-rail {
   gap: 1.5rem;
-  padding: 0.75rem 0;
-  padding-left: 0;
-  padding-right: 0;
+  /* rivo.st's rail: `py-6 sm:py-8` (24px, then 32px) plus `overscroll-x-contain`
+     and `scroll-smooth`. Ours was 12px of padding, which is why our rows sat
+     tighter than theirs, and wheel/trackpad overscroll propagated to the PAGE —
+     one flick past the end of a rail scrolled the whole home page. */
+  padding: 1.5rem 0;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+}
+@media (min-width: 640px) {
+  .movie-rail {
+    padding: 2rem 0;
+  }
 }
 
 /* Rail edge gradient fade disabled per user request */
@@ -73,6 +87,32 @@ textarea:focus-visible {
   display: none;
 }
 
+/* Row head: rivo.st's `<div class="gutter mb-1 flex items-end justify-between
+   gap-4">` with a `See all` link on the far right. The chevron next to a linked
+   row title only exists on hover there (`-translate-x-1 opacity-0` -> settled),
+   so the row head states where it goes without spending static width on it. */
+.rail-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+.rail-head__main {
+  min-width: 0;
+}
+.rail-see-all {
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color var(--duration-fast) var(--ease-tv);
+}
+.rail-see-all:hover,
+.rail-see-all:focus-visible {
+  color: #fff;
+}
 /* Rail section title accent bar */
 .movie-rail-wrapper > div:first-child h3 {
   display: flex;

@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, memo } from "react";
-import { Play, Plus, Check, Star } from "lucide-react";
+import { Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { highlightSegments } from "../utils/highlightMatch";
 import { buildMovieAddedNotification } from "../utils/notificationEngine";
@@ -458,72 +458,40 @@ const MovieCard = memo(function MovieCard({
             {/* ── Cinematic curtain ─────────────────────────── */}
             <div
               className="card-curtain"
+              /* rivo.st's card hover layer, taken from their shipped markup:
+                 a BOTTOM gradient band (`from-black/85 via-black/40 to-
+                 transparent`, `p-3 pt-10`) that rises 8px and fades in over
+                 `duration-300 ease-tv`. Their cards carry no centred play disc
+                 and no full-poster veil — the whole card is the target and the
+                 hover only reveals the rating/year line. */
               style={{
                 position: "absolute",
-                inset: 0,
+                inset: "auto 0 0 0",
                 background:
-                  "linear-gradient(to top, rgba(9,9,11,0.95) 0%, rgba(9,9,11,0.7) 50%, rgba(9,9,11,0.2) 100%)",
+                  "linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.4) 55%, transparent)",
                 display: "flex",
                 flexDirection: "column",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: compact ? "0.75rem" : "1rem",
-                gap: compact ? "8px" : "10px",
-                textAlign: "center",
+                justifyContent: "flex-end",
+                padding: compact ? "0.6rem" : "0.75rem",
+                paddingTop: compact ? "1.6rem" : "2.5rem",
+                gap: "4px",
+                textAlign: "left",
                 zIndex: 5,
               }}
             >
-              {/* Single centered circular play button — Cinejoy white circle */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Same context-dependent activation as the card itself — in
-                  // select mode this must not navigate away either.
-                  activateCard();
-                }}
-                className="curtain-play-btn"
-                aria-label={
-                  onToggleSelect
-                    ? `Select or deselect ${movie.title}`
-                    : `View details for ${movie.title}`
-                }
-                style={{
-                  width: compact ? "44px" : "52px",
-                  height: compact ? "44px" : "52px",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "#ffffff",
-                  border: "none",
-                  color: "#0b0b0f",
-                  cursor: "pointer",
-                  boxShadow:
-                    "0 8px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.9)",
-                }}
-              >
-                  <Play
-                    size={compact ? 18 : 22}
-                    fill="currentColor"
-                    stroke="none"
-                    style={{ marginLeft: "2px" }}
-                  />
-              </button>
-
-              {/* IMDb star rating + year */}
+              {/* rivo.st's hover meta line — `flex items-center gap-1.5
+                  text-[13px] font-semibold text-white/90`: amber star, rating,
+                  a dim `·`, then the year. No pill background and no play disc
+                  (their card has neither; the card itself is the target). */}
               <div
                 className="curtain-meta"
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  padding: compact ? "3px 10px" : "4px 12px",
-                  borderRadius: "var(--radius-full)",
-                  background: "rgba(0,0,0,0.45)",
-                  fontSize: compact ? "0.6rem" : "0.7rem",
-                  fontWeight: 700,
-                  color: "#fff",
-                  letterSpacing: "0.02em",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.9)",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -533,16 +501,21 @@ const MovieCard = memo(function MovieCard({
                       display: "flex",
                       alignItems: "center",
                       gap: "3px",
-                      color: "#f5c518",
+                      color: "#fcd34d",
                     }}
                     title="IMDb"
                   >
-                    <Star size={compact ? 10 : 12} fill="currentColor" stroke="none" />
+                    <Star size={14} fill="currentColor" stroke="none" />
                     <span>{Number(rating).toFixed(1)}</span>
                   </span>
                 )}
+                {rating > 0 && (movie.releaseYear || movie.year) && (
+                  <span aria-hidden="true" style={{ color: "rgba(255,255,255,0.5)" }}>
+                    ·
+                  </span>
+                )}
                 {(movie.releaseYear || movie.year) && (
-                  <span style={{ color: "rgba(255,255,255,0.8)" }}>
+                  <span>
                     {(movie.releaseYear || movie.year)
                       ?.toString()
                       .substring(0, 4)}

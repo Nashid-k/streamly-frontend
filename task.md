@@ -7320,3 +7320,23 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Tests.** `motion.test.js`'s "player aliases the app duration scale" contract became "app scale in tokens.css + RIVO's measured scale in the player", cross-checked against `RIVO_MOTION` so the CSS and framer halves cannot drift, plus assertions that `--ease-tv` and `--zxc-ease` carry `cubic-bezier(.2,.8,.2,1)`.
 
 **Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files pass, `npm run build` clean.
+
+## 2026-11-02 - RIVO HOME PAGE component audit and port (user: "analyse each and every compoenent of its home page, stylig, griding ui/ux everything and apply in ours, https://rivo.st/")
+
+**Measured structure** (fetched `https://rivo.st/` 200 / 1.05 MB, then parsed the markup rather than guessing):
+- Hero: `<section aria-roledescription="carousel" aria-label="Spotlight" class="relative h-[88svh] min-h-[560px] w-full overflow-hidden sm:h-[92vh] lg:max-h-[1100px]">`
+- 15 rows, each exactly `<section class="group/row relative [contain-intrinsic-size:auto_420px] [content-visibility:auto]">`
+- Row head: `<div class="gutter mb-1 flex items-end justify-between gap-4">` + `<h2 class="row-title">` + `<a class="shrink-0 text-sm font-semibold text-white/50 transition hover:text-white">See all</a>`
+- Rail: `<div class="rail no-scrollbar gutter flex overflow-x-auto overscroll-x-contain scroll-smooth py-6 sm:py-8 ...">`
+- Poster card: `<a class="tv-card aspect-[2/3]">`, skeleton under a blur-up image (`opacity:0; filter:blur(14px)` → `opacity 1 / blur 0` over `.6s/.7s cubic-bezier(.2,.8,.2,1)`), and ONE hover band: `translate-y-2 … opacity-0 transition duration-300 ease-tv group-hover/card:translate-y-0 group-hover/card:opacity-100`, `bg-gradient-to-t from-black/85 via-black/40 to-transparent p-3 pt-10`, meta `flex items-center gap-1.5 text-[13px] font-semibold text-white/90` (amber-300 star, rating, dim `·`, year). No play disc, no full-poster veil.
+- Row order on their home: Browse, Your Library, Movie genres, Show genres, Popular People, Last Added Movies, Last Added Shows, Critically Acclaimed, Top Rated Movies, Top Rated Shows, Popular Shows, Browse by Genre, Coming Soon, Franchises & Collections, Top 10 Shows Today, Trending This Week, Top 10 Movies Today.
+
+**Applied to ours**
+- `rails.css` — `.movie-rail-wrapper` `contain-intrinsic-size` `0 520px` → `auto 420px` (theirs; `auto` also stops permanently over-reserving 100px per deferred rail). `.movie-rail` block padding `.75rem 0` → RIVO's `1.5rem 0`, `2rem 0` ≥640px, plus `overscroll-behavior-x: contain` and `scroll-behavior: smooth`. New `.rail-head` (their `flex items-end justify-between gap-4`) and `.rail-see-all` (14px/600, white/50 → white).
+- `grids.css` — deleted `.section-title::before` (the 3px gradient bar in front of every section heading): rivo.st has no such bar anywhere, and it was the loudest difference on the page.
+- `MovieRail.jsx` — header now `.rail-head` (was `align-items: baseline`, so the two ends of a row sat on different type lines); "Show all ›" → RIVO's quiet "See all" (`.rail-see-all`); rail block padding moved to CSS so the `py-6 → py-8` step can apply; and the per-card `whileInView` stagger (up to 15 framer nodes per rail, on top of the section's own fade) is gone — their rows enter as ONE block.
+- `MovieCard.jsx` — the centred "cinematic curtain" (white play disc + meta pill + three staged delays) is replaced by RIVO's single bottom band: gradient `from-black/85 via-black/40`, `p-3 pt-10`, 8px rise + fade over `300ms ease-tv`. Meta is now their line — 13px/600 white/90, amber-300 star at 14px, `·`, year — with no pill background. The card itself remains the activation target (`role="button"`, its aria-label, keyboard Enter/Space unchanged), exactly as their `<a>` card is.
+
+**Deliberately NOT done:** their 15-row order and rows we have no data source for (Popular People, Movie/Show genres, Browse by Genre, Franchises & Collections) — inventing those rows would need new endpoints, not styling. Our row set stays data-driven.
+
+**Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files pass, `npm run build` clean.
