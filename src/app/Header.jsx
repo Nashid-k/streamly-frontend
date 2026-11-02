@@ -200,10 +200,18 @@ function Header() {
         {location.pathname !== "/" && (
           <motion.button
             key="back-btn"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -8 }}
-            transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
+            initial={false}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={false}
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : {
+                    opacity: { duration: DURATION.FAST, ease: EASE_OUT },
+                    y: { duration: DURATION.FAST, ease: EASE_OUT },
+                    x: { duration: DURATION.FAST, ease: EASE_OUT },
+                  }
+            }
           type="button"
           className="back-btn"
           aria-label="Go back"
