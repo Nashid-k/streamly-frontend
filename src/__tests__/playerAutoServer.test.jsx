@@ -125,15 +125,15 @@ describe("no-pick resolve uses auto and reflects the chosen server", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
     // The Servers row's sub-line names the server that is actually playing.
-    expect(screen.getByRole("button", { name: /servers/i }).textContent).toContain("Server 1");
+    expect(screen.getByRole("button", { name: /servers/i }).textContent).toContain("Server 7");
     fireEvent.click(screen.getByRole("button", { name: /servers/i }));
 
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    const server1 = rows.find((r) => r.textContent.includes("Server 1"));
-    const server5 = rows.find((r) => r.textContent.includes("Server 5"));
-    expect(server1).toHaveAttribute("aria-pressed", "true");
-    expect(server5).not.toHaveAttribute("aria-pressed");
+    const served = rows.find((r) => r.textContent.includes("Server 7"));
+    const other = rows.find((r) => r.textContent.includes("Server 5"));
+    expect(served).toHaveAttribute("aria-pressed", "true");
+    expect(other).not.toHaveAttribute("aria-pressed");
   });
 });
 
@@ -167,8 +167,8 @@ describe("manual server pick prefers then falls back fast", () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
-    // The picked row will be Server 2, but the backend serves Server 1 anyway —
-    // the exact "no source on the server I picked" case.
+    // The picked row will be Server 2, but the backend serves ZXC Orion (Server
+    // 7) anyway — the exact "no source on the server I picked" case.
     hlsState.server = "orion";
     hlsState.deferProbe = true; // hold the stage so the note is observable
 
@@ -178,9 +178,9 @@ describe("manual server pick prefers then falls back fast", () => {
     fireEvent.click(server2);
 
     // The note starts as "Switching to Server 2…" and is replaced by the honest
-    // fallback once the response names Server 1.
+    // fallback once the response names ZXC Orion (Server 7).
     await waitFor(() => expect(screen.getByText(/Server 2 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
-    expect(screen.getByText(/playing Server 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/playing Server 7/i)).toBeInTheDocument();
 
     hlsState.deferProbe = false;
     hlsState.releaseProbe?.();

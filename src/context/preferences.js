@@ -28,16 +28,15 @@ export const LEGACY_SERVER_NAME_MAP = Object.freeze({
   "Server 8 (Smashy)": "Server 8",
 });
 
-/* Drop rows whose server has been RETIRED. VidSrc (Server 6) and NHD (Server 7)
-   were removed on 2026-10-03 after both answered `{ok:false, code:"no-source"}`
-   for movie 27205 AND tv 1399 s1e1; VidRack (Server 5) went on 2026-10-04 after
-   every ladder it published was AES-128 behind a key host that 403s us. A
-   returning visitor's saved order can still name them, and a dead row in the
-   Servers drag list is a promise the player will never keep — which is exactly
-   why the legacy map above is still allowed to point at a retired label and let
-   THIS filter drop it, rather than silently renumbering someone's saved order.
-   Order and duplicates of the surviving rows are preserved; an order that was
-   entirely retired falls back to the defaults. */
+/* Drop rows whose server has been RETIRED. Labels are reused as the roster
+   rotates (Server 1 is RIVO since 2026-11-02; Server 5/6/7 now name backends
+   that replaced VidRack/VidSrc/NHD), so the comparison is against the LIVE
+   catalogue only. A returning visitor's saved order can still name a removed
+   row, and a dead row in the Servers drag list is a promise the player will
+   never keep — which is exactly why the legacy map above is still allowed to
+   point at a retired label and let THIS filter drop it, rather than silently
+   renumbering someone's saved order. Order and duplicates of the surviving rows
+   are preserved; an order that was entirely retired falls back to the defaults. */
 export function pruneRetiredServers(order, fallback) {
   if (!Array.isArray(order)) return fallback;
   const live = order.filter((name) => PLAYER_SOURCE_LABELS.includes(name));
@@ -76,8 +75,8 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     // can never leave the default missing a row (it did: Server 5 stayed absent
     // after Orion came back live). Orders saved under the interim Lisbon/Nebula/…
     // or "Server N (suffix)" names are migrated on boot, and a saved order naming
-    // a retired row (Server 6/7/8 = VidSrc/NHD/…) is filtered out at render time
-    // rather than silently offering a dead server.
+    // a retired row (a number the live catalogue no longer offers) is filtered out
+    // at render time rather than silently offering a dead server.
   serverOrder: [...PLAYER_SOURCE_LABELS],
   // Subtitles
   subtitleFont: "cinejoy",

@@ -14,10 +14,10 @@
 // player's ordinary resolve failure; the retry ladder is already around it.
 //
 // The warm mount is `AUTO_SOURCE` (no server named), NOT a literal default row:
-// the default moved from `vidcore` to `zxc-orion` and a hardcoded key here
-// used to warm a server the player would then refuse to consume. Warming auto
-// also means a dead backend cannot waste the warm leg — the server picks a
-// live one internally.
+// the default key has moved before (vidcore → zxc-orion → rivo-1) and a
+// hardcoded key here used to warm a server the player would then refuse to
+// consume. Warming auto also means a dead backend cannot waste the warm leg —
+// the server picks a live one internally.
 
 import { AUTO_SOURCE, PLAYER_SOURCES } from "../constants/sources";
 import { hasFreshResolve } from "./streamResolve";

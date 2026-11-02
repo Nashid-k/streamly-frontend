@@ -96,9 +96,9 @@ function sanitizePreference(key, value) {
       const cleaned = [];
       for (const name of value) {
         if (typeof name !== "string" || !SERVER_LABEL_RE.test(name)) continue;
-        // Shape-valid but possibly retired: VidSrc (Server 6) and NHD (Server 7)
-        // were removed 2026-10-03 after both answered no-source on every title,
-        // so a saved order naming them must not survive into the menu.
+        // Shape-valid but possibly retired: a saved order naming a row the live
+        // catalogue no longer offers must not survive into the menu. Labels are
+        // reused as the roster rotates, so compare against the LIVE list only.
         if (!PLAYER_SOURCE_LABELS.includes(name)) continue;
         if (seen.has(name)) continue;
         seen.add(name);

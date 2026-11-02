@@ -2229,8 +2229,9 @@ setScrubDragging(true);
     // server's audioTracks — see the publish guard in the commit block.
     const prevSourceKey = metaRef.current?.sourceKey || null;
     // A NEW title/episode drops any manual server pick, so playback always
-    // opens on the default rotation (Orion/Server 1) instead of whatever server
-    // the viewer happened to pick for the PREVIOUS title. A same-media reload
+    // opens on the default AUTO rotation (the ZXC family, health-ordered)
+    // instead of whatever server the viewer happened to pick for the PREVIOUS
+    // title. A same-media reload
     // (reloadToken bump from pickServer) keeps the key unchanged and so keeps
     // the pick. Done here, synchronously, so the resolve below sees it.
     const mediaKey = `${type}|${id}|${season ?? ""}|${episode ?? ""}`;
@@ -3041,7 +3042,7 @@ setScrubDragging(true);
       // A Servers-menu pick plays ONLY that server (its own retry + token-
       // refresh machinery still applies). The no-pick path resolves through
       // AUTO_SOURCE: the server walks its health-ordered backends in ONE round
-      // trip, so a dead Server 1 no longer costs the viewer four more client
+      // trip, so a dead backend no longer costs the viewer four more client
       // requests before playback. Silently falling back to another provider on
       // an explicit pick would lie about what the viewer chose — the fatal
       // message points at the Servers menu instead.

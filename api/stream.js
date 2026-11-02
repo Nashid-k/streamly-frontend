@@ -7,6 +7,7 @@
 //
 // Actions (POST JSON):
 //   resolvezxc     { type, id, season?, episode?, server?, auto?, prefer? } -> { source, variants, audioTracks }
+//   resolveRivo    { type, id, season?, episode?, server? } -> { source, variants, audioTracks } (rivo.st / f.rivo.st)
 //   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
 //   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
@@ -2071,6 +2072,131 @@ async function handleSegment(body, res) {
   }
 }
 
+/* RIVO source resolve — rivo.st's own player backend (f.rivo.st) answers
+   `/api/source/{movie|tv}/{tmdbId}?s=&e=&server=` with
+   `{ provider, server, sources: [{ url, kind, quality, … }], subtitles }`.
+   That is a different upstream contract from the ZXC mint/relay, so it gets its
+   own action instead of being bolted onto resolvezxc.
+
+   Every RIVO source is itself a MASTER playlist, so the payload is re-shaped to
+   the player's contract instead of copied:
+     · `source`      = the first master (multiLevelMaster, so hls.js keeps its
+                       own ABR and audio groups),
+     · `variants`    = that master's real ladder (Quality menu),
+     · `audioTracks` = the other language-tagged masters. Server 1 lists one
+                       master PER LANGUAGE ("1080p (English)", "1080p (French)"…)
+                       which is exactly the sibling-full-manifest dub model the
+                       player already switches for ZXC Centaurus / NHD. */
+
+const RIVO_SOURCE_BASE = "https://f.rivo.st/api/source";
+const RIVO_REFERER = "https://f.rivo.st/";
+
+/* "1080p (Brazilian Portuguese)" -> "Brazilian Portuguese". A row with no
+   parenthesised language ("Auto", "4K Ultra HD") carries no audio meaning. */
+function rivoAudioLabel(quality) {
+  const match = /\(([^)]+)\)/.exec(String(quality || ""));
+  return match ? match[1].trim() : "";
+}
+
+async function handleResolveRivo(body, res) {
+  const kind = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const season = String(body.season ?? "").trim();
+  const episode = String(body.episode ?? "").trim();
+  const server = String(body.server || "").trim() || "library";
+  const params = new URLSearchParams({ server });
+  if (kind === "tv" && season && episode) {
+    params.set("s", season);
+    params.set("e", episode);
+  }
+  const upstreamUrl = `${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`;
+
+  let sources = [];
+  let serverName = server;
+  let providerName = "rivo";
+  try {
+    const upstream = await fetch(upstreamUrl, {
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        accept: "application/json",
+        origin: "https://f.rivo.st",
+        referer: RIVO_REFERER,
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-dest": "empty",
+      },
+    });
+    const data = await upstream.json();
+    if (!upstream.ok) {
+      json(res, 200, { ok: false, error: `Could not resolve source on RIVO ${serverName}`, code: "upstream" });
+      return;
+    }
+    serverName = String(data?.server || server);
+    providerName = String(data?.provider || "rivo");
+    sources = Array.isArray(data?.sources) ? data.sources.filter((s) => s && s.url) : [];
+  } catch (error) {
+    logWarn("stream", "RIVO source resolve failed", { message: error?.message });
+    json(res, 200, { ok: false, error: "RIVO source host unreachable", code: "upstream" });
+    return;
+  }
+
+  if (!sources.length) {
+    json(res, 200, { ok: false, error: `No source on RIVO ${serverName}`, code: "no-source" });
+    return;
+  }
+
+  const entry = sources[0];
+  if (entry.kind && entry.kind !== "hls") {
+    json(res, 200, { ok: false, error: `RIVO ${serverName} served a non-HLS source`, code: "unsupported-kind" });
+    return;
+  }
+
+  // The entry master is fetched once here for its real ladder (the Quality menu
+  // reads `variants`); hls.js still loads the master itself and drives ABR. A
+  // failed fetch is not fatal — one Auto rung keeps the source playable.
+  let variants = [];
+  try {
+    const text = await fetchUpstream(entry.url, { referer: RIVO_REFERER });
+    variants = parseMasterPlaylist(text, entry.url);
+    issueHost(entry.url);
+    issueHostsInText(text);
+  } catch (error) {
+    logWarn("stream", "RIVO master fetch failed", { message: error?.message });
+  }
+  if (variants.length === 0) {
+    variants = [{ uri: entry.url, height: 0, bandwidth: 0 }];
+    issueHost(entry.url);
+  }
+
+  // Sibling dubs: every other language-tagged master is a full alternate
+  // stream. De-duped on label, and the relay fence is told about each host now
+  // so an audio switch does not have to re-resolve.
+  const audioTracks = [];
+  for (const source of sources.slice(1)) {
+    const label = rivoAudioLabel(source.quality);
+    if (!label || source.kind !== "hls") continue;
+    if (audioTracks.some((track) => track.label.toLowerCase() === label.toLowerCase())) continue;
+    audioTracks.push({ label, uri: source.url });
+    issueHost(source.url);
+  }
+
+  json(res, 200, {
+    ok: true,
+    source: { kind: "hls", url: entry.url, refUrl: RIVO_REFERER, multiLevelMaster: true },
+    variants,
+    audioTracks,
+    audioOriginalLang: "",
+    sourceVariants: [],
+    server: serverName,
+    provider: providerName,
+  });
+}
+
 /* Reports which transports this deployment can actually serve. `zxcNative`
    is true only when ZXC_RELAY_URL is set: the provider WAF refuses our
    datacenter egress, so native resolve only works once a relay on an allowed
@@ -2141,6 +2267,9 @@ export default async function handler(req, res) {
     // Retired actions (`resolve`, `resolvevidcore`, `manifest`) fall through to
     // the 400 bad-action default below — the header comment documents why.
     switch (body.action) {
+      case "resolveRivo":
+        await handleResolveRivo(body, res);
+        return;
       case "resolvezxc":
         await handleResolveZxc(body, res);
         return;

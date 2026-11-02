@@ -7026,3 +7026,46 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   then wait for the is-a.dev PR to be merged before pressing Verify. If the
   maintainers reject the name, `streamly.work.gd` is the fallback - it already
   has its Vercel TXT and only needs `A 216.198.79.1` in dnsexit.
+
+## 2026-11-02 - RIVO multi-audio becomes Server 1
+
+- **New source family:** rivo.st's own player backend (`f.rivo.st`) is now
+  wired in as `resolveRivo` (`api/stream.js` + `src/api/streamResolve.js`),
+  separate from `resolvezxc` because the upstream contract is different:
+  `GET /api/source/{movie|tv}/{tmdbId}?s=&e=&server=` returns
+  `{ provider, server, sources: [{ url, kind, quality, ... }], subtitles }`.
+  It needs no mint and no relay config; the function fetches it directly and
+  the existing issued-host fence + SSRF guard (`fetchUpstream`) cover the
+  media legs.
+- **Menu order is RIVO Server 1, then ZXC Server 2-6 unchanged**
+  (`src/constants/sources.js`). `DEFAULT_SOURCE_KEY` is now `rivo-1`.
+  The auto (no-pick) path deliberately STAYS on ZXC auto: RIVO exposes no
+  internal rotation, so auto keeps the backend that can fail over by itself
+  in one round trip.
+- **ZXC Orion moved to Server 7 instead of being dropped.** RIVO's multi-audio
+  master took the Server 1 slot, but the ZXC auto rotation still picks Orion
+  first, and a backend the player can play must stay nameable in the menu -
+  `sourceByServer("orion")` would otherwise return null and the Servers row
+  would fall back to the "Server 1" label while playing a different backend.
+- **The payload is re-shaped, not copied.** Every RIVO source is itself a
+  master playlist, so `source` is the first master with
+  `multiLevelMaster: true` (hls.js keeps its own ABR + audio groups),
+  `variants` is that master's real ladder parsed server-side
+  (`parseMasterPlaylist`, one Auto rung if the fetch fails), and the other
+  language-tagged masters become `audioTracks` - the same sibling
+  full-manifest dub model the player already switches for ZXC Centaurus/NHD.
+  Labels come from the parenthesised language in `quality`
+  ("1080p (Brazilian Portuguese)" -> "Brazilian Portuguese"), de-duped.
+- **Live check:** movie 1339713 server 1 returned 12 sources; the entry master
+  parsed to 3 real rungs (1080/720/480, bandwidth 1875000/1000000/500000) and
+  the audio labels came out Hindi, French, Latin American Spanish, Brazilian
+  Portuguese, Spanish, Russian, Yoruba, Arabic sub. TV uses `?s=&e=&server=`
+  (path-style `/tv/1399/1/1` is a 404 upstream).
+- **Measured per-server, so only Server 1 is a row:** RIVO server 2 is three
+  same-ladder mirrors of one stream and server 3 is seven quality encodes of
+  it - neither adds an audio capability, and server 4 returns no sources.
+- **Docs/legacy comments updated in the same change:** `architecture.md`
+  (RIVO paragraph + ZXC numbering), `src/context/preferences.js`,
+  `src/context/PreferencesContext.jsx`, `src/api/warmResolve.js`.
+- **Gates:** `npm run lint` 0 errors, `npm run test` 119 files / 1429 tests
+  passed (new `resolveRivo` handler suite included), `npm run build` clean.

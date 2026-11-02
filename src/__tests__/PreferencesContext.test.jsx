@@ -150,12 +150,13 @@ describe("PreferencesProvider", () => {
 
   /* VidSrc, NHD and the old VidRack were removed after re-measuring dead, so a
      returning visitor's saved order must lose those rows instead of keeping dead
-     entries in the menu. The live catalogue is Server 1–6 (Orion…Daedalus), so
-     Server 7 and 8 are the retired tail this pins. */
+     entries in the menu. The live catalogue is Server 1–7 (RIVO's multi-audio
+     master, then Valstrax…Daedalus and ZXC Orion), so Server 8 is the retired
+     tail this pins (the label shape itself stops at 8). */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
-      JSON.stringify(["Server 8", "Server 1", "Server 7"]),
+      JSON.stringify(["Server 8", "Server 1"]),
     );
 
     render(
@@ -165,15 +166,11 @@ describe("PreferencesProvider", () => {
     );
 
     expect(screen.getByTestId("server-order")).toHaveTextContent("Server 1");
-    expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 7");
     expect(screen.getByTestId("server-order")).not.toHaveTextContent("Server 8");
   });
 
   it("falls back to the live default order when every saved row is retired", () => {
-    localStorage.setItem(
-      "setting-serverOrder",
-      JSON.stringify(["Server 7", "Server 8", "Server 9"]),
-    );
+    localStorage.setItem("setting-serverOrder", JSON.stringify(["Server 8"]));
 
     render(
       <PreferencesProvider>
@@ -185,7 +182,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6",
+      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6 | Server 7",
     );
   });
 

@@ -62,19 +62,26 @@ import { streamResolve } from "../api/streamResolve";
    is `ZXC_MINT_PATH` in `api/stream.js`, re-discovered from the shipped embed
    chunk by the procedure recorded next to it.
 
-   The order below MATCHES the provider's own roster (its shipped `ec`
-   array, read 2026-10-16: Orion, Valstrax, Atlas, Ursa, Alatreon, Daedalus). It
-   is not arbitrary — the provider's Server 1 is Orion, and OUR Server 1 must be
-   the same backend so a viewer's "Server 1" means the same thing on both sites.
-   The provider rotates this order, so it is also re-derived at runtime
-   server-side (see `parseZxcRoster` in api/stream.js); when it moves, reorder
-   here to match.
+   The ZXC rows below follow the provider's own roster order (its shipped `ec`
+   array, read 2026-10-16: Orion, Valstrax, Atlas, Ursa, Alatreon, Daedalus),
+   with ONE deliberate exception: Orion now sits last, because RIVO took the
+   Server 1 slot. The provider rotates this order, so it is also re-derived at
+   runtime server-side (see `parseZxcRoster` in api/stream.js); when it moves,
+   reorder here to match.
+
+   Server 1 is NOT ZXC any more (2026-11-02): RIVO's multi-audio backend took the
+   slot, measured live on movie 1339713 and tv 1399 S1E1 — eight language-tagged
+   masters ("1080p (English)", "1080p (French)", "1080p (Latin American
+   Spanish)"…), each a real 1080p HLS ladder that answers 200
+   `application/vnd.apple.mpegurl`. The ZXC family therefore starts at Server 2,
+   unchanged, and ZXC Orion — still the ZXC auto rotation's first candidate — sits
+   last so the menu can always name whatever the backend echoes.
 
    Orion and Atlas are multi-audio (both returned the provider's 7-12 dub
-   tracks on every title probed through the live relay 2026-10-17), so they
-   lead. Alatreon was probed too and returned NO alternate audio, so its tag
-   stays "Original audio". The earlier roster (Andromeda/Centaurus/Ursa-meow)
-   was retired upstream when the provider migrated to `zxcstream.cc` and the
+   tracks on every title probed through the live relay 2026-10-17). Alatreon was
+   probed too and returned NO alternate audio, so its tag stays "Original
+   audio". The earlier roster (Andromeda/Centaurus/Ursa-meow) was retired
+   upstream when the provider migrated to `zxcstream.cc` and the
    `/backend_/sources/{server}` contract on 2026-10-16.
 
    Server 5 (VidRack) was removed on 2026-10-04 after being measured dead: every
@@ -93,27 +100,35 @@ import { streamResolve } from "../api/streamResolve";
    its Chrome mint service — no serverless function can mint fingerprint-bound
    tokens. */
 export const PLAYER_SOURCES = [
-  /* The five ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
+  /* Server 1 is RIVO's multi-audio backend (rivo.st / f.rivo.st): one master
+     PER LANGUAGE, so the Audio menu switches between full sibling manifests.
+     It leads the menu because multi-audio is the capability most viewers pick a
+     server for. The ZXC/VIDSTUCK family below keeps its numbering from Server 2
+     onwards; ZXC Orion (the old Server 1) moved to the last slot rather than
+     being dropped, because the automatic rotation can still serve it and a row
+     with no menu entry could not be named truthfully. */
+  {
+    key: "rivo-1",
+    label: "Server 1",
+    tag: "Multi audio · up to 1080p",
+    provider: "RIVO",
+    server: "1",
+    resolve: (a, o) => streamResolve.resolveRivo({ ...a, server: "1" }, o),
+  },
+
+  /* The ZXC/VIDSTUCK backends, each kept as its OWN row so the Servers menu
      can target one directly instead of auto-rotation racing to a winner. Kept in
-     the provider's own order, so "Server 1" means the same backend here as on
+     the provider's own order, so "Server 2" means the same backend here as on
      the provider's site. Some rows ship DASH, which the server transcodes to an
      HLS fMP4 master (no remux, no per-byte work) so hls.js can ABR and mux just
      like native HLS; which rows are DASH/HLS and which carry multi-audio is read
      from each response, not frozen here.
 
-     Every row resolves with `prefer:"<backend>"` (not `server`): the picked
+     Every ZXC row resolves with `prefer:"<backend>"` (not `server`): the picked
      backend is tried FIRST and, when it has no source, the SAME request walks
      the health-ordered rotation — the fast fallback that replaces the old dead
      end. The response echoes whichever backend actually served it, and the player
      re-derives that row via `sourceByServer`. */
-  {
-    key: "zxc-orion",
-    label: "Server 1",
-    tag: "Multi audio · up to 1080p",
-    provider: "ZXC Orion",
-    server: "orion",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "orion" }, o),
-  },
   {
     key: "zxc-valstrax",
     label: "Server 2",
@@ -154,13 +169,27 @@ export const PLAYER_SOURCES = [
     server: "daedalus",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "daedalus" }, o),
   },
+  /* Formerly Server 1. RIVO's multi-audio master took that slot, but ZXC Orion
+     is still alive and is the ZXC auto rotation's first candidate, so it stays
+     selectable (last, per the "unreliable/duplicated rows belong late" rule)
+     instead of becoming a backend the player can play but not name. */
+  {
+    key: "zxc-orion",
+    label: "Server 7",
+    tag: "Multi audio · up to 1080p",
+    provider: "ZXC Orion",
+    server: "orion",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "orion" }, o),
+  },
 ];
 
-export const DEFAULT_SOURCE_KEY = "zxc-orion";
+export const DEFAULT_SOURCE_KEY = "rivo-1";
 
 /* The automatic rotation's mount. When the viewer has NOT picked a row, the
-   player resolves through THIS instead of walking the five rows above: the
-   server picks the healthiest backend and falls through in ONE round trip.
+   player resolves through THIS instead of walking the rows above: the server
+   picks the healthiest ZXC backend and falls through in ONE round trip. (The
+   auto path stays on the ZXC family on purpose — RIVO exposes no equivalent
+   internal rotation, so auto keeps the backend that can fail over by itself.)
    `key` is a sentinel (never in PLAYER_SOURCES, so it never shows in the menu);
    after a resolve the player re-derives the REAL row from the server the
    backend chose (`sourceByServer`), so the Servers menu still reflects truth. */

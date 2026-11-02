@@ -79,6 +79,12 @@ const RESOLVE_TTL_MS = 5 * 60 * 1000;
 const RESOLVE_CACHE_MAX = 60;
 const resolveCache = new Map(); // key -> { at, promise }
 
+/* RIVO (rivo.st / f.rivo.st) resolve cache — same promise-coalescing shape as
+   the ZXC one, kept separate because the upstream contract differs. */
+const RIVO_RESOLVE_TTL_MS = 60_000;
+const RIVO_RESOLVE_CACHE_MAX = 40;
+const resolveRivoCache = new Map(); // key -> { at, promise }
+
 function zxcResolveKey({ type, id, season, episode, server, auto, prefer, sourceHeight }) {
   const kind = type === "tv" ? "tv" : "movie";
   const mode = prefer ? `prefer:${prefer}` : auto ? "auto" : `server:${server || ""}`;
@@ -230,6 +236,55 @@ export const streamResolve = {
     resolveCache.set(key, { at: Date.now(), promise: run });
     while (resolveCache.size > RESOLVE_CACHE_MAX) {
       resolveCache.delete(resolveCache.keys().next().value);
+    }
+    return run;
+  },
+
+  /** Resolve a RIVO (rivo.st / f.rivo.st) source row — action "resolveRivo".
+      Mirrors `resolveZxc`'s envelope/caching shape so the player treats both
+      families uniformly; the payload normalizes to the same
+      `{ source, variants, audioTracks, … }` shape. RIVO's Server 1 lists one
+      master PER LANGUAGE, so those sibling masters surface as `audioTracks`
+      (the same full-alternate-stream dub model the player already switches). */
+  resolveRivo({ type, id, season, episode, server, sourceHeight }, { signal, bypass } = {}) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const key = [kind, String(id || ""), season || "", episode || "", `server:${server || ""}`, sourceHeight ? `:src${sourceHeight}` : ""].join("|");
+    if (!bypass) {
+      const hit = resolveRivoCache.get(key);
+      if (hit && Date.now() - hit.at < RIVO_RESOLVE_TTL_MS) return hit.promise;
+      if (hit) resolveRivoCache.delete(key);
+    }
+    const run = (async () => {
+      const body = { action: "resolveRivo", type: kind, id: String(id || "") };
+      if (server) body.server = String(server);
+      if (kind === "tv") {
+        if (season != null) body.season = String(season);
+        if (episode != null) body.episode = String(episode);
+      }
+      const data = await post(body, { signal });
+      const resolved = this.normalizeResolved(data);
+      resolved.server = data.server;
+      logInfo(
+        "stream",
+        `Resolved ${resolved.variants.length} RIVO variant(s) via server ${data.server || server || "library"}`,
+        {
+          type: kind,
+          id,
+          server: server || null,
+          resolvedServer: data.server ?? null,
+          variants: resolved.variants.map((v) => v.label),
+          audioTracks: resolved.audioTracks.map((t) => t.label),
+        },
+      );
+      return resolved;
+    })();
+    run.catch(() => {
+      const current = resolveRivoCache.get(key);
+      if (current && current.promise === run) resolveRivoCache.delete(key);
+    });
+    resolveRivoCache.set(key, { at: Date.now(), promise: run });
+    while (resolveRivoCache.size > RIVO_RESOLVE_CACHE_MAX) {
+      resolveRivoCache.delete(resolveRivoCache.keys().next().value);
     }
     return run;
   },

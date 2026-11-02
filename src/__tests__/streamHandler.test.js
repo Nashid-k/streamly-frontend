@@ -382,3 +382,118 @@ describe("POST /api/stream — zxcintro", () => {
     expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-id" });
   });
 });
+
+/* RIVO is a separate upstream contract (rivo.st / f.rivo.st), so it gets its
+   own action and its own guard: the payload must be RE-SHAPED, not copied.
+   Every RIVO source is a master playlist and Server 1 lists one master per
+   language � those become the entry source, the Quality ladder and the Audio
+   menu's sibling dubs respectively. */
+describe("resolveRivo", () => {
+  const MASTER = [
+    "#EXTM3U",
+    "#EXT-X-STREAM-INF:BANDWIDTH=1875000,RESOLUTION=1920x1080",
+    "https://cdn.example/en/1080/index.m3u8",
+    "#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=1280x720",
+    "https://cdn.example/en/720/index.m3u8",
+  ].join("\n");
+
+  const payload = {
+    provider: "rivo",
+    server: "Server 1",
+    sources: [
+      { url: "https://cdn.example/en/master.m3u8", kind: "hls", quality: "1080p (English)" },
+      { url: "https://cdn.example/fr/master.m3u8", kind: "hls", quality: "1080p (French)" },
+      { url: "https://cdn.example/ta/master.m3u8", kind: "hls", quality: "1080p (Tamil)" },
+      { url: "https://cdn.example/fr2/master.m3u8", kind: "hls", quality: "1080p (French)" },
+    ],
+    subtitles: [],
+  };
+
+  const stubRivo = () => {
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        return new Response(JSON.stringify(payload), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (target === payload.sources[0].url) {
+        return new Response(MASTER, {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("re-shapes per-language masters into source + ladder + audioTracks", async () => {
+    stubRivo();
+    const res = await call({ action: "resolveRivo", type: "movie", id: "1339713", server: "1" });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.server).toBe("Server 1");
+    // The entry master is loaded as-is so hls.js keeps its own ABR + audio groups.
+    expect(body.source).toMatchObject({
+      url: payload.sources[0].url,
+      kind: "hls",
+      multiLevelMaster: true,
+      refUrl: "https://f.rivo.st/",
+    });
+    // Quality menu = the master's REAL ladder, not the language rows.
+    expect(body.variants.map((v) => v.height)).toEqual([1080, 720]);
+    // Audio menu = the other language masters, de-duped on label.
+    expect(body.audioTracks).toEqual([
+      { label: "French", uri: payload.sources[1].url },
+      { label: "Tamil", uri: payload.sources[2].url },
+    ]);
+  });
+
+  it("carries season/episode into the TV request", async () => {
+    const fetchMock = stubRivo();
+    await call({ action: "resolveRivo", type: "tv", id: "1399", season: "1", episode: "1", server: "1" });
+    const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(calledUrls[0]).toContain("https://f.rivo.st/api/source/tv/1399?");
+    expect(calledUrls[0]).toContain("s=1");
+    expect(calledUrls[0]).toContain("e=1");
+    expect(calledUrls[0]).toContain("server=1");
+  });
+
+  it("keeps the source playable with one Auto rung when the master cannot be fetched", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const target = String(url);
+        if (target.startsWith("https://f.rivo.st/api/source/")) {
+          return new Response(JSON.stringify(payload), { status: 200 });
+        }
+        return new Response("gone", { status: 502 });
+      }),
+    );
+    const res = await call({ action: "resolveRivo", type: "movie", id: "1339713", server: "1" });
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.variants).toEqual([{ uri: payload.sources[0].url, height: 0, bandwidth: 0 }]);
+    expect(body.audioTracks).toHaveLength(2);
+  });
+
+  it("rejects a malformed id with a 400, not a 500", async () => {
+    const res = await call({ action: "resolveRivo", type: "movie", id: "not-a-number", server: "1" });
+    expect(res.statusCode).toBe(400);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "bad-id" });
+  });
+
+  it("reports an empty RIVO roster as no-source instead of a broken payload", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ provider: "files", server: "library", sources: [] }), { status: 200 })),
+    );
+    const res = await call({ action: "resolveRivo", type: "movie", id: "1339713", server: "library" });
+    const body = JSON.parse(res.body);
+    expect(body).toMatchObject({ ok: false, code: "no-source" });
+  });
+});

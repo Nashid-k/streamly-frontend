@@ -4,8 +4,13 @@
 // the round trip `sourceByServer`, and AUTO_SOURCE staying OUT of the menu.
 import { describe, expect, it, vi } from "vitest";
 
-const { resolveZxcMock } = vi.hoisted(() => ({ resolveZxcMock: vi.fn() }));
-vi.mock("../api/streamResolve", () => ({ streamResolve: { resolveZxc: resolveZxcMock } }));
+const { resolveZxcMock, resolveRivoMock } = vi.hoisted(() => ({
+  resolveZxcMock: vi.fn(),
+  resolveRivoMock: vi.fn(),
+}));
+vi.mock("../api/streamResolve", () => ({
+  streamResolve: { resolveZxc: resolveZxcMock, resolveRivo: resolveRivoMock },
+}));
 
 import {
   PLAYER_SOURCES,
@@ -23,11 +28,12 @@ describe("PLAYER_SOURCES", () => {
     expect(new Set(servers).size).toBe(servers.length);
   });
 
-  it("keeps the default key pointing at a real row — the provider's Server 1", () => {
+  it("keeps the default key pointing at the first row — RIVO's multi-audio Server 1", () => {
     expect(sourceByKey(DEFAULT_SOURCE_KEY)).toBeTruthy();
-    expect(DEFAULT_SOURCE_KEY).toBe("zxc-orion");
-    // The provider's own roster puts Orion first; Server 1 must be that row.
+    expect(DEFAULT_SOURCE_KEY).toBe("rivo-1");
+    // Server 1 is the row the menu leads with, and the key that means "no pick".
     expect(PLAYER_SOURCES[0].key).toBe(DEFAULT_SOURCE_KEY);
+    expect(sourceLabel(DEFAULT_SOURCE_KEY)).toBe("Server 1");
   });
 });
 
@@ -64,26 +70,41 @@ describe("AUTO_SOURCE", () => {
 });
 
 describe("manual server rows", () => {
-  it("send `prefer` (not `server`) so a dead pick falls through in one round trip", () => {
+  it("ZXC rows send `prefer` (not `server`) so a dead pick falls through in one round trip", () => {
     resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
-    for (const row of PLAYER_SOURCES) {
+    const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
+    expect(zxcRows.length).toBeGreaterThan(0);
+    for (const row of zxcRows) {
       row.resolve({ type: "movie", id: "550" }, { signal: undefined });
       expect(resolveZxcMock).toHaveBeenLastCalledWith(
         { type: "movie", id: "550", prefer: row.server },
         { signal: undefined },
       );
     }
-    // No row ever sends the strict single-server form any more.
+    // No ZXC row ever sends the strict single-server form any more.
     for (const callArgs of resolveZxcMock.mock.calls) {
       expect(callArgs[0].server).toBeUndefined();
     }
+  });
+
+  it("the RIVO row names its own server explicitly — RIVO has no rotation to fall through", () => {
+    resolveRivoMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
+    const row = sourceByKey("rivo-1");
+    expect(row?.provider).toBe("RIVO");
+    row.resolve({ type: "movie", id: "550" }, { signal: undefined });
+    expect(resolveRivoMock).toHaveBeenCalledWith(
+      { type: "movie", id: "550", server: "1" },
+      { signal: undefined },
+    );
   });
 });
 
 describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
-    expect(sourceLabel("zxc-orion")).toBe("Server 1");
+    expect(sourceLabel("rivo-1")).toBe("Server 1");
     expect(sourceLabel("zxc-atlas")).toBe("Server 3");
+    // ZXC Orion kept a row (last) because the ZXC auto rotation can still serve it.
+    expect(sourceLabel("zxc-orion")).toBe("Server 7");
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });
 });

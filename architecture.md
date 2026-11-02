@@ -191,21 +191,40 @@ full-stream URLs (one manifest per dub, each individually verified) in
 `audioTracks`, which the player's Audio menu surfaces as a position-preserving
 manifest swap rather than hls.js audio groups.
 
+**RIVO (`resolveRivo`) is a SIXTH source family and owns Servers-menu Server 1**
+(2026-11-02) — rivo.st's own player backend (f.rivo.st) serves
+`/api/source/{movie|tv}/{tmdbId}?s=&e=&server=` directly with
+`{ provider, server, sources: [{ url, kind, quality, … }], subtitles }`, so the
+player sources from RIVO without the ZXC mint/relay. `api/stream.js` gained the
+`resolveRivo` action, `src/api/streamResolve.js` the matching client resolver
+(`resolveRivo`, same normalize/caching envelope), and `src/constants/sources.js`
+the `rivo-1` row. Every RIVO source is itself a MASTER playlist, so the action
+re-shapes it: `source` is the first master with `multiLevelMaster: true`,
+`variants` is that master's real ladder (fetched and parsed server-side, one
+`Auto` rung if the fetch fails), and the other language-tagged masters become
+`audioTracks` — the same sibling-full-manifest model the player already switches
+for ZXC Centaurus/NHD. Server 1 of RIVO is the multi-audio one: measured live on
+movie 1339713 and tv 1399 S1E1 it returns eight language-tagged 1080p masters
+(English, French, Latin American Spanish, Brazilian Portuguese, Spanish, Yoruba,
+Arabic sub). The upstream contract differs from ZXC's, hence the separate action.
+
 **VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes SIX
-separate Servers-menu rows** — `zxc-orion`, `zxc-valstrax`, `zxc-atlas`,
-`zxc-ursa`, `zxc-alatreon`, `zxc-daedalus` — because it fronts independent
-backends with different capabilities, not one source with quality rungs. **The
-roster ROTATES upstream**, so it is re-derived at runtime from the client chunk's
-shipped `ec=[…]` array (`parseZxcRoster` in `api/stream.js`: ordered `{name,
-server, dubSupport}`; the legacy `SERVERS` export is still parsed) and drives the
-menu order, the default, and the rotation tie-break. As of 2026-11-01 the shipped
-chunks no longer carry a roster array at all (no server name appears in any
-chunk), so discovery returns `null` and the seed stands. `ZXC_ROSTER_SEED` in
-`api/stream.js` is only the seed for before-discovery and offline, kept in the
-provider's own order (re-verified live 2026-10-16: Orion, Valstrax, Atlas, Ursa,
-Alatreon, Daedalus — Orion is the provider's Server 1 and the only multi-audio
-row; `resshin` is a separate download-only row outside the roster array).
-Minting is
+separate Servers-menu rows** — `zxc-valstrax`, `zxc-atlas`, `zxc-ursa`,
+`zxc-alatreon`, `zxc-daedalus` (Server 2–6, unchanged) and `zxc-orion`
+(now Server 7, kept because the ZXC auto rotation can still serve it and a
+backend the player can play must stay nameable in the menu) — because it fronts
+independent backends with different capabilities, not one source with quality
+rungs. **The roster ROTATES upstream**, so it is re-derived at runtime from the
+client chunk's shipped `ec=[…]` array (`parseZxcRoster` in `api/stream.js`:
+ordered `{name, server, dubSupport}`; the legacy `SERVERS` export is still
+parsed) and drives the menu order, the default, and the rotation tie-break. As of
+2026-11-01 the shipped chunks no longer carry a roster array at all (no server
+name appears in any chunk), so discovery returns `null` and the seed stands.
+`ZXC_ROSTER_SEED` in `api/stream.js` is only the seed for before-discovery and
+offline, kept in the provider's own order (re-verified live 2026-10-16: Orion,
+Valstrax, Atlas, Ursa, Alatreon, Daedalus — Orion is the provider's Server 1 and,
+with Atlas, one of its two multi-audio rows; `resshin` is a separate
+download-only row outside the roster array). Minting is
 a single `POST {ZXC_ORIGIN}{ZXC_MINT_PATH}` whose body
 carries the obfuscated field keys (`ZXC_PARAM`: `id`, `mediaType`, `path` for the
 server, plus `season`/`episode` for TV) **and the browser-proof `fToken`/`ts`
@@ -281,19 +300,23 @@ are read per response, not frozen. The seed roster maps each backend to a row:
 
 | row | backend | multi-audio |
 | --- | --- | --- |
-| Server 1 Orion | `orion` | yes |
 | Server 2 Valstrax | `valstrax` | no |
 | Server 3 Atlas | `atlas` | no |
 | Server 4 Ursa | `ursa` | no |
 | Server 5 Alatreon | `alatreon` | no |
 | Server 6 Daedalus | `daedalus` | no |
+| Server 7 Orion | `orion` | yes |
 
-**The no-pick path resolves through AUTO, not a five-row client walk.** The
-Servers-menu default is Server 1, but when the viewer has NOT picked a row the
-player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
+(Server 1 is RIVO's multi-audio backend since 2026-11-02; Orion keeps a row at
+the end so a backend the ZXC auto rotation can still serve is always nameable.)
+
+**The no-pick path resolves through AUTO, not a row-by-row client walk.** The
+Servers menu leads with Server 1 (RIVO), but when the viewer has NOT picked a row
+the player resolves through `AUTO_SOURCE` (`src/constants/sources.js`): one
 `resolvezxc` request with `auto: true` and no `server`, and the function walks
 the backends itself in health order (healthy first, then most-recently-
-successful, then the Servers-menu order). Soft misses (server up, title absent)
+successful, then the Servers-menu order). Auto stays on the ZXC family because
+RIVO exposes no equivalent internal rotation. Soft misses (server up, title absent)
 continue to the next backend; the walk ends early after 3 HARD transport
 failures. A backend that fails HARD (its own HTTP 4xx/5xx — the provider's
 `atlas` delivery host answering `427` is the current motivating case — or a
