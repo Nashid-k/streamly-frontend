@@ -7069,3 +7069,35 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
   `src/context/PreferencesContext.jsx`, `src/api/warmResolve.js`.
 - **Gates:** `npm run lint` 0 errors, `npm run test` 119 files / 1429 tests
   passed (new `resolveRivo` handler suite included), `npm run build` clean.
+
+## 2026-11-02 - RIVO design language port into Streamly (user: "reverse enginer this entire website and each of their pages, physics, animations, transitions, ui/ux, and implement into our streamly https://rivo.st/shows")
+
+- **Scope shipped this round.** RIVO's `/shows` design language ported into
+  Streamly's token / motion / browse layers. The full page-by-page sweep is the
+  continued follow-up; this change ports the system-level layer first so the
+  rest of the site inherits it coherently.
+- **Tokens (`src/styles/tokens.css`).** Added the RIVO namespaced design block:
+  `--rivo-bg #23272f`, `--rivo-bg-deep #15171c`, `--rivo-glass`,
+  `--rivo-glass-strong`, `--rivo-glass-border`, `--rivo-text #f5f6f8`,
+  `--rivo-muted`, `--rivo-gutter`, `--rivo-accent-rgb`, `--rivo-accent-fg`,
+  `--rivo-font-text/heading` (SF Pro stacks) and RIVO's own `--ease-tv`
+  (`cubic-bezier(0.4, 0, 0.2, 1)`). Published as `--rivo-*` names so the RIVO
+  layer stays additive and auditable without overwriting the Streamly scale.
+- **Motion (`src/styles/tokens.css`).** RIVO keyframes ported under the
+  reference names — `rivo-fadeUp`, `rivo-shimmer`, `rivo-drift`, `rivo-floatUp`,
+  `rivo-shake` (plus the existing pulse/spin) — and motion utilities published:
+  `.ease-tv`, `.animate-rivo-fade-up`, `.animate-rivo-shimmer`,
+  `.animate-rivo-drift`, `.animate-rivo-float-up`, `.animate-rivo-shake`.
+  The central reduced-motion kill switch already covers them.
+- **Scroll progress rail (`src/app/Header.jsx` + `src/styles/header.css`).**
+  RIVO's fixed 3px top progress bar (white + soft glow, width = scroll
+  fraction) added as `.rivo-scroll-progress`, fed from the same rAF scroll
+  tick that owns the scrolled flag.
+- **Browse grid (`src/styles/grids.css`).** `.movie-grid` retuned from
+  `auto-fill minmax` to RIVO's explicit responsive columns (2 → 3 → 4 → 6 at
+  0 / 640 / 768 / 1024, column gutter `clamp(16px, 2.4vw, 48px)`, row gutter
+  `clamp(1.5rem, 3vw, 3rem)`).
+- **Card hover physics (`src/styles/grids.css`).** Card veil/curtain enter+leave
+  transitions moved off the Streamly easing literals onto the RIVO `--ease-tv`
+  token so hover/focus choreography reads like the reference site.
+- **Gates.** `npm run lint` 0 errors, full suite green, `npm run build` clean.

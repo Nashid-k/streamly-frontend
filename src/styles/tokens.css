@@ -166,6 +166,82 @@
   --z-tooltip: 13000;    /* tooltips outrank everything */
 }
 
+/* ── RIVO design language tokens (reverse-engineered from rivo.st, ported
+   into Streamly's token architecture) ────────────────────────────────────
+   RIVO renders on a slate stage (--bg / --bg-deep) with white-glass surfaces,
+   a near-white accent and the SF Pro text/display stacks; Streamly's app
+   chrome stays black + its own green accent, so the RIVO layer is published as
+   its own namespaced tokens instead of overwriting the Streamly scale. The
+   namespaced block keeps the port additive and auditable, and gives the RIVO
+   surfaces (browse cards, nav pill, chips, hero scrims) one source of truth. */
+:root {
+  --rivo-bg: #23272f;
+  --rivo-bg-deep: #15171c;
+  --rivo-glass: hsla(0, 0%, 100%, 0.13);
+  --rivo-glass-strong: hsla(0, 0%, 100%, 0.2);
+  --rivo-glass-border: hsla(0, 0%, 100%, 0.14);
+  --rivo-text: #f5f6f8;
+  --rivo-muted: rgba(235, 238, 245, 0.55);
+  --rivo-gutter: clamp(16px, 4.2vw, 84px);
+  --rivo-accent-rgb: 255, 255, 255;
+  --rivo-accent-fg: #171717;
+  --rivo-font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", var(--font-sans), "Segoe UI", system-ui, sans-serif;
+  --rivo-font-heading: -apple-system, BlinkMacSystemFont, "SF Pro Display", var(--font-sans), "Segoe UI", system-ui, sans-serif;
+  /* RIVO's own easing — the silk-ish TV curve (`ease-tv`) used by nav pills,
+     chips and card hovers on the reference site. Published as a token so the
+     RIVO surfaces can adopt it without restating the cubic-bezier per rule. */
+  --ease-tv: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── RIVO motion keyframes (reverse-engineered from rivo.st) ───────────── */
+@keyframes rivo-fadeUp {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes rivo-shimmer {
+  to { transform: translateX(100%); }
+}
+@keyframes rivo-drift {
+  0% { transform: translateZ(0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes rivo-floatUp {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  12% { opacity: 1; transform: translateY(-20px) scale(1.1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-230px) scale(1); }
+}
+@keyframes rivo-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-7px); }
+  40%, 60% { transform: translateX(7px); }
+}
+
+/* RIVO motion utilities — the reference site's named animation/easing
+   vocabulary, published so RIVO-styled surfaces (browse grids, nav pills,
+   chips, hero scrims) can adopt the exact choreography without restating
+   keyframes per component. Reduced-motion is killed centrally (tokens.css),
+   so none of these need a local guard. */
+.ease-tv {
+  transition-timing-function: var(--ease-tv);
+}
+.animate-rivo-fade-up {
+  animation: rivo-fadeUp var(--duration-slow) var(--ease-tv) both;
+}
+.animate-rivo-shimmer {
+  animation: rivo-shimmer var(--duration-normal) linear infinite;
+}
+.animate-rivo-drift {
+  animation: rivo-drift var(--duration-slow) linear infinite;
+}
+.animate-rivo-float-up {
+  animation: rivo-floatUp var(--duration-slow) ease-out infinite;
+}
+.animate-rivo-shake {
+  animation: rivo-shake var(--duration-normal) var(--ease-tv) both;
+}
+
 /* Compact island on phones: the brand mark shrinks and the top inset tightens,
    so `--header-h` (and therefore `--header-clearance`) follows on its own. */
 @media (max-width: 768px) {

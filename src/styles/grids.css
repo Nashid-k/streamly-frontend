@@ -27,14 +27,27 @@
 
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: clamp(0.85rem, 1.4vw, 1.35rem);
+  /* RIVO browse grid: 2 → 3 → 4 → 6 columns with wide clamp-based gutters.
+     Streamly used an auto-fill minmax approximation; the reference site pins
+     explicit breakpoints, which also keeps the column count stable across
+     browsers when the gutter is vw-driven. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(1.5rem, 3vw, 3rem) clamp(16px, 2.4vw, 48px);
   padding: 0 0.15rem;
 }
-@media (max-width: 1280px) {
+@media (min-width: 640px) {
   .movie-grid {
-    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-    gap: 0.9rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 768px) {
+  .movie-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .movie-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -137,13 +150,13 @@
 /* Leave side (base) — what a hover EXITS to. */
 .card-veil {
   opacity: 0;
-  transition: opacity var(--duration-normal) var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-tv);
 }
 .card-curtain {
   opacity: 0;
   transform: translateY(24%);
   pointer-events: none;
-  transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-tv), transform var(--duration-normal) var(--ease-tv);
 }
 .curtain-meta {
   opacity: 0;
@@ -171,31 +184,31 @@
   }
   .movie-card:hover .card-veil {
     opacity: 1;
-    transition: opacity var(--duration-slow) var(--ease-out) 60ms;
+    transition: opacity var(--duration-slow) var(--ease-tv) 60ms;
   }
   .movie-card:hover .card-curtain {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
     transition:
-      opacity var(--duration-slow) var(--ease-out) 80ms,
-      transform var(--duration-slow) var(--ease-out) 80ms;
+      opacity var(--duration-slow) var(--ease-tv) 80ms,
+      transform var(--duration-slow) var(--ease-tv) 80ms;
   }
   .movie-card:hover .curtain-meta {
     opacity: 1;
     transform: translateY(0);
     transition:
-      opacity 300ms var(--ease-out) 180ms,
-      transform 300ms var(--ease-out) 180ms;
+      opacity var(--duration-fast) var(--ease-tv) 180ms,
+      transform var(--duration-fast) var(--ease-tv) 180ms;
   }
   .movie-card:hover .curtain-play-btn {
     opacity: 1;
     translate: 0 0;
     pointer-events: auto;
     transition:
-      opacity 300ms var(--ease-out) 240ms,
-      translate 300ms var(--ease-out) 240ms,
-      transform var(--duration-fast) var(--ease-out);
+      opacity var(--duration-fast) var(--ease-tv) 240ms,
+      translate var(--duration-fast) var(--ease-tv) 240ms,
+      transform var(--duration-fast) var(--ease-tv);
   }
   .movie-card:hover .card-badges {
     opacity: 0;
@@ -215,31 +228,31 @@
 }
 .movie-card:focus-visible .card-veil {
   opacity: 1;
-  transition: opacity var(--duration-slow) var(--ease-out) 60ms;
+  transition: opacity var(--duration-slow) var(--ease-tv) 60ms;
 }
 .movie-card:focus-visible .card-curtain {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
   transition:
-    opacity var(--duration-slow) var(--ease-out) 80ms,
-    transform var(--duration-slow) var(--ease-out) 80ms;
+    opacity var(--duration-slow) var(--ease-tv) 80ms,
+    transform var(--duration-slow) var(--ease-tv) 80ms;
 }
 .movie-card:focus-visible .curtain-meta {
   opacity: 1;
   transform: translateY(0);
   transition:
-    opacity 300ms var(--ease-out) 180ms,
-    transform 300ms var(--ease-out) 180ms;
+    opacity var(--duration-fast) var(--ease-tv) 180ms,
+    transform var(--duration-fast) var(--ease-tv) 180ms;
 }
 .movie-card:focus-visible .curtain-play-btn {
   opacity: 1;
   translate: 0 0;
   pointer-events: auto;
   transition:
-    opacity 300ms var(--ease-out) 240ms,
-    translate 300ms var(--ease-out) 240ms,
-    transform var(--duration-fast) var(--ease-out);
+    opacity var(--duration-fast) var(--ease-tv) 240ms,
+    translate var(--duration-fast) var(--ease-tv) 240ms,
+    transform var(--duration-fast) var(--ease-tv);
 }
 .movie-card:focus-visible .card-badges {
   opacity: 0;
