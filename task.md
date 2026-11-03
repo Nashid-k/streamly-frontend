@@ -7392,3 +7392,9 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Gates after each slice.** `npm run lint` 0 errors, full `npm run test` 119 files / 1440 tests pass, `npm run build` clean. Commits `1f22bbd`, `e26243a`, `47a4b92`, `e9b86dd`, pushed to `origin/main`.
 
 **Remaining:** slices 6-7 (`useQualitySwitch` / `useAudioSwitch`, then `useSourceResolve`) — both live inside the resolve effect's closure, so the effect has to be split first — and then the `shell/` extraction, which is what makes a from-scratch redesign a layout exercise.
+
+**Slice 6a — `player/engine/useQualitySwitch.js`.** `pickQuality`, `pickSourceQuality` and `pickAuto` moved verbatim (the `engine/` directory from the target layout now exists). The player keeps `pickQualityRef` and the state the menus render. One attempt caught a duplicate `pickQualityRef.current = pickQuality;` left above the new hook call, which was a TDZ crash — the smoke test caught it before any commit.
+
+**Gates.** `npm run lint` 0 errors, full `npm run test` 119 files / 1440 tests pass, `npm run build` clean. Commit `37ce1b6`.
+
+**Next part:** 6b (`useAudioSwitch`: `pickAudio` / `pickDub`), then 7 (`useSourceResolve`), then the `shell/` extraction.

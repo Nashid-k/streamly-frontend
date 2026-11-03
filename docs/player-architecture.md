@@ -30,8 +30,9 @@ presentation and the stream lifecycle share one closure.
 | Hold-to-2x, rate latch, safety net (slice 3) | `player/hooks/useHold2x.js` | ~75 |
 | Scrubber, seeking, frame preview (slice 4) | `player/hooks/useScrubber.js` | ~230 |
 | Subtitles: list, pick, cues, styling (slice 5) | `player/hooks/useSubtitles.js` | ~160 |
+| Quality switching: rung, source ladder, Auto (6a) | `player/engine/useQualitySwitch.js` | ~250 |
 
-Current: **4,555 lines**.
+Current: **4,280 lines**.
 
 ## The rule for this refactor
 
@@ -91,9 +92,11 @@ layout exercise.
    player: it reads the player's own buffer state.
 5. ~~`useSubtitles`~~ ✅ done — track list, pick with a token race guard, the
    visible failure line, and the styling persistence.
-6. **`useQualitySwitch` / `useAudioSwitch`** — the two `loadSource()` swap paths.
-   Both currently live inside the resolve effect's closure; they need the
-   resolve effect split first.
+6. **`useQualitySwitch`** ✅ done (`engine/useQualitySwitch.js`).
+   **`useAudioSwitch`** — next: `pickAudio` / `pickDub`. They do NOT need the
+   resolve effect split first after all (they call `pickQualityRef`, which is a
+   ref precisely so they can); the quality slice proved the swap paths can move
+   with their inputs passed in.
 7. **`useSourceResolve`** — the last and hardest: the attempt loop, warm-resolve
    handover, relay fallback, fatal latch, reload carry. Split only after 6.
 
