@@ -7418,3 +7418,17 @@ Unlike 6a/6b, this slice had to own the **load effect itself**: the run token, t
 `NativePlayerView.jsx`: **4,010 → 3,156 lines.** Gates: `npm run lint` 0 errors, full `npm run test` 1439/1440 (the one failure is the known `SearchPage` debounce flake, passing 14/14 in isolation), `npm run build` clean (NativePlayerView chunk 108.50 kB).
 
 **Remaining:** the `shell/` extraction (presentation only, no effects/refs) — what makes a from-scratch redesign a layout exercise.
+
+## 2026-11-03 - Player split, slice 8: `shell/PlayerMenus.jsx` (user: "continue and split still we have 3156 lines")
+
+**The ten menu pages left the player.** Settings, servers, subtitles, audio, video quality, speed, aspect, subtitle style, source quality and sleep were the last big block of JSX inside `NativePlayerView.jsx` (lines 2589-3054, ~466 lines). They now live in `player/shell/PlayerMenus.jsx` as a presentational component: every row is still the same `DialogRow`, every conditional the same order, every string unchanged. `PlayerPanel` keeps the sheet frame, header and back button; the player passes `panel`, the state the rows read, and the callbacks they fire.
+
+**The one value that could not travel as-is:** the speed row wrote `videoRef.current.playbackRate` directly. That write now happens in an `onPickPlaybackRate` prop defined in the player, in the same order as before (`setPlaybackRate`, element write, `setPanel(null)`, `poke()`), so the shell owns no ref at all - matching the target layout's "no `useEffect`, no ref" rule.
+
+**Fidelity.** The body was sliced from the player mechanically, dedented, and the single speed handler replaced; no row, comment or condition was retyped. Player imports for the moved icons, `DialogRow`, `SKIP_DATA_CREDIT` and `sourceLabel` were removed; `PlayerMenus` imports them directly. `ASPECT_RATIOS`, `languageNameFromCode`, `DEFAULT_SOURCE_KEY`, `fmtTime` and `qualityHdTag` stay in the player because other code still uses them.
+
+`NativePlayerView.jsx`: **3,156 -> 2,760 lines** (-396). `PlayerMenus.jsx`: 539 lines.
+
+**Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass (including `refAssignmentGuard`); full `npm run test` 119 files / 1440 tests pass; `npm run build` clean (NativePlayerView chunk 110.16 kB).
+
+**Next:** `shell/PlayerTransport.jsx` (scrubber + transport row binding) and `shell/PlayerShell.jsx` (surface + overlay composition), so the player's return becomes a thin composition.

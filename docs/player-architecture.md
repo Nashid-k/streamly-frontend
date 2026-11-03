@@ -33,8 +33,9 @@ presentation and the stream lifecycle share one closure.
 | Quality switching: rung, source ladder, Auto (6a) | `player/engine/useQualitySwitch.js` | ~250 |
 | Audio switching: in-manifest + sibling dubs (6b) | `player/engine/useAudioSwitch.js` | ~270 |
 | Source resolving: attempt loop, warm handover, relay fallback, fatal latch, reload carry (7) | `player/engine/useSourceResolve.js` | ~854 |
+| Menu bodies: settings, servers, subtitles, audio, video, speed, aspect, substyle, source quality, sleep (8) | `player/shell/PlayerMenus.jsx` | ~396 |
 
-Current: **3,156 lines**.
+Current: **2,760 lines**.
 
 ## The rule for this refactor
 
@@ -67,7 +68,7 @@ src/components/player/
   shell/                  ← PRESENTATION ONLY. This is what a redesign replaces.
     PlayerShell.jsx         the surface + overlay composition
     PlayerTransport.jsx     scrubber + transport row
-    PlayerMenus.jsx         servers / audio / quality / subtitles panels
+    PlayerMenus.jsx         ✅ done — servers / audio / quality / subtitles / settings pages
   chrome/                 ← existing presentational primitives (keep)
     BottomChrome, CenterStack, ChromeTopBar, PlayerPanel, DialogRow,
     EpisodesRail, SkipPill, SubtitleOverlay, TapToUnmutePill, primitives
@@ -107,7 +108,13 @@ layout exercise.
    `mergeBoundariesRef.current(...)`, because that `useCallback` is declared
    later in the player).
 
-All seven are done, so `shell/` is now the next extraction.
+8. **`PlayerMenus`** ✅ done (`shell/PlayerMenus.jsx`). The ten menu pages moved
+   as one presentational component; the player passes state and callbacks, and
+   `PlayerPanel` still owns the sheet frame. The speed row's element write moved
+   into an `onPickPlaybackRate` prop, so the shell never touches `videoRef`.
+
+The engine slices are done. `shell/` is in progress: `PlayerMenus` is out;
+`PlayerTransport` and `PlayerShell` are next.
 
 ## Contracts that must NOT change during the split
 
