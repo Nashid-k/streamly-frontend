@@ -7432,3 +7432,13 @@ Unlike 6a/6b, this slice had to own the **load effect itself**: the run token, t
 **Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass (including `refAssignmentGuard`); full `npm run test` 119 files / 1440 tests pass; `npm run build` clean (NativePlayerView chunk 110.16 kB).
 
 **Next:** `shell/PlayerTransport.jsx` (scrubber + transport row binding) and `shell/PlayerShell.jsx` (surface + overlay composition), so the player's return becomes a thin composition.
+
+**Slice 9 - `shell/PlayerTransport.jsx`.** The `BottomChrome` call moved behind a named seam. The six inline handlers that reached into refs (`onBack10`, `onForward10`, `onForwardHoldStart`) or the player's setters/`showHud` (`onVolumeChange`, `onTogglePanel`, `onToggleSettings`) became named player callbacks, so the transport receives plain functions and owns no ref.
+
+This is a seam, not a line win: the block it moves is the same size as the call that replaces it, so the player stays at **2,759 lines**. It exists so `PlayerShell` can compose the transport without carrying its 46-prop wiring, and so a redesign can replace `BottomChrome` without touching the hold timer or the element.
+
+Two regressions caught before commit, both real: the first pass left `onScrubFocus` and `onForwardHoldRelease` pointing at names that did not exist in the player (`ReferenceError` on first render). Fixed to `poke` and `desktopHoldRelease`.
+
+**Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass; `npm run build` clean.
+
+**Next:** `shell/PlayerShell.jsx` - the outer surface, `<video>` and overlay composition - which is the extraction that actually removes the remaining JSX from the player.

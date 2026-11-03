@@ -34,8 +34,9 @@ presentation and the stream lifecycle share one closure.
 | Audio switching: in-manifest + sibling dubs (6b) | `player/engine/useAudioSwitch.js` | ~270 |
 | Source resolving: attempt loop, warm handover, relay fallback, fatal latch, reload carry (7) | `player/engine/useSourceResolve.js` | ~854 |
 | Menu bodies: settings, servers, subtitles, audio, video, speed, aspect, substyle, source quality, sleep (8) | `player/shell/PlayerMenus.jsx` | ~396 |
+| Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
 
-Current: **2,760 lines**.
+Current: **2,759 lines**.
 
 ## The rule for this refactor
 
@@ -67,7 +68,7 @@ src/components/player/
     useScrubber.js          drag/keyboard seek + rollback
   shell/                  ← PRESENTATION ONLY. This is what a redesign replaces.
     PlayerShell.jsx         the surface + overlay composition
-    PlayerTransport.jsx     scrubber + transport row
+    PlayerTransport.jsx     ✅ done — scrubber + transport row binding
     PlayerMenus.jsx         ✅ done — servers / audio / quality / subtitles / settings pages
   chrome/                 ← existing presentational primitives (keep)
     BottomChrome, CenterStack, ChromeTopBar, PlayerPanel, DialogRow,
@@ -113,8 +114,16 @@ layout exercise.
    `PlayerPanel` still owns the sheet frame. The speed row's element write moved
    into an `onPickPlaybackRate` prop, so the shell never touches `videoRef`.
 
-The engine slices are done. `shell/` is in progress: `PlayerMenus` is out;
-`PlayerTransport` and `PlayerShell` are next.
+9. **`PlayerTransport`** ✅ done (`shell/PlayerTransport.jsx`). The
+   `BottomChrome` call is now a named seam. The inline handlers that touched
+   `skipSecondsRef`, `desktopHoldTimerRef`, `desktopHoldFiredRef`, the setters
+   and `showHud` moved into named player callbacks, so the transport receives
+   plain functions and owns no ref. This slice is a seam, not a line win: the
+   block it moves is the same size as the call that replaces it.
+
+The engine slices are done. `shell/` is in progress: `PlayerMenus` and
+`PlayerTransport` are out; `PlayerShell` (the whole surface + overlay tree) is
+the remaining extraction.
 
 ## Contracts that must NOT change during the split
 

@@ -61,7 +61,6 @@ import {
   SubtitleOverlay,
   CenterStack,
   TapToUnmutePill,
-  BottomChrome,
   ResumeCard,
   UpNextCard,
   PlayerPanel,
@@ -82,6 +81,7 @@ import useQualitySwitch from "./player/engine/useQualitySwitch";
 import useAudioSwitch from "./player/engine/useAudioSwitch";
 import useSourceResolve from "./player/engine/useSourceResolve";
 import PlayerMenus from "./player/shell/PlayerMenus";
+import PlayerTransport from "./player/shell/PlayerTransport";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -1103,6 +1103,48 @@ export default function NativePlayerView({
       desktopHoldTimerRef.current = null;
     }
     if (hold2xRef.current) releaseHold2x();
+  };
+
+  /* Transport bindings: the bottom bar reports intent; the timers and the
+     element stay here. PlayerTransport receives these as plain callbacks so
+     the shell never touches a ref. */
+  const onBack10 = () => seekRelative(-skipSecondsRef.current);
+  const onForward10 = () => {
+    if (desktopHoldFiredRef.current) {
+      desktopHoldFiredRef.current = false;
+      return;
+    }
+    seekRelative(skipSecondsRef.current);
+  };
+  const onForwardHoldStart = () => {
+    // Arm 2x on a sustained press; the click still fires on a quick press, so a
+    // hold both seeks AND speeds up (YouTube).
+    desktopHoldTimerRef.current = setTimeout(() => {
+      desktopHoldTimerRef.current = null;
+      desktopHoldFiredRef.current = true;
+      engageHold2x();
+    }, HOLD_2X_DELAY_MS);
+  };
+  const onVolumeChange = (nv) => {
+    setMuted(false);
+    setAutoMuted(false);
+    setVolume(nv);
+    showHud("volume", nv);
+    poke();
+  };
+  const onTogglePanel = (key) => {
+    setPanel((p) => (p === key ? null : key));
+    poke();
+  };
+  const onToggleSettings = () => {
+    // If clicking Settings while any settings panel is open, close it.
+    // Otherwise open root settings.
+    setPanel((p) =>
+      ["settings", "servers", "audio", "subs", "video", "speed", "aspect"].includes(p)
+        ? null
+        : "settings",
+    );
+    poke();
   };
 
   // Single click toggles play, double click toggles fullscreen.
@@ -2466,7 +2508,7 @@ const showSkipOutro = shouldShowSkipOutro({
           }}
         />
 {/* Bottom chrome: scrubber + transport row. */}
-        <BottomChrome
+        <PlayerTransport
           visible={controlsVisible}
           scrubRef={scrubRef}
           duration={safeDuration}
@@ -2493,37 +2535,17 @@ const showSkipOutro = shouldShowSkipOutro({
              play/pause pill would be a SECOND play/pause button on the same
              picture. Same condition as CenterStack's paused transport. */
           centerTransport={IS_TOUCH && !buffering && !ended && !playing && status === "playing"}
-          onBack10={() => seekRelative(-skipSecondsRef.current)}
-          onForward10={() => {
-            if (desktopHoldFiredRef.current) {
-              desktopHoldFiredRef.current = false;
-              return;
-            }
-            seekRelative(skipSecondsRef.current);
-          }}
+          onBack10={onBack10}
+          onForward10={onForward10}
           skipSeconds={skipSeconds}
-          onForwardHoldStart={() => {
-            // Arm 2x on a sustained press; the click still fires on a quick
-            // press, so a hold both seeks AND speeds up (YouTube).
-            desktopHoldTimerRef.current = setTimeout(() => {
-              desktopHoldTimerRef.current = null;
-              desktopHoldFiredRef.current = true;
-              engageHold2x();
-            }, HOLD_2X_DELAY_MS);
-          }}
+          onForwardHoldStart={onForwardHoldStart}
           onForwardHoldRelease={desktopHoldRelease}
           muted={muted}
           volume={volume}
           onToggleMute={toggleMute}
           volHover={volHover}
           onVolHoverChange={setVolHover}
-          onVolumeChange={(nv) => {
-            setMuted(false);
-            setAutoMuted(false);
-            setVolume(nv);
-            showHud("volume", nv);
-            poke();
-          }}
+          onVolumeChange={onVolumeChange}
           showEpisodeNav={showEpisodeNav}
           prevDisabled={prevDisabled}
           nextDisabled={nextDisabled}
@@ -2531,20 +2553,8 @@ const showSkipOutro = shouldShowSkipOutro({
           onEpNext={goEpNext}
           showEpisodesButton={showEpisodesButton}
           panel={panel}
-          onTogglePanel={(key) => {
-            setPanel((p) => (p === key ? null : key));
-            poke();
-          }}
-          onToggleSettings={() => {
-            // If clicking Settings while any settings panel is open, close it.
-            // Otherwise open root settings.
-            setPanel((p) =>
-              ["settings", "servers", "audio", "subs", "video", "speed", "aspect"].includes(p)
-                ? null
-                : "settings",
-            );
-            poke();
-          }}
+          onTogglePanel={onTogglePanel}
+          onToggleSettings={onToggleSettings}
           showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
           isFullscreen={isFullscreen}
           onFullscreen={goFullscreen}
