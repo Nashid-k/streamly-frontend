@@ -40,7 +40,6 @@ import { isEpAired } from "../utils/titleDetails";
 import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
-  previewMetrics,
   aspectVideoStyle,
   ASPECT_RATIOS,
   HOLD_SPEED,
@@ -72,7 +71,7 @@ import { pickInitialBandwidthBits } from "../utils/streamTuning";
 import { subtitleFontFamily, findSubtitleTrack } from "../constants/settings";
 import { RIVO_MOTION } from "./player/chrome/theme";
 import { useOptionalPreferences } from "../context/preferences";
-import { getPreviewThumb, clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
+import { clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import {
   ChromeTopBar,
   SkipPill,
@@ -95,6 +94,7 @@ import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import usePlayerChrome from "./player/hooks/usePlayerChrome";
 import useHold2x from "./player/hooks/useHold2x";
+import useScrubber from "./player/hooks/useScrubber";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -291,7 +291,6 @@ export default function NativePlayerView({
   }, [orderedSources]);
   const autoSourceRef = useRef(AUTO_SOURCE);
   autoSourceRef.current = preferredAutoSource;
-  const scrubRef = useRef(null);
   // Settings sheet surface — focus moves here on open and back to the control
   // that opened it on close, so the panel is actually operable by keyboard.
   const panelRef = useRef(null);
@@ -313,20 +312,9 @@ export default function NativePlayerView({
   // Desktop hold-to-2x on the forward transport button.
   const desktopHoldTimerRef = useRef(null);
   const desktopHoldFiredRef = useRef(false);
-  // Scrubber preview state: the latest captured thumbnail (data URL) + request
-  // serial so a fast drag only renders the newest hover position.
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const previewReqRef = useRef(0);
   // Live views of the play/seek closures for media-session handlers that register once.
   const togglePlayRef = useRef(() => {});
   const seekRelativeRef = useRef(() => {});
-  // Deltas queued while a seek is still in flight (see seekRelative): each new
-  // tap re-targets the pending seek, which cancels hls.js's fragment load on
-  // every write — on a relay path nothing finishes until the taps stop.
-  const pendingSeekRef = useRef(0);
-  // Pending "drop the hover overlay" deadline; cleared when a NEW scrub starts,
-  // or a leftover timer snaps the bar back mid-drag between two gestures.
-  const scrubHoverTimer = useRef(null);
   const watchedEntryRef = useRef(watchedEntry);
   watchedEntryRef.current = watchedEntry;
   const lastProgressSaved = useRef(0);
@@ -692,8 +680,6 @@ export default function NativePlayerView({
     }
   });
   const [volHover, setVolHover] = useState(false);
-  const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
-  const [scrubDragging, setScrubDragging] = useState(false);
   // Netflix-style HUD pill (volume / aspect) that pops then self-fades.
   const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
@@ -845,10 +831,43 @@ export default function NativePlayerView({
   };
   togglePlayRef.current = togglePlay;
 
-  const seekTo = (value) => {
-    setEnded(false);
-    safeSeek(Number(value) || 0);
-  };
+  /* Seeking + the scrubber live in `useScrubber`, which owns the drag
+     arbitration, the once-per-frame hover application, the queued-delta seek
+     and the preview decoder. Everything the player still does — episode picks,
+     resume, media-session seekto, intro skip — goes through the helpers it
+     returns. Called here because the preview pipeline reads `currentTime` /
+     `duration` and the player's own box size. */
+  const {
+    scrubRef,
+    previewUrl,
+    previewBox,
+    safeDuration,
+    effectiveRatio,
+    hoverRatio,
+    seekRelative,
+    safeSeek,
+    pendingSeekRef,
+    onScrubDown,
+    onScrubMove,
+    onScrubUp,
+    onScrubCancel,
+    onScrubLeave,
+    onScrubKeyDown,
+  } = useScrubber({
+    videoRef,
+    poke,
+    showHudRef,
+    skipSecondsRef,
+    resumeOffer,
+    setResumeOffer,
+    setEnded,
+    metaRef,
+    currentTime,
+    duration,
+    playerW,
+    playerH,
+  });
+  seekRelativeRef.current = seekRelative;
 
   const replay = async () => {
     const video = videoRef.current;
@@ -866,216 +885,6 @@ export default function NativePlayerView({
       await video.play();
     } catch {
       // user gesture needed — controls are visible
-    }
-  };
-
-  const scrubRatioOf = (clientX) => {
-    const el = scrubRef.current;
-    if (!el) return 0;
-    const r = el.getBoundingClientRect();
-    if (!r.width) return 0;
-    return Math.min(1, Math.max(0, (clientX - r.left) / r.width));
-  };
-
-  /* pointermove fires faster than the display can paint (120Hz+ pointers, and
-     far faster on some digitisers). Every setScrubHover re-renders this whole
-     5k-line player and re-runs the preview-thumbnail effect further down, so the
-     latest position is stashed in a ref and applied once per animation frame.
-     scrubHoverLatest always mirrors the true pointer position, so a release
-     seeks to exactly where the pointer was, not to whichever frame last painted. */
-  const scrubHoverLatest = useRef(null);
-  const scrubHoverFrame = useRef(0);
-
-  const applyScrubHover = (ratio) => {
-    scrubHoverLatest.current = ratio;
-    if (scrubHoverFrame.current) return;
-    scrubHoverFrame.current = requestAnimationFrame(() => {
-      scrubHoverFrame.current = 0;
-      const next = scrubHoverLatest.current;
-      if (next !== null) setScrubHover(next);
-    });
-  };
-
-  const flushScrubHover = () => {
-    if (scrubHoverFrame.current) {
-      cancelAnimationFrame(scrubHoverFrame.current);
-      scrubHoverFrame.current = 0;
-    }
-    if (scrubHoverLatest.current !== null) setScrubHover(scrubHoverLatest.current);
-  };
-
-  const clearScrubHover = () => {
-    if (scrubHoverFrame.current) {
-      cancelAnimationFrame(scrubHoverFrame.current);
-      scrubHoverFrame.current = 0;
-    }
-    scrubHoverLatest.current = null;
-    setScrubHover(null);
-  };
-
-  const onScrubDown = (e) => {
-    e.stopPropagation();
-    poke();
-    if (scrubHoverTimer.current) {
-      clearTimeout(scrubHoverTimer.current);
-      scrubHoverTimer.current = null;
-    }
-    if (resumeOffer) setResumeOffer(null); // user grabbed the bar — they pick the spot
-    try {
-      scrubRef.current?.setPointerCapture?.(e.pointerId);
-    } catch {
-      // pointer capture unsupported — drag still works while over the bar
-    }
-setScrubDragging(true);
-    const ratio = scrubRatioOf(e.clientX);
-    applyScrubHover(ratio);
-    // No seek per pointermove: the bar tracks the drag and the seek commits once on
-    // release — seeking on every move makes hls.js cancel in-flight fragments.
-  };
-
-  const onScrubMove = (e) => {
-    applyScrubHover(scrubRatioOf(e.clientX));
-    if (scrubDragging) {
-      poke(); // a long drag must not let the controls autohide mid-drag
-    }
-  };
-
-  const onScrubUp = () => {
-    poke();
-    // Commit the true final pointer position, not the last painted frame.
-    const released = scrubHoverLatest.current ?? scrubHover;
-    flushScrubHover();
-    if (scrubDragging) {
-      const dur = Number(videoRef.current?.duration);
-      const target = (released ?? 0) * (Number.isFinite(dur) && dur > 0 ? dur : 0);
-      seekTo(target);
-    }
-    setScrubDragging(false);
-    // Let the red bar settle on the seek target before dropping the hover overlay.
-    scrubHoverTimer.current = window.setTimeout(clearScrubHover, 250);
-  };
-
-  // A cancelled gesture (Esc, scroll steal, pointer leaving) must not strand the scrubber.
-  const onScrubCancel = () => {
-    setScrubDragging(false);
-    clearScrubHover();
-    if (scrubHoverTimer.current) {
-      clearTimeout(scrubHoverTimer.current);
-      scrubHoverTimer.current = null;
-    }
-  };
-
-  const onScrubLeave = () => {
-    if (!scrubDragging) clearScrubHover();
-    setPreviewUrl(null);
-  };
-
-  /* Keyboard seeking. The bar advertises role="slider" + tabIndex, so it has to
-     behave like one: arrows nudge, PageUp/Down jump a minute, Home/End slam to
-     the ends, and every key reports through the seek HUD so the viewer sees the
-     same feedback a drag gives.
-     stopPropagation is load-bearing: the window keydown handler also binds
-     ArrowLeft/ArrowRight, and without it one press seeks twice.
-     Up/Down are deliberately NOT handled here — they fall through to the global
-     volume binding, which is the convention this player uses everywhere else
-     (and matches YouTube); hijacking them for seeking would make the same key
-     mean two different things depending on focus. */
-  const onScrubKeyDown = (e) => {
-    const dur = Number(videoRef.current?.duration);
-    const known = Number.isFinite(dur) && dur > 0;
-    let handled = true;
-    switch (e.key) {
-      case "ArrowLeft":
-        // Same auto-repeat guard as the window handler: a held nudge re-targets
-        // the seek on every repeat and thrashes the fragment loader.
-        if (e.repeat) break;
-        seekRelative(-skipSecondsRef.current);
-        break;
-      case "ArrowRight":
-        if (e.repeat) break;
-        seekRelative(skipSecondsRef.current);
-        break;
-      case "PageDown":
-        if (e.repeat) break;
-        seekRelative(-60);
-        break;
-      case "PageUp":
-        if (e.repeat) break;
-        seekRelative(60);
-        break;
-      case "Home":
-        if (known) seekTo(0);
-        else handled = false;
-        break;
-      case "End":
-        if (known) seekTo(dur);
-        else handled = false;
-        break;
-      default:
-        handled = false;
-    }
-    if (handled) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
-  };
-
-  /* Scrubber preview (Netflix/YouTube hover thumbnails): while hovering or
-     dragging, decode the frame at the hover position off-screen and show it in
-     a small card above the time bubble. Cache miss decodes ride the preview
-     pipeline (same transport as playback); failures resolve null and scrubbing
-     keeps working — the card just stays hidden until a capture lands.
-     NOTE: declared AFTER safeDuration/hoverRatio below — this effect reads
-     them, and an earlier placement read them before initialization (TDZ crash). */
-
-  const seekRelative = (delta) => {
-    const video = videoRef.current;
-    if (!video) return;
-    poke();
-    // Rapid taps (double-tap spam, quick key presses) land while the previous
-    // seek is still resolving: writing currentTime again cancels the in-flight
-    // fragment load, so nothing ever completes until the viewer stops. Queue
-    // those deltas and flush the total once `seeked` fires; the HUD shows the
-    // growing queued amount so the feedback stays honest.
-    if (video.seeking) {
-      pendingSeekRef.current += delta;
-      showHudRef.current("seek", pendingSeekRef.current);
-      return;
-    }
-    // HUD shows the amount actually applied (clamped at 0 / duration), not the
-    // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
-    const dur = Number(video.duration);
-    const from = video.currentTime || 0;
-    const next = from + delta;
-    const real = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, next), dur) : Math.max(0, next);
-    showHudRef.current("seek", real - from);
-    try {
-      video.currentTime = real;
-    } catch {
-      // ignore out-of-range seeks
-    }
-  };
-  seekRelativeRef.current = seekRelative;
-
-  /* Single place every absolute seek goes through. Direct currentTime writes
-     scattered through the player let stale saved positions (resume after a
-     quality switch, a media-session seekto, an intro-skip target) land BELOW 0
-     or past the end once duration arrives; this clamps exactly like
-     seekRelative's HUD math and swallows the element's range errors. */
-  const safeSeek = (seconds) => {
-    const video = videoRef.current;
-    if (!video) return;
-    // An absolute seek supersedes any relative deltas queued behind an
-    // in-flight one — applying them afterwards would jump off the target.
-    pendingSeekRef.current = 0;
-    const t = Number(seconds);
-    if (!Number.isFinite(t)) return;
-    const dur = Number(video.duration);
-    const clamped = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, t), dur) : Math.max(0, t);
-    try {
-      video.currentTime = clamped;
-    } catch {
-      // out-of-range seek — the element clamps; nothing else to do
     }
   };
 
@@ -1681,11 +1490,11 @@ setScrubDragging(true);
     return () => clearHideTimer();
   }, [playing, poke, clearHideTimer]);
 
-  /* Click-timer cleanup for the single/double-click splitter. */
+  /* Click-timer cleanup for the single/double-click splitter. (The scrubber's
+     own hover deadline and rAF are cleared by `useScrubber`.) */
   useEffect(
     () => () => {
       if (clickTimer.current) clearTimeout(clickTimer.current);
-      if (scrubHoverTimer.current) clearTimeout(scrubHoverTimer.current);
     },
     [],
   );
@@ -3725,47 +3534,6 @@ setScrubDragging(true);
     setManualHeight(null);
     poke();
   };
-
-  // Render-time derivations for the scrubber.
-  const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
-  const progressRatio = safeDuration > 0 ? Math.min(1, Math.max(0, currentTime / safeDuration)) : 0;
-  // While dragging, the bar follows the pointer, not the frozen playback head.
-  const effectiveRatio = scrubDragging ? (scrubHover ?? progressRatio) : progressRatio;
-  const hoverRatio = scrubHover ?? (scrubDragging ? progressRatio : null);
-
-  /* Scrubber preview (thumbnail on hover/drag): while hovering or dragging,
-     decode the frame at the hover position off-screen and show it in a small
-     card above the time bubble. */
-  const previewBox = useMemo(() => previewMetrics(playerW, playerH), [playerW, playerH]);
-  useEffect(() => {
-    // Touch included: a drag on the scrubber is exactly when a frame preview
-    // matters most (no hover state on mobile). The 8s cache + newest-wins
-    // queue keeps the relay cost of a drag bounded.
-    if (hoverRatio == null || safeDuration <= 0) {
-      previewReqRef.current += 1; // invalidate any queued capture
-      setPreviewUrl(null);
-      return undefined;
-    }
-    const meta = metaRef.current;
-    if (!meta?.sourceKey || !meta?.refUrl) return undefined;
-    // The preview pipeline mounts per source entry URL: master playlists get
-    // the master (the decoder picks its own rendition), per-quality sources
-    // get the smooth-start rendition that playback actually uses.
-    const target = meta.masterLevels ? meta.entryUrl : meta.refUrl;
-    if (!target) return undefined;
-    const seconds = Math.min(Math.max(hoverRatio * safeDuration, 0), Math.max(0, safeDuration - 0.5));
-    const mine = ++previewReqRef.current;
-    let cancelled = false;
-    getPreviewThumb({ url: target, refUrl: meta.refUrl, sourceKey: meta.sourceKey, seconds }).then(
-      (thumb) => {
-        if (!cancelled && thumb && previewReqRef.current === mine) setPreviewUrl(thumb);
-      },
-      () => {},
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [hoverRatio, safeDuration]);
 
   /* While the player itself is fetching (seek/stall), park the preview decoder so
      it cannot compete for the same relay bytes the real fragment needs — the
