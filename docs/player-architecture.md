@@ -37,7 +37,7 @@ presentation and the stream lifecycle share one closure.
 | Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
 | Surface + overlay composition: `<video>`, chrome layers, panel, HUDs, fatal banner (10) | `player/shell/PlayerShell.jsx` | ~385 (JSX) |
 
-Current: **2,537 lines**.
+Current: **2,507 lines**.
 
 ## The rule for this refactor
 

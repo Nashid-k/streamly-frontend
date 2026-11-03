@@ -7449,7 +7449,7 @@ Two regressions caught before commit, both real: the first pass left `onScrubFoc
 
 **Prop list generated, then reviewed.** A script parsed the component's declarations and the JSX, intersected them, and subtracted JSX tag/attribute names; the three false positives it produced (`dimReducedMotion`, `duration` from a style object key, `at` from an arrow param) were removed by hand. `UP_NEXT_MS` is the one module constant passed through as `upNextMs`. Lint reports no unused props, so the contract is exact.
 
-`NativePlayerView.jsx`: **2,759 -> 2,537 lines** (-222; the JSX was 385 lines, the call plus the lifted handlers replace it). `PlayerShell.jsx`: 580 lines (152-prop contract + 385-line tree + imports).
+`NativePlayerView.jsx`: **2,759 -> 2,507 lines** (-252; the JSX was 385 lines, the call plus the lifted handlers replace it, and the moved imports took the rest). `PlayerShell.jsx`: 580 lines (152-prop contract + 385-line tree + imports).
 
 **Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass; full `npm run test` 119 files / 1440 tests pass; `npm run build` clean (NativePlayerView chunk 116.15 kB).
 
