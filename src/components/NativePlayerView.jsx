@@ -94,8 +94,9 @@ import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/native
 import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import usePlayerChrome from "./player/hooks/usePlayerChrome";
-import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS } from "./player/nativePlayerGestures";
-import { holdRestoreRate, resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
+import useHold2x from "./player/hooks/useHold2x";
+import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
+import { resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
 
 // A source can fail fragments forever without ever going fatal (VidCore's
@@ -305,11 +306,6 @@ export default function NativePlayerView({
   // flag that swallows the synthetic click after touchend (it would double-toggle).
   const touchTapRef = useRef({ time: 0, zone: null });
   const suppressClickRef = useRef(false);
-  // Hold-to-2x bookkeeping: the timer that arms 2x, the rate it must restore,
-  // and a pointer id for pointer-cleanup symmetry.
-  const holdTimerRef = useRef(null);
-  const heldRateRef = useRef(1);
-  const holdPointerRef = useRef(null);
   // Space tap-vs-hold: is the key currently down, and did the hold already
   // engage 2x (so the keyup must NOT also toggle play).
   const spaceHoldRef = useRef(false);
@@ -344,7 +340,6 @@ export default function NativePlayerView({
   // Live views for closures that must not read stale hold/still-watching state.
   // (Declared here; SYNCED below next to the other mirror refs — the states
   // they read are declared further down, and assigning earlier is a TDZ crash.)
-  const hold2xRef = useRef(false);
   const endedRef = useRef(false);
   const onSelectEpisodeRef = useRef(onSelectEpisode);
   onSelectEpisodeRef.current = onSelectEpisode;
@@ -727,10 +722,6 @@ export default function NativePlayerView({
   // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value } — owned by
   // the hook so the engine has no timer of its own.
   const { hud, showHud, showHudRef } = usePlayerHud();
-  // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
-  // plays at 2x; release restores the previous rate. Desktop holds the forward
-  // transport button.
-  const [hold2x, setHold2x] = useState(false);
   // Netflix "Still watching?" — after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
@@ -750,6 +741,25 @@ export default function NativePlayerView({
   // rate, never the transient 2x it is about to write).
   const playbackRateRef = useRef(playbackRate);
   playbackRateRef.current = playbackRate;
+  /* Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
+     plays at 2x; release restores the previous rate. Desktop holds the forward
+     transport button. Called here because it needs both `poke` and the rate
+     mirror above; the input layer still owns the timers that ARM a hold. */
+  const {
+    hold2x,
+    hold2xRef,
+    holdTimerRef,
+    holdPointerRef,
+    engageHold2x,
+    releaseHold2x,
+    disarmHold,
+  } = useHold2x({
+    videoRef,
+    playbackRate,
+    playbackRateRef,
+    mediaKey: `${type}:${id}:${season}:${episode}`,
+    poke,
+  });
   /* `endedRef` mirrors `ended` for the once-bound handlers (the idle timer's
      `offerStillWatching` reads it to refuse a prompt after the credits). It was
      declared at the top and READ at line ~1209 but never ASSIGNED, so the guard
@@ -1272,55 +1282,9 @@ setScrubDragging(true);
   );
 
   // ---- Hold-to-2x (Netflix mobile): hold the right half of the screen ----
-  /* `hold2xRef` is the ONLY signal every other handler reads to answer "is a
-     2x hold live right now?" — the touch-end branch, the pause/ended/seeking
-     listeners, the volume drag, the keyup. It was declared and never assigned,
-     so it permanently read `false` and the rate restore ran on nothing:
-     releasing a hold left the element at 2x (no keyup, no tap and not even a
-     pause could bring it back — the picture played fast until the media was
-     rebuilt). One place sets it, one place clears it, so the state cannot drift
-     from the DOM rate again. */
-  const engageHold2x = () => {
-    const video = videoRef.current;
-    if (!video || video.paused) return;
-    /* The element's own rate is the truth, but a browser that paused playback
-       in the background reports `playbackRate` as 1 while the picture is still
-       the one the viewer set — keep a live mirror of the SETTING rate so a hold
-       can never latch 2x as the "rate to restore". The rule lives in
-       nativePlayerHold so a release cannot restore a rate the element rejects. */
-    heldRateRef.current = holdRestoreRate({
-      elementRate: video.playbackRate,
-      settingRate: playbackRateRef.current,
-    });
-    try {
-      video.playbackRate = HOLD_SPEED;
-      hold2xRef.current = true;
-      setHold2x(true);
-      poke();
-    } catch {
-      // Some UWP webviews reject odd rates; staying at 1x is fine.
-    }
-  };
-  const releaseHold2x = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    holdPointerRef.current = null;
-    /* The ref is cleared FIRST: the listeners below (ratechange included) react
-       to the assignment and must see "no hold" while the restore is written. */
-    hold2xRef.current = false;
-    const video = videoRef.current;
-    if (video) {
-      try {
-        video.playbackRate = heldRateRef.current || 1;
-      } catch {
-        // already reset
-      }
-    }
-    heldRateRef.current = 1;
-    setHold2x(false);
-  };
+  /* engageHold2x / releaseHold2x / the safety net live in `useHold2x` (called
+     above). What stays here is the INPUT layer: the timers that decide a press
+     is long enough to be a hold. */
   // Right-half hold: arm 2x after a short delay so double-tap seek wins sprints.
   const handleHoldStart = (e) => {
     if (!IS_TOUCH || buffering || stillWatching) return;
@@ -1337,10 +1301,7 @@ setScrubDragging(true);
     }, HOLD_2X_DELAY_MS);
   };
   const handleHoldEnd = () => {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
+    disarmHold();
     if (hold2xRef.current) releaseHold2x();
   };
   // Desktop forward-button hold release (pointerup / leave / cancel).
@@ -1390,13 +1351,7 @@ setScrubDragging(true);
       now: performance.now(),
       prevTap: touchTapRef.current,
     });
-    if (release.dropArm) {
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-      holdPointerRef.current = null;
-    }
+    if (release.dropArm) disarmHold();
     if (release.clearGesture) gestureRef.current = null;
     if (release.tap) touchTapRef.current = release.tap;
     if (release.action === "end-hold") {
@@ -1454,10 +1409,7 @@ setScrubDragging(true);
       g.active = true;
       suppressClickRef.current = true;
       // A right-half drag is a volume gesture, not a hold — cancel the 2x arm.
-      if (g.side === "volume" && holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
+      if (g.side === "volume") disarmHold();
     }
     // 2x must never ride on top of a volume drag.
     if (hold2xRef.current && g.side === "volume") {
@@ -1492,10 +1444,7 @@ setScrubDragging(true);
       if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused";
       // A pause of any origin must not leave 2x armed for the next play.
       if (hold2xRef.current) releaseHold2x();
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
+      disarmHold();
     };
     const onEnded = () => {
       setPlaying(false);
@@ -1646,53 +1595,6 @@ setScrubDragging(true);
       // private mode — volume just won't persist
     }
   }, [volume, muted, autoMuted]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (video && !hold2x) {
-      try {
-        video.playbackRate = playbackRate;
-        heldRateRef.current = playbackRate;
-      } catch (error) {
-        // Some engines reject a rate mid-seek; the next effect pass retries.
-        logDebug("player", "Could not apply playbackRate.", { message: error?.message });
-      }
-    }
-    /* `hold2x` releasing used to fall straight into the branch above, which
-       re-applied the STATE rate over the rate releaseHold2x had just restored.
-       For a viewer at 1x that is invisible (both are 1). For anyone who chose
-       1.25x or 1.5x in Settings it meant a hold-to-2x snapped them back to their
-       state rate a frame later — the restore was correct and then immediately
-       undone. Only a real SETTING change re-syncs the element now; a hold
-       release is releaseHold2x's business alone. */
-  }, [playbackRate]);
-
-  /* Hold-to-2x safety net. The release gesture is the normal exit, but the hold
-     can be interrupted by something that never delivers a touchend for the video
-     (an OS gesture taking over, the tab going to the background, a stream that
-     dies under the finger). Without a backstop the element stays at 2x until the
-     media is rebuilt. Two independent exits: the element reporting "not playing"
-     (a stall or an episode ending) restores immediately, and a wall-clock cutoff
-     restores after HOLD_2X_MAX_MS even if the element still claims to be
-     playing. */
-  useEffect(() => {
-    if (!hold2x) return undefined;
-    const startedAt = Date.now();
-    const id = setInterval(() => {
-      const video = videoRef.current;
-      if (!video) return;
-      if (video.paused || Date.now() - startedAt >= HOLD_2X_MAX_MS) releaseHold2x();
-    }, 500);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hold2x]);
-
-  /* A new episode / title is new media: the element is rebuilt at the state rate,
-     so a hold that was live when the switch happened must not keep arming 2x. */
-  useEffect(() => {
-    if (hold2xRef.current || holdTimerRef.current) releaseHold2x();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type, id, season, episode]);
 
   /* Pending timers on unmount. These fire long after the player is gone if left
      armed: a desktop hold timer could arm 2x on a torn-down element. (The HUD
@@ -1873,10 +1775,7 @@ setScrubDragging(true);
       if (release === "ignore") return;
       spaceHoldRef.current = false;
       spaceFiredRef.current = false;
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
+      disarmHold();
       if (release === "release-hold") {
         releaseHold2x();
         return;

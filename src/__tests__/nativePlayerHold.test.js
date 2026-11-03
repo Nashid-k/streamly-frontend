@@ -164,10 +164,20 @@ describe("the player routes through these decisions", () => {
     join(process.cwd(), "src", "components", "NativePlayerView.jsx"),
     "utf8",
   );
+  /* The hold-rate decision moved into useHold2x with the rest of the 2x
+     bookkeeping. The guard follows the call rather than the old file: what is
+     pinned is that the PLAYER (directly or through its hook) still asks the
+     decision table instead of re-deriving the branch. */
+  const holdHook = readFileSync(
+    join(process.cwd(), "src", "components", "player", "hooks", "useHold2x.js"),
+    "utf8",
+  );
 
   it("imports and calls the release arbitration", () => {
     expect(source).toMatch(/from "\.\/player\/nativePlayerHold"/);
-    for (const name of ["holdRestoreRate", "resolveSpaceRelease", "resolveTouchRelease"]) {
+    expect(holdHook).toMatch(/from "\.\.\/nativePlayerHold"/);
+    expect(holdHook).toMatch(/\bholdRestoreRate\(/);
+    for (const name of ["resolveSpaceRelease", "resolveTouchRelease"]) {
       expect(source).toMatch(new RegExp(`\\b${name}\\(`));
     }
   });

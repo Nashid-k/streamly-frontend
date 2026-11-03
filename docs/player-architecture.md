@@ -26,8 +26,10 @@ presentation and the stream lifecycle share one closure.
 |---|---|---|
 | HUD state + auto-dismiss | `player/hooks/usePlayerHud.js` | ~15 |
 | Sleep timer, loop, PiP, fullscreen | `player/hooks/usePlaybackExtras.js` | ~120 |
+| Chrome autohide + still watching (slices 1+2 merged) | `player/hooks/usePlayerChrome.js` | ~130 |
+| Hold-to-2x, rate latch, safety net (slice 3) | `player/hooks/useHold2x.js` | ~75 |
 
-Current: **5,149 lines**.
+Current: **4,943 lines**.
 
 ## The rule for this refactor
 
@@ -73,15 +75,14 @@ layout exercise.
 
 ## Ordered slices (next first)
 
-1. **`useChromeVisibility`** — `controlsVisible`, `poke`, the 3s idle hide,
-   `POKE_REARM_MIN_MS` rate limit, the cursor style. Needs `videoRef` +
-   `setControlsVisible`. Largest single win because `poke` is called from ~20
-   call sites.
-2. **`useStillWatching`** — `stillWatching`, `offerStillWatching`,
-   `dismissStillWatching`, the 2h idle timer, the offer expiry, the
-   auto-advance streak. Depends on 1 (`poke` re-arms it).
-3. **`useHold2x`** — `hold2x`, `engageHold2x`, `releaseHold2x`, the safety-net
-   effect, `HOLD_2X_MAX_MS`.
+1. ~~`useChromeVisibility`~~ ✅ done
+2. ~~`useStillWatching`~~ ✅ done — **merged into `usePlayerChrome`**, because
+   `poke` re-arms both timers under one rate limit and a split would have
+   invented a three-callback contract harder to follow than the code it
+   replaced.
+3. ~~`useHold2x`~~ ✅ done. The input layer (the timers that decide a press is
+   long enough) stays in the player; the hook owns engaging, releasing, the
+   rate latch and the safety net.
 4. **`useScrubber`** — drag state, the preview pipeline, `seekRelative`,
    `seekTo`, the seek rollback on failure.
 5. **`useSubtitles`** — `SubtitleFetcher` + `SubtitleEngine` wiring, track list,
