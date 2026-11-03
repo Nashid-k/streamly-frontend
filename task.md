@@ -7376,3 +7376,19 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Deliberately stopped at 2.** `useChromeVisibility` looked like the next obvious win but `poke` interleaves the 3s hide timer with the still-watching idle timer under one shared rate limit; splitting it without changing timer ordering needs care, and the map now records that constraint instead of discovering it again.
 
 **Gates.** `npm run lint` 0 errors (55 warnings, 2 new from the render-time ref mirrors the codebase already uses everywhere), full `npm run test` 119 files / 1440 tests pass, `npm run build` clean.
+
+## 2026-11-03 - Player split, slices 3-5 (user: "now continue and do the rest in parts")
+
+**Slice 1+2 merged into `player/hooks/usePlayerChrome.js`.** `poke` interleaves the 3s hide timer with the 2h still-watching timer under one rate limit, so a split would have invented a three-callback contract harder to follow than the code it replaced. The hook also owns `clearHideTimer` and `recordAutoAdvance`, so the play-flip effect and the Up Next path stop reaching into player refs. Two orphan comment blocks the move left behind were deleted.
+
+**Slice 3 — `player/hooks/useHold2x.js`.** Engaging, releasing, the `heldRateRef` rate latch and the safety net. The latch exists because the element's own rate lies after a background pause; the backstop exists because the interrupting thing is exactly the one that sends no `touchend`. The player keeps the input layer (the timers that decide a press is a hold) and now calls `disarmHold()` instead of repeating the clear-timeout dance in five places. `nativePlayerHold.test.js`'s route guard follows the call into the hook (the assertion is "the player does not re-derive the decision inline", not "the string lives in this file").
+
+**Slice 4 — `player/hooks/useScrubber.js`.** Drag arbitration, the once-per-frame hover application, the queued-delta `seekRelative`, `seekTo` / `safeSeek`, the keyboard map for the bar, and the preview decoder. The "suppress the preview while fetching" effect stayed in the player because it reads the player's own buffer state. Removed the now-unused `previewMetrics` / `getPreviewThumb` imports and the scrubber's timer from the click-timer cleanup effect (the hook clears its own rAF and deadline).
+
+**Slice 5 — `player/hooks/useSubtitles.js`.** Track list, pick with its token race guard, the visible failure line, the per-title remembered language, the auto-subtitle preference fallback, and the styling persistence. The render-time `subtitleEnabledRef` mirror moved with it.
+
+`NativePlayerView.jsx`: **5,149 → 4,555 lines.**
+
+**Gates after each slice.** `npm run lint` 0 errors, full `npm run test` 119 files / 1440 tests pass, `npm run build` clean. Commits `1f22bbd`, `e26243a`, `47a4b92`, `e9b86dd`, pushed to `origin/main`.
+
+**Remaining:** slices 6-7 (`useQualitySwitch` / `useAudioSwitch`, then `useSourceResolve`) — both live inside the resolve effect's closure, so the effect has to be split first — and then the `shell/` extraction, which is what makes a from-scratch redesign a layout exercise.
