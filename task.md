@@ -7472,3 +7472,14 @@ NativePlayerView.jsx: **2,419 -> 2,325 lines** (-94; the effect was 116 lines, t
 **Gates.** npm run lint exit 0 / 0 errors; player suite 18 files / 180 tests pass; full npm run test 119 files / 1440 tests pass; npm run build clean.
 
 **State of the split.** All seven engine hooks, the whole shell/ layer (PlayerShell, PlayerTransport, PlayerMenus) and the desktop key hook and the media-element mirror are now done. What remains in NativePlayerView.jsx is state, refs and effects that are not yet hooks - the next splits are new hooks, not more JSX.
+
+## 2026-11-03 - Player redesign, slice 1: transport motion + press (user: "now redesign complete player ui/ux from the scratch. each and every corner, animate each interactions fluid animations needed")
+
+**Redesign slice 1 - the transport row.** The bottom transport container now enters/exits through the canonical `MODAL_PANEL` token (12px rise into a 6% scale-down, SHEET spring, reduced-motion aware) instead of the hand-rolled opacity/y fade it carried. The play/pause pill now answers press with `PRESS_SCALE.CONTROL` (0.97) instead of a hand-typed scale. `useMotionTokens` now exposes `MODAL_PANEL` (the token existed in `constants/motion` but the hook did not surface it).
+
+This is the first slice of the from-scratch redesign now that the shell split is complete: the redesign can land on presentation without touching the engine or the frozen behaviour contract.
+
+**Gates.** `npm run lint` exit 0 / 0 errors; full `npm run test` 1440/1440; `npm run build` clean (NativePlayerView chunk 116.15 kB).
+
+**Next redesign slices:** HUDs (HUD_POP / PILL_IN are already canonical — verify each); overlay veil → FADE token; menus → MODAL_PANEL; cards/liftoff → PILL_IN / REVEAL; then the visual restyle region by region (colours, radii, glass, scrubber, typography). Each slice is behaviour-preserving (presentation only) and green before the next starts.
+
