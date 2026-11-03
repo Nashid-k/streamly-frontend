@@ -44,7 +44,6 @@ import {
   aspectVideoStyle,
   ASPECT_RATIOS,
   HOLD_SPEED,
-  STILL_WATCHING_IDLE_MS,
   STILL_WATCHING_EPISODES,
 } from "../constants/playerUi";
 import {
@@ -94,6 +93,7 @@ import {
 import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
 import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
+import usePlayerChrome from "./player/hooks/usePlayerChrome";
 import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS } from "./player/nativePlayerGestures";
 import { holdRestoreRate, resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -109,12 +109,6 @@ const MAX_CONSECUTIVE_FRAG_FAILURES = 4;
 // noticing a stall (the player shows a switching note for the duration).
 const THROTTLE_BACKOFF_MS = 6000;
 
-const HIDE_DELAY_MS = 3000;
-
-// Minimum gap between two autohide / still-watching timer re-arms. The player
-// surface pokes on every pointer move, so this caps timer churn at ~4/s while
-// staying far below the 3s hide delay.
-const POKE_REARM_MIN_MS = 250;
 // Fallback skip amount. The REAL amount is the viewer's "Seek Time" setting
 // (5 / 10 / 15 / 30 seconds), read from PreferencesContext below — this
 // constant used to be the only value, so the Settings dropdown changed
@@ -122,8 +116,6 @@ const POKE_REARM_MIN_MS = 250;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
-// "Still watching?" prompt idles that long in pause before it stops asking.
-const STILL_WATCHING_OFFER_MS = 90 * 1000;
 // Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
 const RESUME_WAIT_SECONDS = 8;
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
@@ -308,7 +300,6 @@ export default function NativePlayerView({
   const hlsRef = useRef(null);
   const runRef = useRef(0);
   const metaRef = useRef({ variants: [], sourceKey: null, refUrl: null, masterLevels: false });
-  const idleTimer = useRef(null);
   const clickTimer = useRef(null);
   // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
   // flag that swallows the synthetic click after touchend (it would double-toggle).
@@ -323,10 +314,6 @@ export default function NativePlayerView({
   // engage 2x (so the keyup must NOT also toggle play).
   const spaceHoldRef = useRef(false);
   const spaceFiredRef = useRef(false);
-  // Still-watching bookkeeping.
-  const swIdleRef = useRef(null); // rolling play-with-no-input timer
-  const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
-  const swOfferTimerRef = useRef(null); // offer expiry
   // Desktop hold-to-2x on the forward transport button.
   const desktopHoldTimerRef = useRef(null);
   const desktopHoldFiredRef = useRef(false);
@@ -477,7 +464,6 @@ export default function NativePlayerView({
   // `poke` is declared further down the component, so this callback cannot close
   // over it directly (TDZ); the ref is the same pattern the file already uses
   // for once-bound handlers.
-  const pokeRef = useRef(() => {});
   /* Same-media RELOAD carry (server pick / source-quality pick / manual retry):
      the effect teardown detaches the media element, which resets currentTime to
      0 — without arming this first, every reload restarted the film at the
@@ -666,8 +652,24 @@ export default function NativePlayerView({
   const [subtitleBg, setSubtitleBg] = useState(() =>
     readStoredNumber(SUB_BG_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
   );
-  // Netflix chrome state.
-  const [controlsVisible, setControlsVisible] = useState(true);
+  /* Chrome autohide + "Still watching?" live together in one hook: `poke`
+     interleaves the 3s hide timer with the 2h idle timer under one shared rate
+     limit, so they are one concern, not two. Called here (the earliest point
+     all three inputs exist) because `controlsVisible` feeds the ref below. */
+  const {
+    controlsVisible,
+    setControlsVisible,
+    poke,
+    pokeRef,
+    clearHideTimer,
+    stillWatching,
+    stillWatchingRef,
+    dismissStillWatching,
+    offerStillWatching,
+    resetStreak,
+    recordAutoAdvance,
+  } = usePlayerChrome({ videoRef, playing, endedRef });
+
   // The panel dim follows the viewer's motion preference like every other
   // surface in the player (see useMotionTokens).
   const dimReducedMotion = useReducedMotion();
@@ -731,7 +733,6 @@ export default function NativePlayerView({
   const [hold2x, setHold2x] = useState(false);
   // Netflix "Still watching?" — after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
-  const [stillWatching, setStillWatching] = useState(false);
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
@@ -1259,116 +1260,15 @@ setScrubDragging(true);
     poke();
   };
 
-  /* Controls autohide: activity shows them, 3s idle while playing hides them. Paused always shows.
-     Bound to the full-surface onMouseMove, so it can fire 100+ times a second.
-     Showing/hiding is cheap (React bails out on an unchanged value), but
-     re-arming two timers on every event is not, so the timer section is rate
-     limited. Visible result is unchanged: the hide deadline still lands ~3s
-     after the viewer stops moving. */
-  const lastPokeArm = useRef(0);
-  const poke = useCallback(() => {
-    setControlsVisible(true);
-    // Any interaction re-arms the "Still watching?" idle countdown — but it must
-    // NOT dismiss an OPEN prompt. `poke` is the full-surface onMouseMove handler,
-    // so clearing it here hid "Still watching?" on any incidental pointer move
-    // (a TV remote / HTPC that emits move events), leaving the viewer paused
-    // with no Continue/Exit. A prompt is dismissed only by a real press
-    // (dismissStillWatching) or its own buttons.
-    // Clearing is not enough: the id must be nulled too, because the re-arm
-    // guard below (and the [playing] effect) tests `swIdleRef.current` to mean
-    // "a still-watching countdown is live". A clear without the null left the
-    // ref truthy-but-dead, so the rate-limited early return below permanently
-    // buried the countdown — it never fired again until `playing` toggled.
-    if (swIdleRef.current) {
-      clearTimeout(swIdleRef.current);
-      swIdleRef.current = null;
-    }
-    const now = Date.now();
-    if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
-    lastPokeArm.current = now;
-    if (idleTimer.current) {
-      clearTimeout(idleTimer.current);
-      idleTimer.current = null;
-    }
-    if (videoRef.current && !videoRef.current.paused) {
-      idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);
-      swIdleRef.current = setTimeout(() => {
-        swIdleRef.current = null;
-        offerStillWatching("idle");
-      }, STILL_WATCHING_IDLE_MS);
-    } else {
-      swIdleRef.current = null;
-    }
-  }, []);
-  pokeRef.current = poke;
-
-  // ---- "Still watching?" (Netflix pauses after long unattended playback) ----
-  // Mirrors for the once-bound idle effect + the offer, which reads live state.
-  const stillWatchingRef = useRef(false);
-  // A real press (pointerdown) dismisses an open prompt; a passive pointer MOVE
-  // must not, which is why `poke` no longer clears it. Ref-backed so the
-  // long-lived handlers read the live value.
-  const dismissStillWatching = useCallback(() => {
-    if (!stillWatchingRef.current) return;
-    stillWatchingRef.current = false;
-    setStillWatching(false);
-    if (swOfferTimerRef.current) {
-      clearTimeout(swOfferTimerRef.current);
-      swOfferTimerRef.current = null;
-    }
-  }, []);
-  const offerStillWatching = (reason) => {
-    const video = videoRef.current;
-    if (!video || video.paused || endedRef.current) return;
-    logDebug("native", `Still-watching offer (${reason})`);
-    try {
-      video.pause();
-    } catch {
-      // already paused
-    }
-    stillWatchingRef.current = true;
-    setStillWatching(true);
-    if (swOfferTimerRef.current) clearTimeout(swOfferTimerRef.current);
-    // An ignored prompt must not sit there forever; the next poke rearms it.
-    swOfferTimerRef.current = setTimeout(() => {
-      swOfferTimerRef.current = null;
-      stillWatchingRef.current = false;
-      setStillWatching(false);
-    }, STILL_WATCHING_OFFER_MS);
-  };
   // Reset the auto-advance streak when the viewer CHOOSES an episode (the
-  // streak only counts what the Up Next card started on its own). This must NOT
-  // be an effect on [id, season, episode]: the auto-advance path itself changes
-  // the episode prop, so a reset there zeroed the counter before the next timer
-  // read it and the binge guard could never reach STILL_WATCHING_EPISODES.
-  // Manual picks go through `chooseEpisode`; the auto path calls the ref raw.
-  const chooseEpisode = useCallback((number) => {
-    swAutoAdvRef.current = 0;
-    onSelectEpisodeRef.current?.(number);
-  }, []);
-  // Rolling 2h idle timer while playing, armed once and re-poked by `poke`.
-  useEffect(() => {
-    if (!playing) {
-      if (swIdleRef.current) {
-        clearTimeout(swIdleRef.current);
-        swIdleRef.current = null;
-      }
-      return undefined;
-    }
-    if (!swIdleRef.current) {
-      swIdleRef.current = setTimeout(() => {
-        swIdleRef.current = null;
-        offerStillWatching("idle");
-      }, STILL_WATCHING_IDLE_MS);
-    }
-    return undefined;
-  }, [playing]);
-  useEffect(
-    () => () => {
-      if (swIdleRef.current) clearTimeout(swIdleRef.current);
-      if (swOfferTimerRef.current) clearTimeout(swOfferTimerRef.current);
+  // streak only counts what the Up Next card started on its own). Manual picks
+  // go through `chooseEpisode`; the auto path calls `recordAutoAdvance`.
+  const chooseEpisode = useCallback(
+    (number) => {
+      resetStreak();
+      onSelectEpisodeRef.current?.(number);
     },
-    [],
+    [resetStreak],
   );
 
   // ---- Hold-to-2x (Netflix mobile): hold the right half of the screen ----
@@ -1876,13 +1776,8 @@ setScrubDragging(true);
   /* Re-arm the autohide timer whenever play state flips. */
   useEffect(() => {
     poke();
-    return () => {
-      if (idleTimer.current) {
-        clearTimeout(idleTimer.current);
-        idleTimer.current = null;
-      }
-    };
-  }, [playing, poke]);
+    return () => clearHideTimer();
+  }, [playing, poke, clearHideTimer]);
 
   /* Click-timer cleanup for the single/double-click splitter. */
   useEffect(
@@ -1953,7 +1848,7 @@ setScrubDragging(true);
             offerStillWatching("binge");
             return null;
           }
-          swAutoAdvRef.current += 1;
+          recordAutoAdvance();
           onSelectEpisodeRef.current?.(prev.number);
         }
         return null;
@@ -5106,7 +5001,7 @@ const showSkipOutro = shouldShowSkipOutro({
                 // ref true and the touch hold-to-2x guard (handleHoldStart) dead
                 // until some later pointer event.
                 dismissStillWatching();
-                swAutoAdvRef.current = 0;
+                resetStreak();
                 poke();
                 const v = videoRef.current;
                 try {
