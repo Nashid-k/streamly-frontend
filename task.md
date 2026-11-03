@@ -7407,4 +7407,14 @@ Two failures caught before the commit, both real:
 
 `NativePlayerView.jsx`: **4,280 → 4,010 lines.** Gates: lint 0 errors, 1440 tests pass, build clean. Commit `844b534`.
 
-**Only slice 7 remains** (`useSourceResolve`: the attempt loop, warm handover, relay fallback, fatal latch, reload carry), then `shell/`.
+**Next was slice 7** (`useSourceResolve`: the attempt loop, warm handover, relay fallback, fatal latch, reload carry), then `shell/`.
+
+**Slice 7 — `player/engine/useSourceResolve.js`.** The last and hardest: the attempt loop (`runSourceOnce` / `runSource`), warm-resolve handover (`takeWarmResolve`), relay fallback, the fatal latch (`reportFatal` / `failOver`), the token-refresh re-resolve, the reload carry and the terminal-failure banner — plus the effect-local helpers (`entryUrlFor`, `waitParsed`, `startLevelFor`, `attachAudio`, `pickSmooth`, `isAuthFatal`, `anyUpstreamQuota`, `carryAt`, `sleep`, `abortPromise`, `revealStageWhenReady`).
+
+Unlike 6a/6b, this slice had to own the **load effect itself**: the run token, the `AbortController`, the media-element teardown and the reload carry moved with the resolve, so the player now calls one `useSourceResolve({...})` where the effect used to be. `mergeBoundaries` is the one value that cannot be passed directly — it is a `useCallback` declared after the hook (its state lives further down) — so the player passes a ref assigned on every render and the hook reads it when cue tags arrive.
+
+**Fidelity check.** A script diffed the moved `useEffect` body against `git show HEAD` line by line after normalizing the single intended substitution (`mergeBoundaries(...)` → `mergeBoundariesRef.current(...)`): **939 old lines vs 939 new lines, 0 differing**. That is the "pure move" rule made mechanical instead of asserted.
+
+`NativePlayerView.jsx`: **4,010 → 3,156 lines.** Gates: `npm run lint` 0 errors, full `npm run test` 1439/1440 (the one failure is the known `SearchPage` debounce flake, passing 14/14 in isolation), `npm run build` clean (NativePlayerView chunk 108.50 kB).
+
+**Remaining:** the `shell/` extraction (presentation only, no effects/refs) — what makes a from-scratch redesign a layout exercise.

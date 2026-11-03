@@ -32,8 +32,9 @@ presentation and the stream lifecycle share one closure.
 | Subtitles: list, pick, cues, styling (slice 5) | `player/hooks/useSubtitles.js` | ~160 |
 | Quality switching: rung, source ladder, Auto (6a) | `player/engine/useQualitySwitch.js` | ~250 |
 | Audio switching: in-manifest + sibling dubs (6b) | `player/engine/useAudioSwitch.js` | ~270 |
+| Source resolving: attempt loop, warm handover, relay fallback, fatal latch, reload carry (7) | `player/engine/useSourceResolve.js` | ~854 |
 
-Current: **4,010 lines**.
+Current: **3,156 lines**.
 
 ## The rule for this refactor
 
@@ -51,7 +52,7 @@ before the next one starts.
 ```
 src/components/player/
   engine/                 ← no JSX. The stream lifecycle.
-    useSourceResolve.js     resolve → probe → attempt ordering, failover, token refresh
+    useSourceResolve.js     ✅ resolve → probe → attempt ordering, failover, token refresh
     useAudioSwitch.js       pickAudio / pickDub (in-manifest and sibling-manifest)
     useQualitySwitch.js     pickQuality / pickSourceQuality
     useSubtitles.js         track list, engine wiring, styling persistence
@@ -97,12 +98,16 @@ layout exercise.
    **`useAudioSwitch`** ✅ done (`engine/useAudioSwitch.js`). Neither swap path
    needed the resolve effect split first: they reach the commit through
    `pickQualityRef`, which is a ref precisely so they can.
-7. **`useSourceResolve`** — the last and hardest: the attempt loop, warm-resolve
-   handover, relay fallback, fatal latch, reload carry. The effect itself has to
-   be split (its teardown owns the element, the hls instance and the reload
-   carry), so this one is genuinely different from 6a/6b.
+7. **`useSourceResolve`** ✅ done (`engine/useSourceResolve.js`) — the last and
+   hardest: the attempt loop, warm-resolve handover, relay fallback, fatal latch,
+   reload carry. Unlike 6a/6b this one owns the **load effect itself**: the run
+   token, the `AbortController`, the media element teardown and the reload carry
+   moved with the resolve. The moved body is byte-identical to the inline
+   version (one intended substitution: `mergeBoundaries(...)` became
+   `mergeBoundariesRef.current(...)`, because that `useCallback` is declared
+   later in the player).
 
-Only after all seven does `shell/` become swappable for a redesign.
+All seven are done, so `shell/` is now the next extraction.
 
 ## Contracts that must NOT change during the split
 
