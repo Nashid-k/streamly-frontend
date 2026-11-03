@@ -31,8 +31,9 @@ presentation and the stream lifecycle share one closure.
 | Scrubber, seeking, frame preview (slice 4) | `player/hooks/useScrubber.js` | ~230 |
 | Subtitles: list, pick, cues, styling (slice 5) | `player/hooks/useSubtitles.js` | ~160 |
 | Quality switching: rung, source ladder, Auto (6a) | `player/engine/useQualitySwitch.js` | ~250 |
+| Audio switching: in-manifest + sibling dubs (6b) | `player/engine/useAudioSwitch.js` | ~270 |
 
-Current: **4,280 lines**.
+Current: **4,010 lines**.
 
 ## The rule for this refactor
 
@@ -93,12 +94,13 @@ layout exercise.
 5. ~~`useSubtitles`~~ ✅ done — track list, pick with a token race guard, the
    visible failure line, and the styling persistence.
 6. **`useQualitySwitch`** ✅ done (`engine/useQualitySwitch.js`).
-   **`useAudioSwitch`** — next: `pickAudio` / `pickDub`. They do NOT need the
-   resolve effect split first after all (they call `pickQualityRef`, which is a
-   ref precisely so they can); the quality slice proved the swap paths can move
-   with their inputs passed in.
+   **`useAudioSwitch`** ✅ done (`engine/useAudioSwitch.js`). Neither swap path
+   needed the resolve effect split first: they reach the commit through
+   `pickQualityRef`, which is a ref precisely so they can.
 7. **`useSourceResolve`** — the last and hardest: the attempt loop, warm-resolve
-   handover, relay fallback, fatal latch, reload carry. Split only after 6.
+   handover, relay fallback, fatal latch, reload carry. The effect itself has to
+   be split (its teardown owns the element, the hls instance and the reload
+   carry), so this one is genuinely different from 6a/6b.
 
 Only after all seven does `shell/` become swappable for a redesign.
 

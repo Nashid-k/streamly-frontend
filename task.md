@@ -7398,3 +7398,13 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Gates.** `npm run lint` 0 errors, full `npm run test` 119 files / 1440 tests pass, `npm run build` clean. Commit `37ce1b6`.
 
 **Next part:** 6b (`useAudioSwitch`: `pickAudio` / `pickDub`), then 7 (`useSourceResolve`), then the `shell/` extraction.
+
+**Slice 6b — `player/engine/useAudioSwitch.js`.** `pickAudio` (in-manifest: confirmed by an event that may never arrive, so the timeout restores the track that WAS playing — leaving `hls.audioTrack` on the target both lies to the menu and blocks a retry) and `pickDub` (sibling manifest: pauses for the switch's whole life, which is the reported "old audio plays in the bg") moved verbatim.
+
+Two failures caught before the commit, both real:
+- `pendingResumeRef` was missing from the hook's parameters, so the autoplay-rejection path threw inside its own `.catch` and no resume was armed. `playerSwitchResume.test.jsx` "arms a one-shot resume on the NEXT interaction" caught it.
+- `refAssignmentGuard` flagged `audioStageArmedAtRef` as "declared and never assigned" because the write moved into the hook. The guard now accepts a ref written in the module it is handed to — the bug class it exists for is a ref with ZERO writes anywhere, and per-file scanning alone would have forced the player to keep writing a ref it no longer owns.
+
+`NativePlayerView.jsx`: **4,280 → 4,010 lines.** Gates: lint 0 errors, 1440 tests pass, build clean. Commit `844b534`.
+
+**Only slice 7 remains** (`useSourceResolve`: the attempt loop, warm handover, relay fallback, fatal latch, reload carry), then `shell/`.
