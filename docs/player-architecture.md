@@ -37,8 +37,9 @@ presentation and the stream lifecycle share one closure.
 | Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
 | Surface + overlay composition: `<video>`, chrome layers, panel, HUDs, fatal banner (10) | `player/shell/PlayerShell.jsx` | ~385 (JSX) |
 | Desktop key map: space tap-vs-hold, arrows, volume, aspect, mute, fullscreen, episode nav, Escape, Tab-reveal (11) | `player/hooks/usePlayerKeyboard.js` | ~88 |
+| Video-element event mirror: play/pause/end/timeupdate/buffering/subtitles (12) | `player/hooks/useMediaElementEvents.js` | ~88 |
 
-Current: **2,419 lines**.
+Current: **2,325 lines**.
 
 ## The rule for this refactor
 
@@ -144,9 +145,13 @@ ref-touching handler is a callback defined in the player.
     The source-text pin in `nativePlayerHold.test.js` was updated to follow the
     new call site (same pattern as the `useHold2x` slice).
 
-The engine slices, the whole `shell/` layer and the desktop key hook are now
-done. What remains in `NativePlayerView.jsx` is state, refs and effects that are
-not yet hooks - the next splits are new hooks, not more JSX.
+12. **`useMediaElementEvents`** ✅ done (`hooks/useMediaElementEvents.js`). The
+    video-element event -> state mirror moved out of the player.
+
+The engine slices, the whole `shell/` layer, the desktop key hook and the
+media-element mirror are now done. What remains in `NativePlayerView.jsx` is
+state, refs and effects that are not yet hooks - the next splits are new hooks,
+not more JSX.
 
 ## Contracts that must NOT change during the split
 

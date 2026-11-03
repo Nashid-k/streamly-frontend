@@ -7464,3 +7464,11 @@ Two regressions caught before commit, both real: the first pass left `onScrubFoc
 **Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass; full `npm run test` 119 files / 1440 tests pass; `npm run build` clean.
 
 **State of the split.** All seven engine hooks, the whole `shell/` layer (`PlayerShell`, `PlayerTransport`, `PlayerMenus`) and the desktop key hook are now done. What remains in `NativePlayerView.jsx` is state, refs and effects that are not yet hooks.
+
+**Slice 12 - player/hooks/useMediaElementEvents.js.** The video-element event -> state mirror (play / pause / ended / timeupdate / buffered / subtitle cues / buffering / seek flush) moved out of NativePlayerView.jsx into the hook. The effect body is unchanged - same listeners, same teardown, same deps ([]).
+
+NativePlayerView.jsx: **2,419 -> 2,325 lines** (-94; the effect was 116 lines, the call 24). useMediaElementEvents.js: 143 lines.
+
+**Gates.** npm run lint exit 0 / 0 errors; player suite 18 files / 180 tests pass; full npm run test 119 files / 1440 tests pass; npm run build clean.
+
+**State of the split.** All seven engine hooks, the whole shell/ layer (PlayerShell, PlayerTransport, PlayerMenus) and the desktop key hook and the media-element mirror are now done. What remains in NativePlayerView.jsx is state, refs and effects that are not yet hooks - the next splits are new hooks, not more JSX.
