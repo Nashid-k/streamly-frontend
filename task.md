@@ -7454,3 +7454,13 @@ Two regressions caught before commit, both real: the first pass left `onScrubFoc
 **Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass; full `npm run test` 119 files / 1440 tests pass; `npm run build` clean (NativePlayerView chunk 116.15 kB).
 
 **State of the split.** Engine (`useQualitySwitch`, `useAudioSwitch`, `useSourceResolve`) and the whole `shell/` layer (`PlayerShell`, `PlayerTransport`, `PlayerMenus`) are out. The player is now a thin composition of hooks plus state/effects that have not been hookified yet.
+
+**Slice 11 - `player/hooks/usePlayerKeyboard.js`.** The desktop key effect moved out of `NativePlayerView.jsx` into the hook the target layout had already reserved. The effect still binds once per panel flip via `[panel]`, and the decision tables (`keyboardAction`, `resolveSpaceRelease`) still live in `nativePlayerKeys` / `nativePlayerHold`, so the move is behaviour-preserving - same listeners, same order, same log lines.
+
+**The source-text pin moved with the call.** `nativePlayerHold.test.js` now reads the new hook and asserts it imports and calls the release arbitration; the player-side `resolveTouchRelease` assertion stays (the touch handler still owns it).
+
+`NativePlayerView.jsx`: **2,507 -> 2,419 lines** (-88; the effect was 112 lines, the call 24). `usePlayerKeyboard.js`: 150 lines.
+
+**Gates.** `npm run lint` exit 0 / 0 errors; player suite 18 files / 180 tests pass; full `npm run test` 119 files / 1440 tests pass; `npm run build` clean.
+
+**State of the split.** All seven engine hooks, the whole `shell/` layer (`PlayerShell`, `PlayerTransport`, `PlayerMenus`) and the desktop key hook are now done. What remains in `NativePlayerView.jsx` is state, refs and effects that are not yet hooks.

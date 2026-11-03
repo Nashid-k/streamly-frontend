@@ -172,14 +172,18 @@ describe("the player routes through these decisions", () => {
     join(process.cwd(), "src", "components", "player", "hooks", "useHold2x.js"),
     "utf8",
   );
+  const keyboardHook = readFileSync(
+    join(process.cwd(), "src", "components", "player", "hooks", "usePlayerKeyboard.js"),
+    "utf8",
+  );
 
   it("imports and calls the release arbitration", () => {
     expect(source).toMatch(/from "\.\/player\/nativePlayerHold"/);
     expect(holdHook).toMatch(/from "\.\.\/nativePlayerHold"/);
     expect(holdHook).toMatch(/\bholdRestoreRate\(/);
-    for (const name of ["resolveSpaceRelease", "resolveTouchRelease"]) {
-      expect(source).toMatch(new RegExp(`\\b${name}\\(`));
-    }
+    expect(keyboardHook).toMatch(/from "\.\.\/nativePlayerHold"/);
+    expect(source).toMatch(/\bresolveTouchRelease\(/);
+    expect(keyboardHook).toMatch(/\bresolveSpaceRelease\(/);
   });
 
   it("does not re-derive the branches inline", () => {

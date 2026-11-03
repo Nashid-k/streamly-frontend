@@ -36,8 +36,9 @@ presentation and the stream lifecycle share one closure.
 | Menu bodies: settings, servers, subtitles, audio, video, speed, aspect, substyle, source quality, sleep (8) | `player/shell/PlayerMenus.jsx` | ~396 |
 | Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
 | Surface + overlay composition: `<video>`, chrome layers, panel, HUDs, fatal banner (10) | `player/shell/PlayerShell.jsx` | ~385 (JSX) |
+| Desktop key map: space tap-vs-hold, arrows, volume, aspect, mute, fullscreen, episode nav, Escape, Tab-reveal (11) | `player/hooks/usePlayerKeyboard.js` | ~88 |
 
-Current: **2,507 lines**.
+Current: **2,419 lines**.
 
 ## The rule for this refactor
 
@@ -65,7 +66,7 @@ src/components/player/
     useChromeVisibility.js  controls visible, poke, idle hide, cursor
     useStillWatching.js     idle prompt + auto-advance streak guard
     useHold2x.js            hold-to-2x + release restore
-    usePlayerKeyboard.js    the desktop key map
+    usePlayerKeyboard.js    ✅ done — the desktop key map
     useScrubber.js          drag/keyboard seek + rollback
   shell/                  ← PRESENTATION ONLY. This is what a redesign replaces.
     PlayerShell.jsx         ✅ done — the surface + overlay composition
@@ -135,9 +136,17 @@ ref-touching handler is a callback defined in the player.
     owns no effect. `PlayerMenus` and `PlayerTransport` are now composed by the
     shell, not by the player.
 
-The engine slices and the whole `shell/` layer are done. What remains in
-`NativePlayerView.jsx` is state, refs and the effects that are not yet hooks -
-the next splits are new hooks, not more JSX.
+11. **`usePlayerKeyboard`** ✅ done (`hooks/usePlayerKeyboard.js`). The desktop
+    key effect moved out of the player into the hook. The effect still binds
+    once per panel flip (`[panel]`) and the decision tables
+    (`keyboardAction` / `resolveSpaceRelease`) still live in
+    `nativePlayerKeys` / `nativePlayerHold`, so the move is behaviour-preserving.
+    The source-text pin in `nativePlayerHold.test.js` was updated to follow the
+    new call site (same pattern as the `useHold2x` slice).
+
+The engine slices, the whole `shell/` layer and the desktop key hook are now
+done. What remains in `NativePlayerView.jsx` is state, refs and effects that are
+not yet hooks - the next splits are new hooks, not more JSX.
 
 ## Contracts that must NOT change during the split
 
