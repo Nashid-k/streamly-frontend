@@ -92,6 +92,8 @@ import {
   SAFE_BOTTOM,
 } from "./player/chrome";
 import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
+import usePlayerHud from "./player/hooks/usePlayerHud";
+import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS } from "./player/nativePlayerGestures";
 import { holdRestoreRate, resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -175,8 +177,6 @@ const SUB_BG_STORAGE_KEY = "streamly-native-sub-bg";
    it dims the video while the OS brightness setting stays where it was, which
    reads as a broken picture. The OS owns screen brightness on every platform.
    The old localStorage keys are simply no longer read. */
-const HUD_MS = 1100;
-
 // Touch-first devices get bigger tap targets and a stacked settings panel;
 // mouse/trackpad keeps the desktop chrome. IS_TOUCH/BTN_SIZE/SAFE_* now live in
 // player/chrome/constants.js, shared with every extracted chrome component.
@@ -694,7 +694,6 @@ export default function NativePlayerView({
       return false;
     }
   });
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [volHover, setVolHover] = useState(false);
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
@@ -723,13 +722,9 @@ export default function NativePlayerView({
   // fails on the new rung can roll the selector back to a ladder that worked.
   const pendingSourceHeightRollbackRef = useRef(null);
   const [sourceVariants, setSourceVariants] = useState([]);
-  // Loop and sleep timer (provider Playback menu parity). Loop wraps the current
-  // item; the sleep timer pauses playback after the chosen minutes.
-  const [loopEnabled, setLoopEnabled] = useState(false);
-  const [sleepMinutes, setSleepMinutes] = useState(null); // chosen duration, null = off
-  const [sleepRemaining, setSleepRemaining] = useState(null); // seconds, for the label
-  const [pipActive, setPipActive] = useState(false);
-  const [hud, setHud] = useState(null); // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value }
+  // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value } — owned by
+  // the hook so the engine has no timer of its own.
+  const { hud, showHud, showHudRef } = usePlayerHud();
   // Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
   // plays at 2x; release restores the previous rate. Desktop holds the forward
   // transport button.
@@ -772,11 +767,6 @@ export default function NativePlayerView({
   requestedServerRef.current = requestedServer;
   sourceHeightRef.current = sourceHeight;
   subtitleEnabledRef.current = subtitleEnabled;
-  const sleepTimerId = useRef(null);
-  const sleepDisplayId = useRef(null);
-  const pipSupported =
-    typeof document !== "undefined" && document.pictureInPictureEnabled;
-  const hudTimerRef = useRef(null);
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
   // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
@@ -1171,15 +1161,6 @@ setScrubDragging(true);
     return () => clearInterval(tick);
   }, [resumeOffer]);
 
-  const showHud = useCallback((kind, value) => {
-    if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-    setHud({ kind, value });
-    hudTimerRef.current = setTimeout(() => setHud(null), HUD_MS);
-  }, []);
-  // Mirror for once-bound closures (togglePlay) — same pattern as the value
-  // mirror refs above, so the YT-style centre flash survives stale closures.
-  const showHudRef = useRef(showHud);
-  showHudRef.current = showHud;
 
   /* Settings-sheet focus management. Two real problems: focus was never moved
      into the sheet (so its rows were never announced and Tab started from
@@ -1249,26 +1230,32 @@ setScrubDragging(true);
     poke();
   };
 
+  /* Sleep timer / loop / PiP / fullscreen live in their own hook: they need
+     the media element and nothing from the streaming engine. Wrapped here so
+     the fullscreen button still reveals the chrome after toggling. */
+  const {
+    loopEnabled,
+    setLoopEnabled,
+    sleepMinutes,
+    sleepRemaining,
+    startSleepTimer,
+    clearSleepTimer,
+    pipActive,
+    pipSupported,
+    togglePip,
+    isFullscreen,
+    goFullscreen: goFullscreenRaw,
+  } = usePlaybackExtras({
+    videoRef,
+    screenRef,
+    onSleepEnd: (message) => {
+      setControlsVisible(true);
+      setQualityNote(message);
+    },
+  });
+
   const goFullscreen = () => {
-    try {
-      const video = videoRef.current;
-      const el = screenRef.current;
-      const rq = (el && (el.requestFullscreen || el.webkitRequestFullscreen)) || null;
-      if (rq) {
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-          const ex = document.exitFullscreen || document.webkitExitFullscreen;
-          ex?.call(document)?.catch?.(() => {});
-        } else {
-          rq.call(el)?.catch?.(() => {});
-        }
-      } else if (video && video.webkitEnterFullscreen) {
-        // iOS Safari: the <video> enters its own native fullscreen (no DOM fullscreen on a div).
-        video.webkitEnterFullscreen();
-        setIsFullscreen(true);
-      }
-    } catch {
-      // fullscreen unsupported — native video keeps playing inline
-    }
+    goFullscreenRaw();
     poke();
   };
 
@@ -1808,13 +1795,12 @@ setScrubDragging(true);
   }, [type, id, season, episode]);
 
   /* Pending timers on unmount. These fire long after the player is gone if left
-     armed: a HUD timeout would `setHud` on an unmounted component, and a desktop
-     hold timer could arm 2x on a torn-down element. (`swIdleRef` /
+     armed: a desktop hold timer could arm 2x on a torn-down element. (The HUD
+     timeout now belongs to `usePlayerHud`, which clears its own; `swIdleRef` /
      `swOfferTimerRef` have their own unmount effect above; the touch hold timer
      is cleared by `releaseHold2x`.) */
   useEffect(
     () => () => {
-      if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
       if (desktopHoldTimerRef.current) clearTimeout(desktopHoldTimerRef.current);
     },
     [],
@@ -1830,69 +1816,8 @@ setScrubDragging(true);
     }
   }, [aspectRatioIndex]);
 
-  /* Loop + sleep timer + picture-in-picture + subtitle styling. Small,
-     self-contained "playback QoL" controls that mirror the provider's own
-     Playback and Subtitle menus. */
-  const clearSleepTimer = useCallback(() => {
-    if (sleepTimerId.current) {
-      clearTimeout(sleepTimerId.current);
-      sleepTimerId.current = null;
-    }
-    if (sleepDisplayId.current) {
-      clearInterval(sleepDisplayId.current);
-      sleepDisplayId.current = null;
-    }
-    setSleepMinutes(null);
-    setSleepRemaining(null);
-  }, []);
-
-  const startSleepTimer = useCallback(
-    (minutes) => {
-      if (sleepTimerId.current) {
-        clearTimeout(sleepTimerId.current);
-        sleepTimerId.current = null;
-      }
-      if (sleepDisplayId.current) {
-        clearInterval(sleepDisplayId.current);
-        sleepDisplayId.current = null;
-      }
-      if (!minutes || minutes <= 0) {
-        setSleepMinutes(null);
-        setSleepRemaining(null);
-        return;
-      }
-      const endsAt = Date.now() + minutes * 60 * 1000;
-      setSleepMinutes(minutes);
-      setSleepRemaining(Math.round((endsAt - Date.now()) / 1000));
-      sleepDisplayId.current = setInterval(() => {
-        setSleepRemaining(Math.max(0, Math.round((endsAt - Date.now()) / 1000)));
-      }, 1000);
-      sleepTimerId.current = setTimeout(() => {
-        try {
-          videoRef.current?.pause();
-        } catch {
-          // element already torn down — nothing to pause
-        }
-        clearSleepTimer();
-        setControlsVisible(true);
-        setQualityNote("Sleep timer ended — playback paused.");
-      }, minutes * 60 * 1000);
-    },
-    [clearSleepTimer],
-  );
-
-  // Apply the loop toggle to the element (a real attribute, so a wrapped
-  // playback restarts without the ended overlay).
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    try {
-      video.loop = loopEnabled;
-    } catch {
-      // some webviews reject the attribute; playback simply won't loop
-    }
-  }, [loopEnabled]);
-
+  /* Subtitle styling persists across visits (the rest of the playback QoL
+     cluster — loop, sleep timer, PiP, fullscreen — lives in usePlaybackExtras). */
   useEffect(() => {
     try {
       window.localStorage.setItem(SUB_SIZE_STORAGE_KEY, String(subtitleSize));
@@ -1901,57 +1826,6 @@ setScrubDragging(true);
       // private mode — subtitle styling just won't persist
     }
   }, [subtitleSize, subtitleBg]);
-
-  // Tear the sleep timer down on unmount so its timeout can't fire against a
-  // discarded player (and the display interval can't leak).
-  useEffect(
-    () => () => {
-      if (sleepTimerId.current) clearTimeout(sleepTimerId.current);
-      if (sleepDisplayId.current) clearInterval(sleepDisplayId.current);
-    },
-    [],
-  );
-
-  const togglePip = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video) return;
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else if (document.pictureInPictureEnabled) {
-        await video.requestPictureInPicture();
-      }
-    } catch (error) {
-      logWarn("native", "Picture-in-picture request failed", { message: error?.message });
-    }
-  }, []);
-
-  /* Track the element's PiP state so the row's label reflects reality (a
-     browser gesture can exit PiP without going through our button). */
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return undefined;
-    const onEnter = () => setPipActive(true);
-    const onLeave = () => setPipActive(false);
-    video.addEventListener("enterpictureinpicture", onEnter);
-    video.addEventListener("leavepictureinpicture", onLeave);
-    return () => {
-      video.removeEventListener("enterpictureinpicture", onEnter);
-      video.removeEventListener("leavepictureinpicture", onLeave);
-    };
-  }, []);
-
-  /* Fullscreen icon follows the real fullscreen state (incl. iOS webkit). */
-  useEffect(() => {
-    const onFull = () =>
-      setIsFullscreen(Boolean(document.fullscreenElement || document.webkitFullscreenElement));
-    document.addEventListener("fullscreenchange", onFull);
-    document.addEventListener("webkitfullscreenchange", onFull);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFull);
-      document.removeEventListener("webkitfullscreenchange", onFull);
-    };
-  }, []);
 
   /* Media Session (Android/iOS lock screen + hardware buttons): advertise the
      title, reflect play/pause, and answer the 10s-seek buttons. Registered

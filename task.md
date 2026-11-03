@@ -7358,3 +7358,21 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Also fixed (pre-existing red at HEAD, surfaced while verifying):** `AUTO_SOURCE`'s RIVO fallback asked the backend for `auto`, which lets the health rotation answer with any backend — the exact "no pick jumps to Server 7" behaviour the no-pick start was meant to remove. It now hands off to Server 2 (ZXC Orion) by name via `prefer: "orion"`, matching the menu order the code comments already claimed. `sources.test.js` and `warmResolve.test.js` (which mints through `AUTO_SOURCE`) updated to the same contract, and the malformed `} catch {` line in `sources.js` was repaired.
 
 **Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files / 1440 tests pass, `npm run build` clean.
+
+## 2026-11-03 - Player split, slice 1-2 (user: "FIRST SPLIT AND MAKE THINGS BETTER SUCH THAT FURTHER COMPLETE REDESGINE FROM SCRATCH WOULD BE EASY EVERYTIME")
+
+**Baseline measured, not guessed.** `NativePlayerView.jsx` was 5,275 lines holding 65 `useState`, 84 `useRef`, 41 `useEffect`, 47 handler closures and ~880 lines of JSX. Presentation and the stream lifecycle share one closure, which is why a redesign could not land on it.
+
+**Rule adopted for the split:** behaviour frozen. Each slice is a pure move — same timers, same listeners, same order, same log messages. Improvements get their own commit after the move is green. If a slice needs a test edited, the slice changed behaviour and must be re-examined.
+
+**Slice 1 — `player/hooks/usePlayerHud.js`.** The HUD state + one auto-dismiss timeout + the `showHudRef` mirror for once-bound closures (togglePlay, media-session handlers) + unmount clear. Removed `hudTimerRef`, `HUD_MS`, the inline `showHud`, and the HUD line in the unmount effect.
+
+**Slice 2 — `player/hooks/usePlaybackExtras.js`.** Sleep timer (two handles, both cleared on expiry/clear/unmount), loop attribute sync, PiP request + element-event tracking, fullscreen state from document events, and the iOS `webkitEnterFullscreen` fallback. The sleep-expiry side effects stay in the player via an `onSleepEnd` callback, so the hook owns no player state. `goFullscreen` is wrapped at the call site because it still needs to `poke()`.
+
+`NativePlayerView.jsx`: **5,275 → 5,149 lines.**
+
+**Also added `docs/player-architecture.md`** — the inventory, the frozen-behaviour rule, the target layout (`engine/` no-JSX, `hooks/`, `shell/` no effects/refs, `chrome/` keeps), and the ordered remaining slices (`useChromeVisibility` → `useStillWatching` → `useHold2x` → `useScrubber` → `useSubtitles` → `useQualitySwitch`/`useAudioSwitch` → `useSourceResolve`), each with its dependencies and the gates to run.
+
+**Deliberately stopped at 2.** `useChromeVisibility` looked like the next obvious win but `poke` interleaves the 3s hide timer with the still-watching idle timer under one shared rate limit; splitting it without changing timer ordering needs care, and the map now records that constraint instead of discovering it again.
+
+**Gates.** `npm run lint` 0 errors (55 warnings, 2 new from the render-time ref mirrors the codebase already uses everywhere), full `npm run test` 119 files / 1440 tests pass, `npm run build` clean.
