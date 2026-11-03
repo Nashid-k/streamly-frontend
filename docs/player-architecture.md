@@ -35,8 +35,9 @@ presentation and the stream lifecycle share one closure.
 | Source resolving: attempt loop, warm handover, relay fallback, fatal latch, reload carry (7) | `player/engine/useSourceResolve.js` | ~854 |
 | Menu bodies: settings, servers, subtitles, audio, video, speed, aspect, substyle, source quality, sleep (8) | `player/shell/PlayerMenus.jsx` | ~396 |
 | Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
+| Surface + overlay composition: `<video>`, chrome layers, panel, HUDs, fatal banner (10) | `player/shell/PlayerShell.jsx` | ~385 (JSX) |
 
-Current: **2,759 lines**.
+Current: **2,537 lines**.
 
 ## The rule for this refactor
 
@@ -67,7 +68,7 @@ src/components/player/
     usePlayerKeyboard.js    the desktop key map
     useScrubber.js          drag/keyboard seek + rollback
   shell/                  ← PRESENTATION ONLY. This is what a redesign replaces.
-    PlayerShell.jsx         the surface + overlay composition
+    PlayerShell.jsx         ✅ done — the surface + overlay composition
     PlayerTransport.jsx     ✅ done — scrubber + transport row binding
     PlayerMenus.jsx         ✅ done — servers / audio / quality / subtitles / settings pages
   chrome/                 ← existing presentational primitives (keep)
@@ -77,8 +78,10 @@ src/components/player/
 ```
 
 `chrome/` stays because it is already presentational and testable. The goal is
-that `shell/` contains **no `useEffect` and no ref**, so swapping it out is a
-layout exercise.
+that `shell/` contains **no `useEffect` and no ref of its own**, so swapping it
+out is a layout exercise. It receives `videoRef` / `screenRef` / `scrubRef` /
+`panelRef` to *attach* (the engine owns them) but never reads `.current`; every
+ref-touching handler is a callback defined in the player.
 
 ## Ordered slices (next first)
 
@@ -121,9 +124,20 @@ layout exercise.
    plain functions and owns no ref. This slice is a seam, not a line win: the
    block it moves is the same size as the call that replaces it.
 
-The engine slices are done. `shell/` is in progress: `PlayerMenus` and
-`PlayerTransport` are out; `PlayerShell` (the whole surface + overlay tree) is
-the remaining extraction.
+10. **`PlayerShell`** ✅ done (`shell/PlayerShell.jsx`). The whole render tree
+    moved: the frame, the `<video>` props, the dim, subtitle overlay, top bar,
+    skip pills, centre stack, transport, cards, panel, episodes rail, HUD stack,
+    still-watching prompt and fatal banner. The player's return is now a single
+    `<PlayerShell>` with the 152-name contract. Every handler that read
+    `suppressClickRef`, `skipSecondsRef`, `togglePlayRef`, `commitResumeRef`,
+    `onCloseRef` or `videoRef.current` was lifted into a named player callback,
+    and `useReducedMotion` moved into the shell, so the shell reads no ref and
+    owns no effect. `PlayerMenus` and `PlayerTransport` are now composed by the
+    shell, not by the player.
+
+The engine slices and the whole `shell/` layer are done. What remains in
+`NativePlayerView.jsx` is state, refs and the effects that are not yet hooks -
+the next splits are new hooks, not more JSX.
 
 ## Contracts that must NOT change during the split
 

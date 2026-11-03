@@ -7,16 +7,7 @@
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { buildAudioTrackList, languageNameFromCode } from "../utils/audioLabels";
-import {
-  NetflixVolumeHUD,
-  NetflixAspectHUD,
-  NetflixSeekHUD,
-  NetflixPlayPauseHUD,
-  NetflixHold2xHUD,
-} from "./player";
-import NetflixStillWatching from "./NetflixStillWatching";
 import { prefetchSources, warmResolve } from "../api/warmResolve";
 import { fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { fetchZxcIntroBounds } from "../api/skipProviderSource";
@@ -26,7 +17,6 @@ import { isEpAired } from "../utils/titleDetails";
 import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
-  aspectVideoStyle,
   ASPECT_RATIOS,
   HOLD_SPEED,
   STILL_WATCHING_EPISODES,
@@ -51,26 +41,10 @@ import {
   normalizeSkipBoundaries,
   rescopeBoundaries,
 } from "../utils/skipMarkers";
-import { subtitleFontFamily } from "../constants/settings";
-import { RIVO_MOTION } from "./player/chrome/theme";
 import { useOptionalPreferences } from "../context/preferences";
 import { resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
-import {
-  ChromeTopBar,
-  SkipPill,
-  SubtitleOverlay,
-  CenterStack,
-  TapToUnmutePill,
-  ResumeCard,
-  UpNextCard,
-  PlayerPanel,
-  FatalBanner,
-  EpisodesRail,
-  IS_TOUCH,
-  SAFE_TOP,
-  SAFE_BOTTOM,
-} from "./player/chrome";
-import { fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
+import { IS_TOUCH } from "./player/chrome";
+import { qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
 import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import usePlayerChrome from "./player/hooks/usePlayerChrome";
@@ -80,8 +54,7 @@ import useSubtitles from "./player/hooks/useSubtitles";
 import useQualitySwitch from "./player/engine/useQualitySwitch";
 import useAudioSwitch from "./player/engine/useAudioSwitch";
 import useSourceResolve from "./player/engine/useSourceResolve";
-import PlayerMenus from "./player/shell/PlayerMenus";
-import PlayerTransport from "./player/shell/PlayerTransport";
+import PlayerShell from "./player/shell/PlayerShell";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -637,9 +610,6 @@ export default function NativePlayerView({
     recordAutoAdvance,
   } = usePlayerChrome({ videoRef, playing, endedRef });
 
-  // The panel dim follows the viewer's motion preference like every other
-  // surface in the player (see useMotionTokens).
-  const dimReducedMotion = useReducedMotion();
   // The global key handler binds once per panel flip, so it cannot read the
   // latest `controlsVisible` from its closure. A ref keeps the Tab-to-reveal
   // path honest without re-binding (and resetting Space-hold state) on every
@@ -2304,456 +2274,234 @@ const showSkipOutro = shouldShowSkipOutro({
   const doSkipIntro = () => doSeekPast(skipIntroTarget);
   const doSkipOutro = () => doSeekPast(skipOutroTarget);
 
+  /* View callbacks: PlayerShell receives plain functions. The media element,
+     the close fallback and the resume ref stay here, so the shell never reads
+     a ref of its own. */
+  const onExitPlayer = () => {
+    if (onCloseRef.current) onCloseRef.current();
+    else window.history.back();
+  };
+  const onVideoClick = (e) => {
+    // The synthetic click after a touch must not toggle play on top of the gesture.
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    handleVideoClick(e);
+  };
+  const onVideoTouchStart = (e) => {
+    // A fresh touch re-arms the click-swallow.
+    suppressClickRef.current = false;
+    poke();
+    handleGestureStart(e);
+    // Right-half press-and-hold arms 2x (Netflix mobile); a left-half touch
+    // never arms it (brightness drag + double-tap seek live there).
+    handleHoldStart(e);
+  };
+  const onRewindSkip = () => {
+    poke();
+    seekRelative(-skipSecondsRef.current);
+  };
+  const onCenterTogglePlay = () => {
+    poke();
+    togglePlayRef.current();
+  };
+  const onForwardSkip = () => {
+    poke();
+    seekRelative(skipSecondsRef.current);
+  };
+  const onResumeOffer = (at) => commitResumeRef.current?.(at);
+  const onPickPlaybackRate = (rate) => {
+    setPlaybackRate(rate);
+    // The element is driven too, not just the state. Without this the row
+    // updated the checkmark and the settings label while the video kept
+    // playing at its old speed, and hold-to-2x then restored THAT stale rate —
+    // so picking 1.25x and holding Space returned you to 1x.
+    if (videoRef.current) {
+      try {
+        videoRef.current.playbackRate = rate;
+      } catch {
+        // some webviews reject odd rates; the row still applies
+      }
+    }
+    setPanel(null);
+    poke();
+  };
+  const onStillWatchingContinue = () => {
+    // Route through the ref-backed dismisser, not a bare
+    // setStillWatching(false): only pointerdown normally clears
+    // `stillWatchingRef`, so a KEYBOARD/remote "Continue" left the
+    // ref true and the touch hold-to-2x guard (handleHoldStart) dead
+    // until some later pointer event.
+    dismissStillWatching();
+    resetStreak();
+    poke();
+    const v = videoRef.current;
+    try {
+      v?.play();
+    } catch {
+      // user gesture needed — the custom transport is right there
+    }
+  };
+  const onStillWatchingExit = () => {
+    dismissStillWatching();
+    onCloseRef.current?.();
+  };
   return (
-    // No local <MotionConfig>: this tree inherits the app-level one
-    // (App.jsx: reducedMotion = in-app preference ? "always" : "user"). A nested
-    // config overrode it, so a viewer who turned Reduce Motion on in Settings
-    // still got every HUD pop, sheet slide and spinner fade in the player — the
-    // one screen where the setting mattered most was the one ignoring it.
-    // player.css covers the pure-CSS half of the same animations.
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <div
-        ref={screenRef}
-        onMouseMove={poke}
-        onPointerDown={dismissStillWatching}
-        className="np-root"
-        style={{
-          position: "relative",
-          width: "100%",
-          height: "100%",
-          background: "#000",
-          borderRadius: 0,
-          overflow: "hidden",
-          cursor: !controlsVisible && playing ? "none" : "default",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          touchAction: "manipulation",
-          // The safe-area policy is published once here; extracted chrome
-          // components consume it as CSS vars instead of each knowing whether
-          // they are on touch.
-          "--np-safe-top": SAFE_TOP,
-          "--np-safe-bottom": SAFE_BOTTOM,
-        }}
-      >
-        <video
-          ref={videoRef}
-          playsInline
-          onClick={(e) => {
-            // The synthetic click after a touch must not toggle play on top of the gesture.
-            if (suppressClickRef.current) {
-              suppressClickRef.current = false;
-              return;
-            }
-            handleVideoClick(e);
-          }}
-          onTouchStart={(e) => {
-            // A fresh touch re-arms the click-swallow.
-            suppressClickRef.current = false;
-            poke();
-            handleGestureStart(e);
-            // Right-half press-and-hold arms 2x (Netflix mobile); a left-half
-            // touch never arms it (brightness drag + double-tap seek live there).
-            handleHoldStart(e);
-          }}
-          onTouchMove={handleGestureMove}
-          onTouchEnd={IS_TOUCH ? handleVideoTouchEnd : undefined}
-          onTouchCancel={() => {
-            // A cancelled touch must not strand 2x at 2x.
-            handleHoldEnd();
-          }}
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "block",
-            ...aspectVideoStyle(aspectRatioIndex),
-            touchAction: "manipulation",
-            WebkitUserSelect: "none",
-          }}
-        />
-        {/* (No standalone scrims: the top bar and bottom chrome paint their own
-            gradients — stacking more here double-darkened the picture.) */}
-        {/* Dim the picture while a dialog panel is open (Netflix does this) so
-            the rows read against the frame, not against the movie. Tapping the
-            dim (outside the sheet) closes the panel — mobile has no Esc. */}
-        {/* The dim used to snap on, which made every panel open read as two
-            disconnected events (a hard black flash, then the sheet). It now
-            fades in and out over the same window as the sheet, so the dim and
-            the card arrive as one gesture. */}
-        <AnimatePresence>
-          {panel && (
-            <motion.div
-              key="np-panel-dim"
-              aria-hidden="true"
-              initial={dimReducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              // RIVO's `.3s` step on `ease-tv` — the same curve and duration as
-              // the panel page swap, so the veil and the card arrive together.
-              transition={dimReducedMotion ? { duration: 0 } : RIVO_MOTION.STANDARD}
-              onClick={() => {
-                setPanel(null);
-                poke();
-              }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.55)",
-                zIndex: 5,
-              }}
-            />
-          )}
-        </AnimatePresence>
-        {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
-            the control chrome like CustomVideoPlayer. */}
-        <SubtitleOverlay
-          text={activeSubtitle}
-          controlsVisible={controlsVisible}
-          size={subtitleSize}
-          background={subtitleBg}
-          fontFamily={subtitleFontFamily(prefs?.subtitleFont)}
-          color={prefs?.subtitleColor || "#fff"}
-          scale={prefs?.subtitleSize}
-        />
-{/* Top bar: back + title. */}
-        <ChromeTopBar
-          visible={controlsVisible}
-          title={displayTitle}
-          subtitle={displaySubtitle}
-          onBack={() => {
-            if (onCloseRef.current) onCloseRef.current();
-            else window.history.back();
-          }}
-        />
-        {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
-            present only inside the intro window, seeks just past the credits.
-            Stays tappable even with the chrome hidden (Netflix keeps it while
-            the intro plays) — but yields to any open panel. */}
-<AnimatePresence>
-          {showSkipIntro && !sheetOpen && (
-            <SkipPill
-              key="np-skip"
-              label="Skip Intro"
-              ariaLabel="Skip the opening credits"
-              title="Stop the intro, come right back in"
-              onClick={doSkipIntro}
-              progress={skipIntroProgress}
-            />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {showSkipOutro && !sheetOpen && !showSkipIntro && (
-            <SkipPill
-              key="np-skip-outro"
-              label="Skip Credits"
-              ariaLabel="Skip the ending credits"
-              title="Jump to the end"
-              onClick={doSkipOutro}
-              progress={skipOutroProgress}
-            />
-          )}
-        </AnimatePresence>
-        {/* Center stack, in z-order: the buffering spinner; on touch, a big play
-            glyph whenever the stream is simply paused (incl. the autoplay-policy
-            case where a cold start can't play without a tap); the replay button
-            at the end (Netflix end state).
-            The spinner carries deliberately NO full-frame scrim or backdrop blur
-            (the first version had both): dimming + blurring the picture during
-            every stall read as a broken player, and its fade needs
-            AnimatePresence — a `transition` on a conditionally mounted node never
-            plays, which is why it looked frozen. */}
-        {/* Cold wait: no frame to preserve, so the stage is the picture. */}
-        <CenterStack
-          showStage={showStage}
-          stageNote={stageNote}
-          stageInitial={!everPlayed || serverSwitchStage}
-          switchFrame={switchFrame}
-          displayTitle={displayTitle}
-          backdropUrl={backdropUrl}
-          posterUrl={posterUrl}
-          spinner={spinner}
-          buffering={buffering}
-          ended={ended}
-          playing={playing}
-          status={status}
-          controlsVisible={controlsVisible}
-          onRewind={() => {
-            poke();
-            seekRelative(-skipSecondsRef.current);
-          }}
-          onTogglePlay={() => {
-            poke();
-            togglePlayRef.current();
-          }}
-          onForward={() => {
-            poke();
-            seekRelative(skipSecondsRef.current);
-          }}
-          skipSeconds={skipSeconds}
-          onReplay={replay}
-        />
-        <TapToUnmutePill
-          visible={autoMuted && playing && !sheetOpen}
-          onUnmute={() => {
-            setAutoMuted(false);
-            setMuted(false);
-            poke();
-          }}
-        />
-{/* Bottom chrome: scrubber + transport row. */}
-        <PlayerTransport
-          visible={controlsVisible}
-          scrubRef={scrubRef}
-          duration={safeDuration}
-          currentTime={currentTime}
-          effectiveRatio={effectiveRatio}
-          bufferedRanges={bufferedRanges}
-          hoverRatio={hoverRatio}
-          previewUrl={previewUrl}
-          previewBox={previewBox}
-          playerW={playerW}
-          scrubberBands={scrubberBands}
-          fmtTime={fmtTime}
-          onScrubKeyDown={onScrubKeyDown}
-          onScrubDown={onScrubDown}
-          onScrubMove={onScrubMove}
-          onScrubUp={onScrubUp}
-          onScrubCancel={onScrubCancel}
-          onScrubLeave={onScrubLeave}
-          onScrubFocus={poke}
-          playing={playing}
-          onTogglePlay={togglePlay}
-          /* On touch the centre transport (rewind / play / forward) is already
-             on screen whenever the stream is simply paused, so the bottom bar's
-             play/pause pill would be a SECOND play/pause button on the same
-             picture. Same condition as CenterStack's paused transport. */
-          centerTransport={IS_TOUCH && !buffering && !ended && !playing && status === "playing"}
-          onBack10={onBack10}
-          onForward10={onForward10}
-          skipSeconds={skipSeconds}
-          onForwardHoldStart={onForwardHoldStart}
-          onForwardHoldRelease={desktopHoldRelease}
-          muted={muted}
-          volume={volume}
-          onToggleMute={toggleMute}
-          volHover={volHover}
-          onVolHoverChange={setVolHover}
-          onVolumeChange={onVolumeChange}
-          showEpisodeNav={showEpisodeNav}
-          prevDisabled={prevDisabled}
-          nextDisabled={nextDisabled}
-          onEpPrev={goEpPrev}
-          onEpNext={goEpNext}
-          showEpisodesButton={showEpisodesButton}
-          panel={panel}
-          onTogglePanel={onTogglePanel}
-          onToggleSettings={onToggleSettings}
-          showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
-          isFullscreen={isFullscreen}
-          onFullscreen={goFullscreen}
-          hdBadge={hdBadge}
-        />
-{/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
-        <ResumeCard
-          offer={resumeOffer && !ended && !sheetOpen ? resumeOffer : null}
-          fmtTime={fmtTime}
-          onResume={(at) => commitResumeRef.current?.(at)}
-          onRestart={restartFromStart}
-        />
-        {/* Netflix "Up Next" post-roll card (TV only). */}
-        <UpNextCard
-          upNext={ended ? upNext : null}
-          upNextMs={UP_NEXT_MS}
-          onPlayNow={(n) => chooseEpisode(n)}
-          onCancel={() => setUpNext(null)}
-        />
-
-{/* The settings / audio / subs / servers / quality panel shell. */}
-        <PlayerPanel
-          panel={panel}
-          panelRef={panelRef}
-          onClose={() => setPanel(null)}
-          onBackToSettings={() => {
-            setPanel("settings");
-            poke();
-          }}
-        >
-          <PlayerMenus
-            panel={panel}
-            setPanel={setPanel}
-            poke={poke}
-            activeSourceKey={activeSourceKey}
-            requestedServer={requestedServer}
-            currentAudioLabel={currentAudioLabel}
-            autoLevel={autoLevel}
-            qualities={qualities}
-            manualHeight={manualHeight}
-            currentHeight={currentHeight}
-            playbackRate={playbackRate}
-            onPickPlaybackRate={(rate) => {
-              setPlaybackRate(rate);
-              // The element is driven too, not just the state. Without this the
-              // row updated the checkmark and the settings label while the video
-              // kept playing at its old speed, and hold-to-2x then restored THAT
-              // stale rate — so picking 1.25x and holding Space returned you to 1x.
-              if (videoRef.current) {
-                try {
-                  videoRef.current.playbackRate = rate;
-                } catch {
-                  // some webviews reject odd rates; the row still applies
-                }
-              }
-              setPanel(null);
-              poke();
-            }}
-            aspectRatioIndex={aspectRatioIndex}
-            setAspectRatioIndex={setAspectRatioIndex}
-            sourceVariants={sourceVariants}
-            sourceHeight={sourceHeight}
-            pickSourceQuality={pickSourceQuality}
-            loopEnabled={loopEnabled}
-            setLoopEnabled={setLoopEnabled}
-            sleepMinutes={sleepMinutes}
-            sleepRemaining={sleepRemaining}
-            startSleepTimer={startSleepTimer}
-            pipSupported={pipSupported}
-            pipActive={pipActive}
-            togglePip={togglePip}
-            cueBoundaries={cueBoundaries}
-            orderedSources={orderedSources}
-            pickServer={pickServer}
-            subtitleEnabled={subtitleEnabled}
-            selectSubtitle={selectSubtitle}
-            isFetchingSubtitles={isFetchingSubtitles}
-            subtitleLanguages={subtitleLanguages}
-            currentSubtitle={currentSubtitle}
-            imdbId={imdbId}
-            subtitleError={subtitleError}
-            subtitleSize={subtitleSize}
-            setSubtitleSize={setSubtitleSize}
-            subtitleBg={subtitleBg}
-            setSubtitleBg={setSubtitleBg}
-            qualityNote={qualityNote}
-            dubTracks={dubTracks}
-            activeDub={activeDub}
-            pickDub={pickDub}
-            audioTrackList={audioTrackList}
-            deadDubs={deadDubs}
-            audioTracks={audioTracks}
-            audioIndex={audioIndex}
-            pickAudio={pickAudio}
-            originalLanguage={originalLanguage}
-            isMasterMode={isMasterMode}
-            activeUri={activeUri}
-            pickQuality={pickQuality}
-            pickAuto={pickAuto}
-          />
-        </PlayerPanel>
-
-        {/* YouTube-style Bottom Sheet for Episodes */}
-        <AnimatePresence>
-          {panel === "episodes" && (
-            <EpisodesRail 
-              episodes={episodes}
-              episode={episode}
-              onSelectEpisode={chooseEpisode}
-              setPanel={setPanel}
-              setBuffering={setBuffering}
-              setResumeOffer={setResumeOffer}
-            />
-          )}
-        </AnimatePresence>
-        {/* Netflix HUD overlays: transient volume / aspect pills
-            that pop while a value changes and self-fade, plus the rewind /
-            forward badge on its own edge. All geometry comes from hudMetrics
-            (the measured frame), so they track the video rather than the
-            viewport. Presentational only (pointer-events none). */}
-        <AnimatePresence>
-          {hud?.kind === "volume" && (
-            <NetflixVolumeHUD key="volume" effVolume={volume} isMuted={muted || autoMuted} metrics={hudBox} volume={volume} />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "aspect" && (
-            <NetflixAspectHUD key="aspect" aspectRatioIndex={aspectRatioIndex} metrics={hudBox} />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hold2x && <NetflixHold2xHUD key="hold2x" metrics={hudBox} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "play" && <NetflixPlayPauseHUD key="pp" kind="play" metrics={hudBox} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "pause" && <NetflixPlayPauseHUD key="pp" kind="pause" metrics={hudBox} />}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "seek" && hud.value < 0 && (
-            <NetflixSeekHUD key="seek-back" direction="back" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
-          )}
-        </AnimatePresence>
-        <AnimatePresence>
-          {hud?.kind === "seek" && hud.value > 0 && (
-            <NetflixSeekHUD key="seek-forward" direction="forward" metrics={hudBox} seconds={Math.abs(Math.round(hud.value))} />
-          )}
-        </AnimatePresence>
-        {/* Netflix "Still watching?" — pause + ask after unattended playback. */}
-        <AnimatePresence>
-          {stillWatching && (
-            <NetflixStillWatching
-              key="still-watching"
-              onContinue={() => {
-                // Route through the ref-backed dismisser, not a bare
-                // setStillWatching(false): only pointerdown normally clears
-                // `stillWatchingRef`, so a KEYBOARD/remote "Continue" left the
-                // ref true and the touch hold-to-2x guard (handleHoldStart) dead
-                // until some later pointer event.
-                dismissStillWatching();
-                resetStreak();
-                poke();
-                const v = videoRef.current;
-                try {
-                  v?.play();
-                } catch {
-                  // user gesture needed — the custom transport is right there
-                }
-              }}
-              onExit={() => {
-                dismissStillWatching();
-                onCloseRef.current?.();
-              }}
-            />
-          )}
-        </AnimatePresence>
-      </div>
-        {/* `!panel` stays OUTSIDE the AnimatePresence on purpose: opening a
-            sheet must remove the banner on the SAME frame (it sits above the
-            sheet on the same bottom strip and swallows the server rows its own
-            message points at). Only the recovery case — the fatal message
-            clearing while no sheet is open — animates out, which is what the
-            banner was missing: it returned null internally, so nothing could
-            ever play an exit and it vanished in a single frame. */}
-        {!panel && (
-          <AnimatePresence>
-            {fatal ? (
-              <FatalBanner
-                message={fatal}
-                onRetry={retryLoad}
-                onBack={() => {
-                  if (onCloseRef.current) onCloseRef.current();
-                  else window.history.back();
-                }}
-              />
-            ) : null}
-          </AnimatePresence>
-        )}
-    </div>
+    <PlayerShell
+      activeDub={activeDub}
+      activeSourceKey={activeSourceKey}
+      activeSubtitle={activeSubtitle}
+      activeUri={activeUri}
+      aspectRatioIndex={aspectRatioIndex}
+      audioIndex={audioIndex}
+      audioTrackList={audioTrackList}
+      audioTracks={audioTracks}
+      autoLevel={autoLevel}
+      autoMuted={autoMuted}
+      backdropUrl={backdropUrl}
+      bufferedRanges={bufferedRanges}
+      buffering={buffering}
+      chooseEpisode={chooseEpisode}
+      controlsVisible={controlsVisible}
+      cueBoundaries={cueBoundaries}
+      currentAudioLabel={currentAudioLabel}
+      currentHeight={currentHeight}
+      currentSubtitle={currentSubtitle}
+      currentTime={currentTime}
+      deadDubs={deadDubs}
+      desktopHoldRelease={desktopHoldRelease}
+      dismissStillWatching={dismissStillWatching}
+      displaySubtitle={displaySubtitle}
+      displayTitle={displayTitle}
+      doSkipIntro={doSkipIntro}
+      doSkipOutro={doSkipOutro}
+      dubTracks={dubTracks}
+      effectiveRatio={effectiveRatio}
+      ended={ended}
+      episode={episode}
+      episodes={episodes}
+      everPlayed={everPlayed}
+      fatal={fatal}
+      goEpNext={goEpNext}
+      goEpPrev={goEpPrev}
+      goFullscreen={goFullscreen}
+      handleGestureMove={handleGestureMove}
+      handleHoldEnd={handleHoldEnd}
+      handleVideoTouchEnd={handleVideoTouchEnd}
+      hdBadge={hdBadge}
+      hold2x={hold2x}
+      hoverRatio={hoverRatio}
+      hud={hud}
+      hudBox={hudBox}
+      imdbId={imdbId}
+      isFetchingSubtitles={isFetchingSubtitles}
+      isFullscreen={isFullscreen}
+      isMasterMode={isMasterMode}
+      loopEnabled={loopEnabled}
+      manualHeight={manualHeight}
+      muted={muted}
+      nextDisabled={nextDisabled}
+      onBack10={onBack10}
+      onCenterTogglePlay={onCenterTogglePlay}
+      onExitPlayer={onExitPlayer}
+      onForward10={onForward10}
+      onForwardHoldStart={onForwardHoldStart}
+      onForwardSkip={onForwardSkip}
+      onPickPlaybackRate={onPickPlaybackRate}
+      onResumeOffer={onResumeOffer}
+      onRewindSkip={onRewindSkip}
+      onScrubCancel={onScrubCancel}
+      onScrubDown={onScrubDown}
+      onScrubKeyDown={onScrubKeyDown}
+      onScrubLeave={onScrubLeave}
+      onScrubMove={onScrubMove}
+      onScrubUp={onScrubUp}
+      onStillWatchingContinue={onStillWatchingContinue}
+      onStillWatchingExit={onStillWatchingExit}
+      onTogglePanel={onTogglePanel}
+      onToggleSettings={onToggleSettings}
+      onVideoClick={onVideoClick}
+      onVideoTouchStart={onVideoTouchStart}
+      onVolumeChange={onVolumeChange}
+      orderedSources={orderedSources}
+      originalLanguage={originalLanguage}
+      panel={panel}
+      panelRef={panelRef}
+      pickAudio={pickAudio}
+      pickAuto={pickAuto}
+      pickDub={pickDub}
+      pickQuality={pickQuality}
+      pickServer={pickServer}
+      pickSourceQuality={pickSourceQuality}
+      pipActive={pipActive}
+      pipSupported={pipSupported}
+      playbackRate={playbackRate}
+      playerW={playerW}
+      playing={playing}
+      poke={poke}
+      posterUrl={posterUrl}
+      prefs={prefs}
+      prevDisabled={prevDisabled}
+      previewBox={previewBox}
+      previewUrl={previewUrl}
+      qualities={qualities}
+      qualityNote={qualityNote}
+      replay={replay}
+      requestedServer={requestedServer}
+      restartFromStart={restartFromStart}
+      resumeOffer={resumeOffer}
+      retryLoad={retryLoad}
+      safeDuration={safeDuration}
+      screenRef={screenRef}
+      scrubRef={scrubRef}
+      scrubberBands={scrubberBands}
+      selectSubtitle={selectSubtitle}
+      serverSwitchStage={serverSwitchStage}
+      setAspectRatioIndex={setAspectRatioIndex}
+      setAutoMuted={setAutoMuted}
+      setBuffering={setBuffering}
+      setLoopEnabled={setLoopEnabled}
+      setMuted={setMuted}
+      setPanel={setPanel}
+      setResumeOffer={setResumeOffer}
+      setSubtitleBg={setSubtitleBg}
+      setSubtitleSize={setSubtitleSize}
+      setUpNext={setUpNext}
+      setVolHover={setVolHover}
+      sheetOpen={sheetOpen}
+      showEpisodeNav={showEpisodeNav}
+      showEpisodesButton={showEpisodesButton}
+      showSkipIntro={showSkipIntro}
+      showSkipOutro={showSkipOutro}
+      showStage={showStage}
+      skipIntroProgress={skipIntroProgress}
+      skipOutroProgress={skipOutroProgress}
+      skipSeconds={skipSeconds}
+      sleepMinutes={sleepMinutes}
+      sleepRemaining={sleepRemaining}
+      sourceHeight={sourceHeight}
+      sourceVariants={sourceVariants}
+      spinner={spinner}
+      stageNote={stageNote}
+      startSleepTimer={startSleepTimer}
+      status={status}
+      stillWatching={stillWatching}
+      subtitleBg={subtitleBg}
+      subtitleEnabled={subtitleEnabled}
+      subtitleError={subtitleError}
+      subtitleLanguages={subtitleLanguages}
+      subtitleSize={subtitleSize}
+      switchFrame={switchFrame}
+      toggleMute={toggleMute}
+      togglePip={togglePip}
+      togglePlay={togglePlay}
+      upNext={upNext}
+      upNextMs={UP_NEXT_MS}
+      videoRef={videoRef}
+      volHover={volHover}
+      volume={volume}
+    />
   );
 }
+
