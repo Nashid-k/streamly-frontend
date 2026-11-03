@@ -7,8 +7,6 @@ import { ACCENT, HUD_GLASS } from "./chrome/theme";
 const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metrics }) {
   const ar = ASPECT_RATIOS[aspectRatioIndex] || ASPECT_RATIOS[0];
   const glyph = AR_GLYPH[aspectRatioIndex] || AR_GLYPH[0];
-  // AR_GLYPH is authored against a 720px short edge, so scale it with the
-  // measured frame instead of rendering a fixed-size box.
   const [gw, gh] = glyph;
   const width = Math.max(12, Math.round(gw * metrics.glyphScale));
   const height = Math.max(8, Math.round(gh * metrics.glyphScale));

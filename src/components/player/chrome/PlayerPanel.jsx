@@ -5,12 +5,12 @@
 // full-width bottom sheet, which on a phone buried the picture behind a wall of
 // chrome — the viewer asked for the desktop-sized card on mobile too.
 // Back-chevron header navigates between submenus and root settings.
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { motionSafe } from "../../../constants/motion";
+import { useMotionTokens, motionSafe } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RIVO_FADE_UP, RIVO_MOTION } from "./theme";
+import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
 
 const TITLES = {
   settings: "Settings",
@@ -55,57 +55,35 @@ const DEPTH = {
 };
 
 export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings, children }) {
-  // Direction of the LAST navigation, kept across the panel swap so the body
-  // that mounts is the body that knows which way it came from.
+  const panelRefDirection = useRef(0);
   const prevPanelRef = useRef(panel);
-  const directionRef = useRef(1);
+  const reduceMotion = useReducedMotion();
+  const M = useMotionTokens(reduceMotion);
   if (panel !== prevPanelRef.current) {
     const from = DEPTH[prevPanelRef.current] ?? 0;
     const to = DEPTH[panel] ?? 0;
-    directionRef.current = to >= from ? 1 : -1;
+    panelRefDirection.current = to >= from ? 1 : -1;
     prevPanelRef.current = panel;
   }
-  // A closed panel (null) is a fade for the sheet itself; the body animation
-  // only matters while one page replaces another.
-  const reduceMotion = useReducedMotion();
-  // rivo.st ships NO custom player chrome (measured 2026-11-02: their watch view
-  // is a native-controls <video> inside their shell), so the card adopts THEIR
-  // surface motion instead of our SHEET spring: `fadeUp`, 0.5s on `ease-tv`.
-  // See theme.js RIVO_MOTION / RIVO_FADE_UP.
-  const back = directionRef.current < 0;
-  /* The page slide is FRAMER's, not a CSS keyframe. It used to be a keyframe on
-     the keyed body, which a stylesheet can silently lose (an overriding
-     `animation: none`, a reset, a sibling rule) and which the user reported as
-     "zero animation" between pages. Framer writes the transform inline on the
-     frame the page mounts, so the motion is not something a stylesheet can eat.
-     Entry from the side it came from: forward pages from the right, back from
-     the left. No exit animation — the new page's rows have to be tappable on
-     the frame they appear, not 200ms later. */
-  /* Timings are RIVO's own (see theme.js RIVO_MOTION): the page swap is their
-     `.3s` step on `ease-tv`, the title their `.15s` micro step — the same two
-     numbers their own stylesheet uses for every surface and hover. */
+  const back = panelRefDirection.current < 0;
   const bodyMotion = {
     initial: reduceMotion ? false : { opacity: 0, x: back ? -26 : 26 },
     animate: { opacity: 1, x: 0 },
-    transition: motionSafe(reduceMotion, RIVO_MOTION.STANDARD),
+    transition: motionSafe(reduceMotion, M.SPRING.SHEET),
   };
   const titleMotion = {
     initial: reduceMotion ? false : { opacity: 0, y: 4 },
     animate: { opacity: 1, y: 0 },
-    transition: motionSafe(reduceMotion, RIVO_MOTION.MICRO),
+    transition: motionSafe(reduceMotion, M.SPRING.POP),
   };
   return (
     <AnimatePresence>
       {panel && panel !== "episodes" && (
         <motion.aside
-          // RIVO's `fadeUp`, exactly: opacity 0 + translateY(12px) into place over
-          // 0.5s on `ease-tv`. Their shell has no scale-in anywhere — the card
-          // scaling up was our idiom, not theirs.
-          initial={reduceMotion ? false : RIVO_FADE_UP.initial}
-          animate={RIVO_FADE_UP.animate}
-          // Closing is the arrival played backwards.
-          exit={RIVO_FADE_UP.exit}
-          transition={motionSafe(reduceMotion, RIVO_MOTION.SURFACE)}
+          initial={M.MODAL_PANEL.initial}
+          animate={M.MODAL_PANEL.animate}
+          exit={M.MODAL_PANEL.exit}
+          transition={M.MODAL_PANEL.transition}
           ref={panelRef}
           role="dialog"
           aria-label={ARIA_LABELS[panel] || TITLES[panel] || "Settings"}
