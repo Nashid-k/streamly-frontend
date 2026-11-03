@@ -2,22 +2,31 @@ import { describe, expect, it } from "vitest";
 import {
   DOUBLE_TAP_WINDOW_MS,
   HOLD_2X_DELAY_MS,
-  SINGLE_TAP_DELAY_MS,
   resolveTap,
 } from "../components/player/nativePlayerGestures";
 
-/* Tap arbitration for the player surface. These pin the shipped decision table
-   that used to be inline in the touch handler, plus the timing relationships
-   the comments claim but nothing enforced: the lone-tap toggle must outlast the
-   double-tap window, and a 2x hold must not arm inside it. */
+/* Tap arbitration for the player surface. These pin the MOBILE decision table:
+   only a double tap acts — centre pauses/resumes, the sides seek — and a lone
+   tap is inert (it must never toggle playback). A 2x hold must not arm inside
+   the double-tap window, or every deliberate double tap would briefly speed the
+   video up. */
 
 const FIRST = { time: 1000, zone: "left" };
+const FIRST_CENTER = { time: 1000, zone: "center" };
 
 describe("resolveTap", () => {
-  it("toggles immediately on a center tap and resets the tap memory", () => {
-    expect(resolveTap({ zone: "center", now: 500 })).toEqual({
+  it("does NOT toggle on the first centre tap — it only records it", () => {
+    expect(resolveTap({ zone: "center", now: 1000 })).toEqual({
+      action: "defer",
+      tap: { time: 1000, zone: "center" },
+    });
+  });
+
+  it("toggles pause/resume on a centre DOUBLE tap", () => {
+    const now = FIRST_CENTER.time + 120;
+    expect(resolveTap({ zone: "center", now, prevTap: FIRST_CENTER })).toEqual({
       action: "toggle",
-      tap: { time: 0, zone: "center" },
+      tap: { time: 0, zone: null },
     });
   });
 
@@ -57,7 +66,7 @@ describe("resolveTap", () => {
     });
   });
 
-  it("kills edge taps during a rebuffer but keeps the center tap alive", () => {
+  it("kills edge taps during a rebuffer but keeps the centre double tap alive", () => {
     expect(resolveTap({ zone: "left", buffering: true, now: 2000, prevTap: FIRST })).toEqual({
       action: "ignore",
       tap: FIRST,
@@ -66,17 +75,14 @@ describe("resolveTap", () => {
       action: "ignore",
       tap: null,
     });
-    expect(resolveTap({ zone: "center", buffering: true, now: 2000 })).toMatchObject({
-      action: "toggle",
-    });
+    // Pausing must still work while the stream rebuffers.
+    expect(
+      resolveTap({ zone: "center", buffering: true, now: 1120, prevTap: FIRST_CENTER }),
+    ).toMatchObject({ action: "toggle" });
   });
 });
 
 describe("gesture timings", () => {
-  it("waits longer for a lone tap than the double-tap window", () => {
-    expect(SINGLE_TAP_DELAY_MS).toBeGreaterThan(DOUBLE_TAP_WINDOW_MS);
-  });
-
   it("does not arm the 2x hold inside the double-tap window", () => {
     expect(HOLD_2X_DELAY_MS).toBeGreaterThanOrEqual(DOUBLE_TAP_WINDOW_MS);
   });

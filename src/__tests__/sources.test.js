@@ -82,9 +82,10 @@ describe("AUTO_SOURCE", () => {
     resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
     const result = await AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
     // Menu order, not the backend's health pick: Server 1 -> Server 2 -> its own
-    // rotation. `auto` would jump straight to whichever backend wins.
+    // rotation. `auto` would jump straight to whichever backend wins, which is
+    // exactly how the no-pick path used to surface a late row ("Server 7").
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { type: "movie", id: "550", auto: true },
+      { type: "movie", id: "550", prefer: "orion" },
       { signal: undefined },
     );
     expect(result).toEqual({ source: {}, variants: [], audioTracks: [] });

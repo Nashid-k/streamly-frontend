@@ -7340,3 +7340,21 @@ live outside the repo (`cdp-perf-audit.mjs`, `cdp-cpu-profile.mjs`,
 **Deliberately NOT done:** their 15-row order and rows we have no data source for (Popular People, Movie/Show genres, Browse by Genre, Franchises & Collections) — inventing those rows would need new endpoints, not styling. Our row set stays data-driven.
 
 **Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files pass, `npm run build` clean.
+
+## 2026-11-03 - Mobile touch mapping + one play/pause button (user: "in mobile player only add pause on double tap only and resume also but on center on both sides ff/bw. as well there is two playse pause btns in mobile find and fix it")
+
+**Double tap is now the only surface gesture (touch only).**
+- `nativePlayerGestures.js` `resolveTap` — the CENTRE no longer toggles on the first tap. It records the tap, and the second centre tap inside `DOUBLE_TAP_WINDOW_MS` returns `toggle`. Left/right double taps still return `seek`. A lone tap in any zone returns `defer` with the tap recorded, which the player now treats as "do nothing to playback".
+- `SINGLE_TAP_DELAY_MS` deleted. It existed only to delay a lone-tap toggle so a double tap could pre-empt it; with no lone-tap toggle there is nothing to delay, and leaving the constant would have implied a behaviour that no longer ships.
+- `NativePlayerView.jsx` `handleVideoTouchEnd` — the `setTimeout(... togglePlay, SINGLE_TAP_DELAY_MS)` lone-tap branch is gone (and `singleTapTimer` with it). A tap now just pokes the chrome; only `action === "toggle"` (centre double tap) changes playback, only `action === "seek"` seeks.
+- Rebuffering: the edge zones stay dead, but a centre DOUBLE tap still pauses/resumes — being unable to pause mid-rebuffer was the one case where this matters most.
+
+**Duplicate play/pause on mobile.**
+- Cause: `BottomChrome`'s transport pill renders on every device, and `CenterStack`'s touch-only paused transport (rewind / play / forward) appears whenever the stream is simply paused — so a paused phone showed two play buttons.
+- Fix: `BottomChrome` takes `centerTransport`; `NativePlayerView` passes the exact condition CenterStack uses (`IS_TOUCH && !buffering && !ended && !playing && status === "playing"`), and the pill stands down while that transport is on screen. While playing, the pill is still the mobile pause control, so no state is left without one.
+
+**Tests.** `nativePlayerGestures.test.js` — centre single tap now asserts `defer` (was `toggle`), added a centre-double-tap `toggle` case, and the timing test for the deleted constant was dropped. `nativePlayerHold.test.js` — centre rebuffer toggle now needs a double tap, plus a new "does not toggle on a lone tap in any zone". `playerTouchGestures.test.jsx` — the two lone-tap-toggle tests became "does not toggle", and three centre cases were added (pauses on double tap, resumes on the next one, does not seek).
+
+**Also fixed (pre-existing red at HEAD, surfaced while verifying):** `AUTO_SOURCE`'s RIVO fallback asked the backend for `auto`, which lets the health rotation answer with any backend — the exact "no pick jumps to Server 7" behaviour the no-pick start was meant to remove. It now hands off to Server 2 (ZXC Orion) by name via `prefer: "orion"`, matching the menu order the code comments already claimed. `sources.test.js` and `warmResolve.test.js` (which mints through `AUTO_SOURCE`) updated to the same contract, and the malformed `} catch {` line in `sources.js` was repaired.
+
+**Gates.** `npm run lint` 0 errors (53 pre-existing warnings), full `npm run test` 119 files / 1440 tests pass, `npm run build` clean.

@@ -118,11 +118,21 @@ describe("resolveTouchRelease", () => {
     expect(release.tap).toBe(prevTap);
   });
 
-  it("still toggles on a center tap during a rebuffer", () => {
-    expect(resolveTouchRelease({ zone: "center", buffering: true, now: 2000 })).toMatchObject({
+  it("still pauses on a centre DOUBLE tap during a rebuffer", () => {
+    expect(
+      resolveTouchRelease({ zone: "center", buffering: true, now: 1120, prevTap: tapAt("center") }),
+    ).toMatchObject({
       action: "toggle",
       direction: 0,
     });
+  });
+
+  it("does not toggle on a lone tap in any zone", () => {
+    // The mobile surface only acts on a double tap: a single tap must never
+    // change playback, or revealing the chrome would pause the film.
+    for (const zone of ["left", "center", "right"]) {
+      expect(resolveTouchRelease({ zone }).action).toBe("defer");
+    }
   });
 
   it("clears a pending lone-tap toggle whenever it resolves the tap", () => {

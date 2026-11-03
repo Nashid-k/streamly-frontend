@@ -207,22 +207,73 @@ describe("touch double-tap seek", { timeout: MOUNT_BUDGET_MS }, () => {
     expect(v.pause).not.toHaveBeenCalled();
   });
 
-  it("still toggles play/pause on a lone edge tap", async () => {
+  it("does not toggle play/pause on a lone edge tap", async () => {
     const { container } = await mount();
     const v = stubSurface(container);
 
     press(v, RIGHT);
     release(v, RIGHT);
-    advance(500);
-    expect(v.pause).toHaveBeenCalledTimes(1);
+    advance(1000);
+    // Only a double tap acts on the surface; a lone tap just reveals the chrome.
+    expect(v.pause).not.toHaveBeenCalled();
   });
 
-  it("toggles immediately on a centre tap, with no double-tap delay", async () => {
+  it("does not toggle on a lone centre tap either", async () => {
     const { container } = await mount();
     const v = stubSurface(container);
 
     press(v, CENTER);
     release(v, CENTER);
+    advance(1000);
+    expect(v.pause).not.toHaveBeenCalled();
+  });
+
+  it("pauses on a centre double tap", async () => {
+    const { container } = await mount();
+    const v = stubSurface(container);
+
+    press(v, CENTER);
+    release(v, CENTER);
+    advance(120);
+    press(v, CENTER);
+    release(v, CENTER);
+
     expect(v.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("resumes on the next centre double tap once paused", async () => {
+    const { container } = await mount();
+    const v = stubSurface(container);
+
+    press(v, CENTER);
+    release(v, CENTER);
+    advance(120);
+    press(v, CENTER);
+    release(v, CENTER);
+    advance(600);
+
+    // The stub reports paused after the first toggle, so the same gesture must
+    // bring playback back instead of pausing again.
+    press(v, CENTER);
+    release(v, CENTER);
+    advance(120);
+    press(v, CENTER);
+    release(v, CENTER);
+
+    expect(v.play).toHaveBeenCalled();
+  });
+
+  it("does not seek when the double tap landed in the centre", async () => {
+    const { container } = await mount();
+    const v = stubSurface(container);
+    const from = v.currentTime;
+
+    press(v, CENTER);
+    release(v, CENTER);
+    advance(120);
+    press(v, CENTER);
+    release(v, CENTER);
+
+    expect(v.currentTime).toBe(from);
   });
 });

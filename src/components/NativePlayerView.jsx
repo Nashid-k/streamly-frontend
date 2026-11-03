@@ -92,7 +92,7 @@ import {
   SAFE_BOTTOM,
 } from "./player/chrome";
 import { buildQualityRows, fmtTime, qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
-import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS, SINGLE_TAP_DELAY_MS } from "./player/nativePlayerGestures";
+import { HOLD_2X_DELAY_MS, HOLD_2X_MAX_MS } from "./player/nativePlayerGestures";
 import { holdRestoreRate, resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
 
@@ -313,7 +313,6 @@ export default function NativePlayerView({
   // Touch taps: last-tap info for double-tap seek (±10s by screen side) and a
   // flag that swallows the synthetic click after touchend (it would double-toggle).
   const touchTapRef = useRef({ time: 0, zone: null });
-  const singleTapTimer = useRef(null);
   const suppressClickRef = useRef(false);
   // Hold-to-2x bookkeeping: the timer that arms 2x, the rate it must restore,
   // and a pointer id for pointer-cleanup symmetry.
@@ -1481,9 +1480,11 @@ setScrubDragging(true);
   };
 
   // Touch taps land on the video itself (overlay buttons keep their own clicks).
-  // THREE zones, YouTube/Netflix style: double-tap LEFT = rewind, double-tap
-  // RIGHT = forward, and any tap in the CENTER THIRD = play/pause (single tap,
-  // no 260ms lag). A double-tap in the center is just two play/pause toggles.
+  // THREE zones, and only a DOUBLE tap acts (user decision, mobile only):
+  // double-tap LEFT = rewind, double-tap RIGHT = forward, double-tap CENTRE =
+  // pause (the next double-tap resumes). A single tap only reveals the chrome —
+  // it must never toggle playback, which is what made the old single-tap toggle
+  // fight the double-tap seek on a phone.
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
@@ -1518,12 +1519,11 @@ setScrubDragging(true);
       return;
     }
     if (release.action === "ignore") return;
-    // Every action below settles whatever lone-tap toggle was still pending.
-    if (release.clearPendingTap && singleTapTimer.current) {
-      clearTimeout(singleTapTimer.current);
-      singleTapTimer.current = null;
-    }
     if (release.action === "toggle") {
+      // DOUBLE-TAP CENTRE = pause, and the next one resumes. This is the ONLY
+      // way the surface changes playback now: a lone tap just pokes the chrome
+      // (done at the top of this handler), so a single tap never pauses by
+      // accident while the viewer is trying to reveal the controls.
       togglePlay();
       return;
     }
@@ -1532,12 +1532,8 @@ setScrubDragging(true);
       seekRelative(release.direction * skipSecondsRef.current);
       return;
     }
-    // A lone edge tap waits briefly in case it becomes a double-tap seek; if
-    // nothing follows, it plays/pauses.
-    singleTapTimer.current = setTimeout(() => {
-      singleTapTimer.current = null;
-      togglePlay();
-    }, SINGLE_TAP_DELAY_MS);
+    // A lone tap records itself (see resolveTap) so the second tap can complete
+    // a double tap, and otherwise does nothing to playback.
   };
 
   // Vertical drag on the RIGHT THIRD = volume (brightness removed — the OS
@@ -1812,15 +1808,13 @@ setScrubDragging(true);
   }, [type, id, season, episode]);
 
   /* Pending timers on unmount. These fire long after the player is gone if left
-     armed: a HUD timeout would `setHud` on an unmounted component, a single-tap
-     timer would run the play/pause toggle against a dead element, and a desktop
+     armed: a HUD timeout would `setHud` on an unmounted component, and a desktop
      hold timer could arm 2x on a torn-down element. (`swIdleRef` /
      `swOfferTimerRef` have their own unmount effect above; the touch hold timer
      is cleared by `releaseHold2x`.) */
   useEffect(
     () => () => {
       if (hudTimerRef.current) clearTimeout(hudTimerRef.current);
-      if (singleTapTimer.current) clearTimeout(singleTapTimer.current);
       if (desktopHoldTimerRef.current) clearTimeout(desktopHoldTimerRef.current);
     },
     [],
@@ -4624,6 +4618,11 @@ const showSkipOutro = shouldShowSkipOutro({
           onScrubFocus={poke}
           playing={playing}
           onTogglePlay={togglePlay}
+          /* On touch the centre transport (rewind / play / forward) is already
+             on screen whenever the stream is simply paused, so the bottom bar's
+             play/pause pill would be a SECOND play/pause button on the same
+             picture. Same condition as CenterStack's paused transport. */
+          centerTransport={IS_TOUCH && !buffering && !ended && !playing && status === "playing"}
           onBack10={() => seekRelative(-skipSecondsRef.current)}
           onForward10={() => {
             if (desktopHoldFiredRef.current) {

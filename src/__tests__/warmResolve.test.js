@@ -47,8 +47,11 @@ describe("warmResolve", () => {
     resolveRivoMock.mockRejectedValue(new Error("no source"));
     resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     await warmResolve(MOVIE_ARGS).catch(() => {});
+    // The warm leg mints exactly what the player will ask for (AUTO_SOURCE), so
+    // the handover can never deliver a token for a different row than the one
+    // the no-pick path would resolve: Server 2 (Orion) by NAME, not `auto`.
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { ...MOVIE_ARGS, auto: true },
+      { ...MOVIE_ARGS, prefer: "orion" },
       expect.anything(),
     );
   });

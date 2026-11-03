@@ -62,6 +62,10 @@ export default function BottomChrome({
   // Transport
   playing,
   onTogglePlay,
+  /* True while the touch-only centre transport (rewind / play / forward) is
+     already drawn over the picture. Its play button IS the mobile play/pause,
+     so this pill must stand down or the viewer sees two of them. */
+  centerTransport = false,
   onBack10,
   onForward10,
   onForwardHoldStart,
@@ -302,13 +306,15 @@ export default function BottomChrome({
             </IconBtn>
           </Tooltip>
         )}
-        <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
-          <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
-            <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
-              {playing ? <IconPause size={30} /> : <IconPlay size={28} />}
-            </IconBtn>
-          </Tooltip>
-        </div>
+        {!centerTransport && (
+          <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
+            <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
+              <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
+                {playing ? <IconPause size={30} /> : <IconPlay size={28} />}
+              </IconBtn>
+            </Tooltip>
+          </div>
+        )}
         {!IS_TOUCH && (
           <Tooltip tip={`Forward ${skipSeconds} seconds (hold for 2×)`} kbd="→">
             {/* A quick press seeks; a sustained press arms 2x on the engine side

@@ -204,9 +204,13 @@ export const AUTO_SOURCE = {
     try {
       const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
       // RIVO answered — Server 1 is the start of the line, done.
-      return { ...rivo, server: rivo.server || "1" };        } catch {
-      // RIVO has no source for this title — walk the ZXC auto rotation.
-      return await streamResolve.resolveZxc({ ...a, auto: true }, o);
+      return { ...rivo, server: rivo.server || "1" };
+    } catch {
+      // RIVO has no source for this title — hand off to Server 2 (ZXC Orion)
+      // by NAME, the next row in menu order. NOT `auto`: that lets the backend
+      // pick whichever backend wins the health race, which is how the no-pick
+      // path surfaced a late row ("Server 7") instead of starting at the top.
+      return await streamResolve.resolveZxc({ ...a, prefer: "orion" }, o);
     }
   },
 };
