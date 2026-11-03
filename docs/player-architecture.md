@@ -29,8 +29,9 @@ presentation and the stream lifecycle share one closure.
 | Chrome autohide + still watching (slices 1+2 merged) | `player/hooks/usePlayerChrome.js` | ~130 |
 | Hold-to-2x, rate latch, safety net (slice 3) | `player/hooks/useHold2x.js` | ~75 |
 | Scrubber, seeking, frame preview (slice 4) | `player/hooks/useScrubber.js` | ~230 |
+| Subtitles: list, pick, cues, styling (slice 5) | `player/hooks/useSubtitles.js` | ~160 |
 
-Current: **4,711 lines**.
+Current: **4,555 lines**.
 
 ## The rule for this refactor
 
@@ -88,8 +89,8 @@ layout exercise.
    queued-delta seek, `seekTo` / `safeSeek` / `seekRelative` and the preview
    decoder. The "suppress the preview while fetching" effect stays in the
    player: it reads the player's own buffer state.
-5. **`useSubtitles`** — `SubtitleFetcher` + `SubtitleEngine` wiring, track list,
-   styling persistence (`SUB_SIZE_STORAGE_KEY`, `SUB_BG_STORAGE_KEY`).
+5. ~~`useSubtitles`~~ ✅ done — track list, pick with a token race guard, the
+   visible failure line, and the styling persistence.
 6. **`useQualitySwitch` / `useAudioSwitch`** — the two `loadSource()` swap paths.
    Both currently live inside the resolve effect's closure; they need the
    resolve effect split first.

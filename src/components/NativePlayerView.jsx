@@ -32,9 +32,7 @@ import { createStreamlyLoader, probeSourcePlayable } from "../api/nativeHlsLoade
 import { takeWarmResolve, prefetchSources, warmResolve } from "../api/warmResolve";
 import { SKIP_DATA_CREDIT, fetchSkipBoundaries } from "../api/skipBoundarySource";
 import { fetchZxcIntroBounds } from "../api/skipProviderSource";
-import { SubtitleFetcher } from "../api/subtitleFetcher";
 import { logDebug, logWarn } from "../utils/debugLogger";
-import { SubtitleEngine } from "../utils/subtitleEngine";
 import { readStoredNumber } from "../utils/storedNumber";
 import { isEpAired } from "../utils/titleDetails";
 import useContainerSize from "../hooks/useContainerSize";
@@ -68,7 +66,7 @@ import {
   rescopeBoundaries,
 } from "../utils/skipMarkers";
 import { pickInitialBandwidthBits } from "../utils/streamTuning";
-import { subtitleFontFamily, findSubtitleTrack } from "../constants/settings";
+import { subtitleFontFamily } from "../constants/settings";
 import { RIVO_MOTION } from "./player/chrome/theme";
 import { useOptionalPreferences } from "../context/preferences";
 import { clearPreviewCache, resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
@@ -95,6 +93,7 @@ import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import usePlayerChrome from "./player/hooks/usePlayerChrome";
 import useHold2x from "./player/hooks/useHold2x";
 import useScrubber from "./player/hooks/useScrubber";
+import useSubtitles from "./player/hooks/useSubtitles";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveSpaceRelease, resolveTouchRelease } from "./player/nativePlayerHold";
 import { keyboardAction } from "./player/nativePlayerKeys";
@@ -164,8 +163,6 @@ const INITIAL_BW_BITS = 10 * 1000 * 1000;
 const VOLUME_STORAGE_KEY = "streamly-native-volume";
 const MUTED_STORAGE_KEY = "streamly-native-muted";
 const ASPECT_STORAGE_KEY = "streamly-native-aspect";
-const SUB_SIZE_STORAGE_KEY = "streamly-native-sub-size";
-const SUB_BG_STORAGE_KEY = "streamly-native-sub-bg";
 /* Brightness is GONE (user call): a CSS filter is not the device backlight —
    it dims the video while the OS brightness setting stays where it was, which
    reads as a broken picture. The OS owns screen brightness on every platform.
@@ -385,12 +382,6 @@ export default function NativePlayerView({
   const pendingResumeRef = useRef(false);
   // When the forward buffer first dipped under BUFFER_FLOOR_SECONDS (sustained-shortfall guard).
   const lowBufferRef = useRef({ since: 0, prev: -1 });
-  // Subtitle cue text is derived on timeupdate from a SubtitleEngine search; a
-  // ref snapshot keeps ticks off the React render path.
-  const subtitleEngineRef = useRef(null);
-  const subtitleEnabledRef = useRef(false); // mirrors state, read inside onTime
-  const subtitleCueRef = useRef(null); // last rendered cue text
-  const subtitleTokenRef = useRef(0); // download race guard (last pick wins)
   const hasStartedRef = useRef(false); // true once any frame played this session
   const [status, setStatus] = useState("idle");
   const [qualities, setQualities] = useState([]);
@@ -615,26 +606,27 @@ export default function NativePlayerView({
   const [currentHeight, setCurrentHeight] = useState(null);
   // Netflix resume card: { at, left } where `at` is the saved position in s.
   const [resumeOffer, setResumeOffer] = useState(null);
-  // Subtitles: OpenSubtitles tracks + SubtitleEngine overlay.
-  const [subtitleLanguages, setSubtitleLanguages] = useState([]); // [{language, languageId, downloadLink}]
-  const [subtitleEnabled, setSubtitleEnabled] = useState(false);
-  const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
-  const [currentSubtitle, setCurrentSubtitle] = useState(null); // the selected track object
-  const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
-  // Persistent subtitle failure line for the subs pane. Without this a refused
-  // download (Cloudflare relay without the UA injection) or an unreadable file
-  // fails SILENTLY: the pick flips back to Off with no visible reason. This state
-  // keeps the reason on screen until the next pick or title change.
-  const [subtitleError, setSubtitleError] = useState(null);
-  /* Subtitle STYLING (provider "Subtitle settings" parity): size 0=S/1=M/2=L and
-     background 0=none/1=shadow/2=box. Presentation only — persisted separately
-     from the track choice. */
-  const [subtitleSize, setSubtitleSize] = useState(() =>
-    readStoredNumber(SUB_SIZE_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
-  );
-  const [subtitleBg, setSubtitleBg] = useState(() =>
-    readStoredNumber(SUB_BG_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
-  );
+  /* Subtitles: the track list, the picked track, the cues, the overlay line and
+     the styling knobs live in `useSubtitles` — a failed pick has to keep
+     saying why, which only works if the error state travels with the engine. */
+  const {
+    subtitleLanguages,
+    subtitleEnabled,
+    subtitleEngineRef,
+    subtitleEnabledRef,
+    subtitleCueRef,
+    activeSubtitle,
+    setActiveSubtitle,
+    currentSubtitle,
+    isFetchingSubtitles,
+    subtitleError,
+    subtitleSize,
+    setSubtitleSize,
+    subtitleBg,
+    setSubtitleBg,
+    selectSubtitle,
+  } = useSubtitles({ videoRef, id, type, imdbId, title, prefs });
+
   /* Chrome autohide + "Still watching?" live together in one hook: `poke`
      interleaves the 3s hide timer with the 2h idle timer under one shared rate
      limit, so they are one concern, not two. Called here (the earliest point
@@ -763,7 +755,6 @@ export default function NativePlayerView({
   activeDubRef.current = activeDub;
   requestedServerRef.current = requestedServer;
   sourceHeightRef.current = sourceHeight;
-  subtitleEnabledRef.current = subtitleEnabled;
   // Touch gesture state for Netflix's vertical drags on the video surface.
   const gestureRef = useRef(null);
   // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
@@ -1426,17 +1417,6 @@ export default function NativePlayerView({
       // private mode — aspect just won't persist
     }
   }, [aspectRatioIndex]);
-
-  /* Subtitle styling persists across visits (the rest of the playback QoL
-     cluster — loop, sleep timer, PiP, fullscreen — lives in usePlaybackExtras). */
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(SUB_SIZE_STORAGE_KEY, String(subtitleSize));
-      window.localStorage.setItem(SUB_BG_STORAGE_KEY, String(subtitleBg));
-    } catch {
-      // private mode — subtitle styling just won't persist
-    }
-  }, [subtitleSize, subtitleBg]);
 
   /* Media Session (Android/iOS lock screen + hardware buttons): advertise the
      title, reflect play/pause, and answer the 10s-seek buttons. Registered
@@ -3376,142 +3356,6 @@ export default function NativePlayerView({
     // The new sibling manifest committed — pick up where the pause left off.
     resumePausedPlayback();
   };
-
-  /* Subtitles: OpenSubtitles track list for THIS title (mirrors
-     CustomVideoPlayer). Selected line is downloaded+decompressed, parsed into a
-     SubtitleEngine, and the active cue overlaid on the frame. */
-  const applySubtitleCue = (text) => {
-    subtitleCueRef.current = text;
-    setActiveSubtitle(text);
-  };
-
-  const selectSubtitle = async (entry) => {
-    if (!entry) {
-      subtitleEnabledRef.current = false;
-      subtitleEngineRef.current?.setCues([]);
-      setSubtitleEnabled(false);
-      setCurrentSubtitle(null);
-      setSubtitleError(null);
-      applySubtitleCue(null);
-      return;
-    }
-    subtitleTokenRef.current += 1;
-    const token = subtitleTokenRef.current;
-    setSubtitleEnabled(true);
-    subtitleEnabledRef.current = true;
-    setCurrentSubtitle(entry);
-    setSubtitleError(null);
-    applySubtitleCue(null);
-    try {
-      window.localStorage.setItem(
-        `streamly-native-subtitle-${id}`,
-        entry.languageId || entry.language,
-      );
-    } catch {
-      // storage full/blocked — subtitle still works this session
-    }
-    try {
-      const text = await SubtitleFetcher.downloadAndDecompress(entry.downloadLink);
-      if (token !== subtitleTokenRef.current) return; // a newer pick superseded this
-      if (!text) {
-        if (token === subtitleTokenRef.current) {
-          subtitleEnabledRef.current = false;
-          setSubtitleEnabled(false);
-          setCurrentSubtitle(null);
-          // The fetcher logs the precise leg/status to the console; the pane
-          // keeps the actionable half on screen.
-          setSubtitleError(
-            "Subtitle download failed — try another language. If every language fails, the Cloudflare relay is serving without the OpenSubtitles update (redeploy the worker snippet from .env.example).",
-          );
-        }
-        return;
-      }
-      const parsed = SubtitleEngine.parseSRT(text);
-      const cues = parsed.length ? parsed : SubtitleEngine.parseVTT(text);
-      if (!cues.length) {
-        // The fetcher already refuses non-subtitle bodies, so reaching here
-        // means a real caption file with zero parseable lines — never leave
-        // the track "enabled" with nothing to render.
-        if (token === subtitleTokenRef.current) {
-          subtitleEnabledRef.current = false;
-          setSubtitleEnabled(false);
-          setCurrentSubtitle(null);
-          subtitleEngineRef.current?.setCues([]);
-          applySubtitleCue(null);
-          setSubtitleError("This subtitle file had no readable lines — pick another language.");
-        }
-        return;
-      }
-      const engine = subtitleEngineRef.current || (subtitleEngineRef.current = new SubtitleEngine());
-      engine.setCues(cues);
-      if (token === subtitleTokenRef.current) {
-        const cue = engine.getActiveCue(videoRef.current?.currentTime || 0);
-        applySubtitleCue(cue?.text || null);
-        setSubtitleError(null);
-      }
-    } catch {
-      if (token === subtitleTokenRef.current) {
-        subtitleEnabledRef.current = false;
-        setSubtitleEnabled(false);
-        setCurrentSubtitle(null);
-        setSubtitleError("Subtitle download failed — try another language.");
-      }
-    }
-  };
-
-  // Load the language list once per title; remember the last choice per title id.
-  // No imdbId gate: the fetcher falls back to a title search on its own, so a
-  // title whose external_ids lookup failed still gets a list instead of a
-  // silent empty pane.
-  useEffect(() => {
-    let cancelled = false;
-    subtitleTokenRef.current += 1;
-    subtitleEnabledRef.current = false;
-    subtitleEngineRef.current?.setCues([]);
-    setSubtitleLanguages([]);
-    setSubtitleEnabled(false);
-    setCurrentSubtitle(null);
-    setSubtitleError(null);
-    applySubtitleCue(null);
-    setIsFetchingSubtitles(true);
-    SubtitleFetcher.searchAvailableSubtitles(imdbId, title || "")
-      .then((langs) => {
-        if (cancelled) return;
-        const list = langs || [];
-        setSubtitleLanguages(list);
-        let remembered = null;
-        try {
-          remembered = window.localStorage.getItem(`streamly-native-subtitle-${id}`);
-        } catch {
-          // storage unavailable — no auto restore
-        }
-        if (remembered) {
-          const match =
-            list.find((l) => l.languageId === remembered) ||
-            list.find((l) => l.language === remembered);
-          if (match) {
-            selectSubtitle(match);
-            return;
-          }
-        }
-        /* Auto Subtitles: "Automatically select subtitles in your preferred
-           language when available". The Settings toggle existed and nothing
-           read it, so a viewer who asked for this got no subtitles until they
-           opened the panel and picked a language by hand. Only runs when
-           nothing was remembered — an explicit past pick always wins. */
-        if (prefs?.autoSubtitles) {
-          const preferred = findSubtitleTrack(list, prefs?.defaultLanguage);
-          if (preferred) selectSubtitle(preferred);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsFetchingSubtitles(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, type, imdbId]);
 
   const pickAuto = () => {
     const hls = hlsRef.current;
