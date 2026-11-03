@@ -14,7 +14,7 @@
 // (Audio-track switching is NOT a chrome button — the design clubs it inside the
 // Settings menu, so there is no `showAudioButton` here.)
 import { motion, useReducedMotion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
+import { PRESS_SCALE, useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import Tooltip from "./Tooltip";
 import { IS_TOUCH, SAFE_BOTTOM, SCRUBBER_BAND_STYLE } from "./constants";
@@ -106,12 +106,10 @@ export default function BottomChrome({
 
   return (
     <motion.div
-      initial={false}
-      animate={{
-        opacity: visible ? 1 : 0,
-        y: visible ? 0 : 20,
-      }}
-      transition={M.SPRING.SHEET}
+      initial={M.MODAL_PANEL.initial}
+      animate={M.MODAL_PANEL.animate}
+      exit={M.MODAL_PANEL.exit}
+      transition={M.MODAL_PANEL.transition}
       // Faded chrome is not just invisible: without this its buttons stay in the
       // tab order and receive focus while painted at 0 opacity.
       inert={!visible}
@@ -307,13 +305,17 @@ export default function BottomChrome({
           </Tooltip>
         )}
         {!centerTransport && (
-          <div className="np-pill np-circle-pill" style={{ ...PILL, width: playSize, height: playSize }}>
+          <motion.div
+            className="np-pill np-circle-pill"
+            style={{ ...PILL, width: playSize, height: playSize }}
+            whileTap={{ scale: PRESS_SCALE.CONTROL }}
+          >
             <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
               <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
                 {playing ? <IconPause size={30} /> : <IconPlay size={28} />}
               </IconBtn>
             </Tooltip>
-          </div>
+          </motion.div>
         )}
         {!IS_TOUCH && (
           <Tooltip tip={`Forward ${skipSeconds} seconds (hold for 2×)`} kbd="→">

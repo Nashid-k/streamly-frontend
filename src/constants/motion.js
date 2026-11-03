@@ -190,6 +190,7 @@ export function useMotionTokens(reduced) {
         PILL_IN: withTransition(PILL_IN),
         CHECK_POP: withTransition(CHECK_POP),
         FADE: withTransition(FADE),
+        MODAL_PANEL: withTransition(MODAL_PANEL),
         REVEAL: withTransition(REVEAL),
       };
     },
