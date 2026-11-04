@@ -1102,7 +1102,7 @@ export default function NativePlayerView({
     // If clicking Settings while any settings panel is open, close it.
     // Otherwise open root settings.
     setPanel((p) =>
-      ["settings", "servers", "audio", "subs", "video", "playback", "appearance", "sourcequality"].includes(p)
+      ["settings", "servers", "audio", "subs", "video", "playback", "appearance", "sourcequality", "captions"].includes(p)
         ? null
         : "settings",
     );

@@ -3194,17 +3194,53 @@
   text-align: center;
   overflow-wrap: anywhere;
 }
-.np-root .tile:hover, .np-root .row:hover {
-  background: #ffffff14;
+.np-root .tile:hover,
+.np-root .row:hover,
+.sheet .tile:hover,
+.sheet .row:hover,
+.sheet .np-tile:hover,
+.sheet .np-menu-row:hover,
+.sheet .np-pick:hover,
+.sheet .np-dialog-row:hover,
+.sheet .np-dialog-row:hover:not(:disabled),
+.sheet .np-dialog-row[aria-pressed="true"]:hover:not(:disabled),
+.sheet .np-opt:hover,
+.sheet .np-ep:hover,
+.sheet .np-episode-card:hover {
+  background: #ffffff14 !important;
+  color: #fff !important;
 }
-.np-root .tile:hover {
-  transform: translateY(-1px);
+.np-root .tile:hover,
+.sheet .tile:hover,
+.sheet .np-tile:hover {
+  transform: translateY(-1px) !important;
 }
-.row:hover .chv {
-  transform: translateX(3px);
+.row:hover .chv,
+.sheet .row:hover .chv,
+.sheet .row:hover svg.chv,
+.sheet .np-menu-row:hover svg,
+.sheet .np-opt:hover .chv,
+.sheet .np-opt:hover svg {
+  transform: translateX(3px) !important;
 }
-.np-root .tile:active, .np-root .row:active {
-  transform: scale(var(--press-scale-row));
+.np-root .tile:active,
+.np-root .row:active,
+.sheet .tile:active,
+.sheet .row:active,
+.sheet .np-tile:active,
+.sheet .np-menu-row:active,
+.sheet .np-pick:active,
+.sheet .np-dialog-row:active,
+.sheet .np-opt:active,
+.sheet .np-ep:active,
+.sheet .np-episode-card:active {
+  transform: scale(.985) !important;
+}
+.sheet .row .chv,
+.sheet .row svg.chv,
+.sheet .np-menu-row svg,
+.sheet .np-opt svg {
+  transition: transform 350ms var(--ease);
 }
 .np-root .row {
   display: flex;
@@ -3347,10 +3383,29 @@
   border: 0;
   cursor: pointer;
 }
-.np-root .seg button[aria-checked="true"] {
+.np-root .seg button:hover,
+.sheet .seg button:hover,
+.np-root .np-seg-btn:hover,
+.sheet .np-seg-btn:hover {
+  background: #ffffff14;
+  color: #fff;
+}
+.np-root .seg button[aria-checked="true"],
+.sheet .seg button[aria-checked="true"],
+.np-root .seg button[aria-pressed="true"],
+.sheet .seg button[aria-pressed="true"] {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
+}
+.np-root .seg button[aria-checked="true"]:hover,
+.sheet .seg button[aria-checked="true"]:hover,
+.np-root .seg button[aria-pressed="true"]:hover,
+.sheet .seg button[aria-pressed="true"]:hover,
+.np-root .np-seg-btn.on:hover,
+.sheet .np-seg-btn.on:hover {
+  background: var(--accent);
+  color: #fff;
 }
 .np-root .range {
   -webkit-appearance: none;
@@ -3395,7 +3450,8 @@
   grid-template-columns: repeat(auto-fill, minmax(4.4em, 1fr));
   gap: .4em;
 }
-.np-root .th {
+.np-root .th,
+.sheet .th {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3408,18 +3464,31 @@
   min-height: 44px;
   background: none;
   cursor: pointer;
+  transition: background 200ms var(--ease), color 200ms var(--ease), border-color 200ms var(--ease);
 }
-.np-root .th i {
+.np-root .th:hover,
+.sheet .th:hover {
+  color: #dbe4ec;
+  background: #ffffff0d;
+}
+.np-root .th i,
+.sheet .th i {
   width: 2.6em;
   height: 2.6em;
   border-radius: 50%;
   transition: transform 300ms var(--ease);
 }
-.np-root .th[aria-checked="true"] {
+.np-root .th:hover i,
+.sheet .th:hover i {
+  transform: scale(1.06);
+}
+.np-root .th[aria-checked="true"],
+.sheet .th[aria-checked="true"] {
   border-color: #9aa3ab;
   color: #dbe4ec;
 }
-.np-root .th[aria-checked="true"] i {
+.np-root .th[aria-checked="true"] i,
+.sheet .th[aria-checked="true"] i {
   transform: scale(1.1);
 }
 .np-root .custom,
@@ -3611,3 +3680,54 @@
     transform: none;
   }
 }
+
+/* ── Sheet geometry & button hover matching player-v4 ─────────────────── */
+.sheet .tile,
+.sheet .np-tile {
+  min-height: 4.4em !important;
+  height: auto !important;
+  padding: .6em .4em !important;
+}
+.sheet .row,
+.sheet .np-menu-row,
+.sheet .np-pick,
+.sheet .np-dialog-row,
+.sheet .np-opt,
+.sheet .np-ep {
+  min-height: 2.8em !important;
+  height: auto !important;
+  padding: .4em .9em !important;
+  font-size: inherit !important;
+  border-radius: .8em !important;
+  box-shadow: none !important;
+}
+.sheet .hd {
+  padding-top: .4em;
+}
+.sheet .np-dialog-row:hover:not(:disabled),
+.sheet .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
+  padding-left: .9em !important;
+  background: #ffffff14 !important;
+}
+
+.np-root .btn,
+.sheet .btn {
+  transition: transform 200ms var(--ease), background 200ms var(--ease);
+}
+.np-root .btn:hover:not(:disabled),
+.sheet .btn:hover:not(:disabled) {
+  background: #ffffff1f;
+}
+.np-root .btn.nb:hover,
+.sheet .btn.nb:hover {
+  background: none !important;
+}
+.np-root .btn:active:not(:disabled),
+.sheet .btn:active:not(:disabled) {
+  transform: scale(.9) !important;
+}
+.np-root .bk:hover .ic,
+.sheet .bk:hover .ic {
+  transform: translateX(-2px) !important;
+}
+

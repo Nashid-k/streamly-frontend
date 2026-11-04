@@ -40,6 +40,7 @@ const SUB_PANELS = new Set([
   "servers",
   "playback",
   "appearance",
+  "captions",
   "sourcequality",
   "episodes",
 ]);
@@ -47,6 +48,7 @@ const SUB_PANELS = new Set([
 const HEIGHT_CLASS = {
   playback: "np-menu-tall",
   appearance: "np-menu-tall",
+  captions: "np-menu-tall",
   episodes: "np-menu-episodes",
 };
 

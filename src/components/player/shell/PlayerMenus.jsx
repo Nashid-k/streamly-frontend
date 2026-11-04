@@ -541,36 +541,17 @@ export default function PlayerMenus({
           />
         </div>
 
-        <div className="np-lbl">Subtitle size</div>
-        <Seg
-          ariaLabel="Subtitle size"
-          value={sizeIndex}
-          onChange={(i) => {
-            setSubtitleSize(i);
-            poke();
-          }}
-          options={SUBTITLE_SIZES.map((name, i) => ({ value: i, label: name }))}
-        />
-
-        <div className="np-lbl">Subtitle background</div>
-        <Seg
-          ariaLabel="Subtitle background"
-          value={bgIndex}
-          onChange={(i) => {
-            setSubtitleBg(i);
-            poke();
-          }}
-          options={SUBTITLE_BACKGROUNDS.map((name, i) => ({ value: i, label: name }))}
-        />
-
         <button
           type="button"
           className="np-menu-row row"
-          onClick={() => setPanel("captions")}
-          style={{ marginTop: 14 }}
+          onClick={() => {
+            setPanel("captions");
+            poke();
+          }}
+          style={{ marginTop: 16 }}
         >
-          <span>Advanced Subtitle Style</span>
-          <IconChevronRight size={22} />
+          <span>Subtitle style</span>
+          <svg className="ic chv"><use href="#i-chev" /></svg>
         </button>
       </div>
     );

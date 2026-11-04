@@ -2,6 +2,7 @@
 // Presentation only. Follows player-v4.html structure:
 // - .stage for video
 // - .ui overlay containing .dim, .ld, .big, .osd, .dt.l, .dt.r, .top, .bot, .sheet
+import { useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   ChromeTopBar,
@@ -178,6 +179,14 @@ export default function PlayerShell({
     initialSubColor: prefs?.subtitleColor,
   });
 
+  const prevPanelRef = useRef(null);
+
+  const handleSetPanel = (next) => {
+    if (next && next !== panel) {
+      prevPanelRef.current = panel;
+    }
+    setPanel(next);
+  };
   const isInitialStage = Boolean(showStage || !everPlayed);
   const isLoading = Boolean((buffering || spinner) && !isInitialStage);
   const isMuted = muted || autoMuted || volume === 0;
@@ -472,21 +481,42 @@ export default function PlayerShell({
           <PlayerPanel
             panel={panel}
             panelRef={panelRef}
-            onClose={() => setPanel(null)}
+            onClose={() => {
+              prevPanelRef.current = null;
+              setPanel(null);
+            }}
             onBackToSettings={() => {
-              setPanel("settings");
+              if (prevPanelRef.current) {
+                const dest = prevPanelRef.current;
+                prevPanelRef.current = null;
+                setPanel(dest);
+              } else {
+                setPanel("settings");
+              }
               poke();
             }}
             season={season}
-            actionLabel={panel === "subs" ? "Customize" : null}
+            actionLabel={
+              panel === "subs"
+                ? "Customize"
+                : panel === "settings"
+                  ? "Appearance"
+                  : null
+            }
             onAction={() => {
-              setPanel("appearance");
+              if (panel === "subs") {
+                prevPanelRef.current = "subs";
+                setPanel("captions");
+              } else if (panel === "settings") {
+                prevPanelRef.current = "settings";
+                setPanel("appearance");
+              }
               poke();
             }}
           >
             <PlayerMenus
               panel={panel}
-              setPanel={setPanel}
+              setPanel={handleSetPanel}
               poke={poke}
               activeSourceKey={activeSourceKey}
               requestedServer={requestedServer}
