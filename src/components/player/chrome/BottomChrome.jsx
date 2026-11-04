@@ -209,6 +209,13 @@ export default function BottomChrome({
               if (e.currentTarget.contains(e.relatedTarget)) return;
               onVolHoverChange?.(false);
             }}
+            onWheel={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const delta = e.deltaY < 0 ? 0.05 : -0.05;
+              const next = Math.min(1, Math.max(0, volume + delta));
+              onVolumeChange?.(next);
+            }}
           >
             <button
               type="button"

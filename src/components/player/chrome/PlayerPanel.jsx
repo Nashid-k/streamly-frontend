@@ -168,7 +168,11 @@ export default function PlayerPanel({
           {isSub ? <div className="np-subline" /> : null}
 
           {/* Dynamic Viewport */}
-          <div className="vp np-vp" id="vp">
+          <div
+            className="vp np-vp"
+            id="vp"
+            onWheel={(e) => e.stopPropagation()}
+          >
             <motion.div
               key={panel}
               className="np-page pane in"

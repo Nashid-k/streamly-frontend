@@ -205,6 +205,13 @@ export default function PlayerShell({
         ref={screenRef}
         onMouseMove={poke}
         onPointerDown={dismissStillWatching}
+        onWheel={(e) => {
+          if (panel) return;
+          e.preventDefault();
+          const delta = e.deltaY < 0 ? 0.05 : -0.05;
+          const next = Math.min(1, Math.max(0, volume + delta));
+          onVolumeChange(next);
+        }}
         className={[
           "player",
           "np-root",

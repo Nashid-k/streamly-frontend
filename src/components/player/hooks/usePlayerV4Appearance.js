@@ -55,7 +55,12 @@ export default function usePlayerV4Appearance({
 
   const [subBgStyle, setSubBgStyleState] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_CB) || "shadow";
+      const v4 = localStorage.getItem(STORAGE_CB);
+      if (v4 && ["shadow", "box", "outline"].includes(v4)) return v4;
+      const legacy = localStorage.getItem("streamly_subtitle_bg");
+      if (legacy === "2") return "box";
+      if (legacy === "3") return "outline";
+      return "shadow";
     } catch {
       return "shadow";
     }
@@ -99,15 +104,18 @@ export default function usePlayerV4Appearance({
       /* ignore storage failure */
     }
     if (setSubtitleBg) {
-      if (style === "shadow") setSubtitleBg(0);
-      else if (style === "box") setSubtitleBg(2);
+      if (style === "box") setSubtitleBg(2);
+      else if (style === "outline") setSubtitleBg(3);
       else setSubtitleBg(1);
     }
   }, [setSubtitleBg]);
 
   // cz scale calculation
   const czValues = [0.8, 1, 1.3, 1.7];
-  const cz = czValues[subtitleSize] || 1;
+  const cz =
+    typeof subtitleSize === "number" && czValues.includes(subtitleSize)
+      ? subtitleSize
+      : (czValues[subtitleSize] ?? 1);
 
   const accentRgb = hexToRgb(accent);
 

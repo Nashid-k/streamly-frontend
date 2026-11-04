@@ -8,6 +8,7 @@
 // - Appearance pane: Control icon size slider (0.5-2.2x), 8 preset themes, custom hex picker
 // - Captions pane: Live preview box, size (S/M/L/XL), background style (shadow/box/outline), color (White/Yellow/Cyan/Green)
 // - Episodes pane: .row.ep, badge .eb, air date, watched status, active indicator
+import { useEffect } from "react";
 import {
   DialogRow,
   IconChevronRight,
@@ -49,26 +50,27 @@ function Pick({ selected, onClick, children, disabled }) {
 }
 
 function Seg({ options, value, onChange, ariaLabel }) {
-  const index = options.findIndex((o) => o.value === value);
+  const colClass = options.length === 4 ? "c4" : options.length === 3 ? "c3" : "";
   return (
     <div
-      className={["np-seg", "seg", `c${options.length}`].join(" ")}
-      role="group"
+      className={["seg", colClass].filter(Boolean).join(" ")}
+      role="radiogroup"
       aria-label={ariaLabel}
-      style={{ "--n": options.length, "--i": Math.max(0, index) }}
     >
-      <span className="np-seg-thumb" aria-hidden="true" />
-      {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          className={["np-seg-btn", o.value === value ? "on" : ""].filter(Boolean).join(" ")}
-          aria-pressed={o.value === value}
-          onClick={() => onChange(o.value)}
-        >
-          {o.label}
-        </button>
-      ))}
+      {options.map((o) => {
+        const isSel = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={isSel}
+            onClick={() => onChange(o.value)}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -174,10 +176,23 @@ export default function PlayerMenus({
     poke();
   };
 
-  const sizeIndex = [0, 1, 2, 3].includes(subtitleSize) ? subtitleSize : 1;
+  const sizeIndex = [0, 1, 2, 3].includes(subtitleSize)
+    ? subtitleSize
+    : [0.8, 1, 1.3, 1.7].indexOf(subtitleSize) >= 0
+    ? [0.8, 1, 1.3, 1.7].indexOf(subtitleSize)
+    : 1;
   const bgIndex = [0, 1, 2].includes(subtitleBg) ? subtitleBg : 1;
 
   const episodeRows = Array.isArray(episodes) ? episodes : [];
+
+  useEffect(() => {
+    if (panel === "episodes") {
+      const cur = document.querySelector(".np-menu .row.ep.cur, .sheet .row.ep.cur, .sheet [aria-current='true']");
+      if (cur && typeof cur.scrollIntoView === "function") {
+        cur.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+  }, [panel]);
 
   if (panel === "settings") {
     return (
@@ -560,32 +575,25 @@ export default function PlayerMenus({
   if (panel === "captions") {
     const subColor = v4Appearance?.subColor || "#ffffff";
     const subBgStyle = v4Appearance?.subBgStyle || "shadow";
-    const SUB_COLORS = [
-      { name: "White", value: "#ffffff" },
-      { name: "Yellow", value: "#ffe600" },
-      { name: "Cyan", value: "#00e5ff" },
-      { name: "Green", value: "#69f0ae" },
-    ];
-    const SUB_STYLES = [
-      { name: "Shadow", value: "shadow" },
-      { name: "Box", value: "box" },
-      { name: "Outline", value: "outline" },
-    ];
-    const SUB_SIZE_OPTIONS = [
-      { name: "Small", value: 0 },
-      { name: "Medium", value: 1 },
-      { name: "Large", value: 2 },
-      { name: "XL", value: 3 },
-    ];
+    const czMap = [0.8, 1, 1.3, 1.7];
+    const activeCz = czMap[sizeIndex] || 1;
 
     return (
-      <div className="np-pbody">
+      <div className="np-pbody np-captions-body">
         {/* Live preview matching player-v4.html */}
-        <div className="cap pv">
-          <div className="cl">Subtitle preview text</div>
+        <div
+          className="cap pv"
+          data-cb={subBgStyle}
+          style={{
+            "--cz": activeCz,
+            "--cc": subColor,
+            color: subColor,
+          }}
+        >
+          <div className="cl" style={{ color: subColor }}>Subtitle preview text</div>
         </div>
 
-        <div className="np-lbl first">Size</div>
+        <div className="lbl np-lbl first">Size</div>
         <div className="seg c4" role="radiogroup" aria-label="Subtitle size">
           {[["Small", 0], ["Medium", 1], ["Large", 2], ["XL", 3]].map(([name, val]) => (
             <button
@@ -603,7 +611,7 @@ export default function PlayerMenus({
           ))}
         </div>
 
-        <div className="np-lbl">Background</div>
+        <div className="lbl np-lbl">Background</div>
         <div className="seg c3" role="radiogroup" aria-label="Subtitle background">
           {[["Shadow", "shadow"], ["Box", "box"], ["Outline", "outline"]].map(([name, val]) => (
             <button
@@ -621,7 +629,7 @@ export default function PlayerMenus({
           ))}
         </div>
 
-        <div className="np-lbl">Color</div>
+        <div className="lbl np-lbl">Color</div>
         <div className="seg c4" role="radiogroup" aria-label="Subtitle color">
           {[["White", "#ffffff"], ["Yellow", "#ffe14d"], ["Cyan", "#5ee7ff"], ["Green", "#7dff8a"]].map(([name, val]) => {
             const isSel = subColor.toLowerCase() === val.toLowerCase();

@@ -44,13 +44,13 @@ export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs 
   const [currentSubtitle, setCurrentSubtitle] = useState(null); // the selected track object
   const [isFetchingSubtitles, setIsFetchingSubtitles] = useState(false);
   const [subtitleError, setSubtitleError] = useState(null);
-  /* Subtitle STYLING: size 0=S/1=M/2=L, background 0=none/1=shadow/2=box.
+  /* Subtitle STYLING: size 0=S/1=M/2=L/3=XL, background 0=none/1=shadow/2=box/3=outline.
      Presentation only — persisted separately from the track choice. */
   const [subtitleSize, setSubtitleSize] = useState(() =>
-    readStoredNumber(SUB_SIZE_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
+    readStoredNumber(SUB_SIZE_STORAGE_KEY, { min: 0, max: 3, fallback: 1 }),
   );
   const [subtitleBg, setSubtitleBg] = useState(() =>
-    readStoredNumber(SUB_BG_STORAGE_KEY, { min: 0, max: 2, fallback: 1 }),
+    readStoredNumber(SUB_BG_STORAGE_KEY, { min: 0, max: 3, fallback: 1 }),
   );
 
   const subtitleEngineRef = useRef(null);
