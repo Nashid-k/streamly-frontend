@@ -2333,34 +2333,53 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
 }
 
-/* Double-tap flash */
-.np-root .dt {
+/* Double-tap / seek flash badge matching player-v4.html */
+.np-root .dt,
+.player .dt {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 36%;
-  z-index: 1;
-  pointer-events: none;
+  top: 50%;
+  width: 7em;
+  height: 7em;
+  margin-top: -3.5em;
+  border-radius: 50%;
+  background: #00000088;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .2em;
   opacity: 0;
-  background: radial-gradient(circle at var(--cx) 50%, #ffffff33, #0000 70%);
+  pointer-events: none;
+  transition: opacity 200ms var(--ease), transform 400ms var(--ease);
+  z-index: 2;
+  color: #fff;
 }
-.np-root .dt.l {
-  left: 0;
-  --cx: 30%;
-  border-radius: 0 60% 60% 0 / 0 100% 100% 0;
+.np-root .dtl,
+.player .dtl {
+  left: 10%;
+  transform: translateX(-1em) scale(.85);
 }
-.np-root .dt.r {
-  right: 0;
-  --cx: 70%;
-  border-radius: 60% 0 0 60% / 100% 0 0 100%;
+.np-root .dtr,
+.player .dtr {
+  right: 10%;
+  transform: translateX(1em) scale(.85);
 }
-.np-root .dt.show {
-  animation: dtf 600ms var(--ease);
+.np-root .dt.show,
+.player .dt.show {
+  opacity: 1;
+  transform: none;
 }
-@keyframes dtf {
-  0% { opacity: 0; }
-  20% { opacity: 1; }
-  100% { opacity: 0; }
+.np-root .dt .ic,
+.player .dt .ic {
+  width: 2.2em;
+  height: 2.2em;
+}
+.np-root .dt b,
+.player .dt b {
+  font-size: .95em;
+  font-weight: 700;
 }
 
 /* Buffered */
@@ -2585,11 +2604,13 @@
   line-height: 1.3 !important;
   font-weight: 600 !important;
   color: var(--cc, #fff) !important;
+  text-shadow: 0 0 .18em #000, 0 .05em .2em #000, 0 0 .5em #000b;
   transition: background 200ms var(--ease), text-shadow 200ms var(--ease), -webkit-text-stroke 200ms var(--ease) !important;
 }
 
 /* Background Style: Box */
-:is([data-cb="box"] .cap, .cap[data-cb="box"], [data-cb="box"] .cap.pv, .cap.pv[data-cb="box"]) .cl {
+:is([data-cb="box"], .player[data-cb="box"], .sheet[data-cb="box"]) :is(.cap, .cap.pv) .cl,
+:is(.cap[data-cb="box"], .cap.pv[data-cb="box"]) .cl {
   background: #000c !important;
   text-shadow: none !important;
   -webkit-text-stroke: 0 transparent !important;
@@ -2598,7 +2619,8 @@
 }
 
 /* Background Style: Outline */
-:is([data-cb="outline"] .cap, .cap[data-cb="outline"], [data-cb="outline"] .cap.pv, .cap.pv[data-cb="outline"]) .cl {
+:is([data-cb="outline"], .player[data-cb="outline"], .sheet[data-cb="outline"]) :is(.cap, .cap.pv) .cl,
+:is(.cap[data-cb="outline"], .cap.pv[data-cb="outline"]) .cl {
   background: transparent !important;
   text-shadow: none !important;
   -webkit-text-stroke: .14em #000 !important;
@@ -2608,8 +2630,8 @@
 }
 
 /* Background Style: Shadow (default) */
-:is([data-cb="shadow"] .cap, .cap[data-cb="shadow"], [data-cb="shadow"] .cap.pv, .cap.pv[data-cb="shadow"]) .cl,
-:is(.cap, .cap.pv):not([data-cb="box"]):not([data-cb="outline"]) .cl {
+:is([data-cb="shadow"], .player[data-cb="shadow"], .sheet[data-cb="shadow"]) :is(.cap, .cap.pv) .cl,
+:is(.cap[data-cb="shadow"], .cap.pv[data-cb="shadow"]) .cl {
   background: transparent !important;
   text-shadow: 0 0 .18em #000, 0 .05em .2em #000, 0 0 .5em #000b !important;
   -webkit-text-stroke: 0 transparent !important;
@@ -2937,6 +2959,21 @@
 @keyframes ldDash {
   0%, 100% { stroke-dasharray: 12 88; }
   50% { stroke-dasharray: 48 52; }
+}
+
+.np-root .ld.np-v4-loader,
+.ld.np-v4-loader {
+  position: relative !important;
+  top: auto !important;
+  left: auto !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  transform: none !important;
+  z-index: 1 !important;
+}
+.np-root .ld.np-v4-loader::before,
+.ld.np-v4-loader::before {
+  display: none !important;
 }
 
 /* Settings Sheet */
@@ -3828,16 +3865,19 @@
   background: #ffffff14 !important;
 }
 
-/* No blurry / grayish disc backgrounds on hover */
+/* No blurry / grayish disc / circular backgrounds on hover */
+:is(.player, .np-root, .sheet, .ctl, .top) .btn,
 .np-root .btn,
 .sheet .btn {
   transition: transform 200ms var(--ease), background 200ms var(--ease);
 }
+:is(.player, .np-root, .sheet, .ctl, .top) .btn:hover,
 .np-root .btn:hover,
 .sheet .btn:hover,
 .np-root .np-icon-btn:hover {
   background: none !important;
 }
+:is(.player, .np-root, .sheet, .ctl, .top) .btn.nb:hover,
 .np-root .btn.nb:hover,
 .sheet .btn.nb:hover {
   background: none !important;
@@ -3851,6 +3891,10 @@
   transform: translateX(-2px) !important;
 }
 
+:is(.player, .np-root, .sheet, .ctl, .top) :is(.btn, .np-icon-btn)::after,
+:is(.player, .np-root, .sheet, .ctl, .top) :is(.btn, .np-icon-btn):hover::after,
+:is(.player, .np-root, .sheet, .ctl, .top) :is(.btn, .np-icon-btn)::before,
+:is(.player, .np-root, .sheet, .ctl, .top) :is(.btn, .np-icon-btn):hover::before,
 .np-root .btn::before,
 .sheet .btn::before,
 .np-root .np-icon-btn::before,
@@ -3858,7 +3902,14 @@
 .np-dialog-row::before,
 .sheet .np-dialog-row::before {
   display: none !important;
+  opacity: 0 !important;
   content: none !important;
+}
+
+/* Retire legacy green tailspin ring in favour of v4 double-arc loader */
+.np-tailspin,
+.np-ring-spinner {
+  display: none !important;
 }
 
 /* ── Skip Intro / Outro matching player-v4 ────────────────────────────── */

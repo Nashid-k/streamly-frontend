@@ -284,19 +284,25 @@ export default function PlayerShell({
             style={{ pointerEvents: panel ? "auto" : "none" }}
           />
 
-          {/* Double-tap ripple flashes (pure gradient flash without inner clutter) */}
+          {/* Skip / ff / bw feedback badges matching player-v4.html */}
           <div
             key={`dt-l-${hudSeq || 0}`}
-            className={["dt", "l", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "dtl", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtl"
             aria-hidden="true"
-          />
+          >
+            <svg className="ic"><use href="#i-rew" /></svg>
+            <b>{Math.abs(hud?.value || skipSeconds || 10)}s</b>
+          </div>
           <div
             key={`dt-r-${hudSeq || 0}`}
-            className={["dt", "r", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "dtr", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtr"
             aria-hidden="true"
-          />
+          >
+            <svg className="ic"><use href="#i-fwd" /></svg>
+            <b>{Math.abs(hud?.value || skipSeconds || 10)}s</b>
+          </div>
 
           {/* Player v4 Double-Arc Spinner (.ld) — hidden during initial logo image loader */}
           {!isInitialStage ? (
@@ -361,6 +367,7 @@ export default function PlayerShell({
             controlsVisible={controlsVisible}
             size={subtitleSize}
             background={subtitleBg}
+            subBgStyle={v4Appearance.subBgStyle}
             fontFamily={subtitleFontFamily(prefs?.subtitleFont)}
             color={v4Appearance.subColor || prefs?.subtitleColor || "#fff"}
             scale={prefs?.subtitleSize}

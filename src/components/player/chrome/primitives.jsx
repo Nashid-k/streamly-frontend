@@ -230,22 +230,42 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
    causes discomfort, and it is exactly what that media query exists for.
    The conic-gradient comet-tail sweep reads lighter than a border-arc spinner
    at the same size; rendered in the signal accent over video. */
-export function RingSpinner({ size = 34 }) {
+export function RingSpinner({ size = 44 }) {
   return (
-    <span
-      className="np-tailspin np-ring-spinner"
+    <div
+      className="ld np-v4-loader"
       aria-hidden="true"
-      style={{ "--uib-size": `${size}px`, "--uib-color": ACCENT, "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
+      style={{
+        position: "relative",
+        width: size,
+        height: size,
+        top: "auto",
+        left: "auto",
+        transform: "none",
+        opacity: 1,
+        visibility: "visible",
+      }}
     >
-      <span />
-    </span>
+      <span className="np-tailspin" style={{ display: "none" }}><span /></span>
+      <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%" }}>
+        <defs>
+          <linearGradient id="lg-ring" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" style={{ stopColor: "var(--accent, #8652bb)" }} />
+            <stop offset="1" stopColor="#fff" />
+          </linearGradient>
+        </defs>
+        <circle className="lt" cx="50" cy="50" r="40" />
+        <circle className="arc a1" cx="50" cy="50" r="40" pathLength="100" style={{ stroke: "url(#lg-ring)" }} />
+        <circle className="arc a2" cx="50" cy="50" r="28" pathLength="100" style={{ stroke: "url(#lg-ring)" }} />
+      </svg>
+    </div>
   );
 }
 
 /* The horizontal loader: a hairline track with an accent segment sweeping
    across it. Used for the SERVER-level cold opens (the first load and a manual
-   server switch — see LoadingStage); every other later wait keeps the round
-   Tailspin ring. Purely decorative, aria-hidden, and the reduced-motion block in
+   server switch — see LoadingStage); every other later wait keeps the unified
+   v4 double-arc spinner. Purely decorative, aria-hidden, and the reduced-motion block in
    player.css parks the segment mid-track (a frozen full bar would read as
    progress; a parked partial bar reads as "loading"). */
 export function LineLoader() {
@@ -267,8 +287,8 @@ export function LineLoader() {
           display: "block",
           height: "100%",
           borderRadius: 999,
-          background: `linear-gradient(90deg, rgba(149,255,80,0.45), ${ACCENT})`,
-          boxShadow: "0 0 12px rgba(149,255,80,0.55)",
+          background: "linear-gradient(90deg, var(--accent, #8652bb), #fff)",
+          boxShadow: "0 0 12px var(--accent, #8652bb)",
         }}
       />
     </span>

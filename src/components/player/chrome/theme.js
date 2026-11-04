@@ -11,14 +11,14 @@
 
 // Default accent from player-v4.html
 export const DEFAULT_V4_ACCENT = "#8652bb";
-// Primary accent fallback: Streamly signal green or user-customized.
-export const ACCENT = "#95ff50";
+// Primary accent fallback: unified with player v4 theme accent.
+export const ACCENT = "#8652bb";
 // Glyph/text colour that sits ON an accent fill (dark, never white).
-export const ACCENT_FG = "#07120a";
-export const ACCENT_DIM = "rgba(149,255,80,0.88)";
-export const ACCENT_SOFT = "rgba(149,255,80,0.14)";
-export const ACCENT_EDGE = "rgba(149,255,80,0.42)";
-export const ACCENT_GLOW = "0 0 20px rgba(149,255,80,0.32)";
+export const ACCENT_FG = "#ffffff";
+export const ACCENT_DIM = "rgba(134,82,187,0.88)";
+export const ACCENT_SOFT = "rgba(134,82,187,0.14)";
+export const ACCENT_EDGE = "rgba(134,82,187,0.42)";
+export const ACCENT_GLOW = "0 0 20px rgba(134,82,187,0.32)";
 
 // The 8 theme swatches from player-v4.html
 export const PLAYER_V4_THEMES = [
