@@ -7,6 +7,20 @@
 
  ## Done (in order)
 
+- [x] **Player v4 fluid to-and-fro navigation animations, navigation stack history & interactive transitions (user: "find other bugs in current player, and if you digg/refer player v4 animatinos/interactions are fluid in to and fro even navigating through options and navigating back. so update ours") — 2026-11-04.**
+  - **Direction-aware fluid navigation stack (`PlayerShell.jsx`):**
+    - Root cause: Menu options previously had no navigation direction or stack awareness; every pane transitioned in with a hardcoded `+14px` translation regardless of whether the user was advancing deeper or navigating back. Furthermore, navigating from Subtitles to Subtitle style and back would mistakenly drop users into Settings if opened directly from the transport bar.
+    - Fix: Implemented `panelStackRef` navigation history stack and `navDirection` state (`1` for forward, `-1` for back, `0` for neutral open). `handleSetPanel` detects whether a requested panel is already in the stack to automatically reverse direction, and `handleBack` pops to the prior panel in history (or cleanly closes if opened from a standalone transport opener like Subtitles).
+  - **Fluid spring-physics to-and-fro pane transitions (`PlayerPanel.jsx`):**
+    - Aligned with `player-v4.html` physics: panes enter with spring curves (`type: "spring", stiffness: 380, damping: 28, mass: 0.8`), sliding from `+36px` to `0` when advancing forward and from `-36px` to `0` when stepping backward.
+    - Child items in entering panes cascade upward with staggered `--i` index and `animation: rise 500ms var(--ease)` keyframes matching `player-v4.html`.
+  - **Interactive header & back button transitions (`PlayerPanel.jsx`, `player.css`):**
+    - Back button (`#bk`) smoothly expands into view from width 0 to 44px on subpanels and collapses back to 0 when returning to root Settings, sliding the title dynamically.
+    - Heading title (`#st`) glides and fades between view labels via animated text transitions.
+    - Card container bloom uses `transformOrigin: "bottom right"` with spring curve (`stiffness: 360, damping: 26`) matching `player-v4.html` sheet entrance from the gear/subtitles button.
+    - Expanded `.rip` ripple selector to `:is(.player, .np-root, .sheet) .rip, .rip` for fluid pointer feedback on options.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (18 files / 183 tests green), `npm run build` (clean production build in 1.93s).
+
 - [x] **Screen click-to-pause fix, duplicate FF/BW HUD removal & gray circle removal, and Subtitles/Settings button isolation (user: "on clicking the screen with mouse is not pausing, as well as find why two ff/bw shows, remove its bg circle gray color, as well on clicking subttile the settings also shows active color,fix") — 2026-11-04.**
   - **Screen click-to-pause with mouse fix (`PlayerShell.jsx`):**
     - Root cause: `.ui` is positioned with `position: absolute; inset: 0` above `<video>` in DOM order. Because `.ui` lacked an `onClick` handler, clicking anywhere on the screen landed on `.ui` without reaching `<video>`, failing to toggle play/pause or dismiss open panels.

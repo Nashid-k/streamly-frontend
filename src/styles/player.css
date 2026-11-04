@@ -3115,11 +3115,15 @@
 @keyframes rise {
   from { opacity: 0; transform: translateY(.8em); }
 }
-.np-root .row, .np-root .tile, .np-root .th {
+:is(.player, .np-root, .sheet) .row,
+:is(.player, .np-root, .sheet) .tile,
+:is(.player, .np-root, .sheet) .th,
+.row, .tile, .th {
   position: relative;
   overflow: hidden;
 }
-.np-root .rip {
+:is(.player, .np-root, .sheet) .rip,
+.rip {
   position: absolute;
   border-radius: 50%;
   background: #ffffff24;

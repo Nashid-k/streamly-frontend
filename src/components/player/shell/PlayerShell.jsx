@@ -2,7 +2,7 @@
 // Presentation only. Follows player-v4.html structure:
 // - .stage for video
 // - .ui overlay containing .dim, .ld, .big, .osd, .dt.l, .dt.r, .top, .bot, .sheet
-import { useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence } from "framer-motion";
 import {
   ChromeTopBar,
@@ -180,13 +180,61 @@ export default function PlayerShell({
     initialSubColor: prefs?.subtitleColor,
   });
 
-  const prevPanelRef = useRef(null);
+  const [navDirection, setNavDirection] = useState(0);
+  const panelStackRef = useRef([]);
+
+  useEffect(() => {
+    if (!panel) {
+      panelStackRef.current = [];
+      setNavDirection(0);
+      return;
+    }
+    const stack = panelStackRef.current;
+    if (stack.length === 0 || !stack.includes(panel)) {
+      panelStackRef.current = [panel];
+      setNavDirection(0);
+    }
+  }, [panel]);
 
   const handleSetPanel = (next) => {
-    if (next && next !== panel) {
-      prevPanelRef.current = panel;
+    if (!next) {
+      panelStackRef.current = [];
+      setNavDirection(0);
+      setPanel(null);
+      return;
     }
-    setPanel(next);
+    if (next !== panel) {
+      const stack = panelStackRef.current;
+      const existingIndex = stack.indexOf(next);
+      if (existingIndex !== -1) {
+        setNavDirection(-1);
+        panelStackRef.current = stack.slice(0, existingIndex + 1);
+      } else {
+        setNavDirection(1);
+        panelStackRef.current = [...stack, next];
+      }
+      setPanel(next);
+    }
+  };
+
+  const handleBack = () => {
+    const stack = panelStackRef.current;
+    if (stack.length > 1) {
+      const newStack = stack.slice(0, -1);
+      panelStackRef.current = newStack;
+      const target = newStack[newStack.length - 1];
+      setNavDirection(-1);
+      setPanel(target);
+    } else {
+      panelStackRef.current = [];
+      setNavDirection(-1);
+      if (panelOpener === "subs") {
+        setPanel(null);
+      } else {
+        setPanel("settings");
+      }
+    }
+    poke();
   };
   const isInitialStage = Boolean(showStage || !everPlayed);
   const isLoading = Boolean((buffering || spinner) && !isInitialStage);
@@ -510,25 +558,19 @@ export default function PlayerShell({
             panel={panel}
             panelOpener={panelOpener}
             panelRef={panelRef}
+            direction={navDirection}
             onClose={() => {
-              prevPanelRef.current = null;
+              panelStackRef.current = [];
+              setNavDirection(0);
               setPanel(null);
             }}
-            onBackToSettings={() => {
-              if (prevPanelRef.current) {
-                const dest = prevPanelRef.current;
-                prevPanelRef.current = null;
-                setPanel(dest);
-              } else {
-                setPanel("settings");
-              }
-              poke();
-            }}
+            onBackToSettings={handleBack}
             season={season}
             actionLabel={panel === "subs" ? "Customize" : null}
             onAction={() => {
               if (panel === "subs") {
-                prevPanelRef.current = "subs";
+                setNavDirection(1);
+                panelStackRef.current = [...panelStackRef.current, "captions"];
                 setPanel("captions");
               }
               poke();
