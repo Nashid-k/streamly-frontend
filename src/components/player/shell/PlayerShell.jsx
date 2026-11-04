@@ -102,6 +102,7 @@ export default function PlayerShell({
   orderedSources,
   originalLanguage,
   panel,
+  panelOpener,
   panelRef,
   pickAudio,
   pickAuto,
@@ -249,7 +250,11 @@ export default function PlayerShell({
         <PlayerSvgSprite />
 
         {/* Video Stage */}
-        <div className="stage" style={{ position: "absolute", inset: 0, background: "#000" }}>
+        <div
+          className="stage"
+          onClick={onVideoClick}
+          style={{ position: "absolute", inset: 0, background: "#000" }}
+        >
           <video
             ref={videoRef}
             playsInline
@@ -274,7 +279,21 @@ export default function PlayerShell({
         </div>
 
         {/* UI Overlay */}
-        <div className="ui" id="ui">
+        <div
+          className="ui"
+          id="ui"
+          onClick={(e) => {
+            if (e.target.closest?.("button, [role='button'], input, [role='slider'], .sheet, .nxt")) {
+              return;
+            }
+            if (panel) {
+              setPanel(null);
+              poke();
+              return;
+            }
+            onVideoClick(e);
+          }}
+        >
           {/* Dimmer for menu/panel opening */}
           <div
             className="dim"
@@ -284,25 +303,19 @@ export default function PlayerShell({
             style={{ pointerEvents: panel ? "auto" : "none" }}
           />
 
-          {/* Skip / ff / bw feedback badges matching player-v4.html */}
+          {/* Double-tap radial edge flash ripples matching player-v4.html */}
           <div
             key={`dt-l-${hudSeq || 0}`}
-            className={["dt", "dtl", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "l", "dtl", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtl"
             aria-hidden="true"
-          >
-            <svg className="ic"><use href="#i-rew" /></svg>
-            <b>{Math.abs(hud?.value || skipSeconds || 10)}s</b>
-          </div>
+          />
           <div
             key={`dt-r-${hudSeq || 0}`}
-            className={["dt", "dtr", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "r", "dtr", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtr"
             aria-hidden="true"
-          >
-            <svg className="ic"><use href="#i-fwd" /></svg>
-            <b>{Math.abs(hud?.value || skipSeconds || 10)}s</b>
-          </div>
+          />
 
           {/* Player v4 Double-Arc Spinner (.ld) — hidden during initial logo image loader */}
           {!isInitialStage ? (
@@ -462,6 +475,7 @@ export default function PlayerShell({
             onVolumeChange={onVolumeChange}
             showEpisodesButton={showEpisodesButton}
             panel={panel}
+            panelOpener={panelOpener}
             onTogglePanel={onTogglePanel}
             onToggleSettings={onToggleSettings}
             showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
@@ -494,6 +508,7 @@ export default function PlayerShell({
           {/* Settings / audio / subs / servers / quality panel shell */}
           <PlayerPanel
             panel={panel}
+            panelOpener={panelOpener}
             panelRef={panelRef}
             onClose={() => {
               prevPanelRef.current = null;
@@ -521,6 +536,7 @@ export default function PlayerShell({
           >
             <PlayerMenus
               panel={panel}
+            panelOpener={panelOpener}
               setPanel={handleSetPanel}
               poke={poke}
               activeSourceKey={activeSourceKey}

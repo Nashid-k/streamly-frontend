@@ -38,6 +38,7 @@ export default function PlayerTransport({
   onVolumeChange,
   showEpisodesButton,
   panel,
+  panelOpener,
   onTogglePanel,
   onToggleSettings,
   showSubsButton,
@@ -80,6 +81,7 @@ export default function PlayerTransport({
       onVolumeChange={onVolumeChange}
       showEpisodesButton={showEpisodesButton}
       panel={panel}
+      panelOpener={panelOpener}
       onTogglePanel={onTogglePanel}
       onToggleSettings={onToggleSettings}
       showSubsButton={showSubsButton}

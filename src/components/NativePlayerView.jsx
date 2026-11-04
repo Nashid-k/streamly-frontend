@@ -616,6 +616,7 @@ export default function NativePlayerView({
   const controlsVisibleRef = useRef(controlsVisible);
   controlsVisibleRef.current = controlsVisible;
   const [panel, setPanel] = useState(null); // null | "subs" | "episodes" | "servers"
+  const [panelOpener, setPanelOpener] = useState(null);
   /* A sheet is open. Everything that floats in the bottom-right corner — the
      Skip Intro pill, the "Tap to unmute" pill, the "Left off at" card — yields
      while this is true: that corner is where the episodes rail and the settings
@@ -1073,17 +1074,35 @@ export default function NativePlayerView({
     poke();
   };
   const onTogglePanel = (key) => {
-    setPanel((p) => (p === key ? null : key));
+    setPanel((p) => {
+      const next = p === key ? null : key;
+      setPanelOpener(next ? key : null);
+      return next;
+    });
     poke();
   };
   const onToggleSettings = () => {
-    // If clicking Settings while any settings panel is open, close it.
+    // If clicking Settings while any settings panel is open from settings, close it.
     // Otherwise open root settings.
-    setPanel((p) =>
-      ["settings", "servers", "audio", "subs", "video", "playback", "appearance", "sourcequality", "captions"].includes(p)
-        ? null
-        : "settings",
-    );
+    setPanel((p) => {
+      const isSettingsGroup = [
+        "settings",
+        "servers",
+        "audio",
+        "subs",
+        "video",
+        "playback",
+        "appearance",
+        "sourcequality",
+        "captions",
+      ].includes(p);
+      if (isSettingsGroup && panelOpener === "settings") {
+        setPanelOpener(null);
+        return null;
+      }
+      setPanelOpener("settings");
+      return "settings";
+    });
     poke();
   };
 
@@ -2218,6 +2237,7 @@ const showSkipOutro = shouldShowSkipOutro({
       orderedSources={orderedSources}
       originalLanguage={originalLanguage}
       panel={panel}
+      panelOpener={panelOpener}
       panelRef={panelRef}
       pickAudio={pickAudio}
       pickAuto={pickAuto}

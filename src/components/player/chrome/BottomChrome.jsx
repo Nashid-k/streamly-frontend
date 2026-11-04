@@ -33,6 +33,7 @@ function formatFinishAt(remainingSeconds) {
 
 export default function BottomChrome({
   visible,
+  panelOpener,
   // Scrubber
   scrubRef,
   duration,
@@ -77,7 +78,15 @@ export default function BottomChrome({
 }) {
   const isMuted = muted || volume === 0;
   const volFill = isMuted ? 0 : volume;
-  const settingsOpen = SETTINGS_PANELS.has(panel);
+  const isSettingsOpener = panelOpener === "settings";
+  const isSubsOpener = panelOpener === "subs";
+  const isEpisodesOpener = panelOpener === "episodes";
+
+  const settingsOpen =
+    isSettingsOpener ||
+    (Boolean(panel) && SETTINGS_PANELS.has(panel) && !isSubsOpener && panel !== "subs");
+  const subsOpen = isSubsOpener || (panel === "subs" && !isSettingsOpener);
+  const episodesOpen = isEpisodesOpener || (panel === "episodes" && !isSettingsOpener);
   const durNum = Number(duration) || 0;
   const curNum = Number(currentTime) || 0;
   const remaining = Math.max(0, durNum - curNum);
@@ -252,12 +261,12 @@ export default function BottomChrome({
           {showEpisodesButton ? (
             <button
               type="button"
-              className={["btn", panel === "episodes" ? "active" : ""].filter(Boolean).join(" ")}
+              className={["btn", episodesOpen ? "active" : ""].filter(Boolean).join(" ")}
               id="epb"
               data-open
               aria-label="Episodes"
               aria-haspopup="dialog"
-              aria-expanded={panel === "episodes"}
+              aria-expanded={episodesOpen}
               onClick={() => onTogglePanel("episodes")}
             >
               <svg className="ic"><use href="#i-ep" /></svg>
@@ -280,12 +289,12 @@ export default function BottomChrome({
           {showSubsButton ? (
             <button
               type="button"
-              className={["btn", panel === "subs" ? "active" : ""].filter(Boolean).join(" ")}
+              className={["btn", subsOpen ? "active" : ""].filter(Boolean).join(" ")}
               id="subb"
               data-open
               aria-label="Subtitles"
               aria-haspopup="dialog"
-              aria-expanded={panel === "subs"}
+              aria-expanded={subsOpen}
               onClick={() => onTogglePanel("subs")}
             >
               <svg className="ic"><use href="#i-subs" /></svg>

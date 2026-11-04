@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **Screen click-to-pause fix, duplicate FF/BW HUD removal & gray circle removal, and Subtitles/Settings button isolation (user: "on clicking the screen with mouse is not pausing, as well as find why two ff/bw shows, remove its bg circle gray color, as well on clicking subttile the settings also shows active color,fix") — 2026-11-04.**
+  - **Screen click-to-pause with mouse fix (`PlayerShell.jsx`):**
+    - Root cause: `.ui` is positioned with `position: absolute; inset: 0` above `<video>` in DOM order. Because `.ui` lacked an `onClick` handler, clicking anywhere on the screen landed on `.ui` without reaching `<video>`, failing to toggle play/pause or dismiss open panels.
+    - Fix: Added an `onClick` handler to `<div className="ui" id="ui">` and `.stage` that checks if the click landed on an interactive element via `e.target.closest("button, [role='button'], input, [role='slider'], .sheet, .nxt")`. If inside a control/sheet/card, the click delegates to that control; if a panel/sheet is open, clicking outside closes the sheet and pokes controls; otherwise it invokes `onVideoClick(e)` to toggle play/pause (and double click for fullscreen).
+  - **Duplicate FF/BW HUDs & gray circle background removal (`PlayerShell.jsx`, `player.css`):**
+    - Root cause: Seeking simultaneously rendered `#dtl`/`#dtr` badges AND the `.osd` pill. Furthermore, `player.css` had styled `.dt` as a 7em circular badge with `#00000088` gray background and border, clashing with `player-v4.html`'s design.
+    - Fix: Restored `#dtl` and `#dtr` to empty radial flash ripple elements `<div className={["dt", "l", "dtl", ...]} id="dtl" aria-hidden="true" />` without inner icons or text. Replaced `.dt` CSS with `player-v4.html`'s exact radial gradient edge flash (`radial-gradient(circle at var(--cx) 50%, #ffffff33, #0000 70%)` with `animation: dtf 600ms`), leaving the `.osd` pill as the single HUD displaying the seek icon and seconds badge at 22% / 78% of the screen.
+  - **Subtitle button activating Settings gear fix (`NativePlayerView.jsx`, `PlayerShell.jsx`, `PlayerTransport.jsx`, `BottomChrome.jsx`):**
+    - Root cause: In `BottomChrome.jsx`, `SETTINGS_PANELS = new Set([..., "subs", ...])` and `const settingsOpen = SETTINGS_PANELS.has(panel)`. When clicking the Subtitles button in the bottom bar, `panel === "subs"`, which caused `settingsOpen` to be `true`, adding `.open` and `aria-expanded={true}` to `#gear` and rotating/accenting the gear icon.
+    - Fix: Introduced `panelOpener` tracking (`"settings"` vs `"subs"` vs `"episodes"`). The `#gear` button only enters the open/accent state when opened from settings (`panelOpener === "settings"` or traversing to subs inside settings, preserving a11y test requirements), while clicking the Subtitle transport button activates only `#subb` (`aria-expanded={subsOpen}`, `.active`).
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (18 files / 183 tests green), `npm run build` (clean production build in 9.38s).
+
 - [x] **Deep player-v4 alignment and legacy cleanup (user: "dig more and remove legacy things, and update new player with player v4") — 2026-11-04.**
   - **Up Next post-roll card modernization (`UpNextCard.jsx`):**
     - Adopted `player-v4.html` `.nxt` card layout and classes: `<div className="nxt">`, `<small>Up next in <span id="nxc">...</span></small>`, `<b id="nxl">...</b>`, hairline progress countdown, and `.nxt-a` button pair (`.nxb#nxgo` for "Play now" and `.nxb.sec#nxno` for "Cancel").
