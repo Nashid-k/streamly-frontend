@@ -24,6 +24,7 @@ function hexToRgb(hex) {
 export default function usePlayerV4Appearance({
   subtitleSize,
   setSubtitleBg,
+  initialSubColor,
 } = {}) {
   const [accent, setAccentState] = useState(() => {
     try {
@@ -42,13 +43,15 @@ export default function usePlayerV4Appearance({
     }
   });
 
-  const [subColor, setSubColorState] = useState(() => {
+  const [subColorOverride, setSubColorOverride] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_CC) || "#ffffff";
+      return localStorage.getItem(STORAGE_CC);
     } catch {
-      return "#ffffff";
+      return null;
     }
   });
+
+  const subColor = subColorOverride || initialSubColor || "#ffffff";
 
   const [subBgStyle, setSubBgStyleState] = useState(() => {
     try {
@@ -80,7 +83,7 @@ export default function usePlayerV4Appearance({
   }, []);
 
   const setSubColor = useCallback((val) => {
-    setSubColorState(val);
+    setSubColorOverride(val);
     try {
       localStorage.setItem(STORAGE_CC, val);
     } catch {

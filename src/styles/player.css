@@ -2400,13 +2400,13 @@
 }
 .paused .m-pp .a,
 .is-fs .m-fs .a,
-.np-root.is-muted .m-vol .a {
+.is-muted .m-vol .a {
   opacity: 0;
   transform: scale(.4) rotate(30deg);
 }
 .paused .m-pp .b,
 .is-fs .m-fs .b,
-.np-root.is-muted .m-vol .b {
+.is-muted .m-vol .b {
   opacity: 1;
   transform: none;
 }
@@ -3519,249 +3519,52 @@
   }
 }
 
-.player .prog {
-  position: absolute;
-  left: 44px;
-  right: 33px;
-  bottom: 94px;
-  z-index: 6;
-  display: flex;
-  align-items: center;
-  gap: .8em;
-}
-/* `.np-progress` was carrying two competing designs at once: the old 5px bar
-   (its own background and height) and the v4 `.seek` / `.trk` / `.played`
-   structure, which the same element also matched. The row therefore painted a
-   thick grey slab, and `.played` still had the reference's `transform:
-   scaleX(0)` with nothing overriding it — so the accent fill was collapsed to
-   zero width and the bar never showed progress, hover included. Here `.seek`
-   is the transparent hit area v4 uses, `.trk` is the hairline, and the fill is
-   driven by the width the component passes in. */
-.player .prog .np-progress {
-  position: relative;
-  left: auto;
-  right: auto;
-  bottom: auto;
-  flex: 1;
-  height: 1.9em;
-  background: none;
-  border-radius: 0;
-}
-.player .prog .np-progress:hover,
-.player .prog .np-progress:focus-visible,
-.player .prog .np-progress.hover {
-  height: 1.9em;
-}
-.player .prog .np-progress .trk {
-  height: .3em;
-  border-radius: 1em;
-  background: #ffffff33;
-}
-.player .prog .np-progress:hover .trk,
-.player .prog .np-progress:focus-visible .trk,
-.player .prog .np-progress.hover .trk {
-  height: .5em;
-}
-.player .prog .np-progress-played {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  height: .3em;
-  margin-top: -.15em;
-  border-radius: 1em;
-  background: var(--np-accent);
-  transform: none;
-}
-.player .prog .np-progress:hover .np-progress-played,
-.player .prog .np-progress:focus-visible .np-progress-played,
-.player .prog .np-progress.hover .np-progress-played {
-  height: .5em;
-  margin-top: -.25em;
-}
-.player .prog .np-progress .buf {
-  top: 50%;
-  bottom: auto;
-  height: .3em;
-  margin-top: -.15em;
-  border-radius: 1em;
-}
-/* The reference positions its knob in JS; ours is the `.played::after` dot, so
-   the sibling node would paint a second one at the fill's start. */
-.player .prog .np-progress .knob {
-  display: none;
-}
-.player .prog .np-progress-played::after {
-  right: 0;
-  width: 1.1em;
-  height: 1.1em;
-  box-shadow: 0 0 0 .25em rgba(var(--np-accent-rgb), .45);
-}
-.player .prog .t {
-  flex: none;
-}
-
-/* ── v4 sheet: open state and pane sizing ──────────────────────────────────
-   Two defects lived here, and together they made every menu button look dead.
-   1. `.sheet` carries the reference's CLOSED state (`visibility: hidden`, plus
-      a transition that delays visibility). The reference flips it with a JS
-      `.open` class; our sheet is mounted only while a pane is open and Framer
-      owns the entrance/exit, so the closed state must never apply — it kept the
-      panel at `visibility: hidden` no matter what was clicked.
-   2. The reference measures the pane in JS (`vp.style.height = contentHeight`).
-      Ours never did, and `.pane` is absolutely positioned, so the `.vp`
-      viewport had 0px height and clipped every row to nothing.
-   Fixing them in CSS keeps the panel free of measurement effects. */
+/* ── Settings sheet & drawer integration ──────────────────────────────────── */
+:is(.player, .np-root) .sheet.open,
 .np-menu.sheet {
   visibility: visible;
   opacity: 1;
-  transform: none;
-  transition: none;
-  /* v4 sizes the whole sheet in em off a container-relative font-size. Without
-     this the 21em width and every em rule below resolved against the page's
-     16px base, so the card came out narrower than the reference at any size
-     above ~1100px. */
   font-size: clamp(14px, 1.1cqi + 9px, 19px);
 }
-
-/* The sheet's inner geometry was still the old 514px "Pitch" card: 132px tiles,
-   66px rows, 22-24px labels. v4 is a 21em card with ~16px content, so the pane
-   contents are rescaled in em here (the reference's own `.tile` / `.row`
-   rules then line up instead of being overridden by our px values). */
-.player .np-tiles {
-  gap: .6em;
-  padding: .4em .6em .6em;
-  margin-bottom: .2em;
-}
-.player .np-tile {
-  height: auto;
-  min-height: 4.4em;
-  gap: .35em;
-  border-radius: .9em;
-}
-.player .np-tile-k {
-  font-size: .9em;
-  color: #8fa3b3;
-  letter-spacing: 0;
-}
-.player .np-tile-v {
-  font-size: 1em;
-  padding: 0 .2em;
-}
-.player .np-menu-row {
-  height: 2.8em;
-  padding: 0 .6em;
-  font-size: 1em;
-  color: #dbe4ec;
-}
-.player .np-menu-row svg {
-  width: 1.1em;
-  height: 1.1em;
-  stroke-width: 2.2;
-  stroke: #9fb3c4;
-}
-.player .np-menu-row-inset {
-  height: 2.6em;
-  margin-top: .4em;
-  padding: 0 .6em;
-  font-size: .95em;
-}
-.player .np-pick {
-  height: 2.8em;
-  font-size: 1em;
-}
-.player .np-lbl {
-  font-size: .95em;
-  margin: .8em 0 .4em;
-}
-.player .np-lbl.first {
-  margin-top: .6em;
-}
-.player .np-root-body {
-  padding: 0;
-}
-.player .np-pbody {
-  padding: .2em .6em .8em;
-}
-.player .np-list {
-  padding: .2em .6em .8em;
-}
-.player .np-subhead {
-  gap: .4em;
-  padding: .5em .6em 0;
-}
-.player .np-subtitle {
-  font-size: 1.1em;
-  color: #9fb3c4;
-}
-.player .np-subline {
-  margin: .6em .6em .2em;
-}
-.player .np-hr {
-  margin: .8em 0;
-}
-.player .np-note {
-  font-size: .8em;
-  line-height: 1.45;
-  margin: .4em 0 .2em;
-}
-.player .np-credit {
-  font-size: .7em;
-  padding: .2em .6em 0;
-}
+:is(.player, .np-root) .sheet .vp,
 .player .np-vp {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
 }
+:is(.player, .np-root) .sheet .pane,
 .player .np-vp .pane {
   position: relative;
   inset: auto;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #26384a transparent;
 }
-/* Bottom sheet on phones: the container rule inside `@container pl` has lower
-   specificity than `.np-menu.sheet`, so restate the width there or the drawer
-   stays card-sized and off the left edge. */
-@container pl (max-width: 640px) {
-  .np-menu.sheet {
-    width: auto;
-  }
+:is(.player, .np-root) .sheet .pi,
+.player .np-pbody {
+  padding: .25em .6em .9em;
 }
 
-/* ── v4 scrim ──────────────────────────────────────────────────────────────
-   The reference paints a bottom gradient behind the transport (`.bot`) and a
-   top one behind the back/title bar (`.top`). The chrome components only
-   rendered the controls, so the picture ran edge-to-edge with no scrim and the
-   white icons lost contrast on bright frames. Both are pointer-transparent so
-   a click still falls through to the picture and toggles the chrome. */
-.np-scrim {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 190px;
-  padding: 0;
-  background: linear-gradient(#0000, #000d);
-  pointer-events: none;
-  z-index: 5;
-}
-.np-topbar {
-  top: 0;
-  left: 0;
-  right: 0;
-  max-width: none;
-  padding: max(18px, env(safe-area-inset-top)) 25px 34px;
-  background: linear-gradient(#000c, #0000);
-  pointer-events: none;
-}
-.np-topbar .np-back {
-  pointer-events: auto;
-}
-/* The control row is a container, not a target: the reference lets a click on
-   the empty deck reach the picture (play/pause), which ours swallowed. */
-.np-controls {
-  pointer-events: none;
-}
-.np-controls :is(.np-ctl-btn, .np-vol-wrap, .np-vol-slider, button) {
-  pointer-events: auto;
+@container pl (max-width: 640px) {
+  :is(.player, .np-root) .sheet,
+  .np-menu.sheet {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    max-height: 62%;
+    border-radius: 1.25em 1.25em 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    transform: translateY(100%);
+    transform-origin: bottom;
+  }
+  :is(.player, .np-root) .sheet.open,
+  .np-menu.sheet.open {
+    transform: none;
+  }
 }

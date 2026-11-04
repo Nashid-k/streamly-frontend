@@ -1,19 +1,20 @@
-// The transport: the reference design's plain bottom row.
-//
-// The "Pitch" chrome (2026-11) replaces the floating glass deck with the
-// pasted design's geometry: a 5px progress hairline at bottom 94 and a bare
-// control row (play, rewind, forward, volume, "X left • Finish at HH:MM",
-// then episodes / PiP / subtitles / gear / fullscreen) over the picture. No
-// scrim, no chips, no deck plate.
-//
-// Player v4 enhancements:
-// - CSS icon morphs (m-pp, m-vol, m-fs) with smooth spring transitions
-// - Knob dot with theme accent bloom shadow
-// - Thumbnail preview box in scrubber tooltip
-// - High-contrast SVG icons matching player-v4.html
-import { useState } from "react";
+// Player v4 Bottom Chrome
+// Structure and styling exactly mirror player-v4.html:
+// - Single .bot container with gradient background
+// - .prog progress row: elapsed time, .seek > .trk > (.buf, .played, .knob, .tip > .tp), remaining time
+// - .ctl control row with exact v4 button layout and icon morphs:
+//   - #pp: .morph.m-pp (#i-pause / #i-play)
+//   - #rew: .btn.nb (#i-rew)
+//   - #fwd: .btn.nb (#i-fwd)
+//   - #vol: .volg.volb > .morph.m-vol (#i-vol / #i-mute) + .vs slider
+//   - #info: remaining time • Finish at HH:MM
+//   - #epb: episodes (#i-ep)
+//   - #pip: picture-in-picture (#i-pip)
+//   - #subb: subtitles (#i-subs)
+//   - #gear: settings with rotation (#i-gear)
+//   - #fs: .morph.m-fs (#i-fs / #i-fsx)
 import { IS_TOUCH } from "./constants";
-import { IconCaptions, IconEpisodes, IconPip, IconSettings } from "./icons";
+import PlayerSvgSprite from "./PlayerSvgSprite";
 
 const SETTINGS_PANELS = new Set([
   "settings",
@@ -26,9 +27,6 @@ const SETTINGS_PANELS = new Set([
   "sourcequality",
 ]);
 
-/* Wall-clock finish time for the "X left • Finish at HH:MM" label. Kept
-   outside the component so render stays pure; the label is inherently a
-   snapshot of "now", so a fresh render (timeupdate) refreshes it. */
 function formatFinishAt(remainingSeconds) {
   const finish = new Date(Date.now() + remainingSeconds * 1000);
   return finish.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -40,11 +38,8 @@ export default function BottomChrome({
   scrubRef,
   duration,
   currentTime,
-  effectiveRatio,
+  effectiveRatio = 0,
   hoverRatio,
-  // Frame captured by the preview decoder for the hovered second. The v4
-  // scrubber shows it inside the tooltip (.tp); without this the pipeline ran
-  // and threw the result away.
   previewUrl,
   previewBox,
   fmtTime,
@@ -64,7 +59,7 @@ export default function BottomChrome({
   onForwardHoldRelease,
   skipSeconds = 10,
   muted,
-  volume,
+  volume = 1,
   volHover,
   onToggleMute,
   onVolHoverChange,
@@ -81,243 +76,242 @@ export default function BottomChrome({
   isFullscreen,
   onFullscreen,
 }) {
-  const [showRemaining, setShowRemaining] = useState(true);
   const isMuted = muted || volume === 0;
   const volFill = isMuted ? 0 : volume;
   const settingsOpen = SETTINGS_PANELS.has(panel);
-  const remaining = Math.max(0, (Number(duration) || 0) - (Number(currentTime) || 0));
+  const durNum = Number(duration) || 0;
+  const curNum = Number(currentTime) || 0;
+  const remaining = Math.max(0, durNum - curNum);
   const finishAt = formatFinishAt(remaining);
   const thumbW = previewBox?.thumbW || 160;
   const thumbH = previewBox?.thumbH || 90;
   const timeText =
-    Number(duration) > 0 ? `${fmtTime(remaining)} left \u2022 Finish at ${finishAt}` : fmtTime(currentTime);
+    durNum > 0 ? `${fmtTime(remaining)} left \u2022 Finish at ${finishAt}` : fmtTime(currentTime);
+
+  const ratio = Math.min(1, Math.max(0, effectiveRatio));
+  const hoverPct = hoverRatio != null ? Math.min(100, Math.max(0, hoverRatio * 100)) : 0;
+  const hoverTime = hoverRatio != null ? hoverRatio * durNum : curNum;
 
   return (
     <>
-      {/* v4 paints the transport on a bottom scrim; without it the white icons
-          sit straight on the picture. Decorative and pointer-transparent. */}
-      <div className="bot np-scrim" aria-hidden="true" />
-      {/* v4's progress row: current time, the seek bar, duration. The bar was
-          rendered alone, so the player had no elapsed/remaining time readout. */}
-      <div className="prog np-prog">
-        <span className="t" aria-hidden="true">
-          {fmtTime(currentTime)}
-        </span>
+      <PlayerSvgSprite />
       <div
-        ref={scrubRef}
-        className={["np-progress", "np-scrub", "seek", visible ? "" : "np-chrome-hidden", hoverRatio != null ? "hover" : ""]
-          .filter(Boolean)
-          .join(" ")}
-        role="slider"
-        tabIndex={0}
+        className={["bot", !visible ? "np-chrome-hidden" : ""].filter(Boolean).join(" ")}
         inert={!visible}
-        aria-label="Seek"
-        aria-valuemin={0}
-        aria-valuemax={Math.floor(duration)}
-        aria-valuenow={Math.floor(currentTime)}
-        aria-valuetext={`${fmtTime(currentTime)} of ${fmtTime(duration)}`}
-        onKeyDown={onScrubKeyDown}
-        onFocus={onScrubFocus}
-        onPointerDown={onScrubDown}
-        onPointerMove={onScrubMove}
-        onPointerUp={onScrubUp}
-        onPointerCancel={onScrubCancel}
-        onPointerLeave={onScrubLeave}
       >
-        <div className="trk" aria-hidden="true" />
-        <div className="buf" aria-hidden="true" />
-        <div
-          className="np-progress-played played"
-          style={{ width: `${Math.min(100, Math.max(0, effectiveRatio * 100))}%` }}
-        >
-          <div className="knob" />
-        </div>
-        {hoverRatio != null && Number(duration) > 0 ? (
+        {/* Progress bar row matching player-v4.html */}
+        <div className="prog">
+          <span className="t" id="cur" aria-hidden="true">
+            {fmtTime(currentTime)}
+          </span>
           <div
-            className={["np-progress-tip", "tip", "show", previewUrl ? "has-th" : ""].filter(Boolean).join(" ")}
-            style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
+            ref={scrubRef}
+            id="seek"
+            className={["seek", hoverRatio != null ? "drag" : ""].filter(Boolean).join(" ")}
+            role="slider"
+            tabIndex={0}
+            inert={!visible}
+            aria-label="Seek"
+            aria-valuemin={0}
+            aria-valuemax={Math.floor(durNum)}
+            aria-valuenow={Math.floor(curNum)}
+            aria-valuetext={`${fmtTime(currentTime)} of ${fmtTime(duration)}`}
+            onKeyDown={onScrubKeyDown}
+            onFocus={onScrubFocus}
+            onPointerDown={onScrubDown}
+            onPointerMove={onScrubMove}
+            onPointerUp={onScrubUp}
+            onPointerCancel={onScrubCancel}
+            onPointerLeave={onScrubLeave}
           >
-            {previewUrl ? (
-              <div className="tp" style={{ width: thumbW, height: thumbH }}>
-                <i
-                  aria-hidden="true"
+            <div className="trk" id="trk" aria-hidden="true">
+              <i className="buf" id="buf" style={{ transform: `scaleX(${ratio})` }} />
+              <i className="played" id="played" style={{ transform: `scaleX(${ratio})` }} />
+              <i className="knob" id="knob" style={{ left: `${ratio * 100}%` }} />
+              {hoverRatio != null && durNum > 0 ? (
+                <span
+                  className={["tip", previewUrl ? "has-th" : ""].filter(Boolean).join(" ")}
+                  id="tip"
                   style={{
-                    width: thumbW,
-                    height: thumbH,
-                    backgroundImage: `url("${previewUrl}")`,
-                    backgroundSize: "cover",
+                    left: `${hoverPct}%`,
+                    "--x": `${hoverPct}%`,
                   }}
-                />
-              </div>
-            ) : null}
-            <span>{fmtTime(hoverRatio * duration)}</span>
+                >
+                  <span className="tp" id="tp" style={previewUrl ? { width: thumbW, height: thumbH } : undefined}>
+                    {previewUrl ? (
+                      <i
+                        style={{
+                          width: thumbW,
+                          height: thumbH,
+                          backgroundImage: `url("${previewUrl}")`,
+                          backgroundSize: "cover",
+                        }}
+                      />
+                    ) : (
+                      <i />
+                    )}
+                  </span>
+                  <b id="tt">{fmtTime(hoverTime)}</b>
+                </span>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-      </div>
-        <span className="t" aria-hidden="true">
-          {fmtTime(duration)}
-        </span>
-      </div>
+          <span className="t" id="rem" aria-hidden="true">
+            {fmtTime(duration)}
+          </span>
+        </div>
 
-      <div
-        className={["np-controls", "ctl", visible ? "" : "np-chrome-hidden"].filter(Boolean).join(" ")}
-        inert={!visible}
-      >
-        <button
-          type="button"
-          id="pp"
-          className="np-ctl-btn np-play btn morph m-pp"
-          aria-label={playing ? "Pause" : "Play"}
-          onClick={onTogglePlay}
-        >
-          <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
-            <path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" />
-          </svg>
-          <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={34} height={34}>
-            <path d="M8 5v14l11-7z" fill="currentColor" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          id="rew"
-          className="np-ctl-btn np-skip-l btn nb"
-          aria-label={`Rewind ${skipSeconds} seconds`}
-          onClick={onBack10}
-        >
-          {/* v4 draws the skip controls as plain chevrons (`#i-rew` / `#i-fwd`);
-              the skip-to-end marks read as "previous/next track". */}
-          <svg className="ic lg" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
-            <path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-
-        <button
-          type="button"
-          id="fwd"
-          className="np-ctl-btn np-skip-r btn nb"
-          aria-label={`Forward ${skipSeconds} seconds`}
-          onClick={onForward10}
-          onPointerDown={onForwardHoldStart}
-          onPointerUp={onForwardHoldRelease}
-          onPointerLeave={onForwardHoldRelease}
-          onPointerCancel={onForwardHoldRelease}
-        >
-          <svg className="ic lg" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
-            <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-
-        <span
-          className={["np-vol-wrap", "volg", "volb", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
-          onMouseEnter={(e) => {
-            e.stopPropagation();
-            onVolHoverChange?.(true);
-          }}
-          onMouseLeave={() => onVolHoverChange?.(false)}
-          onFocus={() => onVolHoverChange?.(true)}
-          onBlur={(e) => {
-            if (e.currentTarget.contains(e.relatedTarget)) return;
-            onVolHoverChange?.(false);
-          }}
-        >
+        {/* Control buttons row matching player-v4.html */}
+        <div className="ctl">
           <button
             type="button"
-            id="vol"
-            className="np-ctl-btn np-vol-btn btn morph m-vol"
-            aria-label={isMuted ? "Unmute" : "Mute"}
-            onClick={onToggleMute}
+            className="btn"
+            id="pp"
+            aria-label={playing ? "Pause" : "Play"}
+            onClick={onTogglePlay}
           >
-            <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={30} height={30}>
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="currentColor" />
-            </svg>
-            <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={30} height={30}>
-              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" fill="currentColor" />
-            </svg>
+            <span className="morph m-pp">
+              <svg className="ic a"><use href="#i-pause" /></svg>
+              <svg className="ic b"><use href="#i-play" /></svg>
+            </span>
           </button>
-          {!IS_TOUCH ? (
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={isMuted ? 0 : volume}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Volume"
-              className="np-vol-slider vs"
-              id="vs"
-              style={{ "--vol": `${volFill * 100}%` }}
-            />
-          ) : null}
-        </span>
 
-        <div className="np-ctl-time info" aria-hidden="true">
-          {timeText}
-        </div>
+          <button
+            type="button"
+            className="btn nb"
+            id="rew"
+            aria-label={`Rewind ${skipSeconds} seconds`}
+            onClick={onBack10}
+          >
+            <svg className="ic lg"><use href="#i-rew" /></svg>
+          </button>
 
-        <div className="np-ctl-spacer sp" />
+          <button
+            type="button"
+            className="btn nb"
+            id="fwd"
+            aria-label={`Forward ${skipSeconds} seconds`}
+            onClick={onForward10}
+            onPointerDown={onForwardHoldStart}
+            onPointerUp={onForwardHoldRelease}
+            onPointerLeave={onForwardHoldRelease}
+            onPointerCancel={onForwardHoldRelease}
+          >
+            <svg className="ic lg"><use href="#i-fwd" /></svg>
+          </button>
 
-        <div className="np-ctl-right">
+          <span
+            className={["volg", "volb", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
+            onMouseEnter={() => onVolHoverChange?.(true)}
+            onMouseLeave={() => onVolHoverChange?.(false)}
+            onFocus={() => onVolHoverChange?.(true)}
+            onBlur={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget)) return;
+              onVolHoverChange?.(false);
+            }}
+          >
+            <button
+              type="button"
+              className="btn"
+              id="vol"
+              aria-label={isMuted ? "Unmute" : "Mute"}
+              aria-pressed={isMuted}
+              onClick={onToggleMute}
+            >
+              <span className="morph m-vol">
+                <svg className="ic a"><use href="#i-vol" /></svg>
+                <svg className="ic b"><use href="#i-mute" /></svg>
+              </span>
+            </button>
+            {!IS_TOUCH ? (
+              <input
+                className="vs"
+                id="vs"
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
+                onClick={(e) => e.stopPropagation()}
+                style={{ "--p": `${volFill * 100}%` }}
+                aria-label="Volume"
+              />
+            ) : null}
+          </span>
+
+          <span className="info" id="info">
+            {timeText}
+          </span>
+          <span className="sp" />
+
           {showEpisodesButton ? (
             <button
               type="button"
+              className={["btn", panel === "episodes" ? "active" : ""].filter(Boolean).join(" ")}
               id="epb"
-              className={["np-ctl-btn", "btn", panel === "episodes" ? "active" : ""].filter(Boolean).join(" ")}
+              data-open
               aria-label="Episodes"
+              aria-haspopup="dialog"
               aria-expanded={panel === "episodes"}
               onClick={() => onTogglePanel("episodes")}
             >
-              <IconEpisodes size={28} />
+              <svg className="ic"><use href="#i-ep" /></svg>
             </button>
           ) : null}
+
           {pipSupported ? (
             <button
               type="button"
+              className={["btn", "pipb", pipActive ? "active" : ""].filter(Boolean).join(" ")}
               id="pip"
-              className={["np-ctl-btn", "btn", "pipb", pipActive ? "active" : ""].filter(Boolean).join(" ")}
               aria-label="Picture in picture"
               aria-pressed={pipActive}
               onClick={onTogglePip}
             >
-              <IconPip size={28} />
+              <svg className="ic"><use href="#i-pip" /></svg>
             </button>
           ) : null}
+
           {showSubsButton ? (
             <button
               type="button"
+              className={["btn", panel === "subs" ? "active" : ""].filter(Boolean).join(" ")}
               id="subb"
-              className={["np-ctl-btn", "btn", panel === "subs" ? "active" : ""].filter(Boolean).join(" ")}
+              data-open
               aria-label="Subtitles"
+              aria-haspopup="dialog"
               aria-expanded={panel === "subs"}
               onClick={() => onTogglePanel("subs")}
             >
-              <IconCaptions size={28} />
+              <svg className="ic"><use href="#i-subs" /></svg>
             </button>
           ) : null}
+
           <button
             type="button"
+            className={["btn", "gear", settingsOpen ? "open" : ""].filter(Boolean).join(" ")}
             id="gear"
-            className={["np-ctl-btn", "np-gear", "btn", "gear", settingsOpen ? "open" : ""].filter(Boolean).join(" ")}
+            data-open
             aria-label="Settings"
+            aria-haspopup="dialog"
             aria-expanded={settingsOpen}
             onClick={onToggleSettings}
           >
-            <IconSettings size={28} />
+            <svg className="ic"><use href="#i-gear" /></svg>
           </button>
+
           <button
             type="button"
+            className="btn"
             id="fs"
-            className="np-ctl-btn btn morph m-fs"
             aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             onClick={onFullscreen}
           >
-            <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={28} height={28}>
-              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor" />
-            </svg>
-            <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={28} height={28}>
-              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" fill="currentColor" />
-            </svg>
+            <span className="morph m-fs">
+              <svg className="ic a"><use href="#i-fs" /></svg>
+              <svg className="ic b"><use href="#i-fsx" /></svg>
+            </span>
           </button>
         </div>
       </div>

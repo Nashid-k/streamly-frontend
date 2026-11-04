@@ -1,14 +1,11 @@
-// The settings menu frame: the reference design's 514px pane at right 40 /
-// bottom 112, opening up out of the gear.
-//
-// Player v4 enhancements:
+// The settings menu frame matching player-v4.html:
 // - Floating sheet card on desktop / bottom-sheet drawer on mobile
-// - Grab handle for touch dismissal
-// - Integrated header with animated sliding back arrow (.bk), title (h2#st),
-//   extra slot (#xs), and close button (#x)
-// - Dynamic viewport (.vp) supporting pane slide transitions (.pane.in / .pane.out)
+// - Grab handle for touch dismissal (.grab)
+// - Integrated header (.hd) with back arrow (.bk > #i-back), title (h2#st), extra slot (#xs), and close button (.btn > #i-x)
+// - Viewport (.vp) with panes (.pane.in > .pi)
 import { useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import PlayerSvgSprite from "./PlayerSvgSprite";
 
 const TITLES = {
   settings: "Settings",
@@ -70,9 +67,6 @@ export default function PlayerPanel({
   const backAction = isEpisodes ? onClose : onBackToSettings;
   const paneBodyRef = useRef(null);
 
-  /* The reference staggers each row of a freshly opened pane (30ms apart,
-     capped at 13). The index has to be stamped before paint so the CSS
-     animation-delay is already correct on the first frame. */
   useLayoutEffect(() => {
     const body = paneBodyRef.current;
     if (!body) return;
@@ -81,9 +75,6 @@ export default function PlayerPanel({
       .forEach((item, index) => item.style.setProperty("--i", String(Math.min(index, 12))));
   }, [panel]);
 
-  /* Press ripple on rows and tiles, as in the reference. Appended as a
-     transient node rather than React state: it is decoration, and the row
-     re-renders often. */
   const handleRipple = (event) => {
     if (reduceMotion) return;
     const target = event.target.closest?.(".row, .tile, .th");
@@ -115,20 +106,26 @@ export default function PlayerPanel({
           onClick={(e) => e.stopPropagation()}
           onPointerDown={handleRipple}
           data-panel={panel}
-          className={["np-menu", "sheet", isSub ? "np-menu-sub" : "np-menu-root", isSub ? HEIGHT_CLASS[panel] || "np-menu-list" : ""]
+          className={["np-menu", "sheet", "open", isSub ? "np-menu-sub" : "np-menu-root", isSub ? HEIGHT_CLASS[panel] || "np-menu-list" : ""]
             .filter(Boolean)
             .join(" ")}
         >
+          <PlayerSvgSprite />
+
           {/* Mobile drawer drag handle */}
           <div className="grab" id="grab" aria-hidden="true" />
 
           {/* Header */}
           <div className={["hd", isSub ? "np-subhead" : ""].filter(Boolean).join(" ")}>
             {isSub ? (
-              <button type="button" className="np-subback bk" id="bk" aria-label={backLabel} onClick={backAction}>
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" width={22} height={22}>
-                  <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor" />
-                </svg>
+              <button
+                type="button"
+                className="btn bk"
+                id="bk"
+                aria-label={backLabel}
+                onClick={backAction}
+              >
+                <svg className="ic"><use href="#i-back" /></svg>
               </button>
             ) : null}
 
@@ -150,9 +147,7 @@ export default function PlayerPanel({
               aria-label="Close panel"
               onClick={onClose}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" width={20} height={20}>
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor" />
-              </svg>
+              <svg className="ic"><use href="#i-x" /></svg>
             </button>
           </div>
 

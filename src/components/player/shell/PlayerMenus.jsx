@@ -29,8 +29,8 @@ const SUBTITLE_BACKGROUNDS = ["None", "Shadow", "Box"];
 function Tile({ label, value, ariaLabel, onClick }) {
   return (
     <button type="button" className="np-tile tile" aria-label={ariaLabel} onClick={onClick}>
-      <span className="np-tile-k">{label}</span>
-      <span className="np-tile-v">{value}</span>
+      <small className="np-tile-k">{label}</small>
+      <b className="np-tile-v">{value}</b>
     </button>
   );
 }
@@ -40,12 +40,13 @@ function Pick({ selected, onClick, children, disabled }) {
     <button
       type="button"
       className={["np-pick", "row", selected ? "sel" : ""].filter(Boolean).join(" ")}
+      aria-checked={selected ? true : undefined}
       aria-pressed={selected ? true : undefined}
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
     >
       <span className="np-pick-name">{children}</span>
-      <IconMenuCheck size={30} />
+      <svg className="ic ck"><use href="#i-check" /></svg>
     </button>
   );
 }
@@ -192,15 +193,15 @@ export default function PlayerMenus({
         </div>
         <button type="button" className="np-menu-row row" onClick={() => setPanel("playback")}>
           <span>Playback settings</span>
-          <IconChevronRight size={28} />
+          <svg className="ic chv"><use href="#i-chev" /></svg>
         </button>
         <button type="button" className="np-menu-row row" onClick={() => setPanel("appearance")}>
-          <span>Appearance Settings</span>
-          <IconChevronRight size={28} />
+          <span>Appearance settings</span>
+          <svg className="ic chv"><use href="#i-chev" /></svg>
         </button>
         <button type="button" className="np-menu-row row" onClick={() => setPanel("captions")}>
           <span>Subtitle style</span>
-          <IconChevronRight size={28} />
+          <svg className="ic chv"><use href="#i-chev" /></svg>
         </button>
         {cueBoundaries?.source === "dataset" ? (
           <p className="np-credit">
@@ -436,18 +437,16 @@ export default function PlayerMenus({
         ))}
 
         {showEpisodesButton ? (
-          <div className="np-auto">
+          <div className="row" style={{ marginTop: "1em" }}>
             <span>Autoplay next episode</span>
             <button
               type="button"
-              className={["np-tog", autoplayEnabled ? "on" : ""].filter(Boolean).join(" ")}
+              className="switch"
               role="switch"
               aria-checked={autoplayEnabled}
               aria-label="Autoplay next episode"
               onClick={onToggleAutoplay}
-            >
-              <i />
-            </button>
+            />
           </div>
         ) : null}
       </div>
@@ -509,45 +508,31 @@ export default function PlayerMenus({
           })}
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div className="np-lbl">Custom color</div>
+        <div className="custom">
           <input
             type="color"
+            id="cp"
             value={accent}
-            aria-label="Custom theme color"
+            aria-label="Pick a color"
             onChange={(e) => {
               v4Appearance?.setAccent?.(e.target.value);
               poke();
             }}
-            style={{
-              width: 38,
-              height: 38,
-              padding: 0,
-              borderRadius: "0.5em",
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "transparent",
-              cursor: "pointer",
-            }}
           />
           <input
             type="text"
+            id="hex"
             value={accent}
-            aria-label="Theme color hex code"
+            maxLength={7}
+            spellCheck={false}
+            aria-label="Hex color"
             onChange={(e) => {
               const val = e.target.value;
               if (/^#[0-9a-fA-F]{0,6}$/.test(val)) {
                 v4Appearance?.setAccent?.(val);
                 poke();
               }
-            }}
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: "0.5em",
-              padding: "8px 12px",
-              color: "#fff",
-              fontFamily: "monospace",
-              fontSize: 14,
             }}
           />
         </div>
@@ -610,87 +595,64 @@ export default function PlayerMenus({
 
     return (
       <div className="np-pbody">
-        {/* Live preview */}
-        <div
-          className="capw pv"
-          style={{
-            position: "relative",
-            minHeight: 70,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.6)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: "0.8em",
-            marginBottom: 16,
-            padding: "12px 16px",
-          }}
-        >
-          <div
-            className="cap pv"
-            style={{
-              color: subColor,
-              fontSize: sizeIndex === 0 ? "0.95em" : sizeIndex === 2 ? "1.35em" : sizeIndex === 3 ? "1.65em" : "1.15em",
-              textShadow: subBgStyle === "shadow" ? "0 2px 6px #000, 0 0 2px #000" : subBgStyle === "outline" ? "0 1px 3px rgba(0,0,0,0.8)" : "none",
-              background: subBgStyle === "box" ? "rgba(0,0,0,0.8)" : "transparent",
-              padding: subBgStyle === "box" ? "4px 10px" : "0",
-              borderRadius: "0.4em",
-              WebkitTextStroke: subBgStyle === "outline" ? "1px #000" : "none",
-              fontWeight: 600,
-              textAlign: "center",
-            }}
-          >
-            Preview: This is what subtitles look like.
-          </div>
+        {/* Live preview matching player-v4.html */}
+        <div className="cap pv">
+          <div className="cl">Subtitle preview text</div>
         </div>
 
         <div className="np-lbl first">Size</div>
-        <Seg
-          ariaLabel="Subtitle size"
-          value={sizeIndex}
-          onChange={(i) => {
-            setSubtitleSize(i);
-            poke();
-          }}
-          options={SUB_SIZE_OPTIONS.map((o) => ({ value: o.value, label: o.name }))}
-        />
+        <div className="seg c4" role="radiogroup" aria-label="Subtitle size">
+          {[["Small", 0], ["Medium", 1], ["Large", 2], ["XL", 3]].map(([name, val]) => (
+            <button
+              key={val}
+              type="button"
+              role="radio"
+              aria-checked={sizeIndex === val}
+              onClick={() => {
+                setSubtitleSize(val);
+                poke();
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
 
-        <div className="np-lbl">Background style</div>
-        <Seg
-          ariaLabel="Subtitle style"
-          value={subBgStyle}
-          onChange={(val) => {
-            v4Appearance?.setSubBgStyle?.(val);
-            poke();
-          }}
-          options={SUB_STYLES.map((s) => ({ value: s.value, label: s.name }))}
-        />
+        <div className="np-lbl">Background</div>
+        <div className="seg c3" role="radiogroup" aria-label="Subtitle background">
+          {[["Shadow", "shadow"], ["Box", "box"], ["Outline", "outline"]].map(([name, val]) => (
+            <button
+              key={val}
+              type="button"
+              role="radio"
+              aria-checked={subBgStyle === val}
+              onClick={() => {
+                v4Appearance?.setSubBgStyle?.(val);
+                poke();
+              }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
 
-        <div className="np-lbl">Text color</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginTop: 6 }}>
-          {SUB_COLORS.map((c) => {
-            const isSel = subColor.toLowerCase() === c.value.toLowerCase();
+        <div className="np-lbl">Color</div>
+        <div className="seg c4" role="radiogroup" aria-label="Subtitle color">
+          {[["White", "#ffffff"], ["Yellow", "#ffe14d"], ["Cyan", "#5ee7ff"], ["Green", "#7dff8a"]].map(([name, val]) => {
+            const isSel = subColor.toLowerCase() === val.toLowerCase();
             return (
               <button
-                key={c.value}
+                key={val}
                 type="button"
-                className={["np-seg-btn", isSel ? "on" : ""].filter(Boolean).join(" ")}
+                role="radio"
+                aria-checked={isSel}
                 onClick={() => {
-                  v4Appearance?.setSubColor?.(c.value);
+                  v4Appearance?.setSubColor?.(val);
                   poke();
                 }}
-                style={{
-                  padding: "8px 4px",
-                  borderRadius: "0.5em",
-                  border: isSel ? `2px solid ${c.value}` : "1px solid rgba(255,255,255,0.15)",
-                  color: c.value,
-                  fontWeight: 700,
-                  fontSize: 13,
-                  background: isSel ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
-                  cursor: "pointer",
-                }}
               >
-                {c.name}
+                <i className="dotc" style={{ background: val }} />
+                {name}
               </button>
             );
           })}

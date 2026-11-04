@@ -1,33 +1,21 @@
-// The active subtitle line.
-//
-// Its own component because the caption has exactly one job — show the current
-// cue, cross-fade to the next — and it must not re-render the transport tree on
-// every cue change. Keyed on the cue TEXT so a new line cross-fades in rather
-// than the old one vanishing mid-read.
+// The active subtitle line matching player-v4.html:
+// - .capw wrapper with lift calculation above controls
+// - .cap container with font size calc(1.35em * var(--cz, 1)) and color var(--cc, #fff)
+// - .cl caption line with text shadow, box, or outline based on data-cb
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 
 export default function SubtitleOverlay({
   text,
-  controlsVisible,
+  controlsVisible: _controlsVisible,
   size = 1,
-  background = 1,
-  /* The viewer's Settings subtitle style. The player used to hardcode the
-     family and the colour and ignore the Settings controls entirely — the
-     Font / Text Size / Text Color rows changed the SETTINGS PREVIEW and
-     nothing else, so the real player disagreed with the preview on every
-     caption. `scale` is the Settings size percentage; it composes with the
-     in-player S/M/L index. */
+  background: _background = 1,
   fontFamily,
   color = "#fff",
   scale = 100,
 }) {
-  // A leaf that is rendered outside the engine, so it resolves the motion
-  // preference itself — a cue cross-fade must collapse to a cut under reduced
-  // motion like every other player surface.
   const M = useMotionTokens(useReducedMotion());
-  // Styling comes from the provider-parity "Subtitle style" menu: size 0/1/2
-  // scales the clamp range, background 0/1/2 picks none / drop-shadow / solid box.
+
   const sizeScale = (Number(scale) || 100) / 100;
   const baseFontSize = [
     "clamp(13px, 2.1vw, 20px)",
@@ -38,44 +26,30 @@ export default function SubtitleOverlay({
     sizeScale === 1
       ? baseFontSize
       : `calc(${baseFontSize} * ${sizeScale.toFixed(2)})`;
-  const textShadow =
-    background === 0 ? "none" : "0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)";
-  const boxStyle =
-    background === 2
-      ? { background: "rgba(7,10,8,0.8)", padding: "3px 12px", borderRadius: 10 }
-      : null;
+
   return (
     <AnimatePresence mode="wait">
       {text ? (
         <motion.div
           key={text}
-          className="np-subtitle capw"
+          className="capw"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={M.FADE.transition}
-          style={{
-            position: "absolute",
-            left: "6%",
-            right: "6%",
-            // Clears the visible control deck so a cue never sits under the
-            // transport row; when the chrome is hidden the caption drops back to
-            // a cinematic offset.
-            bottom: controlsVisible ? 148 : 72,
-            textAlign: "center",
-            zIndex: 3,
-            pointerEvents: "none",
-            lineHeight: 1.4,
-            fontSize,
-            fontWeight: 700,
-            fontFamily,
-            color,
-            whiteSpace: "pre-line",
-            textShadow,
-            WebkitTextStroke: "0 0 transparent",
-          }}
+          aria-hidden="true"
         >
-          <span className="cap" style={boxStyle}>{text}</span>
+          <div
+            className="cap np-subtitle"
+            id="cap"
+            style={{
+              fontFamily,
+              color,
+              fontSize,
+            }}
+          >
+            <div className="cl">{text}</div>
+          </div>
         </motion.div>
       ) : null}
     </AnimatePresence>
