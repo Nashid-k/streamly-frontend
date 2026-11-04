@@ -49,6 +49,11 @@ export default function BottomChrome({
   currentTime,
   effectiveRatio,
   hoverRatio,
+  // Frame captured by the preview decoder for the hovered second. The v4
+  // scrubber shows it inside the tooltip (.tp); without this the pipeline ran
+  // and threw the result away.
+  previewUrl,
+  previewBox,
   fmtTime,
   onScrubKeyDown,
   onScrubDown,
@@ -89,6 +94,8 @@ export default function BottomChrome({
   const settingsOpen = SETTINGS_PANELS.has(panel);
   const remaining = Math.max(0, (Number(duration) || 0) - (Number(currentTime) || 0));
   const finishAt = formatFinishAt(remaining);
+  const thumbW = previewBox?.thumbW || 160;
+  const thumbH = previewBox?.thumbH || 90;
   const timeText =
     Number(duration) > 0 ? `${fmtTime(remaining)} left \u2022 Finish at ${finishAt}` : fmtTime(currentTime);
 
@@ -125,10 +132,22 @@ export default function BottomChrome({
         </div>
         {hoverRatio != null && Number(duration) > 0 ? (
           <div
-            className="np-progress-tip tip show"
+            className={["np-progress-tip", "tip", "show", previewUrl ? "has-th" : ""].filter(Boolean).join(" ")}
             style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
           >
-            <div className="tp" />
+            {previewUrl ? (
+              <div className="tp" style={{ width: thumbW, height: thumbH }}>
+                <i
+                  aria-hidden="true"
+                  style={{
+                    width: thumbW,
+                    height: thumbH,
+                    backgroundImage: `url("${previewUrl}")`,
+                    backgroundSize: "cover",
+                  }}
+                />
+              </div>
+            ) : null}
             <span>{fmtTime(hoverRatio * duration)}</span>
           </div>
         ) : null}

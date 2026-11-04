@@ -13,6 +13,8 @@ export default function PlayerTransport({
   currentTime,
   effectiveRatio,
   hoverRatio,
+  previewUrl,
+  previewBox,
   fmtTime,
   onScrubKeyDown,
   onScrubDown,
@@ -53,6 +55,8 @@ export default function PlayerTransport({
       currentTime={currentTime}
       effectiveRatio={effectiveRatio}
       hoverRatio={hoverRatio}
+      previewUrl={previewUrl}
+      previewBox={previewBox}
       fmtTime={fmtTime}
       onScrubKeyDown={onScrubKeyDown}
       onScrubDown={onScrubDown}

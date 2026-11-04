@@ -7,6 +7,7 @@
 // - Integrated header with animated sliding back arrow (.bk), title (h2#st),
 //   extra slot (#xs), and close button (#x)
 // - Dynamic viewport (.vp) supporting pane slide transitions (.pane.in / .pane.out)
+import { useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 const TITLES = {
@@ -67,6 +68,36 @@ export default function PlayerPanel({
   const isEpisodes = panel === "episodes";
   const backLabel = isEpisodes ? "Close episodes" : "Back to settings";
   const backAction = isEpisodes ? onClose : onBackToSettings;
+  const paneBodyRef = useRef(null);
+
+  /* The reference staggers each row of a freshly opened pane (30ms apart,
+     capped at 13). The index has to be stamped before paint so the CSS
+     animation-delay is already correct on the first frame. */
+  useLayoutEffect(() => {
+    const body = paneBodyRef.current;
+    if (!body) return;
+    body
+      .querySelectorAll(".tile, .row, .th, .np-lbl, .seg, .range, .marks, .custom, .hr, .note")
+      .forEach((item, index) => item.style.setProperty("--i", String(Math.min(index, 12))));
+  }, [panel]);
+
+  /* Press ripple on rows and tiles, as in the reference. Appended as a
+     transient node rather than React state: it is decoration, and the row
+     re-renders often. */
+  const handleRipple = (event) => {
+    if (reduceMotion) return;
+    const target = event.target.closest?.(".row, .tile, .th");
+    if (!target || event.target.closest(".switch")) return;
+    const rect = target.getBoundingClientRect();
+    const size = Math.hypot(rect.width, rect.height) * 2;
+    const ripple = document.createElement("span");
+    ripple.className = "rip";
+    ripple.style.cssText = `width:${size}px;height:${size}px;left:${
+      event.clientX - rect.left - size / 2
+    }px;top:${event.clientY - rect.top - size / 2}px`;
+    target.append(ripple);
+    ripple.addEventListener("animationend", () => ripple.remove());
+  };
 
   return (
     <AnimatePresence>
@@ -82,6 +113,7 @@ export default function PlayerPanel({
           aria-label={ARIA_LABELS[panel] || "Settings"}
           tabIndex={-1}
           onClick={(e) => e.stopPropagation()}
+          onPointerDown={handleRipple}
           data-panel={panel}
           className={["np-menu", "sheet", isSub ? "np-menu-sub" : "np-menu-root", isSub ? HEIGHT_CLASS[panel] || "np-menu-list" : ""]
             .filter(Boolean)
@@ -135,7 +167,9 @@ export default function PlayerPanel({
               animate={{ opacity: 1, x: 0 }}
               transition={reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.2, 0.8, 0.2, 1] }}
             >
-              {children}
+              <div className="np-pi pi" ref={paneBodyRef}>
+                {children}
+              </div>
             </motion.div>
           </div>
         </motion.aside>

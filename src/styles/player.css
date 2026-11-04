@@ -3113,6 +3113,15 @@
 .pi {
   padding: .25em .6em .9em;
 }
+/* The panel bodies already carry their own padding, so the stagger wrapper
+   only has to keep the flex/scroll chain intact. */
+.np-vp .np-pi {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .pane.in {
   animation: pin 550ms var(--ease-spring) backwards;
 }
@@ -3126,7 +3135,7 @@
 @keyframes pout {
   to { opacity: 0; transform: translateX(calc(var(--dx, 0) * -.7)); }
 }
-.pane.in .pi :is(.tile, .row, .th, .lbl, .seg, .range, .marks, .custom, .hr, .note) {
+.pane.in .pi :is(.tile, .row, .th, .lbl, .np-lbl, .seg, .range, .marks, .custom, .hr, .note) {
   animation: rise 500ms var(--ease) backwards;
   animation-delay: calc(var(--i, 0) * 30ms + 70ms);
 }

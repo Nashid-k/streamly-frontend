@@ -660,7 +660,7 @@ export default function NativePlayerView({
   const [sourceVariants, setSourceVariants] = useState([]);
   // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value } — owned by
   // the hook so the engine has no timer of its own.
-  const { hud, showHud, showHudRef } = usePlayerHud();
+  const { hud, hudSeq, showHud, showHudRef } = usePlayerHud();
   // Netflix "Still watching?" — after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
@@ -2206,6 +2206,7 @@ const showSkipOutro = shouldShowSkipOutro({
       hold2x={hold2x}
       hoverRatio={hoverRatio}
       hud={hud}
+      hudSeq={hudSeq}
       hudBox={hudBox}
       imdbId={imdbId}
       isFetchingSubtitles={isFetchingSubtitles}

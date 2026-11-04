@@ -78,6 +78,10 @@ export default function PlayerShell({
   hoverRatio,
   hud,
   hudBox,
+  // Increments on every HUD flash; used as the key that restarts the
+  // double-tap ripple animation (a CSS animation does not replay while its
+  // class stays applied).
+  hudSeq,
   imdbId,
   isFetchingSubtitles,
   isFullscreen,
@@ -123,6 +127,8 @@ export default function PlayerShell({
   poke,
   posterUrl,
   prefs,
+  previewBox,
+  previewUrl,
   qualities,
   qualityNote,
   replay,
@@ -257,7 +263,8 @@ export default function PlayerShell({
         />
         {/* Double-tap ripple flashes (.dt.l and .dt.r) */}
         <div
-          className={["dt", "l", hud?.kind === "seek" && hud.value < 0 ? "on" : ""].filter(Boolean).join(" ")}
+          key={`dt-l-${hudSeq || 0}`}
+          className={["dt", "l", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
           id="dt-l"
           aria-hidden="true"
         >
@@ -267,7 +274,8 @@ export default function PlayerShell({
           <span>{skipSeconds}s</span>
         </div>
         <div
-          className={["dt", "r", hud?.kind === "seek" && hud.value > 0 ? "on" : ""].filter(Boolean).join(" ")}
+          key={`dt-r-${hudSeq || 0}`}
+          className={["dt", "r", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
           id="dt-r"
           aria-hidden="true"
         >
@@ -386,6 +394,8 @@ export default function PlayerShell({
           currentTime={currentTime}
           effectiveRatio={effectiveRatio}
           hoverRatio={hoverRatio}
+          previewUrl={previewUrl}
+          previewBox={previewBox}
           fmtTime={fmtTime}
           onScrubKeyDown={onScrubKeyDown}
           onScrubDown={onScrubDown}

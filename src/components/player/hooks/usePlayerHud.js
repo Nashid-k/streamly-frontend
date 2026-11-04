@@ -27,6 +27,7 @@ export const HUD_MS = 1100;
  * @param {number} [options.duration] override the auto-dismiss window (ms).
  * @returns {{
  *   hud: { kind: "volume" | "aspect" | "seek" | "play" | "pause" | "hold2x", value?: number } | null,
+ *   hudSeq: number,
  *   setHud: (value: any) => void,
  *   showHud: (kind: string, value?: number) => void,
  *   showHudRef: { current: (kind: string, value?: number) => void },
@@ -35,6 +36,9 @@ export const HUD_MS = 1100;
  */
 export default function usePlayerHud({ duration = HUD_MS } = {}) {
   const [hud, setHud] = useState(null);
+  /* Bumped on every flash so a consumer can restart a one-shot CSS animation
+     by changing the element key. A class that stays applied does not replay. */
+  const [hudSeq, setHudSeq] = useState(0);
   const timerRef = useRef(null);
 
   const hideHud = useCallback(() => {
@@ -48,6 +52,7 @@ export default function usePlayerHud({ duration = HUD_MS } = {}) {
   const showHud = useCallback(
     (kind, value) => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      setHudSeq((n) => n + 1);
       setHud({ kind, value });
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
@@ -70,5 +75,5 @@ export default function usePlayerHud({ duration = HUD_MS } = {}) {
     [],
   );
 
-  return { hud, setHud, showHud, showHudRef, hideHud };
+  return { hud, hudSeq, setHud, showHud, showHudRef, hideHud };
 }
