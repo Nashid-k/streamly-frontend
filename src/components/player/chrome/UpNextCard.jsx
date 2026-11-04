@@ -28,17 +28,15 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "absolute",
-            right: 24,
-            bottom: IS_TOUCH ? 150 : 136,
-            width: "min(260px, 55%)",
-            background: GLASS_BG_STRONG,
-            borderRadius: RADIUS.card,
-            border: `1px solid ${GLASS_BORDER}`,
-            backdropFilter: GLASS_BLUR,
-            WebkitBackdropFilter: GLASS_BLUR,
-            padding: "14px 16px",
+            right: "max(1em, env(safe-area-inset-right))",
+            bottom: "calc(6.4em + env(safe-area-inset-bottom))",
+            width: "min(20em, calc(100% - 2em))",
+            background: "#0d1219",
+            borderRadius: "1.1em",
+            border: "1px solid #ffffff17",
+            padding: "1em 1.1em",
             zIndex: 6,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            boxShadow: "0 .5em 1.4em #0007",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>

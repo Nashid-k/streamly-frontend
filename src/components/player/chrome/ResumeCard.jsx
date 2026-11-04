@@ -26,19 +26,18 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "absolute",
-            right: 24,
-            bottom: IS_TOUCH ? 150 : 136,
+            right: "max(1em, env(safe-area-inset-right))",
+            bottom: "calc(6.4em + env(safe-area-inset-bottom))",
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            background: GLASS_BG_STRONG,
-            borderRadius: RADIUS.card,
-            border: `1px solid ${GLASS_BORDER}`,
-            backdropFilter: GLASS_BLUR,
-            WebkitBackdropFilter: GLASS_BLUR,
-            padding: "12px 16px",
+            gap: "0.8em",
+            width: "min(20em, calc(100% - 2em))",
+            background: "#0d1219",
+            borderRadius: "1.1em",
+            border: "1px solid #ffffff17",
+            padding: "0.9em 1.1em",
             zIndex: 6,
-            boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+            boxShadow: "0 .5em 1.4em #0007",
           }}
         >
           <div style={{ minWidth: 0 }}>

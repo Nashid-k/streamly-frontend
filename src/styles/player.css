@@ -295,21 +295,11 @@
    The player chrome sits on live video, so an unbacked white glyph disappears
    on a bright frame — this is the affordance that keeps it readable. */
 .np-icon-btn::before {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: 50%;
-  background: rgba(var(--np-accent-rgb, 149, 255, 80), 0.16);
-  opacity: 0;
-  transform: scale(0.72);
-  transition: opacity var(--zxc-t-fast) var(--zxc-ease),
-    transform var(--zxc-t-fast) var(--zxc-ease);
-  pointer-events: none;
+  display: none !important;
 }
 .np-icon-btn:hover:not(:disabled)::before,
 .np-icon-btn:focus-visible::before {
-  opacity: 1;
-  transform: scale(1);
+  display: none !important;
 }
 /* An open disclosure control (the settings/subs/episodes button while its panel
    is up) must NOT also wear the hover disc. The disc is a hover affordance; with
@@ -1038,22 +1028,11 @@
    the row's own content; selected/pressed states stay on the row so the glow
    never fakes a selection. */
 .np-dialog-row::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    150px circle at var(--np-glow-x, 50%) var(--np-glow-y, 50%),
-    rgba(var(--np-accent-rgb), 0.16) 0%,
-    rgba(var(--np-accent-rgb), 0.07) 42%,
-    transparent 74%
-  );
-  opacity: 0;
-  transition: opacity var(--zxc-t-fast) var(--zxc-ease);
-  pointer-events: none;
+  display: none !important;
+  content: none !important;
 }
 .np-dialog-row:hover:not(:disabled)::before {
-  opacity: 1;
+  display: none !important;
 }
 .np-dialog-row > * {
   position: relative;
@@ -1420,48 +1399,46 @@
   transform: translateY(10px);
 }
 
-/* ── Menu frame ────────────────────────────────────────────────────────── */
+/* ── Menu frame matching player-v4.html ─────────────────────────────────── */
 .np-menu {
   position: absolute;
-  right: 40px;
-  bottom: 112px;
-  width: 514px;
-  max-width: calc(100% - 32px);
-  max-height: calc(100% - 130px);
-  padding: 22px 0 18px;
-  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  right: max(1em, env(safe-area-inset-right));
+  bottom: calc(6.4em + env(safe-area-inset-bottom) + (var(--is, 1) - 1) * 1.4em);
+  width: min(21em, calc(100% - 2em));
+  max-width: min(21em, calc(100% - 2em));
+  max-height: min(25em, calc(100% - 8em));
+  height: auto;
+  padding: 0;
+  font-family: inherit;
   color: #fff;
-  background: linear-gradient(160deg, #10161d 0%, #0c1117 60%, #0e1319 100%);
-  border: 1px solid var(--np-panel-border);
-  border-radius: 22px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  background: #0d1219;
+  border: 1px solid #ffffff17;
+  border-radius: 1.25em;
+  box-shadow: 0 .5em 1.4em #0007;
   transform-origin: bottom right;
   z-index: 6;
   scrollbar-width: none;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.np-menu > * {
+  font-size: .86em;
 }
 .np-menu::-webkit-scrollbar {
   display: none;
 }
-.np-menu-root {
-  overflow-y: auto;
-}
-.np-menu-sub {
+.np-menu-root,
+.np-menu-sub,
+.np-menu-list,
+.np-menu-tall,
+.np-menu-episodes {
   display: flex;
   flex-direction: column;
   padding: 0;
   overflow: hidden;
-  height: min(645px, calc(100% - 130px));
-}
-.np-menu-list {
-  height: min(645px, calc(100% - 130px));
-}
-.np-menu-tall {
-  height: min(780px, calc(100% - 130px));
-}
-.np-menu-episodes {
-  height: min(646px, calc(100% - 130px));
+  height: auto;
+  max-height: min(25em, calc(100% - 8em));
 }
 .np-page {
   display: flex;
@@ -1587,94 +1564,101 @@
   margin-top: 20px;
 }
 
-/* ── Root tiles + rows ─────────────────────────────────────────────────── */
+/* ── Root tiles + rows matching player-v4.html ──────────────────────────── */
 .player .np-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 0 46px 0 59px;
-  margin-bottom: 40px;
+  gap: .6em;
+  padding: .4em .6em .6em;
+  margin-bottom: 0;
 }
 .player .np-tile {
-  height: 132px;
+  min-height: 4.4em;
+  height: auto;
   border: 0;
-  border-radius: 14px;
-  background: var(--np-tile);
+  border-radius: .9em;
+  background: #ffffff0d;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: .35em;
+  padding: .6em .4em;
   font-family: inherit;
-  transition: background var(--duration-fast) var(--np-ease), transform var(--duration-fast) var(--np-ease);
+  transition: background 200ms var(--ease), transform 200ms var(--ease);
 }
 .player .np-tile:hover {
-  background: var(--np-tile-hover);
-  transform: translateY(-1px);
+  background: #ffffff14 !important;
+  transform: translateY(-1px) !important;
+  color: #fff !important;
 }
 .player .np-tile:active {
-  transform: scale(var(--press-scale));
+  transform: scale(.985) !important;
 }
 .player .np-tile:focus-visible {
   outline: 2px solid var(--np-accent);
   outline-offset: 2px;
 }
 .player .np-tile-k {
-  font-size: 24px;
+  font-size: .9em;
   font-weight: 400;
-  color: var(--np-muted);
-  letter-spacing: 0.2px;
+  color: #8fa3b3;
 }
 .player .np-tile-v {
-  font-size: 21px;
+  font-size: 1em;
   font-weight: 700;
-  color: var(--np-value);
+  color: #dbe4ec;
   max-width: 100%;
-  padding: 0 8px;
+  padding: 0 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .player .np-menu-row {
   width: 100%;
-  height: 66px;
-  padding: 0 22px 0 35px;
+  min-height: 2.8em;
+  height: auto;
+  padding: .4em .9em;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 1em;
   background: none;
   border: 0;
   cursor: pointer;
-  font: 400 24px/1 inherit;
+  font: inherit;
   font-family: inherit;
-  color: var(--np-muted);
+  color: #b9c6d2;
+  border-radius: .8em;
   text-align: left;
-  transition: background var(--duration-fast) var(--np-ease), color var(--duration-fast) var(--np-ease);
+  transition: background 200ms var(--ease), transform 200ms var(--ease);
 }
 .player .np-menu-row:hover {
-  background: rgba(255, 255, 255, 0.03);
-  color: #8fa3b3;
+  background: #ffffff14 !important;
+  color: #fff !important;
 }
 .player .np-menu-row:active {
-  transform: scale(var(--press-scale-row));
+  transform: scale(.985) !important;
 }
 .player .np-menu-row:focus-visible {
   outline: 2px solid var(--np-accent);
   outline-offset: -2px;
 }
-.player .np-menu-row svg {
-  width: 28px;
-  height: 28px;
-  stroke: #fff;
+.player .np-menu-row svg,
+.player .np-menu-row .chv {
+  width: 1.3em;
+  height: 1.3em;
+  stroke: currentColor;
   fill: none;
-  stroke-width: 2.4;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: transform var(--duration-fast) var(--np-ease);
+  transition: transform 350ms var(--ease);
 }
-.player .np-menu-row:hover svg {
-  transform: translateX(3px);
+.player .np-menu-row:hover svg,
+.player .np-menu-row:hover .chv {
+  transform: translateX(3px) !important;
 }
 .player .np-menu-row-inset {
   height: 56px;
@@ -2139,93 +2123,6 @@
   }
   .np-ctl-right {
     gap: 8px;
-  }
-  .np-menu {
-    right: 16px;
-    bottom: 96px;
-    width: calc(100% - 32px);
-    max-width: 514px;
-    max-height: calc(100% - 112px);
-  }
-  .np-menu-sub,
-  .np-menu-list {
-    height: min(560px, calc(100% - 112px));
-  }
-  .np-menu-tall {
-    height: min(680px, calc(100% - 112px));
-  }
-  .np-menu-episodes {
-    height: min(560px, calc(100% - 112px));
-  }
-  .player .np-tiles {
-    padding: 0 20px;
-    gap: 10px;
-    margin-bottom: 28px;
-  }
-  .player .np-tile {
-    height: 104px;
-  }
-  .player .np-tile-k {
-    font-size: 18px;
-  }
-  .player .np-tile-v {
-    font-size: 16px;
-  }
-  .player .np-menu-row {
-    height: 56px;
-    padding: 0 18px;
-    font-size: 20px;
-  }
-  .player .np-subhead {
-    padding: 22px 22px 0;
-    gap: 14px;
-  }
-  .player .np-subtitle {
-    font-size: 19px;
-  }
-  .player .np-subline {
-    margin: 22px 22px 12px;
-  }
-  .player .np-list {
-    padding: 0 14px 12px 10px;
-  }
-  .player .np-pbody {
-    padding: 0 22px 22px;
-  }
-  .np-opt,
-  .np-menu .np-dialog-row {
-    font-size: 20px;
-    gap: 12px;
-    min-height: 54px;
-  }
-  .np-opt-ico {
-    width: 40px;
-    height: 32px;
-  }
-  .player .np-pick {
-    height: 56px;
-    font-size: 20px;
-  }
-  .np-ep {
-    font-size: 20px;
-  }
-  .np-ep-badge {
-    min-width: 44px;
-    height: 38px;
-    font-size: 18px;
-  }
-  .player .np-lbl {
-    font-size: 18px;
-    margin: 24px 0 14px;
-  }
-  .np-qauto {
-    font-size: 20px;
-  }
-  .player .np-note {
-    font-size: 16px;
-  }
-  .np-subact {
-    font-size: 18px;
   }
 }
 
@@ -3681,42 +3578,137 @@
   }
 }
 
-/* ── Sheet geometry & button hover matching player-v4 ─────────────────── */
+/* ── Sheet geometry & styling matching player-v4.html ─────────────────── */
+.sheet,
+.np-menu.sheet,
+:is(.player, .np-root) .sheet {
+  position: absolute !important;
+  right: max(1em, env(safe-area-inset-right)) !important;
+  bottom: calc(6.4em + env(safe-area-inset-bottom) + (var(--is, 1) - 1) * 1.4em) !important;
+  width: min(21em, calc(100% - 2em)) !important;
+  max-width: min(21em, calc(100% - 2em)) !important;
+  max-height: min(25em, calc(100% - 8em)) !important;
+  height: auto !important;
+  padding: 0 !important;
+  background: #0d1219 !important;
+  border: 1px solid #ffffff17 !important;
+  border-radius: 1.25em !important;
+  box-shadow: 0 .5em 1.4em #0007 !important;
+  font-size: clamp(14px, 1.1cqi + 9px, 16px) !important;
+  overflow: hidden !important;
+}
+
+.sheet > *,
+.np-menu > *,
+:is(.player, .np-root) .sheet > * {
+  font-size: .86em !important;
+}
+
+.sheet .hd,
+.sheet .np-subhead {
+  display: flex !important;
+  align-items: center !important;
+  gap: .4em !important;
+  padding: .6em .8em .2em 1em !important;
+  min-height: 40px !important;
+}
+
+.sheet #st,
+.sheet .np-subtitle {
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  text-overflow: ellipsis !important;
+  flex: 1 !important;
+  font-size: 1.1em !important;
+  font-weight: 700 !important;
+  color: #9fb3c4 !important;
+  margin: 0 !important;
+}
+
+.sheet .vp,
+.sheet .np-vp {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: min(21.5em, calc(100% - 11em)) !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #26384a transparent !important;
+}
+
+.sheet .tiles,
+.sheet .np-tiles {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: .6em !important;
+  padding: .4em .6em .6em !important;
+  margin: 0 !important;
+}
+
 .sheet .tile,
 .sheet .np-tile {
   min-height: 4.4em !important;
   height: auto !important;
   padding: .6em .4em !important;
+  gap: .35em !important;
+  border-radius: .9em !important;
+  background: #ffffff0d !important;
+  box-shadow: none !important;
 }
+
+.sheet .tile small,
+.sheet .np-tile-k {
+  font-size: .9em !important;
+  color: #8fa3b3 !important;
+}
+
+.sheet .tile b,
+.sheet .np-tile-v {
+  font-size: 1em !important;
+  font-weight: 700 !important;
+  color: #dbe4ec !important;
+}
+
 .sheet .row,
 .sheet .np-menu-row,
 .sheet .np-pick,
 .sheet .np-dialog-row,
 .sheet .np-opt,
 .sheet .np-ep {
+  width: 100% !important;
   min-height: 2.8em !important;
   height: auto !important;
   padding: .4em .9em !important;
-  font-size: inherit !important;
+  font-size: 1em !important;
   border-radius: .8em !important;
   box-shadow: none !important;
+  border: 0 !important;
 }
-.sheet .hd {
-  padding-top: .4em;
+
+.sheet .np-menu-sub,
+.sheet .np-menu-list,
+.sheet .np-menu-tall,
+.sheet .np-menu-episodes {
+  height: auto !important;
+  max-height: min(25em, calc(100% - 8em)) !important;
 }
+
 .sheet .np-dialog-row:hover:not(:disabled),
 .sheet .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
   padding-left: .9em !important;
   background: #ffffff14 !important;
 }
 
+/* No blurry / grayish disc backgrounds on hover */
 .np-root .btn,
 .sheet .btn {
   transition: transform 200ms var(--ease), background 200ms var(--ease);
 }
-.np-root .btn:hover:not(:disabled),
-.sheet .btn:hover:not(:disabled) {
-  background: #ffffff1f;
+.np-root .btn:hover,
+.sheet .btn:hover,
+.np-root .np-icon-btn:hover {
+  background: none !important;
 }
 .np-root .btn.nb:hover,
 .sheet .btn.nb:hover {
@@ -3729,5 +3721,15 @@
 .np-root .bk:hover .ic,
 .sheet .bk:hover .ic {
   transform: translateX(-2px) !important;
+}
+
+.np-root .btn::before,
+.sheet .btn::before,
+.np-root .np-icon-btn::before,
+.sheet .np-icon-btn::before,
+.np-dialog-row::before,
+.sheet .np-dialog-row::before {
+  display: none !important;
+  content: none !important;
 }
 

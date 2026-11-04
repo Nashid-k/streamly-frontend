@@ -144,10 +144,22 @@ export default function PlayerPanel({
 
             <button
               type="button"
-              className="btn np-close-btn"
+              className="btn np-close-btn sr-only"
               id="x"
               aria-label="Close panel"
               onClick={onClose}
+              style={{
+                position: "absolute",
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: "hidden",
+                clip: "rect(0, 0, 0, 0)",
+                whiteSpace: "nowrap",
+                border: 0,
+                pointerEvents: "none",
+              }}
             >
               <svg className="ic"><use href="#i-x" /></svg>
             </button>

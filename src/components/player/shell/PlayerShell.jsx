@@ -496,20 +496,11 @@ export default function PlayerShell({
               poke();
             }}
             season={season}
-            actionLabel={
-              panel === "subs"
-                ? "Customize"
-                : panel === "settings"
-                  ? "Appearance"
-                  : null
-            }
+            actionLabel={panel === "subs" ? "Customize" : null}
             onAction={() => {
               if (panel === "subs") {
                 prevPanelRef.current = "subs";
                 setPanel("captions");
-              } else if (panel === "settings") {
-                prevPanelRef.current = "settings";
-                setPanel("appearance");
               }
               poke();
             }}
