@@ -85,7 +85,7 @@ describe("player settings sheet semantics", () => {
   it("lights the gear for the subtitles sheet too (it was left unlit)", () => {
     mount();
     fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
-    const subs = screen.getByRole("button", { name: /subtitles/i });
+    const subs = screen.getByRole("button", { name: /subtitles settings/i });
     fireEvent.click(subs);
     const gear = screen.getByRole("button", { name: /^settings$/i });
     // "subs" was missing from the active list, so this was the one sheet that
@@ -123,12 +123,12 @@ describe("player settings sheet semantics", () => {
     gear.focus();
     fireEvent.click(gear);
 
-    const sleep = screen.getByRole("button", { name: /sleep timer/i });
+    const playback = screen.getByRole("button", { name: /playback settings/i });
     // The row that opens a submenu unmounts with it. Without re-focusing the
     // dialog, focus fell to <body> and the new heading was never announced.
-    sleep.focus();
-    fireEvent.click(sleep);
-    expect(screen.getByRole("dialog", { name: "Sleep timer" })).toHaveFocus();
+    playback.focus();
+    fireEvent.click(playback);
+    expect(screen.getByRole("dialog", { name: "Playback settings" })).toHaveFocus();
 
     fireEvent.click(screen.getByRole("button", { name: /back to settings/i }));
     expect(screen.getByRole("dialog", { name: "Settings" })).toHaveFocus();
@@ -237,17 +237,13 @@ describe("episode rail with unaired episodes", () => {
     return { onSelectEpisode, cards: [...document.querySelectorAll(".np-episode-card")] };
   };
 
-  it("reserves the same text block for an episode with no synopsis", () => {
+  it("shows the air date on an episode with no synopsis", () => {
     const { cards } = openRail();
-    const blocks = cards.map((c) => c.querySelector("div[style*='min-height']"));
-    // The ragged rail: an unaired episode has no description, so its block used
-    // to collapse to 0px and the card ended higher than its neighbours.
-    expect(blocks).toHaveLength(2);
-    const heights = blocks.map((b) => b.style.minHeight);
-    expect(new Set(heights).size).toBe(1);
-    expect(heights[0]).not.toBe("");
-    // …and it says something rather than leaving a hole.
-    expect(blocks[1].textContent).toMatch(/airs/i);
+    // The menu row is a single line + optional sub-line, so there is no fixed
+    // text block to reserve. What matters is that an unreleased episode still
+    // says WHEN rather than leaving an empty row.
+    expect(cards[1].textContent).toMatch(/airs/i);
+    expect(cards[1].textContent).toMatch(/\d/);
   });
 
   it("marks an unaired episode unavailable instead of letting it play", () => {
@@ -317,36 +313,34 @@ describe("episode rail chrome", () => {
     expect(screen.getByRole("button", { name: /skip the opening credits/i })).toBeInTheDocument();
   });
 
-  it("keeps room above the cards so the current episode's red ring is not clipped", () => {
+  it("renders the episode list inside the scrollable panel", () => {
     mountTv();
     openRail();
-    const rail = document.querySelector(".np-episode-card").parentElement;
-    // `overflow-x: auto` forces the block axis to clip too, so the 2px outer
-    // ring on the playing card used to lose its top edge to the container.
-    expect(rail.style.overflowX).toBe("auto");
-    expect(rail.style.paddingTop).not.toBe("");
-    expect(rail.style.paddingTop).not.toBe("0px");
+    const dialog = screen.getByRole("dialog", { name: "Episodes" });
+    const list = dialog.querySelector(".np-list");
+    expect(list).toBeInTheDocument();
+    expect(dialog.querySelectorAll(".np-episode-card")).toHaveLength(1);
   });
 });
 
-describe("player aspect-ratio panel", () => {
-  const openAspectPanel = () => {
+describe("player Playback settings page", () => {
+  const openPlayback = () => {
     mount();
-    // gear → Settings → Aspect Ratio
-    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
-    fireEvent.click(screen.getByText("Aspect Ratio"));
-    return screen.getByRole("dialog");
+    // gear → Settings → Playback settings
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Playback settings" }));
+    return screen.getByRole("dialog", { name: "Playback settings" });
   };
 
-  // REGRESSION: the panel read `aspect.label`, but the ASPECT_RATIOS catalog has
-  // only ever had `name`. `undefined` renders as nothing, so all six options
-  // were blank rows. It looked server-dependent because switching servers
+  // REGRESSION: the old aspect panel read `aspect.label`, but the ASPECT_RATIOS
+  // catalog has only ever had `name`. `undefined` renders as nothing, so all six
+  // options were blank rows. It looked server-dependent because switching servers
   // closes the sheet, and the Settings root row masked it with a `|| "Fit"`
   // fallback — the symptom was "the aspect texts vanish after I change server".
   it("shows real text for every aspect option, not blank rows", () => {
-    const dialog = openAspectPanel();
-    const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBeGreaterThan(0);
+    const dialog = openPlayback();
+    const rows = [...dialog.querySelectorAll(".np-pick")];
+    expect(rows.length).toBeGreaterThanOrEqual(6);
     for (const row of rows) {
       expect((row.textContent || "").trim().length).toBeGreaterThan(0);
     }
@@ -354,32 +348,24 @@ describe("player aspect-ratio panel", () => {
     expect(dialog.textContent).toContain("Stretch");
   });
 
-  it("the Settings row reports the CURRENT mode, not a hardcoded 'Fit'", () => {
-    // The same `.label` bug made this always fall through to "Fit" via `||`,
-    // so a viewer on Cinema was told "Fit" on the row that opens the panel.
-    mount();
-    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
-    const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
-      (r.textContent || "").includes("Aspect Ratio"),
+  it("marks the current aspect mode, not a hardcoded 'Fit'", () => {
+    const dialog = openPlayback();
+    const selected = [...dialog.querySelectorAll(".np-pick")].find((r) =>
+      (r.textContent || "").includes("Fit to Screen"),
     );
-    expect(row.textContent).toContain("Fit to Screen");
+    expect(selected).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("picking an option selects it and closes the sheet", async () => {
-    const dialog = openAspectPanel();
-    const cinema = [...dialog.querySelectorAll(".np-dialog-row")].find((r) =>
+  it("picking an option selects it in place", () => {
+    const dialog = openPlayback();
+    const cinema = [...dialog.querySelectorAll(".np-pick")].find((r) =>
       (r.textContent || "").includes("Cinema 21:9"),
     );
     fireEvent.click(cinema);
-    // The sheet animates out, so it is still mounted for a moment — wait for
-    // the exit rather than asserting a synchronous unmount that never happens.
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    // …and the choice is now the reported current mode, not the "Fit" default.
-    fireEvent.click(screen.getByRole("button", { name: /settings/i }));
-    const row = [...document.querySelectorAll(".np-dialog-row")].find((r) =>
-      (r.textContent || "").includes("Aspect Ratio"),
-    );
-    expect(row.textContent).toContain("Cinema 21:9");
+    // Aspect is a live setting, not a one-shot action: the page stays open so
+    // the viewer can compare modes without reopening the gear each time.
+    expect(cinema).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("dialog", { name: "Playback settings" })).toBeInTheDocument();
   });
 });
 

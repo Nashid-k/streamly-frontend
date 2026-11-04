@@ -5,8 +5,7 @@
 // Presentation only. It creates no effect and reads no ref of its own: DOM refs
 // (videoRef / screenRef / scrubRef / panelRef) are handed down to be attached,
 // and every state change arrives as a callback.
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
+import { AnimatePresence } from "framer-motion";
 import {
   ChromeTopBar,
   SkipPill,
@@ -17,7 +16,6 @@ import {
   UpNextCard,
   PlayerPanel,
   FatalBanner,
-  EpisodesRail,
   IS_TOUCH,
   SAFE_TOP,
   SAFE_BOTTOM,
@@ -46,9 +44,9 @@ export default function PlayerShell({
   audioTrackList,
   audioTracks,
   autoLevel,
+  autoplayEnabled,
   autoMuted,
   backdropUrl,
-  bufferedRanges,
   buffering,
   chooseEpisode,
   controlsVisible,
@@ -71,13 +69,10 @@ export default function PlayerShell({
   episodes,
   everPlayed,
   fatal,
-  goEpNext,
-  goEpPrev,
   goFullscreen,
   handleGestureMove,
   handleHoldEnd,
   handleVideoTouchEnd,
-  hdBadge,
   hold2x,
   hoverRatio,
   hud,
@@ -86,10 +81,8 @@ export default function PlayerShell({
   isFetchingSubtitles,
   isFullscreen,
   isMasterMode,
-  loopEnabled,
   manualHeight,
   muted,
-  nextDisabled,
   onBack10,
   onCenterTogglePlay,
   onExitPlayer,
@@ -125,14 +118,10 @@ export default function PlayerShell({
   pipActive,
   pipSupported,
   playbackRate,
-  playerW,
   playing,
   poke,
   posterUrl,
   prefs,
-  prevDisabled,
-  previewBox,
-  previewUrl,
   qualities,
   qualityNote,
   replay,
@@ -143,13 +132,12 @@ export default function PlayerShell({
   safeDuration,
   screenRef,
   scrubRef,
-  scrubberBands,
+  season,
   selectSubtitle,
   serverSwitchStage,
   setAspectRatioIndex,
   setAutoMuted,
   setBuffering,
-  setLoopEnabled,
   setMuted,
   setPanel,
   setResumeOffer,
@@ -158,7 +146,6 @@ export default function PlayerShell({
   setUpNext,
   setVolHover,
   sheetOpen,
-  showEpisodeNav,
   showEpisodesButton,
   showSkipIntro,
   showSkipOutro,
@@ -166,13 +153,10 @@ export default function PlayerShell({
   skipIntroProgress,
   skipOutroProgress,
   skipSeconds,
-  sleepMinutes,
-  sleepRemaining,
   sourceHeight,
   sourceVariants,
   spinner,
   stageNote,
-  startSleepTimer,
   status,
   stillWatching,
   subtitleBg,
@@ -181,6 +165,7 @@ export default function PlayerShell({
   subtitleLanguages,
   subtitleSize,
   switchFrame,
+  toggleAutoplay,
   toggleMute,
   togglePip,
   togglePlay,
@@ -190,8 +175,6 @@ export default function PlayerShell({
   volHover,
   volume,
 }) {
-  const dimReducedMotion = useReducedMotion();
-  const M = useMotionTokens(dimReducedMotion);
   return (
     // No local <MotionConfig>: this tree inherits the app-level one
     // (App.jsx: reducedMotion = in-app preference ? "always" : "user"). A nested
@@ -250,37 +233,20 @@ export default function PlayerShell({
         />
         {/* (No standalone scrims: the top bar and bottom chrome paint their own
             gradients — stacking more here double-darkened the picture.) */}
-        {/* Dim the picture while a dialog panel is open (Netflix does this) so
-            the rows read against the frame, not against the movie. Tapping the
-            dim (outside the sheet) closes the panel — mobile has no Esc. */}
-        {/* The dim used to snap on, which made every panel open read as two
-            disconnected events (a hard black flash, then the sheet). It now
-            fades in and out over the same window as the sheet, so the dim and
-            the card arrive as one gesture. */}
-        <AnimatePresence>
-          {panel && (
-            <motion.div
-              key="np-panel-dim"
-              aria-hidden="true"
-              initial={M.FADE.initial}
-              animate={M.FADE.animate}
-              exit={M.FADE.exit}
-              // Opacity-only fade via the canonical token, so the veil and the
-              // panel card share one vocabulary and one reduced-motion answer.
-              transition={M.FADE.transition}
-              onClick={() => {
-                setPanel(null);
-                poke();
-              }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "rgba(0,0,0,0.55)",
-                zIndex: 5,
-              }}
-            />
-          )}
-        </AnimatePresence>
+        {/* Tapping the picture while a panel is open closes the panel. The
+            catcher is transparent (the reference design does not dim the
+            frame) and sits below the chrome, so the bars and skip pills stay
+            live. Mobile has no Esc, so this is the touch exit. */}
+        {panel && (
+          <div
+            aria-hidden="true"
+            onClick={() => {
+              setPanel(null);
+              poke();
+            }}
+            style={{ position: "absolute", inset: 0, zIndex: 5 }}
+          />
+        )}
         {/* Subtitle overlay — active OpenSubtitles line, bottom-anchored above
             the control chrome like CustomVideoPlayer. */}
         <SubtitleOverlay
@@ -372,12 +338,7 @@ export default function PlayerShell({
           duration={safeDuration}
           currentTime={currentTime}
           effectiveRatio={effectiveRatio}
-          bufferedRanges={bufferedRanges}
           hoverRatio={hoverRatio}
-          previewUrl={previewUrl}
-          previewBox={previewBox}
-          playerW={playerW}
-          scrubberBands={scrubberBands}
           fmtTime={fmtTime}
           onScrubKeyDown={onScrubKeyDown}
           onScrubDown={onScrubDown}
@@ -388,11 +349,6 @@ export default function PlayerShell({
           onScrubFocus={poke}
           playing={playing}
           onTogglePlay={togglePlay}
-          /* On touch the centre transport (rewind / play / forward) is already
-             on screen whenever the stream is simply paused, so the bottom bar's
-             play/pause pill would be a SECOND play/pause button on the same
-             picture. Same condition as CenterStack's paused transport. */
-          centerTransport={IS_TOUCH && !buffering && !ended && !playing && status === "playing"}
           onBack10={onBack10}
           onForward10={onForward10}
           skipSeconds={skipSeconds}
@@ -404,19 +360,19 @@ export default function PlayerShell({
           volHover={volHover}
           onVolHoverChange={setVolHover}
           onVolumeChange={onVolumeChange}
-          showEpisodeNav={showEpisodeNav}
-          prevDisabled={prevDisabled}
-          nextDisabled={nextDisabled}
-          onEpPrev={goEpPrev}
-          onEpNext={goEpNext}
           showEpisodesButton={showEpisodesButton}
           panel={panel}
           onTogglePanel={onTogglePanel}
           onToggleSettings={onToggleSettings}
           showSubsButton={subtitleLanguages.length > 0 || isFetchingSubtitles || subtitleError}
+          pipSupported={pipSupported}
+          pipActive={pipActive}
+          onTogglePip={() => {
+            togglePip();
+            poke();
+          }}
           isFullscreen={isFullscreen}
           onFullscreen={goFullscreen}
-          hdBadge={hdBadge}
         />
 {/* Netflix "Left off at …" resume card — auto-resumes after a short wait. */}
         <ResumeCard
@@ -442,6 +398,12 @@ export default function PlayerShell({
             setPanel("settings");
             poke();
           }}
+          season={season}
+          actionLabel={panel === "subs" ? "Customize" : null}
+          onAction={() => {
+            setPanel("appearance");
+            poke();
+          }}
         >
           <PlayerMenus
             panel={panel}
@@ -461,14 +423,6 @@ export default function PlayerShell({
             sourceVariants={sourceVariants}
             sourceHeight={sourceHeight}
             pickSourceQuality={pickSourceQuality}
-            loopEnabled={loopEnabled}
-            setLoopEnabled={setLoopEnabled}
-            sleepMinutes={sleepMinutes}
-            sleepRemaining={sleepRemaining}
-            startSleepTimer={startSleepTimer}
-            pipSupported={pipSupported}
-            pipActive={pipActive}
-            togglePip={togglePip}
             cueBoundaries={cueBoundaries}
             orderedSources={orderedSources}
             pickServer={pickServer}
@@ -497,22 +451,17 @@ export default function PlayerShell({
             activeUri={activeUri}
             pickQuality={pickQuality}
             pickAuto={pickAuto}
+            autoplayEnabled={autoplayEnabled}
+            onToggleAutoplay={toggleAutoplay}
+            showEpisodesButton={showEpisodesButton}
+            episodes={episodes}
+            episode={episode}
+            chooseEpisode={chooseEpisode}
+            setBuffering={setBuffering}
+            setResumeOffer={setResumeOffer}
           />
         </PlayerPanel>
 
-        {/* Episodes rail (bottom sheet) */}
-        <AnimatePresence>
-          {panel === "episodes" && (
-            <EpisodesRail 
-              episodes={episodes}
-              episode={episode}
-              onSelectEpisode={chooseEpisode}
-              setPanel={setPanel}
-              setBuffering={setBuffering}
-              setResumeOffer={setResumeOffer}
-            />
-          )}
-        </AnimatePresence>
         {/* Netflix HUD overlays: transient volume / aspect pills
             that pop while a value changes and self-fade, plus the rewind /
             forward badge on its own edge. All geometry comes from hudMetrics

@@ -1,30 +1,13 @@
-// One selectable row in the Audio & Subtitles / Servers / Quality / Episodes
-// panels. Lifted verbatim from NativePlayerView.jsx.
+// One selectable row in the Source / Audio panels.
 //
-// Module-level, so it has no access to the engine's motion tokens and resolves
-// the preference itself — the same value, read from the same hook, so the
-// checkmark still collapses to a cut under reduced motion.
-import { motion, useReducedMotion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
-import { IconCheck, IconChevronRight } from "./icons";
-import { ACCENT, ACCENT_SOFT } from "./theme";
+// The "Pitch" chrome (2026-11) renders these as the reference design's `.opt`
+// rows: a slate icon plate on the left, the name in the middle and a filled
+// check on the right. The `.np-dialog-row` class is kept because the player's
+// menu tests and the selected-row contract key off it; the `.np-opt` class is
+// what carries the new geometry.
+import { IconChevronRight, IconMenuCheck } from "./icons";
 
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
-  const M = useMotionTokens(useReducedMotion());
-
-  /* Cursor-tracked glow: the row's highlight follows the pointer instead of
-     being a flat wash (user ask: "cursor hover glow in player settings"). The
-     position is written straight to CSS vars on the element — a pointer move
-     must never re-render the whole panel. */
-  const trackGlow = (event) => {
-    if (disabled) return;
-    const el = event.currentTarget;
-    const rect = el.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    el.style.setProperty("--np-glow-x", `${((event.clientX - rect.left) / rect.width) * 100}%`);
-    el.style.setProperty("--np-glow-y", `${((event.clientY - rect.top) / rect.height) * 100}%`);
-  };
-
   const renderTitle = (t) => {
     if (typeof t !== "string") return t;
     const m = t.match(/^(.*?)\s+(HD|4K)$/);
@@ -32,9 +15,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
       return (
         <>
           {m[1]}
-          <sup style={{ fontSize: 10, fontWeight: 800, marginLeft: 4, color: ACCENT, position: "relative", top: -5 }}>
-            {m[2]}
-          </sup>
+          <sup className="np-opt-tag">{m[2]}</sup>
         </>
       );
     }
@@ -44,71 +25,23 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
   return (
     <button
       type="button"
-      className={["np-dialog-row", selected ? "selected" : ""].filter(Boolean).join(" ")}
+      className={["np-opt", "np-dialog-row", selected ? "sel" : ""].filter(Boolean).join(" ")}
       onClick={disabled ? undefined : onClick}
-      onPointerMove={trackGlow}
       disabled={disabled}
       aria-pressed={selected ? true : undefined}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        width: "calc(100% - 16px)",
-        textAlign: "left",
-        margin: "2px 8px",
-        padding: sub && !hasChevron ? "8px 12px" : "0 12px",
-        minHeight: sub && !hasChevron ? 54 : 48,
-        borderRadius: 14,
-        border: "none",
-        background: selected ? ACCENT_SOFT : "transparent",
-        boxShadow: selected ? `inset 3px 0 0 ${ACCENT}` : "none",
-        color: selected ? "#fff" : "rgba(255,255,255,0.88)",
-        fontWeight: selected ? 600 : 400,
-        opacity: disabled ? 0.45 : 1,
-        cursor: disabled ? "not-allowed" : "pointer",
-        fontSize: 14.5,
-        transition:
-          "background var(--zxc-t-fast) var(--zxc-ease), box-shadow var(--zxc-t-fast) var(--zxc-ease), transform var(--zxc-t-instant) var(--zxc-ease)",
-      }}
     >
-      <span className="np-dialog-row-icon" style={{ width: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 12 }}>
-        {icon ? (
-          icon
-        ) : selected ? (
-          // The check itself pops, so a selection change is felt, not just seen.
-          <motion.span
-            key={`check-${title}`}
-            initial={M.CHECK_POP.initial}
-            animate={M.CHECK_POP.animate}
-            transition={M.CHECK_POP.transition}
-            style={{ display: "flex" }}
-          >
-            <IconCheck size={16} color={ACCENT} />
-          </motion.span>
-        ) : null}
+      {icon ? <span className="np-opt-ico">{icon}</span> : null}
+      <span className="np-opt-name">
+        <span className="np-opt-title">{renderTitle(title)}</span>
+        {sub && !hasChevron ? <span className="np-opt-sub">{sub}</span> : null}
       </span>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        <span style={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {renderTitle(title)}
-        </span>
-        {sub && !hasChevron ? (
-          <span style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{sub}</span>
-        ) : null}
-      </span>
-      {hasChevron && (
-        <span
-          className="np-dialog-row-val"
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            color: "rgba(255,255,255,0.85)",
-            fontSize: 13.5,
-          }}
-        >
+      {hasChevron ? (
+        <span className="np-opt-val">
           {sub ? <span>{sub}</span> : null}
           <IconChevronRight size={18} />
         </span>
+      ) : (
+        <IconMenuCheck size={30} />
       )}
     </button>
   );

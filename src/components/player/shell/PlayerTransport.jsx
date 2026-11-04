@@ -12,12 +12,7 @@ export default function PlayerTransport({
   duration,
   currentTime,
   effectiveRatio,
-  bufferedRanges,
   hoverRatio,
-  previewUrl,
-  previewBox,
-  playerW,
-  scrubberBands,
   fmtTime,
   onScrubKeyDown,
   onScrubDown,
@@ -28,7 +23,6 @@ export default function PlayerTransport({
   onScrubFocus,
   playing,
   onTogglePlay,
-  centerTransport,
   onBack10,
   onForward10,
   skipSeconds,
@@ -40,19 +34,16 @@ export default function PlayerTransport({
   volHover,
   onVolHoverChange,
   onVolumeChange,
-  showEpisodeNav,
-  prevDisabled,
-  nextDisabled,
-  onEpPrev,
-  onEpNext,
   showEpisodesButton,
   panel,
   onTogglePanel,
   onToggleSettings,
   showSubsButton,
+  pipSupported,
+  pipActive,
+  onTogglePip,
   isFullscreen,
   onFullscreen,
-  hdBadge,
 }) {
   return (
     <BottomChrome
@@ -61,12 +52,7 @@ export default function PlayerTransport({
       duration={duration}
       currentTime={currentTime}
       effectiveRatio={effectiveRatio}
-      bufferedRanges={bufferedRanges}
       hoverRatio={hoverRatio}
-      previewUrl={previewUrl}
-      previewBox={previewBox}
-      playerW={playerW}
-      scrubberBands={scrubberBands}
       fmtTime={fmtTime}
       onScrubKeyDown={onScrubKeyDown}
       onScrubDown={onScrubDown}
@@ -77,11 +63,6 @@ export default function PlayerTransport({
       onScrubFocus={onScrubFocus}
       playing={playing}
       onTogglePlay={onTogglePlay}
-      /* On touch the centre transport (rewind / play / forward) is already
-         on screen whenever the stream is simply paused, so the bottom bar's
-         play/pause pill would be a SECOND play/pause button on the same
-         picture. Same condition as CenterStack's paused transport. */
-      centerTransport={centerTransport}
       onBack10={onBack10}
       onForward10={onForward10}
       skipSeconds={skipSeconds}
@@ -93,19 +74,16 @@ export default function PlayerTransport({
       volHover={volHover}
       onVolHoverChange={onVolHoverChange}
       onVolumeChange={onVolumeChange}
-      showEpisodeNav={showEpisodeNav}
-      prevDisabled={prevDisabled}
-      nextDisabled={nextDisabled}
-      onEpPrev={onEpPrev}
-      onEpNext={onEpNext}
       showEpisodesButton={showEpisodesButton}
       panel={panel}
       onTogglePanel={onTogglePanel}
       onToggleSettings={onToggleSettings}
       showSubsButton={showSubsButton}
+      pipSupported={pipSupported}
+      pipActive={pipActive}
+      onTogglePip={onTogglePip}
       isFullscreen={isFullscreen}
       onFullscreen={onFullscreen}
-      hdBadge={hdBadge}
     />
   );
 }

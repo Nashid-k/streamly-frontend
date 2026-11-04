@@ -15,7 +15,6 @@ export { default as UpNextCard } from "./UpNextCard";
 export { default as PlayerPanel } from "./PlayerPanel";
 export { default as FatalBanner } from "./FatalBanner";
 export { default as DialogRow } from "./DialogRow";
-export { default as EpisodesRail } from "./EpisodesRail";
 export * from "./primitives";
 export * from "./icons";
 export * from "./constants";

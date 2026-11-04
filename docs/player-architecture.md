@@ -1,7 +1,7 @@
 # Player architecture — and how the view layer was made redesignable
 
-Status: **split complete; from-scratch redesign landed (2026-11-04).** This file
-exists so every future extraction is a mechanical move rather than an
+Status: **split complete; reference-design rebuild landed (2026-11-04).** This
+file exists so every future extraction is a mechanical move rather than an
 archaeology exercise, and so a from-scratch redesign can replace the view layer
 without touching the engine.
 
@@ -34,7 +34,7 @@ presentation and the stream lifecycle share one closure.
 | Quality switching: rung, source ladder, Auto (6a) | `player/engine/useQualitySwitch.js` | ~250 |
 | Audio switching: in-manifest + sibling dubs (6b) | `player/engine/useAudioSwitch.js` | ~270 |
 | Source resolving: attempt loop, warm handover, relay fallback, fatal latch, reload carry (7) | `player/engine/useSourceResolve.js` | ~854 |
-| Menu bodies: settings, servers, subtitles, audio, video, speed, aspect, substyle, source quality, sleep (8) | `player/shell/PlayerMenus.jsx` | ~396 |
+| Menu bodies: settings root (2×2 tiles), servers, audio, video quality, subtitles, playback settings, appearance, source quality, seasons (8) | `player/shell/PlayerMenus.jsx` | ~539 |
 | Transport binding: scrubber + transport row (9) | `player/shell/PlayerTransport.jsx` | ~0 (seam; inline handlers became callbacks) |
 | Surface + overlay composition: `<video>`, chrome layers, panel, HUDs, fatal banner (10) | `player/shell/PlayerShell.jsx` | ~385 (JSX) |
 | Desktop key map: space tap-vs-hold, arrows, volume, aspect, mute, fullscreen, episode nav, Escape, Tab-reveal (11) | `player/hooks/usePlayerKeyboard.js` | ~88 |
@@ -42,38 +42,60 @@ presentation and the stream lifecycle share one closure.
 
 Current: **2,325 lines** (engine untouched by the redesign).
 
-## Design language — “Signal” (2026-11-04)
+## Design language — “Pitch” (2026-11-04)
 
-The view layer was then rebuilt from scratch with no reference to the previous
-player design. The design system lives in `player/chrome/theme.js` and the
-player-scoped CSS tokens in `styles/player.css` (`.np-root`), so a future
-redesign replaces those two files plus the chrome components — never the engine.
+The view layer follows the supplied `player-new-design.html` reference (minus
+loop and sleep timer, which were removed from the UI). The design system lives
+in `player/chrome/theme.js` and the `.np-*` PITCH block at the end of
+`styles/player.css`; a future redesign replaces those two files plus the chrome
+components — never the engine.
 
-- **Accent:** Streamly's own signal green `#95ff50` (the app's brand accent),
-  replacing the third-party red the old chrome borrowed. Played progress,
-  selected rows, active glyphs, primary buttons and focus all resolve to it;
-  `ACCENT_FG` (`#07120a`) is the dark glyph colour used on an accent fill.
-- **Surfaces:** cool ink glass (`GLASS_*`, `DECK_*`) with a 26px deck radius,
-  22px cards, 24px sheet. Menus, chips, tooltips and HUDs share one material.
-- **Layout:** the transport is one floating **control deck** — a scrubber across
-  its top edge, one control row beneath (`.np-deck`); the top bar is a floating
-  glass **title chip** (`.np-title-chip`) instead of a full-width gradient band.
-  Everything else is anchored to the deck: panel `bottom: 142/150`, skip pill,
-  resume/up-next cards, subtitles and the fatal banner all clear its height.
-- **Primary actions:** the deck play/pause, the touch centre play and the replay
-  button are accent-filled discs with dark glyphs; Resume / Play now / Try again
-  / Continue Watching are accent pills.
-- **Cold open:** the resolve stage paints the title art over an ink field with a
-  low accent pool behind it, and both loaders — the first-load sweep and the
-  later-wait Tailspin ring — carry the signal colour.
-- **Motion:** every interaction has a fluid answer — deck/chip border bloom,
-  play-disc hover glow and press scale, icon-button disc + glyph scale, scrubber
-  line/dot bloom, row cursor-tracked accent glow, skip-pill lift, card springs,
-  tooltip pop, HUD pops. All of it collapses to a cut under
-  `prefers-reduced-motion` (CSS block + `useMotionTokens`).
-- **Tests:** presentation pins were updated where they named a visual value
-  (`netflixPlayPauseHud` now asserts the theme accent fill); behaviour, roles,
-  labels and the frozen contracts are untouched.
+- **Top bar:** a bare 40px back arrow and a 26px title straight on the picture
+  (`.np-topbar` / `.np-back` / `.np-title`), with `Title · S1:E1` for TV. No
+  glass chip or full-width band.
+- **Transport:** a 5px progress hairline at bottom 94 (`.np-progress`, growing
+  to 9px on hover/focus) over a plain bottom control row (`.np-controls`):
+  play, rewind/forward (with desktop hold-to-2x), volume + hover slider,
+  "X left • Finish at HH:MM", then episodes, PiP, subtitles, gear and
+  fullscreen. The loop and sleep-timer controls are gone.
+- **Menus:** a 514px right-side pane at right 40 / bottom 112 (`.np-menu`) with
+  a 2×2 tile root (Quality, Source, Subtitles, Audio), then Playback settings
+  and Appearance Settings rows. Submenus share the back-arrow header, a
+  scrolling `.np-list` / `.np-pbody`, `.np-opt` rows for servers/audio and
+  `.np-pick` rows for quality/aspect/appearance.
+- **Page map:** Source = servers; Quality = delivered video quality + the
+  Automatic-quality toggle + Source quality; Subtitles = track list with
+  Customize opening Appearance; Audio = in-manifest tracks and sibling dubs;
+  Playback settings = 6-button speed segment, aspect-ratio picks and Autoplay
+  next episode; Appearance = subtitle size/background; Seasons = episode rows
+  (with air dates, current marker, and `aria-disabled` for unaired episodes).
+- **Servers highlight:** the committed key may be the `AUTO_SOURCE` sentinel
+  (`"__auto__"`), which is not a row in `PLAYER_SOURCES`. The menu ignores that
+  sentinel and prefers the real requested server, then the committed source,
+  then `DEFAULT_SOURCE_KEY`, so exactly one row is selected and the active
+  server is visible again.
+- **Accent:** Streamly's signal green `#95ff50` stays the brand accent (the
+  mock's purple is not adopted). Selected rows, the auto toggle, progress and
+  focus all resolve to it; `ACCENT_FG` (`#07120a`) is the dark glyph colour on
+  an accent fill.
+- **Palette/type:** muted `#6b7f8f`, value `#b9c0c8`, panel gradient
+  `#10161d → #0c1117 → #0e1319`, border `#1d2935`, tile `#121a22` (hover
+  `#17222c`), icon plate `#1c2a3a`, divider `#19232d`, track `#2b2b2b`; title
+  26px/600, menu option 24px, tile key 24px, tile value 21px.
+- **Cold open:** the resolve stage still paints the title art over an ink field
+  with a low accent pool, and both loaders carry the signal colour.
+- **Motion:** panel translate/scale, tile/row/button hover + press, gear rotate
+  when open, check pop, segmented-thumb slide, progress height/knob. Every
+  duration/curve is a published token and all of it collapses under
+  `prefers-reduced-motion`.
+- **Removed features:** loop and sleep timer are no longer rendered or
+  reachable from the UI. Their engine state/hooks remain in
+  `player/hooks/usePlaybackExtras.js` (loop defaults off, sleep defaults null)
+  so the behaviour contract is intact.
+- **Tests:** `playerA11y` now covers Playback settings, the aspect picks and
+  the episode list; `playerAutoServer` pins the resolved-server highlight;
+  audio/quality suites keep the `.np-dialog-row` contract. Presentation pins
+  were updated only where they named a removed control or the old rail.
 
 ## The rule for this refactor
 
@@ -106,10 +128,11 @@ src/components/player/
   shell/                  ← PRESENTATION ONLY. This is what a redesign replaces.
     PlayerShell.jsx         ✅ done — the surface + overlay composition
     PlayerTransport.jsx     ✅ done — scrubber + transport row binding
-    PlayerMenus.jsx         ✅ done — servers / audio / quality / subtitles / settings pages
+    PlayerMenus.jsx         ✅ done — settings root / servers / audio / quality /
+                              subtitles / playback / appearance / source quality / seasons
   chrome/                 ← existing presentational primitives (keep)
     BottomChrome, CenterStack, ChromeTopBar, PlayerPanel, DialogRow,
-    EpisodesRail, SkipPill, SubtitleOverlay, TapToUnmutePill, primitives
+    SkipPill, SubtitleOverlay, TapToUnmutePill, primitives
   nativePlayer{Hold,Gestures,Keys,Helpers}.js   ← pure decision tables (keep)
 ```
 
@@ -182,10 +205,13 @@ ref-touching handler is a callback defined in the player.
 12. **`useMediaElementEvents`** ✅ done (`hooks/useMediaElementEvents.js`). The
     video-element event -> state mirror moved out of the player.
 
-13. **From-scratch visual redesign** ✅ done. Presentation only, across
-    `player/chrome/*`, `player/shell/*`, the HUD leaves,
-    `NetflixStillWatching.jsx`, `theme.js` and `styles/player.css`. The engine,
-    timers, listeners, log lines, roles and accessible names are unchanged.
+13. **Reference-design rebuild — “Pitch”** ✅ done. The view layer now follows
+    the supplied `player-new-design.html` (minus loop and sleep timer).
+    Presentation only, across `player/chrome/*`, `player/shell/*`, the HUD
+    leaves, `NetflixStillWatching.jsx`, `theme.js` and `styles/player.css`. The
+    engine, timers, listeners, log lines, roles and accessible names are
+    unchanged; the old bottom `EpisodesRail` was removed because Seasons is now
+    a menu page.
 
 The engine slices, the whole `shell/` layer, the desktop key hook and the
 media-element mirror are now done, and the shell has been redesigned on top of

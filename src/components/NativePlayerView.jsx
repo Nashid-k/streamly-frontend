@@ -18,7 +18,6 @@ import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
   ASPECT_RATIOS,
-  HOLD_SPEED,
   STILL_WATCHING_EPISODES,
 } from "../constants/playerUi";
 import {
@@ -37,14 +36,13 @@ import {
   shouldShowSkipOutro,
   shouldAutoSkipIntroOnce,
   mergeSkipBoundaries,
-  getScrubberBands,
   normalizeSkipBoundaries,
   rescopeBoundaries,
 } from "../utils/skipMarkers";
 import { useOptionalPreferences } from "../context/preferences";
 import { resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
 import { IS_TOUCH } from "./player/chrome";
-import { qualityHdTag, zoneOf } from "./player/nativePlayerHelpers";
+import { zoneOf } from "./player/nativePlayerHelpers";
 import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
 import usePlayerChrome from "./player/hooks/usePlayerChrome";
@@ -961,10 +959,8 @@ export default function NativePlayerView({
       // it mounts, and a bare focus() scrolls to chase it. Re-focus on EVERY
       // panel change: the row that opened a submenu unmounts with it, and focus
       // would otherwise fall back to <body> (silently skipping the new heading
-      // and its rows). The episodes rail owns its own focus handling.
-      if (panel !== "episodes") {
-        panelRef.current?.focus({ preventScroll: true });
-      }
+      // and its rows).
+      panelRef.current?.focus({ preventScroll: true });
       return undefined;
     }
     const session = panelSessionRef.current;
@@ -1008,11 +1004,6 @@ export default function NativePlayerView({
      the media element and nothing from the streaming engine. Wrapped here so
      the fullscreen button still reveals the chrome after toggling. */
   const {
-    loopEnabled,
-    setLoopEnabled,
-    sleepMinutes,
-    sleepRemaining,
-    startSleepTimer,
     clearSleepTimer,
     pipActive,
     pipSupported,
@@ -1111,10 +1102,28 @@ export default function NativePlayerView({
     // If clicking Settings while any settings panel is open, close it.
     // Otherwise open root settings.
     setPanel((p) =>
-      ["settings", "servers", "audio", "subs", "video", "speed", "aspect"].includes(p)
+      ["settings", "servers", "audio", "subs", "video", "playback", "appearance", "sourcequality"].includes(p)
         ? null
         : "settings",
     );
+    poke();
+  };
+
+  const toggleAutoplay = () => {
+    setAutoplayEnabled((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem("setting-autoplay", JSON.stringify(next));
+      } catch (error) {
+        logDebug("player", "Could not persist the autoplay preference.", { message: error?.message });
+      }
+      try {
+        prefs?.setPreference?.("autoplay", next);
+      } catch (error) {
+        logDebug("player", "Could not sync the autoplay preference.", { message: error?.message });
+      }
+      return next;
+    });
     poke();
   };
 
@@ -1894,18 +1903,8 @@ export default function NativePlayerView({
     if (prefs?.autoplay !== undefined) setAutoplayEnabled(Boolean(prefs.autoplay));
   }, [prefs?.autoplay]);
 
-  // Gear "HD" badge: shown once the active rendition is HD or better (the
-  // design's crimson chip next to the cog). Keyed on the row LABEL classification
-  // (scope/cinema 1920x804 reads "1080p"), falling back to the raw pixel height
-  // when no menu row matches.
-  const activeDisplayHeight = autoLevel === false ? manualHeight : currentHeight;
-  const activeQualityRow =
-    activeDisplayHeight != null ? qualities.find((q) => q.height === activeDisplayHeight) : undefined;
-  const hdBadge = activeQualityRow
-    ? qualityHdTag(activeQualityRow) || undefined
-    : activeDisplayHeight != null && activeDisplayHeight >= 1080
-      ? "HD"
-      : undefined;
+  // The gear no longer carries an HD badge: the reference design has no chip
+  // there, and the Quality tile already names the active rendition.
 
   /* Real skip boundaries read off the manifest's own cue tags, when a provider
      emits any. Null keeps the 90s/150s estimates in skipMarkers.js. Reset on
@@ -2048,14 +2047,9 @@ const showSkipOutro = shouldShowSkipOutro({
     cueCreditsStart,
   });
 
-  /* The two measured bands drawn on the scrubber. The GEOMETRY lives in
-     skipMarkers.js, not here: computed inline, `right: 0` came to mean "orange
-     from the credits to the end of the bar" for every record without a credits
-     finish time, and "the whole episode" for any source reporting 0. */
-  const scrubberBands = useMemo(
-    () => getScrubberBands(cueBounds, safeDuration),
-    [cueBounds, safeDuration]
-  );
+  /* The two measured bands are no longer drawn on the scrubber: the reference
+     design's progress hairline is plain. The boundaries still drive the Skip
+     Intro / Skip Credits windows. */
 
 
   // Auto-skip fires once per playback, and only while the head is still inside
@@ -2177,6 +2171,7 @@ const showSkipOutro = shouldShowSkipOutro({
       audioTrackList={audioTrackList}
       audioTracks={audioTracks}
       autoLevel={autoLevel}
+      autoplayEnabled={autoplayEnabled}
       autoMuted={autoMuted}
       backdropUrl={backdropUrl}
       bufferedRanges={bufferedRanges}
@@ -2208,7 +2203,6 @@ const showSkipOutro = shouldShowSkipOutro({
       handleGestureMove={handleGestureMove}
       handleHoldEnd={handleHoldEnd}
       handleVideoTouchEnd={handleVideoTouchEnd}
-      hdBadge={hdBadge}
       hold2x={hold2x}
       hoverRatio={hoverRatio}
       hud={hud}
@@ -2217,7 +2211,6 @@ const showSkipOutro = shouldShowSkipOutro({
       isFetchingSubtitles={isFetchingSubtitles}
       isFullscreen={isFullscreen}
       isMasterMode={isMasterMode}
-      loopEnabled={loopEnabled}
       manualHeight={manualHeight}
       muted={muted}
       nextDisabled={nextDisabled}
@@ -2274,13 +2267,12 @@ const showSkipOutro = shouldShowSkipOutro({
       safeDuration={safeDuration}
       screenRef={screenRef}
       scrubRef={scrubRef}
-      scrubberBands={scrubberBands}
+      season={season}
       selectSubtitle={selectSubtitle}
       serverSwitchStage={serverSwitchStage}
       setAspectRatioIndex={setAspectRatioIndex}
       setAutoMuted={setAutoMuted}
       setBuffering={setBuffering}
-      setLoopEnabled={setLoopEnabled}
       setMuted={setMuted}
       setPanel={setPanel}
       setResumeOffer={setResumeOffer}
@@ -2297,13 +2289,10 @@ const showSkipOutro = shouldShowSkipOutro({
       skipIntroProgress={skipIntroProgress}
       skipOutroProgress={skipOutroProgress}
       skipSeconds={skipSeconds}
-      sleepMinutes={sleepMinutes}
-      sleepRemaining={sleepRemaining}
       sourceHeight={sourceHeight}
       sourceVariants={sourceVariants}
       spinner={spinner}
       stageNote={stageNote}
-      startSleepTimer={startSleepTimer}
       status={status}
       stillWatching={stillWatching}
       subtitleBg={subtitleBg}
@@ -2312,6 +2301,7 @@ const showSkipOutro = shouldShowSkipOutro({
       subtitleLanguages={subtitleLanguages}
       subtitleSize={subtitleSize}
       switchFrame={switchFrame}
+      toggleAutoplay={toggleAutoplay}
       toggleMute={toggleMute}
       togglePip={togglePip}
       togglePlay={togglePlay}

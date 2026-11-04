@@ -149,6 +149,42 @@ export function IconFullscreenExit({ size = 24, ...rest }) {
   );
 }
 
+// Picture-in-picture: a frame with a smaller inset frame.
+export function IconPip({ size = 24, ...rest }) {
+  return (
+    <Base size={size} {...rest}>
+      <rect x="2.5" y="4.5" width="19" height="15" rx="2.5" />
+      <rect x="12" y="11" width="7" height="5.5" rx="1.2" fill="currentColor" stroke="none" />
+    </Base>
+  );
+}
+
+// The menu check: a filled disc with a dark tick. CSS fills the disc white on
+// icon rows and accent on plain pick rows (the design does the same).
+export function IconMenuCheck({ size = 30, ...rest }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      aria-hidden="true"
+      focusable="false"
+      className="np-menu-chk"
+      {...rest}
+    >
+      <circle cx="16" cy="16" r="15" />
+      <path
+        d="m9.5 16.5 4.5 4.5 8.5-9.5"
+        fill="none"
+        stroke="#0c1117"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // Aspect-corrected frame enlarge, the design's "theater" glyph.
 export function IconTheater({ size = 24, ...rest }) {
   return (
