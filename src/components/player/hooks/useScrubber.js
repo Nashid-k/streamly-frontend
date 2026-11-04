@@ -133,7 +133,7 @@ export default function useScrubber({
         return;
       }
       // HUD shows the amount actually applied (clamped at 0 / duration), not the
-      // requested one — YouTube shows +Xs / -Xs, never a lie like -0s.
+      // requested one — the seek HUD shows +Xs / -Xs, never a lie like -0s.
       const dur = Number(video.duration);
       const from = video.currentTime || 0;
       const next = from + delta;
@@ -247,8 +247,8 @@ export default function useScrubber({
      ArrowLeft/ArrowRight, and without it one press seeks twice.
      Up/Down are deliberately NOT handled here — they fall through to the global
      volume binding, which is the convention this player uses everywhere else
-     (and matches YouTube); hijacking them for seeking would make the same key
-     mean two different things depending on focus. */
+     (and matches the platform convention); hijacking them for seeking would make
+     the same key mean two different things depending on focus. */
   const onScrubKeyDown = (e) => {
     const dur = Number(videoRef.current?.duration);
     const known = Number.isFinite(dur) && dur > 0;
@@ -289,7 +289,7 @@ export default function useScrubber({
     }
   };
 
-  /* Scrubber preview (Netflix/YouTube hover thumbnails): while hovering or
+  /* Scrubber preview (hover thumbnails): while hovering or
      dragging, decode the frame at the hover position off-screen and show it in
      a small card above the time bubble. Touch included — a drag on the scrubber
      is exactly when a frame preview matters most (there is no hover on mobile).
