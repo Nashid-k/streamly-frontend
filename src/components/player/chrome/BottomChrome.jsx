@@ -39,6 +39,7 @@ export default function BottomChrome({
   duration,
   currentTime,
   effectiveRatio = 0,
+  bufferedRatio = null,
   hoverRatio,
   previewUrl,
   previewBox,
@@ -97,6 +98,10 @@ export default function BottomChrome({
     durNum > 0 ? `${fmtTime(remaining)} left \u2022 Finish at ${finishAt}` : fmtTime(currentTime);
 
   const ratio = Math.min(1, Math.max(0, effectiveRatio));
+  // The buffered bar reflects what the element has actually buffered (the range
+  // containing the playhead), never the played fraction — faking it hides
+  // stalls behind a full bar.
+  const bufRatio = bufferedRatio == null ? ratio : Math.min(1, Math.max(0, bufferedRatio));
   const hoverPct = hoverRatio != null ? Math.min(100, Math.max(0, hoverRatio * 100)) : 0;
   const hoverTime = hoverRatio != null ? hoverRatio * durNum : curNum;
 
@@ -131,7 +136,7 @@ export default function BottomChrome({
             onPointerLeave={onScrubLeave}
           >
             <div className="trk" id="trk" aria-hidden="true">
-              <i className="buf" id="buf" style={{ transform: `scaleX(${ratio})` }} />
+              <i className="buf" id="buf" style={{ transform: `scaleX(${bufRatio})` }} />
               <i className="played" id="played" style={{ transform: `scaleX(${ratio})` }} />
               <i className="knob" id="knob" style={{ left: `${ratio * 100}%` }} />
               {hoverRatio != null && durNum > 0 ? (

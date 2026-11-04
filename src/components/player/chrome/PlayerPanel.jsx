@@ -5,6 +5,7 @@
 // - Viewport (.vp) with panes (.pane.in > .pi)
 import { useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { SPRING } from "../../../constants/motion";
 
 const TITLES = {
   settings: "Settings",
@@ -60,7 +61,7 @@ const pageVariants = {
     x: 0,
     opacity: 1,
     transition: {
-      x: { type: "spring", stiffness: 380, damping: 28, mass: 0.8 },
+      x: SPRING.LIFT,
       opacity: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
     },
   },
@@ -127,8 +128,8 @@ export default function PlayerPanel({
               ? { duration: 0 }
               : {
                   opacity: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
-                  y: { type: "spring", stiffness: 360, damping: 26, mass: 0.8 },
-                  scale: { type: "spring", stiffness: 360, damping: 26, mass: 0.8 },
+                  y: SPRING.LIFT,
+                  scale: SPRING.LIFT,
                 }
           }
           style={{ transformOrigin: "bottom right" }}
@@ -237,7 +238,7 @@ export default function PlayerPanel({
                 reduceMotion
                   ? { duration: 0 }
                   : {
-                      x: { type: "spring", stiffness: 380, damping: 28, mass: 0.8 },
+                      x: SPRING.LIFT,
                       opacity: { duration: 0.2, ease: [0.22, 1, 0.36, 1] },
                     }
               }

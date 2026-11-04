@@ -9,6 +9,7 @@
 // smooth spring animation, theme accent, and accessible button semantics.
 import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { SPRING } from "../../../constants/motion";
 import { IconPlay } from "./icons";
 
 export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
@@ -47,7 +48,7 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
             initial={reduceMotion ? false : { opacity: 0, scale: 0.92, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 8 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            transition={reduceMotion ? { duration: 0 } : SPRING.LIFT}
             style={{
               width: "min(340px, calc(100% - 32px))",
               background: "#0d1219",

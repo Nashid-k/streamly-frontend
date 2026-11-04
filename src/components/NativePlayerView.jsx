@@ -76,8 +76,6 @@ const THROTTLE_BACKOFF_MS = 6000;
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 15000;
-// Netflix resume gate: how long the "Left off at…" card waits before auto-resume.
-const RESUME_WAIT_SECONDS = 8;
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
 // rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
 // ahead (~20Mbps burns 60MB in ~24s), which is why 4K never buffered. The
@@ -276,10 +274,6 @@ export default function NativePlayerView({
   watchedEntryRef.current = watchedEntry;
   const lastProgressSaved = useRef(0);
   const resumeHandledKeyRef = useRef(null); // title/episode key that already offered resume
-  // Ticks remaining before the resume card auto-commits. Mirrored separately
-  // from the offer so the countdown interval can drive BOTH the counter and the
-  // final seek in one pass (see the effect below).
-  const resumeLeftRef = useRef(RESUME_WAIT_SECONDS);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   // Live views for closures that must not read stale hold/still-watching state.
@@ -2136,7 +2130,6 @@ const showSkipOutro = shouldShowSkipOutro({
         // some webviews reject odd rates; the row still applies
       }
     }
-    setPanel(null);
     poke();
   };
   const onStillWatchingContinue = () => {

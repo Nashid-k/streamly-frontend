@@ -40,6 +40,7 @@ export default function PlayerShell({
   autoplayEnabled,
   autoMuted,
   backdropUrl,
+  bufferedRanges,
   buffering,
   chooseEpisode,
   controlsVisible,
@@ -239,6 +240,20 @@ export default function PlayerShell({
   const isInitialStage = Boolean(showStage || !everPlayed);
   const isLoading = Boolean((buffering || spinner) && !isInitialStage);
   const isMuted = muted || autoMuted || volume === 0;
+  // The buffered bar follows the element's real buffer: the end of the range
+  // that contains the playhead, as a fraction of the duration. No containing
+  // range (e.g. right after a seek) honestly means "nothing buffered here".
+  let bufferedRatio = 0;
+  const totalDur = Number(safeDuration);
+  if (totalDur > 0 && Array.isArray(bufferedRanges)) {
+    const t = Number(currentTime) || 0;
+    for (const [start, end] of bufferedRanges) {
+      if (start <= t && t <= end) {
+        bufferedRatio = Math.min(1, end / totalDur);
+        break;
+      }
+    }
+  }
 
   return (
     <div
@@ -265,6 +280,9 @@ export default function PlayerShell({
           "player",
           "np-root",
           !playing ? "paused" : "",
+          ended ? "ended" : "",
+          resumeOffer ? "resume-offer" : "",
+          stillWatching ? "still-watching" : "",
           isLoading ? "loading" : "",
           !controlsVisible && playing ? "idle" : "",
           panel ? "menu" : "",
@@ -525,6 +543,7 @@ export default function PlayerShell({
             duration={safeDuration}
             currentTime={currentTime}
             effectiveRatio={effectiveRatio}
+            bufferedRatio={bufferedRatio}
             hoverRatio={hoverRatio}
             previewUrl={previewUrl}
             previewBox={previewBox}

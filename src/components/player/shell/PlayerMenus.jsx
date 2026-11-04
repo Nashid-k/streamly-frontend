@@ -278,10 +278,10 @@ export default function PlayerMenus({
           <span>Automatic quality</span>
           <button
             type="button"
+            role="switch"
             className={["np-tog", "np-tog-acc", "switch", autoOn ? "on" : ""].filter(Boolean).join(" ")}
             aria-label="Automatic quality"
             aria-checked={autoOn}
-            aria-pressed={autoOn}
             onClick={onAutoToggle}
           >
             <i />
@@ -550,19 +550,6 @@ export default function PlayerMenus({
             }}
           />
         </div>
-
-        <button
-          type="button"
-          className="np-menu-row row"
-          onClick={() => {
-            setPanel("captions");
-            poke();
-          }}
-          style={{ marginTop: 16 }}
-        >
-          <span>Subtitle style</span>
-          <svg className="ic chv"><use href="#i-chev" /></svg>
-        </button>
       </div>
     );
   }

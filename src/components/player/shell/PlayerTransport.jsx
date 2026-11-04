@@ -12,6 +12,7 @@ export default function PlayerTransport({
   duration,
   currentTime,
   effectiveRatio,
+  bufferedRatio,
   hoverRatio,
   previewUrl,
   previewBox,
@@ -55,6 +56,7 @@ export default function PlayerTransport({
       duration={duration}
       currentTime={currentTime}
       effectiveRatio={effectiveRatio}
+      bufferedRatio={bufferedRatio}
       hoverRatio={hoverRatio}
       previewUrl={previewUrl}
       previewBox={previewBox}

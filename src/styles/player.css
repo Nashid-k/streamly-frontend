@@ -1594,7 +1594,7 @@
   color: #fff !important;
 }
 .player .np-tile:active {
-  transform: scale(.985) !important;
+  transform: scale(var(--press-scale)) !important;
 }
 .player .np-tile:focus-visible {
   outline: 2px solid var(--np-accent);
@@ -1639,7 +1639,7 @@
   color: #fff !important;
 }
 .player .np-menu-row:active {
-  transform: scale(.985) !important;
+  transform: scale(var(--press-scale-row)) !important;
 }
 .player .np-menu-row:focus-visible {
   outline: 2px solid var(--np-accent);
@@ -2494,7 +2494,10 @@
   filter: brightness(1.12);
 }
 :is(.player, .np-root).nxt-on .big,
-.nxt-on .big {
+.nxt-on .big,
+:is(.player, .np-root).ended .big,
+:is(.player, .np-root).resume-offer .big,
+:is(.player, .np-root).still-watching .big {
   opacity: 0 !important;
   pointer-events: none !important;
 }
@@ -3211,7 +3214,7 @@
 .sheet .np-opt:active,
 .sheet .np-ep:active,
 .sheet .np-episode-card:active {
-  transform: scale(.985) !important;
+  transform: scale(var(--press-scale-row)) !important;
 }
 .sheet .row .chv,
 .sheet .row svg.chv,
@@ -3892,7 +3895,7 @@
 }
 .np-root .btn:active:not(:disabled),
 .sheet .btn:active:not(:disabled) {
-  transform: scale(.9) !important;
+  transform: scale(var(--press-scale-icon)) !important;
 }
 .np-root .bk:hover .ic,
 .sheet .bk:hover .ic {
@@ -3934,7 +3937,7 @@
 }
 .skip-pill:active,
 .np-skip-intro:active {
-  transform: scale(.97) !important;
+  transform: scale(var(--press-scale)) !important;
 }
 
 /* ── Center Resume Watching Prompt matching player-v4 ────────────────── */
@@ -3942,14 +3945,14 @@
   filter: brightness(1.12);
 }
 .np-resume-card .np-resume-btn:active {
-  transform: scale(.97);
+  transform: scale(var(--press-scale));
 }
 .np-resume-card .np-restart-btn:hover {
   background: #ffffff1f !important;
   color: #fff !important;
 }
 .np-resume-card .np-restart-btn:active {
-  transform: scale(.97);
+  transform: scale(var(--press-scale));
 }
 
 

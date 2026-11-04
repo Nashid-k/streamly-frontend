@@ -247,7 +247,9 @@ describe("quality switch DISPLAY fixes", () => {
     expect(screen.getByRole("button", { name: /^480p/ })).toHaveAttribute("aria-pressed", "true");
 
     // Back to Auto: the summary shows the PICKED rung, not the manifest's 0.
-    fireEvent.click(screen.getByRole("button", { name: /^Auto/ }));
+    // The auto selector is a switch now (matching player-v4's toggle semantics),
+    // so it no longer answers the "button" role query.
+    fireEvent.click(screen.getByRole("switch", { name: /^Auto/ }));
     await waitFor(() => expect(screen.getByText("Now 480p · adjusts with your connection")).toBeInTheDocument(), { timeout: 3000 });
   });
 

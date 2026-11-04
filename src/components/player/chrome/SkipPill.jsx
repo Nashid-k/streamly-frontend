@@ -6,6 +6,7 @@
 // - Theme accent progress hairline & active glow
 // - Icon slide right on hover matching .row:hover .chv
 import { motion, useReducedMotion } from "framer-motion";
+import { SPRING, PRESS_SCALE } from "../../../constants/motion";
 
 export default function SkipPill({ label, ariaLabel, title, onClick, progress = 0 }) {
   const reduceMotion = useReducedMotion();
@@ -20,9 +21,9 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
       initial={reduceMotion ? false : { opacity: 0, y: 16, scale: 0.94 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.96 }}
-      transition={{ type: "spring", stiffness: 420, damping: 28 }}
+      transition={SPRING.LIFT}
       whileHover={{ y: -1 }}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: PRESS_SCALE.CONTROL }}
       style={{
         position: "absolute",
         right: "max(1.2em, env(safe-area-inset-right))",
