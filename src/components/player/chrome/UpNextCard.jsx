@@ -17,6 +17,8 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
       {upNext && (
         <motion.div
           key="np-upnext"
+          id="nxt"
+          className="nxt"
           role="complementary"
           aria-label={`Up Next: playing in ${Math.round(upNextMs / 1000)} seconds`}
           initial={M.MODAL_PANEL.initial}
@@ -80,7 +82,7 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
           </div>
           <button
             type="button"
-            className="np-resume-btn"
+            className="np-resume-btn nxb"
             onClick={() => onPlayNow(upNext.number)}
             style={{
               marginTop: 12,

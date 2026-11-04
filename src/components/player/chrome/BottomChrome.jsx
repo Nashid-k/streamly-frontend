@@ -6,25 +6,20 @@
 // then episodes / PiP / subtitles / gear / fullscreen) over the picture. No
 // scrim, no chips, no deck plate.
 //
-// Entangled region, so it takes state/handlers as explicit props and owns only
-// presentation. The desktop hold-to-2x logic stays in the engine: the forward
-// button reports a plain click via `onForward10` and the press/release via the
-// hold callbacks, so quick-press-vs-hold discrimination is not duplicated.
+// Player v4 enhancements:
+// - CSS icon morphs (m-pp, m-vol, m-fs) with smooth spring transitions
+// - Knob dot with theme accent bloom shadow
+// - Thumbnail preview box in scrubber tooltip
+// - High-contrast SVG icons matching player-v4.html
+import { useState } from "react";
 import { IS_TOUCH } from "./constants";
 import {
   IconCaptions,
   IconEpisodes,
-  IconFullscreen,
-  IconFullscreenExit,
-  IconPause,
   IconPip,
-  IconPlay,
   IconSettings,
   IconSkipBack10,
   IconSkipForward10,
-  IconVolumeHigh,
-  IconVolumeLow,
-  IconVolumeMute,
 } from "./icons";
 
 const SETTINGS_PANELS = new Set([
@@ -88,8 +83,9 @@ export default function BottomChrome({
   isFullscreen,
   onFullscreen,
 }) {
-  const VolumeIcon = muted || volume === 0 ? IconVolumeMute : volume < 0.5 ? IconVolumeLow : IconVolumeHigh;
-  const volFill = muted || volume === 0 ? 0 : volume;
+  const [showRemaining, setShowRemaining] = useState(true);
+  const isMuted = muted || volume === 0;
+  const volFill = isMuted ? 0 : volume;
   const settingsOpen = SETTINGS_PANELS.has(panel);
   const remaining = Math.max(0, (Number(duration) || 0) - (Number(currentTime) || 0));
   const finishAt = formatFinishAt(remaining);
@@ -100,7 +96,7 @@ export default function BottomChrome({
     <>
       <div
         ref={scrubRef}
-        className={["np-progress", "np-scrub", visible ? "" : "np-chrome-hidden", hoverRatio != null ? "hover" : ""]
+        className={["np-progress", "np-scrub", "seek", visible ? "" : "np-chrome-hidden", hoverRatio != null ? "hover" : ""]
           .filter(Boolean)
           .join(" ")}
         role="slider"
@@ -119,38 +115,58 @@ export default function BottomChrome({
         onPointerCancel={onScrubCancel}
         onPointerLeave={onScrubLeave}
       >
+        <div className="trk" aria-hidden="true" />
+        <div className="buf" aria-hidden="true" />
         <div
-          className="np-progress-played"
+          className="np-progress-played played"
           style={{ width: `${Math.min(100, Math.max(0, effectiveRatio * 100))}%` }}
-        />
+        >
+          <div className="knob" />
+        </div>
         {hoverRatio != null && Number(duration) > 0 ? (
           <div
-            className="np-progress-tip show"
+            className="np-progress-tip tip show"
             style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
           >
-            {fmtTime(hoverRatio * duration)}
+            <div className="tp" />
+            <span>{fmtTime(hoverRatio * duration)}</span>
           </div>
         ) : null}
       </div>
 
       <div
-        className={["np-controls", visible ? "" : "np-chrome-hidden"].filter(Boolean).join(" ")}
+        className={["np-controls", "ctl", visible ? "" : "np-chrome-hidden"].filter(Boolean).join(" ")}
         inert={!visible}
       >
-        <button type="button" className="np-ctl-btn np-play" aria-label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
-          {playing ? <IconPause size={32} /> : <IconPlay size={34} />}
-        </button>
         <button
           type="button"
-          className="np-ctl-btn np-skip-l"
+          id="pp"
+          className="np-ctl-btn np-play btn morph m-pp"
+          aria-label={playing ? "Pause" : "Play"}
+          onClick={onTogglePlay}
+        >
+          <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
+            <path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" />
+          </svg>
+          <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={34} height={34}>
+            <path d="M8 5v14l11-7z" fill="currentColor" />
+          </svg>
+        </button>
+
+        <button
+          type="button"
+          id="rew"
+          className="np-ctl-btn np-skip-l btn nb"
           aria-label={`Rewind ${skipSeconds} seconds`}
           onClick={onBack10}
         >
           <IconSkipBack10 size={34} />
         </button>
+
         <button
           type="button"
-          className="np-ctl-btn np-skip-r"
+          id="fwd"
+          className="np-ctl-btn np-skip-r btn nb"
           aria-label={`Forward ${skipSeconds} seconds`}
           onClick={onForward10}
           onPointerDown={onForwardHoldStart}
@@ -162,7 +178,7 @@ export default function BottomChrome({
         </button>
 
         <span
-          className={["np-vol-wrap", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
+          className={["np-vol-wrap", "volg", "volb", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
           onMouseEnter={(e) => {
             e.stopPropagation();
             onVolHoverChange?.(true);
@@ -176,11 +192,17 @@ export default function BottomChrome({
         >
           <button
             type="button"
-            className="np-ctl-btn np-vol-btn"
-            aria-label={muted ? "Unmute" : "Mute"}
+            id="vol"
+            className="np-ctl-btn np-vol-btn btn morph m-vol"
+            aria-label={isMuted ? "Unmute" : "Mute"}
             onClick={onToggleMute}
           >
-            <VolumeIcon size={30} />
+            <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={30} height={30}>
+              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" fill="currentColor" />
+            </svg>
+            <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={30} height={30}>
+              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" fill="currentColor" />
+            </svg>
           </button>
           {!IS_TOUCH ? (
             <input
@@ -188,27 +210,29 @@ export default function BottomChrome({
               min={0}
               max={1}
               step={0.05}
-              value={muted ? 0 : volume}
+              value={isMuted ? 0 : volume}
               onChange={(e) => onVolumeChange(Number(e.target.value))}
               onClick={(e) => e.stopPropagation()}
               aria-label="Volume"
-              className="np-vol-slider"
+              className="np-vol-slider vs"
+              id="vs"
               style={{ "--vol": `${volFill * 100}%` }}
             />
           ) : null}
         </span>
 
-        <div className="np-ctl-time" aria-hidden="true">
+        <div className="np-ctl-time info" aria-hidden="true">
           {timeText}
         </div>
 
-        <div className="np-ctl-spacer" />
+        <div className="np-ctl-spacer sp" />
 
         <div className="np-ctl-right">
           {showEpisodesButton ? (
             <button
               type="button"
-              className={["np-ctl-btn", panel === "episodes" ? "active" : ""].filter(Boolean).join(" ")}
+              id="epb"
+              className={["np-ctl-btn", "btn", panel === "episodes" ? "active" : ""].filter(Boolean).join(" ")}
               aria-label="Episodes"
               aria-expanded={panel === "episodes"}
               onClick={() => onTogglePanel("episodes")}
@@ -219,7 +243,8 @@ export default function BottomChrome({
           {pipSupported ? (
             <button
               type="button"
-              className={["np-ctl-btn", pipActive ? "active" : ""].filter(Boolean).join(" ")}
+              id="pip"
+              className={["np-ctl-btn", "btn", "pipb", pipActive ? "active" : ""].filter(Boolean).join(" ")}
               aria-label="Picture in picture"
               aria-pressed={pipActive}
               onClick={onTogglePip}
@@ -230,7 +255,8 @@ export default function BottomChrome({
           {showSubsButton ? (
             <button
               type="button"
-              className={["np-ctl-btn", panel === "subs" ? "active" : ""].filter(Boolean).join(" ")}
+              id="subb"
+              className={["np-ctl-btn", "btn", panel === "subs" ? "active" : ""].filter(Boolean).join(" ")}
               aria-label="Subtitles"
               aria-expanded={panel === "subs"}
               onClick={() => onTogglePanel("subs")}
@@ -240,7 +266,8 @@ export default function BottomChrome({
           ) : null}
           <button
             type="button"
-            className={["np-ctl-btn", "np-gear", settingsOpen ? "open" : ""].filter(Boolean).join(" ")}
+            id="gear"
+            className={["np-ctl-btn", "np-gear", "btn", "gear", settingsOpen ? "open" : ""].filter(Boolean).join(" ")}
             aria-label="Settings"
             aria-expanded={settingsOpen}
             onClick={onToggleSettings}
@@ -249,11 +276,17 @@ export default function BottomChrome({
           </button>
           <button
             type="button"
-            className="np-ctl-btn"
+            id="fs"
+            className="np-ctl-btn btn morph m-fs"
             aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
             onClick={onFullscreen}
           >
-            {isFullscreen ? <IconFullscreenExit size={28} /> : <IconFullscreen size={28} />}
+            <svg className="ic a" viewBox="0 0 24 24" aria-hidden="true" width={28} height={28}>
+              <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z" fill="currentColor" />
+            </svg>
+            <svg className="ic b" viewBox="0 0 24 24" aria-hidden="true" width={28} height={28}>
+              <path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" fill="currentColor" />
+            </svg>
           </button>
         </div>
       </div>

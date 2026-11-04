@@ -20,7 +20,8 @@ export default function FatalBanner({ message, onRetry, onBack }) {
       animate={M.MODAL_PANEL.animate}
       exit={M.MODAL_PANEL.exit}
       transition={M.MODAL_PANEL.transition}
-      className="np-fatal"
+      id="err"
+      className="np-fatal nxt"
       style={{
         position: "absolute",
         bottom: 140,
@@ -46,7 +47,7 @@ export default function FatalBanner({ message, onRetry, onBack }) {
       </span>
       <button
         type="button"
-        className="np-fatal-btn"
+        className="np-fatal-btn nxb"
         onClick={onRetry}
         style={{
           padding: "8px 16px",
@@ -64,7 +65,7 @@ export default function FatalBanner({ message, onRetry, onBack }) {
       </button>
       <button
         type="button"
-        className="np-fatal-btn"
+        className="np-fatal-btn nxb sec"
         // Not "Back": the top bar already owns a Back button, and two
         // controls with the same accessible name in one view is ambiguous
         // to get by voice or screen-reader rotor.

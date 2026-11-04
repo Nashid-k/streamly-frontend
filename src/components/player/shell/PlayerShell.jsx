@@ -31,6 +31,7 @@ import NetflixStillWatching from "../../NetflixStillWatching";
 import { aspectVideoStyle } from "../../../constants/playerUi";
 import { subtitleFontFamily } from "../../../constants/settings";
 import { fmtTime } from "../nativePlayerHelpers";
+import usePlayerV4Appearance from "../hooks/usePlayerV4Appearance";
 import PlayerMenus from "./PlayerMenus";
 import PlayerTransport from "./PlayerTransport";
 
@@ -175,6 +176,13 @@ export default function PlayerShell({
   volHover,
   volume,
 }) {
+  const v4Appearance = usePlayerV4Appearance({
+    subtitleSize,
+    setSubtitleSize,
+    subtitleBg,
+    setSubtitleBg,
+  });
+
   return (
     // No local <MotionConfig>: this tree inherits the app-level one
     // (App.jsx: reducedMotion = in-app preference ? "always" : "user"). A nested
@@ -195,7 +203,17 @@ export default function PlayerShell({
         ref={screenRef}
         onMouseMove={poke}
         onPointerDown={dismissStillWatching}
-        className="np-root"
+        className={[
+          "np-root",
+          "player",
+          !playing ? "paused" : "",
+          buffering || spinner ? "loading" : "",
+          !controlsVisible && playing ? "idle" : "",
+          panel ? "menu" : "",
+          muted || autoMuted || volume === 0 ? "is-muted" : "",
+          isFullscreen ? "is-fs" : "",
+          ended && upNext ? "nxt-on" : "",
+        ].filter(Boolean).join(" ")}
         style={{
           position: "relative",
           width: "100%",
@@ -207,12 +225,17 @@ export default function PlayerShell({
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "manipulation",
-          // The safe-area policy is published once here; extracted chrome
-          // components consume it as CSS vars instead of each knowing whether
-          // they are on touch.
           "--np-safe-top": SAFE_TOP,
           "--np-safe-bottom": SAFE_BOTTOM,
+          "--accent": v4Appearance.accent,
+          "--accent-rgb": v4Appearance.accentRgb,
+          "--is": v4Appearance.iconSize,
+          "--cz": v4Appearance.cz,
+          "--cc": v4Appearance.subColor,
+          "--ease": "cubic-bezier(.22, 1, .36, 1)",
+          "--ease-spring": "cubic-bezier(.34, 1.4, .5, 1)",
         }}
+        data-cb={v4Appearance.subBgStyle}
       >
         <video
           ref={videoRef}
@@ -229,8 +252,30 @@ export default function PlayerShell({
             ...aspectVideoStyle(aspectRatioIndex),
             touchAction: "manipulation",
             WebkitUserSelect: "none",
+            filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
           }}
         />
+        {/* Double-tap ripple flashes (.dt.l and .dt.r) */}
+        <div
+          className={["dt", "l", hud?.kind === "seek" && hud.value < 0 ? "on" : ""].filter(Boolean).join(" ")}
+          id="dt-l"
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 24 24" width={36} height={36}>
+            <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" fill="currentColor" />
+          </svg>
+          <span>{skipSeconds}s</span>
+        </div>
+        <div
+          className={["dt", "r", hud?.kind === "seek" && hud.value > 0 ? "on" : ""].filter(Boolean).join(" ")}
+          id="dt-r"
+          aria-hidden="true"
+        >
+          <svg viewBox="0 0 24 24" width={36} height={36}>
+            <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" fill="currentColor" />
+          </svg>
+          <span>{skipSeconds}s</span>
+        </div>
         {/* (No standalone scrims: the top bar and bottom chrome paint their own
             gradients — stacking more here double-darkened the picture.) */}
         {/* Tapping the picture while a panel is open closes the panel. The
@@ -239,6 +284,8 @@ export default function PlayerShell({
             live. Mobile has no Esc, so this is the touch exit. */}
         {panel && (
           <div
+            className="dim"
+            id="dim"
             aria-hidden="true"
             onClick={() => {
               setPanel(null);
@@ -459,8 +506,57 @@ export default function PlayerShell({
             chooseEpisode={chooseEpisode}
             setBuffering={setBuffering}
             setResumeOffer={setResumeOffer}
+            v4Appearance={v4Appearance}
           />
         </PlayerPanel>
+
+        {/* On-Screen Display pill (.osd) */}
+        <div
+          className={["osd", hud || hold2x ? "show" : ""].filter(Boolean).join(" ")}
+          id="osd"
+          aria-hidden="true"
+        >
+          {hud?.kind === "play" && (
+            <>
+              <svg className="ic" viewBox="0 0 24 24" width={22} height={22}>
+                <path d="M8 5v14l11-7z" fill="currentColor" />
+              </svg>
+              <span id="osd-tx">Play</span>
+            </>
+          )}
+          {hud?.kind === "pause" && (
+            <>
+              <svg className="ic" viewBox="0 0 24 24" width={22} height={22}>
+                <path d="M7 5h3v14H7zM14 5h3v14h-3z" fill="currentColor" />
+              </svg>
+              <span id="osd-tx">Pause</span>
+            </>
+          )}
+          {hud?.kind === "volume" && (
+            <>
+              <svg className="ic" viewBox="0 0 24 24" width={22} height={22}>
+                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" fill="currentColor" />
+              </svg>
+              <span id="osd-tx">{muted || autoMuted ? "Muted" : `Volume ${Math.round(volume * 100)}%`}</span>
+            </>
+          )}
+          {hud?.kind === "seek" && (
+            <>
+              <svg className="ic" viewBox="0 0 24 24" width={22} height={22}>
+                <path d={hud.value < 0 ? "M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" : "M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"} fill="currentColor" />
+              </svg>
+              <span id="osd-tx">{hud.value < 0 ? `-${Math.abs(Math.round(hud.value))}s` : `+${Math.round(hud.value)}s`}</span>
+            </>
+          )}
+          {hold2x && (
+            <>
+              <svg className="ic" viewBox="0 0 24 24" width={22} height={22}>
+                <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" fill="currentColor" />
+              </svg>
+              <span id="osd-tx">2x Speed</span>
+            </>
+          )}
+        </div>
 
         {/* Netflix HUD overlays: transient volume / aspect pills
             that pop while a value changes and self-fade, plus the rewind /

@@ -49,7 +49,7 @@ export default function SubtitleOverlay({
       {text ? (
         <motion.div
           key={text}
-          className="np-subtitle"
+          className="np-subtitle capw"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
@@ -75,7 +75,7 @@ export default function SubtitleOverlay({
             WebkitTextStroke: "0 0 transparent",
           }}
         >
-          <span style={boxStyle}>{text}</span>
+          <span className="cap" style={boxStyle}>{text}</span>
         </motion.div>
       ) : null}
     </AnimatePresence>

@@ -9,12 +9,11 @@
 // version had one): dimming + blurring the picture during every stall read as a
 // broken player.
 //
-// From-scratch redesign (2026-11): the paused transport and the end card are
-// the player's two big moments, so both use the signal accent as a fill with a
-// dark glyph — the same primary-action language as the deck's play button.
-//
-// Each branch fades via AnimatePresence — a `transition` on a conditionally
-// mounted node never plays, which is why the spinner once looked frozen.
+// Player v4 enhancements:
+//   - Double-arc SVG spinner with dynamic accent gradient (.ld)
+//   - Circular glass big play button on desktop (.big)
+//   - Double-tap flash ripple surfaces (.dt.l, .dt.r)
+//   - Preserves all cold stage / warm stall / touch transport contracts
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, DURATION, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
@@ -27,7 +26,7 @@ import {
   GLASS_BORDER,
 } from "./theme";
 import { IconSkipBack10, IconSkipForward10, IconReplay } from "./icons";
-import { LoadingMessage, LoadingStage, RingSpinner } from "./primitives";
+import { LoadingMessage, LoadingStage } from "./primitives";
 
 const CENTER_BTN = {
   borderRadius: "50%",
@@ -98,7 +97,8 @@ export default function CenterStack({
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Warm stall: the picture stays, only a ring appears. */}
+
+      {/* Warm stall: the picture stays, v4 double-arc spinning rings appear. */}
       <AnimatePresence>
         {spinner && !showStage && (
           <motion.div
@@ -126,9 +126,20 @@ export default function CenterStack({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
               transition={M.SPRING.SHEET}
-              style={{ display: "flex", lineHeight: 0, filter: "drop-shadow(0 0 18px rgba(149,255,80,0.25))" }}
+              style={{ display: "flex", lineHeight: 0, filter: "drop-shadow(0 0 20px rgba(134,82,187,0.35))" }}
             >
-              <RingSpinner size={56} />
+              <div className="ld" style={{ position: "relative", width: 56, height: 56, opacity: 1 }}>
+                <svg viewBox="0 0 54 54" width={56} height={56}>
+                  <defs>
+                    <linearGradient id="g1_center" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="var(--accent, #8652bb)" />
+                      <stop offset="100%" stopColor="#fff" />
+                    </linearGradient>
+                  </defs>
+                  <circle className="a1" cx="27" cy="27" r="22" stroke="url(#g1_center)" strokeWidth="3" fill="none" />
+                  <circle className="a2" cx="27" cy="27" r="15" stroke="var(--accent, #8652bb)" strokeWidth="3" fill="none" />
+                </svg>
+              </div>
             </motion.span>
             <div
               style={{
@@ -142,13 +153,8 @@ export default function CenterStack({
           </motion.div>
         )}
       </AnimatePresence>
-      {/* Paused transport (rewind / play / forward). TOUCH ONLY: on a
-          hover-less device this is the primary, large tap target (and the only
-          way to start playback when the autoplay policy blocks a cold start).
-          A mouse/trackpad already has the deck's play button — and, because the
-          chrome always stays up while paused, that button is on screen — so
-          drawing this here too put two play/pause buttons on the picture at
-          once. */}
+
+      {/* Paused transport (rewind / play / forward). TOUCH ONLY: primary tap target. */}
       {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
         <motion.div
           initial={false}
@@ -162,7 +168,7 @@ export default function CenterStack({
             justifyContent: "center",
             gap: IS_TOUCH ? 18 : 26,
             zIndex: 3,
-            pointerEvents: "none",
+            pointerEvents: controlsVisible ? "auto" : "none",
           }}
         >
           <motion.button
@@ -203,8 +209,6 @@ export default function CenterStack({
               boxShadow: `${ACCENT_GLOW}, 0 22px 54px rgba(0,0,0,0.5)`,
             }}
           >
-            {/* Bias the triangle optically: a centred Play glyph reads as
-                slightly left-heavy against the circle. */}
             <svg
               width={IS_TOUCH ? 64 : 76}
               height={IS_TOUCH ? 64 : 76}
@@ -237,9 +241,54 @@ export default function CenterStack({
           </motion.button>
         </motion.div>
       )}
-      {/* End state. Wrapped so the button can LEAVE on the same spring it
-          arrived on: replaying used to delete it in one frame, which is the
-          half of "to and fro" that was missing everywhere in this file. */}
+
+      {/* Big center play button on desktop (.big) */}
+      {!IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
+        <motion.button
+          type="button"
+          id="big"
+          className="np-icon-btn np-center-btn big"
+          onClick={onTogglePlay}
+          aria-label="Play"
+          title="Play"
+          initial={false}
+          animate={{ opacity: controlsVisible ? 1 : 0, scale: controlsVisible ? 1 : 0.9 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: PRESS_SCALE.CONTROL }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            margin: "auto",
+            width: "5.5em",
+            height: "5.5em",
+            borderRadius: "50%",
+            border: "1px solid rgba(255, 255, 255, 0.16)",
+            background: "rgba(10, 14, 20, 0.65)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            color: "#fff",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 18px 48px rgba(0, 0, 0, 0.6), 0 0 32px rgba(134, 82, 187, 0.35)",
+            zIndex: 3,
+            pointerEvents: controlsVisible ? "auto" : "none",
+          }}
+        >
+          <svg
+            width="2.6em"
+            height="2.6em"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            style={{ transform: "translateX(2px)" }}
+          >
+            <path d="M8 5v14l11-7z" fill="currentColor" />
+          </svg>
+        </motion.button>
+      )}
+
+      {/* End state: replay button */}
       <AnimatePresence>
         {!buffering && ended && (
           <motion.button
@@ -249,8 +298,6 @@ export default function CenterStack({
             onClick={onReplay}
             aria-label="Watch again"
             title="Watch again"
-            // A hairline ring that blooms out once when the end card lands, so
-            // the eye is pulled to the only action on screen.
             initial={{ opacity: 0, scale: 0.7 }}
             animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
             exit={{ opacity: 0, scale: 0.9 }}

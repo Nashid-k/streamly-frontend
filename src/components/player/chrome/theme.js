@@ -1,17 +1,17 @@
-// Streamly player visual language — "Signal".
+// Streamly player visual language — "Player v4".
 //
-// A player-scoped design system rebuilt from scratch for the 2026-11 player
-// redesign. It is deliberately NOT a restyle of the old chrome: the accent is
-// Streamly's own signal green (the same hue the rest of the app brands with),
-// surfaces are cool ink glass, geometry is rounder, and every state — played,
-// selected, active, hover — resolves to the same accent instead of borrowing a
-// third-party player's red.
+// A player-scoped design system matching player-v4.html. Surfaces are dark
+// obsidian slate, buttons use icon morphs with spring physics, loaders use
+// double spinning arcs, and the accent color is user-configurable with 8 themes
+// plus custom hex picker.
 //
 // Values are plain strings because the chrome is styled with inline objects
 // (the engine owns no CSS layer for these nodes). Hover, press and
 // reduced-motion behaviour live in styles/player.css keyed on class names.
 
-// Primary accent: played progress, active marks, primary actions, focus.
+// Default accent from player-v4.html
+export const DEFAULT_V4_ACCENT = "#8652bb";
+// Primary accent fallback: Streamly signal green or user-customized.
 export const ACCENT = "#95ff50";
 // Glyph/text colour that sits ON an accent fill (dark, never white).
 export const ACCENT_FG = "#07120a";
@@ -19,6 +19,18 @@ export const ACCENT_DIM = "rgba(149,255,80,0.88)";
 export const ACCENT_SOFT = "rgba(149,255,80,0.14)";
 export const ACCENT_EDGE = "rgba(149,255,80,0.42)";
 export const ACCENT_GLOW = "0 0 20px rgba(149,255,80,0.32)";
+
+// The 8 theme swatches from player-v4.html
+export const PLAYER_V4_THEMES = [
+  ["Default", "#8652bb"],
+  ["Blue", "#2563eb"],
+  ["Green", "#059669"],
+  ["Red", "#dc2626"],
+  ["Orange", "#ea580c"],
+  ["Pink", "#db2777"],
+  ["Teal", "#0d9488"],
+  ["Gray", "#64748b"],
+];
 
 // Scrubber track layers. The played bar is accent; the track is a quiet
 // white film and buffered is a half step brighter so the three read in order.

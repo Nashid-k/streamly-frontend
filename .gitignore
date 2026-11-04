@@ -49,3 +49,7 @@ scratch_*
 .import_usage.json
 embed_vidcore.html
 NEW PLAYER UI-UX.html
+
+.agents/
+.claude/
+skills-lock.json
