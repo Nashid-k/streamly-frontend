@@ -2559,7 +2559,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.np-root.nxt-a {
+.np-root .nxt-a,
+.nxt-a {
   display: flex;
   gap: .6em;
 }
@@ -2696,7 +2697,8 @@
 .seg.c3 {
   grid-template-columns: repeat(3, 1fr);
 }
-.np-root.dotc {
+.np-root .dotc,
+.dotc {
   display: inline-block;
   width: .75em;
   height: .75em;
@@ -2707,7 +2709,8 @@
 }
 
 /* Gesture HUD */
-.np-root.gs {
+.np-root .gs,
+.gs {
   position: absolute;
   top: 16%;
   left: 50%;
@@ -2739,7 +2742,8 @@
 .np-root .row.ep {
   padding-bottom: .7em;
 }
-.np-root.epp {
+.np-root .epp,
+.epp {
   position: absolute;
   left: .9em;
   right: .9em;
@@ -2782,7 +2786,8 @@
   text-overflow: ellipsis;
   min-width: 0;
 }
-.np-root.swap {
+.np-root .swap,
+.swap {
   animation: up 450ms var(--ease);
 }
 @keyframes up {
@@ -3228,16 +3233,39 @@
   height: 1.3em;
   flex: none;
 }
-.np-root.ck {
+.np-root .ck,
+.ck {
   opacity: 0;
   transform: scale(.4);
   transition: opacity 200ms var(--ease), transform 500ms var(--ease-spring);
 }
-.row[aria-checked="true"] .ck {
+.row[aria-checked="true"] .ck,
+.row[aria-pressed="true"] .ck,
+.row.sel .ck,
+.np-dialog-row[aria-checked="true"] .ck,
+.np-dialog-row[aria-pressed="true"] .ck,
+.np-dialog-row.sel .ck {
   opacity: 1;
   transform: none;
 }
-.np-root.hr {
+.np-root .np-opt,
+.sheet .np-opt {
+  font-size: inherit;
+  min-height: 2.8em;
+  padding: .4em .9em;
+  border-radius: .8em;
+  gap: 1em;
+  margin-bottom: 0;
+}
+.np-root .np-opt-title {
+  font-size: 1em;
+}
+.np-root .np-opt-sub {
+  font-size: .85em;
+  color: #8fa3b3;
+}
+.np-root .hr,
+.hr {
   height: 1px;
   background: #ffffff14;
   margin: .5em .5em .7em;
@@ -3251,7 +3279,8 @@
   line-height: 1.45;
   color: #8fa3b3;
 }
-.np-root.lnk {
+.np-root .lnk,
+.lnk {
   color: var(--accent);
   text-decoration: underline;
   background: none;
@@ -3259,7 +3288,8 @@
   cursor: pointer;
   font: inherit;
 }
-.np-root .switch {
+.np-root .switch,
+.switch {
   position: relative;
   flex: none;
   width: 3.2em;
@@ -3270,7 +3300,8 @@
   border: 0;
   cursor: pointer;
 }
-.np-root .switch::after {
+.np-root .switch::after,
+.switch::after {
   content: "";
   position: absolute;
   top: .2em;
@@ -3279,12 +3310,22 @@
   height: 1.5em;
   border-radius: 50%;
   background: #fff;
-  transition: transform 300ms cubic-bezier(.3, 1.4 var(--ease), .5 var(--ease), 1) var(--ease);
+  transition: transform 300ms cubic-bezier(.3, 1.4, .5, 1);
 }
-.np-root .switch[aria-checked="true"] {
+.np-root .switch[aria-checked="true"],
+.switch[aria-checked="true"],
+.np-root .switch[aria-pressed="true"],
+.switch[aria-pressed="true"],
+.np-root .switch.on,
+.switch.on {
   background: var(--accent);
 }
-.np-root .switch[aria-checked="true"]::after {
+.np-root .switch[aria-checked="true"]::after,
+.switch[aria-checked="true"]::after,
+.np-root .switch[aria-pressed="true"]::after,
+.switch[aria-pressed="true"]::after,
+.np-root .switch.on::after,
+.switch.on::after {
   transform: translateX(1.3em);
 }
 .np-root .seg {
@@ -3381,7 +3422,8 @@
 .np-root .th[aria-checked="true"] i {
   transform: scale(1.1);
 }
-.np-root.custom {
+.np-root .custom,
+.custom {
   display: flex;
   gap: .7em;
   align-items: center;
@@ -3437,7 +3479,8 @@
 .np-root .row[aria-current="true"] .eb {
   background: color-mix(in srgb, var(--accent) 40%, #121c27);
 }
-.np-root.et {
+.np-root .et,
+.et {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;

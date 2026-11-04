@@ -10,16 +10,13 @@
 // - Episodes pane: .row.ep, badge .eb, air date, watched status, active indicator
 import {
   DialogRow,
-  IconAudio,
   IconChevronRight,
-  IconMenuCheck,
-  IconServers,
 } from "../chrome";
 import { PLAYER_V4_THEMES } from "../chrome/theme";
 import { ASPECT_RATIOS, PLAYER_SPEEDS } from "../../../constants/playerUi";
 import { SKIP_DATA_CREDIT } from "../../../api/skipBoundarySource";
 import { languageNameFromCode } from "../../../utils/audioLabels";
-import { AUTO_SOURCE, DEFAULT_SOURCE_KEY, sourceLabel } from "../../../constants/sources";
+import { AUTO_SOURCE, DEFAULT_SOURCE_KEY, sourceLabel, sourceByKey, sourceByServer } from "../../../constants/sources";
 import { qualityHdTag } from "../nativePlayerHelpers";
 import { formatAirsDate, isEpAired } from "../../../utils/titleDetails";
 
@@ -40,8 +37,8 @@ function Pick({ selected, onClick, children, disabled }) {
     <button
       type="button"
       className={["np-pick", "row", selected ? "sel" : ""].filter(Boolean).join(" ")}
-      aria-checked={selected ? true : undefined}
-      aria-pressed={selected ? true : undefined}
+      aria-checked={selected ? "true" : "false"}
+      aria-pressed={selected ? "true" : undefined}
       disabled={disabled}
       onClick={disabled ? undefined : onClick}
     >
@@ -144,14 +141,19 @@ export default function PlayerMenus({
     activeSourceKey && activeSourceKey !== AUTO_SOURCE.key ? activeSourceKey : null;
   const requested =
     requestedServer && requestedServer !== AUTO_SOURCE.key ? requestedServer : null;
-  const serverKey = requested || committedServer || DEFAULT_SOURCE_KEY;
-  const serverValue = sourceLabel(serverKey, "Server 1");
+  const rawServer = requested || committedServer || DEFAULT_SOURCE_KEY;
+  const resolvedServerObj = sourceByKey(rawServer) || sourceByServer(rawServer);
+  const serverKey = resolvedServerObj?.key || rawServer;
+  const serverValue = resolvedServerObj?.label || sourceLabel(serverKey, "Server 1");
 
+  const currentHeightLabel = currentHeight ? `${currentHeight}p` : null;
+  const manualQualityObj = qualities.find((q) => q.height === manualHeight);
   const qualityValue =
     autoLevel === false
-      ? qualities.find((q) => q.height === manualHeight)?.label ||
-        (currentHeight ? `${currentHeight}p` : "Manual")
-      : "Auto";
+      ? manualQualityObj?.label || currentHeightLabel || (manualHeight ? `${manualHeight}p` : "Manual")
+      : currentHeightLabel
+        ? `Auto · ${currentHeightLabel}`
+        : "Auto";
 
   const subtitlesValue = !subtitleEnabled ? "Off" : currentSubtitle?.language || "On";
   const audioValue = currentAudioLabel || "Original";
@@ -219,16 +221,21 @@ export default function PlayerMenus({
   if (panel === "servers") {
     return (
       <div className="np-list">
-        {orderedSources.map((s) => (
-          <DialogRow
-            key={s.key}
-            selected={serverKey === s.key}
-            onClick={() => pickServer(s.key)}
-            title={s.label}
-            sub={s.tag}
-            icon={<IconServers size={22} />}
-          />
-        ))}
+        {orderedSources.map((s) => {
+          const isSelected =
+            s.key === serverKey ||
+            s.key === resolvedServerObj?.key ||
+            (s.server && s.server === rawServer);
+          return (
+            <DialogRow
+              key={s.key}
+              selected={isSelected}
+              onClick={() => pickServer(s.key)}
+              title={s.label}
+              sub={s.tag}
+            />
+          );
+        })}
       </div>
     );
   }
@@ -237,45 +244,46 @@ export default function PlayerMenus({
     return (
       <div className="np-pbody">
         {qualityNote ? <p className="np-note np-note-warn">{qualityNote}</p> : null}
-        {qualities.map((q, i) => {
-          const selected =
-            autoLevel === false
-              ? manualHeight != null
-                ? q.height === manualHeight
-                : q.uri === activeUri
-              : autoLevel === true && isMasterMode
-                ? currentHeight != null && q.height === currentHeight
+        <div className="np-qlist">
+          {qualities.map((q, i) => {
+            const selected =
+              autoLevel === false
+                ? manualHeight != null
+                  ? q.height === manualHeight
+                  : q.uri === activeUri
                 : false;
-          return (
-            <Pick
-              key={`${q.uri}::${i}`}
-              selected={selected}
-              onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
-            >
-              {`${q.label || `${q.height}p`}${qualityHdTag(q) ? " HD" : ""}`}
-            </Pick>
-          );
-        })}
-        <div className="np-hr" />
-        <div className="np-qauto">
+            return (
+              <Pick
+                key={`${q.uri}::${i}`}
+                selected={selected}
+                onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
+              >
+                {`${q.label || `${q.height}p`}${qualityHdTag(q) ? " HD" : ""}`}
+              </Pick>
+            );
+          })}
+        </div>
+        <div className="np-hr hr" />
+        <div className="np-qauto row">
           <span>Automatic quality</span>
           <button
             type="button"
-            className={["np-tog", "np-tog-acc", autoOn ? "on" : ""].filter(Boolean).join(" ")}
+            className={["np-tog", "np-tog-acc", "switch", autoOn ? "on" : ""].filter(Boolean).join(" ")}
             aria-label="Automatic quality"
+            aria-checked={autoOn}
             aria-pressed={autoOn}
             onClick={onAutoToggle}
           >
             <i />
           </button>
         </div>
-        <p className="np-note">
+        <p className="np-note note">
           {autoSummary}
           {!autoOn ? (
             <>
               {" "}
               You can try{" "}
-              <button type="button" className="np-link" onClick={() => setPanel("servers")}>
+              <button type="button" className="np-link lnk" onClick={() => setPanel("servers")}>
                 switching source
               </button>{" "}
               to get different quality options.
@@ -287,7 +295,7 @@ export default function PlayerMenus({
             <span>Source quality</span>
             <span className="np-menu-row-val">
               {sourceHeight ? `${sourceHeight}p` : "Auto"}
-              <IconChevronRight size={22} />
+              <svg className="ic chv"><use href="#i-chev" /></svg>
             </span>
           </button>
         ) : null}
@@ -349,7 +357,6 @@ export default function PlayerMenus({
               onClick={() => pickDub(0)}
               title={audioTrackList[0]?.label || "Original"}
               sub="This source's soundtrack"
-              icon={<IconAudio size={22} />}
             />
             {audioTrackList.slice(1).map((t) => {
               const dead = deadDubs.has(t.sourceIndex + 1);
@@ -361,7 +368,6 @@ export default function PlayerMenus({
                   title={t.label}
                   sub={dead ? "Not available on this server" : undefined}
                   disabled={dead}
-                  icon={<IconAudio size={22} />}
                 />
               );
             })}
@@ -376,14 +382,13 @@ export default function PlayerMenus({
                 onClick={() => pickAudio(a.index)}
                 title={proper || a.name}
                 sub={proper && a.lang && a.lang !== a.name ? a.lang : undefined}
-                icon={<IconAudio size={22} />}
               />
             );
           })
         ) : (
           <>
             {originalLanguage ? (
-              <p className="np-note">
+              <p className="np-note note">
                 Film's original language:{" "}
                 {languageNameFromCode(originalLanguage) || (originalLanguage || "").toUpperCase() || "Unknown"}
               </p>
@@ -397,7 +402,6 @@ export default function PlayerMenus({
                   : "Original"
               }
               sub="This source's soundtrack"
-              icon={<IconAudio size={22} />}
             />
           </>
         )}

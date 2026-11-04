@@ -178,7 +178,8 @@ export default function PlayerShell({
     initialSubColor: prefs?.subtitleColor,
   });
 
-  const isLoading = buffering || spinner;
+  const isInitialStage = Boolean(showStage || !everPlayed);
+  const isLoading = Boolean((buffering || spinner) && !isInitialStage);
   const isMuted = muted || autoMuted || volume === 0;
 
   return (
@@ -281,20 +282,22 @@ export default function PlayerShell({
             aria-hidden="true"
           />
 
-          {/* Player v4 Double-Arc Spinner (.ld) */}
-          <div className="ld" aria-hidden="true">
-            <svg viewBox="0 0 100 100">
-              <defs>
-                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" style={{ stopColor: "var(--accent)" }} />
-                  <stop offset="1" stopColor="#fff" />
-                </linearGradient>
-              </defs>
-              <circle className="lt" cx="50" cy="50" r="40" />
-              <circle className="arc a1" cx="50" cy="50" r="40" pathLength="100" />
-              <circle className="arc a2" cx="50" cy="50" r="28" pathLength="100" />
-            </svg>
-          </div>
+          {/* Player v4 Double-Arc Spinner (.ld) — hidden during initial logo image loader */}
+          {!isInitialStage ? (
+            <div className="ld" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <defs>
+                  <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" style={{ stopColor: "var(--accent)" }} />
+                    <stop offset="1" stopColor="#fff" />
+                  </linearGradient>
+                </defs>
+                <circle className="lt" cx="50" cy="50" r="40" />
+                <circle className="arc a1" cx="50" cy="50" r="40" pathLength="100" />
+                <circle className="arc a2" cx="50" cy="50" r="28" pathLength="100" />
+              </svg>
+            </div>
+          ) : null}
 
           {/* Big center play button on paused state (.big) — only when paused and not loading */}
           <button

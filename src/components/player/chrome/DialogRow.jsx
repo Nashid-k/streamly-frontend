@@ -5,7 +5,7 @@
 // check on the right. The `.np-dialog-row` class is kept because the player's
 // menu tests and the selected-row contract key off it; the `.np-opt` class is
 // what carries the new geometry.
-import { IconChevronRight, IconMenuCheck } from "./icons";
+import { IconChevronRight } from "./icons";
 
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
   const renderTitle = (t) => {
@@ -25,10 +25,11 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
   return (
     <button
       type="button"
-      className={["np-opt", "np-dialog-row", selected ? "sel" : ""].filter(Boolean).join(" ")}
+      className={["np-opt", "np-dialog-row", "row", selected ? "sel" : ""].filter(Boolean).join(" ")}
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
-      aria-pressed={selected ? true : undefined}
+      aria-checked={selected ? "true" : "false"}
+      aria-pressed={selected ? "true" : undefined}
     >
       {icon ? <span className="np-opt-ico">{icon}</span> : null}
       <span className="np-opt-name">
@@ -41,7 +42,7 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
           <IconChevronRight size={18} />
         </span>
       ) : (
-        <IconMenuCheck size={30} />
+        <svg className="ic ck"><use href="#i-check" /></svg>
       )}
     </button>
   );

@@ -7,6 +7,15 @@
 
  ## Done (in order)
 
+- [x] **Player v4 active server/quality/audio indicators, spinner visibility fix & CSS checkmark fixes (user: "which server is active, which quality,audio etc, like the player v4. but ours has bugs,just fix it, also on initial loader hide our spinner as we already has the logo image loader", "push into git") — 2026-11-04.**
+  - **Accurate active states on Settings tiles & subpanels:**
+    - Source: Resolves server key accurately via `sourceByKey(rawServer) || sourceByServer(rawServer)` so provider backend names (e.g. `orion`) correctly resolve to user-facing labels (`Server 2`) on the main tile and highlight the active server with checkmark in the Servers panel.
+    - Quality: Displays `Auto · ${currentHeight}p` (e.g. `Auto · 1080p`) when automatic quality is active matching `player-v4.html`, and manual height label when manual. Fixed Automatic quality toggle switch styling and state.
+    - Audio: Displays active audio track label and highlights active dub/track in Audio panel.
+  - **Initial Loader spinner deduplication:** Guarded the double-arc `.ld` spinner so it remains hidden during cold-start/logo image loading stage (`!isInitialStage` where `isInitialStage = showStage || !everPlayed`), appearing only during mid-playback buffering stalls.
+  - **Checkmark & row styling fixes in `player.css`:** Fixed missing-space compound selectors (`.np-root .ck`, `.np-root .hr`, `.np-root .lnk`, `.np-root .dotc`, `.np-root .switch`, etc.) so `.ck` SVG checkmarks smoothly scale and transition to opacity 1 when `selected`/`aria-checked="true"`.
+  - **Gates passed:** `npm run lint` (0 errors), `npm test` (119 test files / 1,440 tests green), `npm run build` (clean production build).
+
 - [x] **Player v4 UI/UX pixel-perfect mirror & deduplication — end-to-end integration matching `player-v4.html` (user: "/goal mirror player UI/UX to exactly match player-v4.html, end-to-end, then push to git") — 2026-11-04.**
   - **Pixel-perfect icons & SVG sprite (`PlayerSvgSprite.jsx`):** Replaced hardcoded icon paths with the complete set of 17 SVG symbol definitions from `player-v4.html` (`#i-play`, `#i-pause`, `#i-back`, `#i-rew`, `#i-fwd`, `#i-vol`, `#i-mute`, `#i-ep`, `#i-pip`, `#i-subs`, `#i-gear`, `#i-fs`, `#i-fsx`, `#i-chev`, `#i-sun`, `#i-x`, `#i-check`), with precise stroke width (2.2) and round joins.
   - **Deduplication of transport & play/pause controls:** Removed conflicting center touch clusters, duplicate center play/pause HUDs, and legacy overlays. Transport now has a single v4 `.big` center button for paused state, and morphing SVG controls in `.ctl` (`.m-pp`, `.m-vol`, `.m-fs`).

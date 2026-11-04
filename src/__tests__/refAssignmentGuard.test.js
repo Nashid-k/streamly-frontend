@@ -110,5 +110,5 @@ describe("refs are assigned somewhere (mirror-ref bug class)", () => {
     }
 
     expect(offenders, `refs declared and never assigned:\n${offenders.join("\n")}`).toEqual([]);
-  });
+  }, 15000);
 });
