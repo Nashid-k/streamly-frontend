@@ -1,17 +1,19 @@
-// Netflix "Up Next" post-roll card (TV only).
-//
-// Shown when a TV episode has ended and a next installment exists. The engine
-// owns the countdown timer and the auto-advance; this owns the card and the
-// Play now / cancel actions.
+// Up Next post-roll card matching player-v4.html:
+// - .nxt container with dark obsidian styling (#0d1219, border, shadow)
+// - <small>Up next in <span id="nxc">{seconds}</span>s</small>
+// - <b id="nxl">{epLabel}</b>
+// - Hairline countdown indicator
+// - .nxt-a action buttons: .nxb (Play now) and .nxb.sec (Cancel)
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
-import IconBtn from "./IconBtn";
-import { IconClose, IconPlay } from "./icons";
-import { IS_TOUCH } from "./constants";
-import { ACCENT, ACCENT_FG, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
   const M = useMotionTokens(useReducedMotion());
+  const seconds = Math.max(1, Math.round(upNextMs / 1000));
+  const epLabel = upNext?.title
+    ? `E${upNext.number} · ${upNext.title}`
+    : `Episode ${upNext?.number}`;
+
   return (
     <AnimatePresence>
       {upNext && (
@@ -20,7 +22,7 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
           id="nxt"
           className="nxt"
           role="complementary"
-          aria-label={`Up Next: playing in ${Math.round(upNextMs / 1000)} seconds`}
+          aria-label={`Up Next: playing in ${seconds} seconds`}
           initial={M.MODAL_PANEL.initial}
           animate={M.MODAL_PANEL.animate}
           exit={M.MODAL_PANEL.exit}
@@ -37,72 +39,98 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
             padding: "1em 1.1em",
             zIndex: 6,
             boxShadow: "0 .5em 1.4em #0007",
+            display: "flex",
+            flexDirection: "column",
+            gap: ".7em",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", color: "rgba(255,255,255,0.55)" }}>
-              Up Next
-            </span>
-            <IconBtn label="Cancel up next" onClick={onCancel}>
-              <IconClose size={16} />
-            </IconBtn>
+          <div>
+            <small style={{ color: "#8fa3b3", fontSize: "0.88em" }}>
+              Up next in <span id="nxc">{seconds}</span>s
+            </small>
+            <b
+              id="nxl"
+              style={{
+                display: "block",
+                marginTop: ".2em",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: "1.05em",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {epLabel}
+            </b>
           </div>
-          <div style={{ marginTop: 6, color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.3 }}>
-            {upNext.title ? `E${upNext.number} · ${upNext.title}` : `Episode ${upNext.number}`}
-          </div>
+
           <div
             style={{
-              marginTop: 8,
               height: 3,
-              borderRadius: "var(--radius-full)",
-              background: "rgba(255,255,255,0.18)",
+              borderRadius: "999px",
+              background: "rgba(255, 255, 255, 0.16)",
               overflow: "hidden",
-              pointerEvents: "auto",
+              margin: ".1em 0",
             }}
           >
             <div
-              // Full width, drained by the keyframe — the old `width:
-              // "15000ms"` was not a length CSS understands, so the bar
-              // rendered at the track's natural 0% and never counted down.
               className="np-upnext-countdown"
               style={{
                 height: "100%",
                 width: "100%",
-                background: ACCENT,
+                background: "var(--accent, #8652bb)",
                 transformOrigin: "left",
                 animation: "upNextCountdown linear both",
                 animationDuration: `${upNextMs}ms`,
               }}
             />
           </div>
-          <div style={{ marginTop: 6, fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-            Playing in {Math.round(upNextMs / 1000)} seconds
+
+          <div className="nxt-a" style={{ display: "flex", gap: ".6em" }}>
+            <button
+              type="button"
+              className="nxb"
+              id="nxgo"
+              onClick={() => onPlayNow(upNext.number)}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                padding: ".5em 1em",
+                borderRadius: ".8em",
+                background: "var(--accent, #8652bb)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "0.95em",
+                border: 0,
+                cursor: "pointer",
+                transition: "transform .2s var(--ease), filter .2s",
+              }}
+            >
+              Play now
+            </button>
+            <button
+              type="button"
+              className="nxb sec"
+              id="nxno"
+              onClick={onCancel}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                padding: ".5em 1em",
+                borderRadius: ".8em",
+                background: "#ffffff1a",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "0.95em",
+                border: 0,
+                cursor: "pointer",
+                transition: "transform .2s var(--ease), filter .2s",
+              }}
+            >
+              Cancel
+            </button>
           </div>
-          <button
-            type="button"
-            className="np-resume-btn nxb"
-            onClick={() => onPlayNow(upNext.number)}
-            style={{
-              marginTop: 12,
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "10px 16px",
-              background: ACCENT,
-              color: ACCENT_FG,
-              border: "none",
-              borderRadius: RADIUS.pill,
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: "pointer",
-              boxShadow: "0 0 20px rgba(149,255,80,0.28)",
-            }}
-          >
-            <IconPlay size={18} />
-            Play now
-          </button>
         </motion.div>
       )}
     </AnimatePresence>

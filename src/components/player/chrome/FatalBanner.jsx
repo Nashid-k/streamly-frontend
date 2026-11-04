@@ -1,14 +1,9 @@
-// Fatal failure banner.
-//
-// The old banner was a bare <p> with no role and no exit: a screen reader never
-// announced the failure, and a viewer whose source failed had no way forward but
-// the browser Back button. role="alert" goes on the MESSAGE only — putting it on
-// the wrapper would make a live region announce "…cannot run here.Try againBack"
-// as one string. "Try again" re-runs the load effect via the engine's reload
-// token; the back button leaves the player.
+// Fatal failure banner matching player-v4.html (.nxt#err):
+// - Dark obsidian container (#0d1219, subtle border, shadow)
+// - role="alert" message
+// - .nxt-a actions: .nxb (Try again / Retry) and .nxb.sec (Back to browse)
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
-import { ACCENT, ACCENT_FG, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function FatalBanner({ message, onRetry, onBack }) {
   const M = useMotionTokens(useReducedMotion());
@@ -24,67 +19,69 @@ export default function FatalBanner({ message, onRetry, onBack }) {
       className="np-fatal nxt"
       style={{
         position: "absolute",
-        bottom: 140,
-        left: 16,
-        right: 16,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 16px",
-        borderRadius: RADIUS.card,
-        background: GLASS_BG_STRONG,
-        backdropFilter: GLASS_BLUR,
-        WebkitBackdropFilter: GLASS_BLUR,
-        border: `1px solid ${GLASS_BORDER}`,
-        fontSize: 14,
+        bottom: "calc(6.4em + env(safe-area-inset-bottom))",
+        left: "max(1em, env(safe-area-inset-left))",
+        right: "max(1em, env(safe-area-inset-right))",
+        maxWidth: "min(34em, calc(100% - 2em))",
+        margin: "0 auto",
         zIndex: 7,
-        color: "#fff",
-        boxShadow: "0 10px 34px rgba(0,0,0,0.6)",
+        background: "#0d1219",
+        border: "1px solid #ffffff17",
+        borderRadius: "1.1em",
+        boxShadow: "0 .5em 1.4em #0007",
+        padding: "1em 1.1em",
+        display: "flex",
+        flexDirection: "column",
+        gap: ".7em",
       }}
     >
-      <span role="alert" style={{ flex: 1, minWidth: 0 }}>
+      <b role="alert" style={{ display: "block", color: "#fff", lineHeight: 1.4, fontSize: "0.95em" }}>
         {message}
-      </span>
-      <button
-        type="button"
-        className="np-fatal-btn nxb"
-        onClick={onRetry}
-        style={{
-          padding: "8px 16px",
-          background: ACCENT,
-          color: ACCENT_FG,
-          border: "none",
-          borderRadius: RADIUS.pill,
-          fontWeight: 700,
-          fontSize: 13,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
-        Try again
-      </button>
-      <button
-        type="button"
-        className="np-fatal-btn nxb sec"
-        // Not "Back": the top bar already owns a Back button, and two
-        // controls with the same accessible name in one view is ambiguous
-        // to get by voice or screen-reader rotor.
-        aria-label="Back to browse"
-        onClick={onBack}
-        style={{
-          padding: "8px 16px",
-          background: "transparent",
-          color: "#fff",
-          border: "1px solid rgba(255,255,255,0.28)",
-          borderRadius: RADIUS.pill,
-          fontWeight: 600,
-          fontSize: 13,
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-      >
-        Back
-      </button>
+      </b>
+      <div className="nxt-a" style={{ display: "flex", gap: ".6em", marginTop: ".2em" }}>
+        <button
+          type="button"
+          className="np-fatal-btn nxb"
+          id="retry"
+          onClick={onRetry}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            padding: ".5em 1em",
+            borderRadius: ".8em",
+            background: "var(--accent, #8652bb)",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: "0.95em",
+            border: 0,
+            cursor: "pointer",
+            transition: "transform .2s var(--ease), filter .2s",
+          }}
+        >
+          Try again
+        </button>
+        <button
+          type="button"
+          className="np-fatal-btn nxb sec"
+          aria-label="Back to browse"
+          onClick={onBack}
+          style={{
+            flex: 1,
+            minHeight: 44,
+            padding: ".5em 1em",
+            borderRadius: ".8em",
+            background: "#ffffff1a",
+            color: "#fff",
+            fontWeight: 600,
+            fontSize: "0.95em",
+            border: 0,
+            cursor: "pointer",
+            transition: "transform .2s var(--ease), filter .2s",
+          }}
+        >
+          Back
+        </button>
+      </div>
     </motion.div>
   );
 }

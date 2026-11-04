@@ -14,7 +14,6 @@
 //   - #gear: settings with rotation (#i-gear)
 //   - #fs: .morph.m-fs (#i-fs / #i-fsx)
 import { IS_TOUCH } from "./constants";
-import PlayerSvgSprite from "./PlayerSvgSprite";
 
 const SETTINGS_PANELS = new Set([
   "settings",
@@ -93,12 +92,10 @@ export default function BottomChrome({
   const hoverTime = hoverRatio != null ? hoverRatio * durNum : curNum;
 
   return (
-    <>
-      <PlayerSvgSprite />
-      <div
-        className={["bot", !visible ? "np-chrome-hidden" : ""].filter(Boolean).join(" ")}
-        inert={!visible}
-      >
+    <div
+      className={["bot", !visible ? "np-chrome-hidden" : ""].filter(Boolean).join(" ")}
+      inert={!visible}
+    >
         {/* Progress bar row matching player-v4.html */}
         <div className="prog">
           <span className="t" id="cur" aria-hidden="true">
@@ -322,6 +319,5 @@ export default function BottomChrome({
           </button>
         </div>
       </div>
-    </>
   );
 }

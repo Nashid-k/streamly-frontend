@@ -6,7 +6,6 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, DURATION, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
 import {
-  ACCENT,
   ACCENT_FG,
   ACCENT_GLOW,
   GLASS_BLUR,

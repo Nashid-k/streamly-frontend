@@ -7,6 +7,26 @@
 
  ## Done (in order)
 
+- [x] **Deep player-v4 alignment and legacy cleanup (user: "dig more and remove legacy things, and update new player with player v4") — 2026-11-04.**
+  - **Up Next post-roll card modernization (`UpNextCard.jsx`):**
+    - Adopted `player-v4.html` `.nxt` card layout and classes: `<div className="nxt">`, `<small>Up next in <span id="nxc">...</span></small>`, `<b id="nxl">...</b>`, hairline progress countdown, and `.nxt-a` button pair (`.nxb#nxgo` for "Play now" and `.nxb.sec#nxno` for "Cancel").
+    - Removed unused imports (`IS_TOUCH`, `IconClose`, `IconPlay`, `GLASS_BG_STRONG`, `GLASS_BLUR`, `GLASS_BORDER`, `RADIUS`) and deleted hardcoded green accent and box shadow.
+  - **Fatal failure banner alignment (`FatalBanner.jsx`):**
+    - Aligned with `player-v4.html` `.nxt#err` card: styled container with `#0d1219`, `border: 1px solid #ffffff17`, `borderRadius: "1.1em"`, and paired `.nxb` ("Try again") and `.nxb.sec` ("Back").
+    - Removed legacy `GLASS_*`, `ACCENT`, `RADIUS` imports.
+  - **Tap to unmute pill modernization (`TapToUnmutePill.jsx`):**
+    - Updated container to v4 obsidian styling (`#0d1219`, `border: 1px solid #ffffff17`, `borderRadius: "2em"`).
+    - Swapped out old `IconVolumeMute` and hardcoded green `rgba(149,255,80,0.4)` border for `#i-mute` SVG symbol driven by `var(--accent, #8652bb)`.
+  - **Sprite deduplication:**
+    - Removed redundant `<PlayerSvgSprite />` mounts from `BottomChrome.jsx`, `ChromeTopBar.jsx`, and `PlayerPanel.jsx`, centralizing the single symbol sprite at the player root in `PlayerShell.jsx`.
+  - **Menu and dialog icon & dead code cleanup (`PlayerMenus.jsx`, `DialogRow.jsx`, `CenterStack.jsx`, `theme.js`):**
+    - In `DialogRow.jsx`, replaced `IconChevronRight` with `<svg className="ic chv"><use href="#i-chev" /></svg>`.
+    - In `PlayerMenus.jsx`, removed unused `IconChevronRight`, unused constants `SUBTITLE_SIZES` and `SUBTITLE_BACKGROUNDS`, and dead `bgIndex`.
+    - In `CenterStack.jsx`, removed unused import `ACCENT`.
+    - In `theme.js`, modernized `SKIP_BAND` from old green `rgba(149,255,80,0.22)` to accent `rgba(134,82,187,0.22)`.
+    - In `player.css`, broadened `:is(.player, .np-root) .nxt`, `.nxb`, `.nxb.sec`, `.osd`, `.dim` selectors for complete cross-container styling and hover/active responsiveness.
+  - **Gates passed:** `npm run lint` (0 errors, warnings down from 112 to 104), `npx vitest run player` (18 files / 183 tests green), `npm run build` (clean production build in 2.02s).
+
 - [x] **Button hover circular overlay removal, FF/BW HUD badge icons & seconds display, Subtitle live box/outline rendering, and Unified v4 double-arc loader (user: "still on hovering btns there is a circular hover ui, remove it. using ff/bw not showing the icons on the screen. subtitle box/outline not working but showing in the subtitile style page. also still we have the circular loader of old green loader after the initial title image loader, remove it and unifi with our loader") — 2026-11-04.**
   - **Button hover circular overlay removal:**
     - Root cause: Global `buttons.css:51` defined `.btn::after` with a radial/angular gradient pseudo-element blooming on `@media (hover: hover) .btn:hover::after`. Because player controls have `.btn` class with `border-radius: 50%`, hovering over player buttons created an unintended circular bloom overlay.

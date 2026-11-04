@@ -2301,7 +2301,8 @@
 }
 
 /* OSD pill */
-.np-root .osd {
+:is(.player, .np-root) .osd,
+.osd {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -2324,7 +2325,8 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
-.np-root .osd.show {
+:is(.player, .np-root) .osd.show,
+.osd.show {
   animation: osd 900ms var(--ease);
 }
 @keyframes osd {
@@ -2441,7 +2443,8 @@
 }
 
 /* Next episode & error card */
-.np-root .nxt {
+:is(.player, .np-root) .nxt,
+.nxt {
   position: absolute;
   right: max(1em, env(safe-area-inset-right));
   bottom: calc(6.4em + env(safe-area-inset-bottom));
@@ -2457,22 +2460,25 @@
   box-shadow: 0 .5em 1.4em #0007;
   animation: up 450ms var(--ease);
 }
-.np-root .nxt small {
+:is(.player, .np-root) .nxt small,
+.nxt small {
   color: #8fa3b3;
 }
-.np-root .nxt b {
+:is(.player, .np-root) .nxt b,
+.nxt b {
   display: block;
   margin-top: .15em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.np-root .nxt-a,
+:is(.player, .np-root) .nxt-a,
 .nxt-a {
   display: flex;
   gap: .6em;
 }
-.np-root .nxb {
+:is(.player, .np-root) .nxb,
+.nxb {
   flex: 1;
   min-height: 44px;
   padding: .5em 1em;
@@ -2486,16 +2492,20 @@
   display: grid;
   place-items: center;
 }
-.np-root .nxb.sec {
+:is(.player, .np-root) .nxb.sec,
+.nxb.sec {
   background: #ffffff1a;
 }
-.np-root .nxb:active {
-  transform: scale(var(--press-scale));
+:is(.player, .np-root) .nxb:active,
+.nxb:active {
+  transform: scale(var(--press-scale, .96));
 }
-.np-root .nxb:hover {
+:is(.player, .np-root) .nxb:hover,
+.nxb:hover {
   filter: brightness(1.12);
 }
-.np-root.nxt-on .big {
+:is(.player, .np-root).nxt-on .big,
+.nxt-on .big {
   opacity: 0 !important;
   pointer-events: none !important;
 }

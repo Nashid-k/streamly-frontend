@@ -1,12 +1,9 @@
-// Transient "Tap to unmute" pill.
+// Transient "Tap to unmute" pill matching player-v4 styling.
 //
 // Shows only when playback had to start muted because the autoplay policy
-// blocked sound, and yields to an open panel for the same reason the skip pill
-// does. Lives bottom-left so it never collides with the skip pill on the right.
+// blocked sound, and yields to an open panel.
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, PRESS_SCALE } from "../../../constants/motion";
-import { IconVolumeMute } from "./icons";
-import { ACCENT } from "./theme";
 
 export default function TapToUnmutePill({ visible, onUnmute }) {
   const M = useMotionTokens(useReducedMotion());
@@ -23,32 +20,37 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
           }}
           aria-label="Play with sound"
           title="Unmute"
+          className="btn osd"
           style={{
             position: "absolute",
-            bottom: "calc(var(--np-safe-bottom, 24px) + 140px)",
-            left: 24,
+            bottom: "calc(6.4em + env(safe-area-inset-bottom))",
+            left: "max(1.2em, env(safe-area-inset-left))",
             display: "flex",
             alignItems: "center",
-            gap: 8,
-            padding: "9px 16px",
-            background: "rgba(9,12,10,0.9)",
+            gap: ".6em",
+            padding: ".6em 1.2em",
+            background: "#0d1219",
             color: "#fff",
-            border: "1px solid rgba(149,255,80,0.4)",
-            borderRadius: "var(--radius-full)",
+            border: "1px solid #ffffff17",
+            borderRadius: "2em",
+            boxShadow: "0 .5em 1.4em #0007",
             fontWeight: 700,
-            fontSize: 13,
+            fontSize: "0.92em",
             cursor: "pointer",
-            boxShadow: "0 14px 34px rgba(0,0,0,0.55)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
+            backdropFilter: "blur(8px)",
+            WebkitBackdropFilter: "blur(8px)",
             zIndex: 6,
           }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: PRESS_SCALE.CONTROL }}
-          data-geometry="bottom-left pill, 140px above safe bottom (skip pill is bottom-right)"
         >
-          <IconVolumeMute size={16} color={ACCENT} />
-          Tap to unmute
+          <svg
+            className="ic"
+            style={{ width: "1.25em", height: "1.25em", color: "var(--accent, #8652bb)" }}
+          >
+            <use href="#i-mute" />
+          </svg>
+          <span>Tap to unmute</span>
         </motion.button>
       )}
     </AnimatePresence>

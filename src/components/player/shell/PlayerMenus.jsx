@@ -11,7 +11,6 @@
 import { useEffect } from "react";
 import {
   DialogRow,
-  IconChevronRight,
 } from "../chrome";
 import { PLAYER_V4_THEMES } from "../chrome/theme";
 import { ASPECT_RATIOS, PLAYER_SPEEDS } from "../../../constants/playerUi";
@@ -20,9 +19,6 @@ import { languageNameFromCode } from "../../../utils/audioLabels";
 import { AUTO_SOURCE, DEFAULT_SOURCE_KEY, sourceLabel, sourceByKey, sourceByServer } from "../../../constants/sources";
 import { qualityHdTag } from "../nativePlayerHelpers";
 import { formatAirsDate, isEpAired } from "../../../utils/titleDetails";
-
-const SUBTITLE_SIZES = ["Small", "Medium", "Large"];
-const SUBTITLE_BACKGROUNDS = ["None", "Shadow", "Box"];
 
 function Tile({ label, value, ariaLabel, onClick }) {
   return (
@@ -181,7 +177,6 @@ export default function PlayerMenus({
     : [0.8, 1, 1.3, 1.7].indexOf(subtitleSize) >= 0
     ? [0.8, 1, 1.3, 1.7].indexOf(subtitleSize)
     : 1;
-  const bgIndex = [0, 1, 2].includes(subtitleBg) ? subtitleBg : 1;
 
   const episodeRows = Array.isArray(episodes) ? episodes : [];
 

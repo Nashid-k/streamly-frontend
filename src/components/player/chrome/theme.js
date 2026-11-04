@@ -37,7 +37,7 @@ export const PLAYER_V4_THEMES = [
 export const TRACK = "rgba(255,255,255,0.16)";
 export const BUFFERED = "rgba(255,255,255,0.32)";
 // Measured skip windows: an accent wash, distinct from buffered.
-export const SKIP_BAND = "rgba(149,255,80,0.22)";
+export const SKIP_BAND = "rgba(134,82,187,0.22)";
 
 export const TEXT = "#ffffff";
 export const TEXT_DIM = "rgba(255,255,255,0.66)";

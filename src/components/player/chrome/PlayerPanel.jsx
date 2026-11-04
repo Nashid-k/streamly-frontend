@@ -5,7 +5,6 @@
 // - Viewport (.vp) with panes (.pane.in > .pi)
 import { useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import PlayerSvgSprite from "./PlayerSvgSprite";
 
 const TITLES = {
   settings: "Settings",
@@ -112,8 +111,6 @@ export default function PlayerPanel({
             .filter(Boolean)
             .join(" ")}
         >
-          <PlayerSvgSprite />
-
           {/* Mobile drawer drag handle */}
           <div className="grab" id="grab" aria-hidden="true" />
 
@@ -164,8 +161,6 @@ export default function PlayerPanel({
               <svg className="ic"><use href="#i-x" /></svg>
             </button>
           </div>
-
-          {isSub ? <div className="np-subline" /> : null}
 
           {/* Dynamic Viewport */}
           <div
