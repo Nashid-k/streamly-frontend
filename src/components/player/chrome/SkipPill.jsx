@@ -14,7 +14,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, PRESS_SCALE } from "../../../constants/motion";
 import { IconSkipForward10 } from "./icons";
-import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
+import { ACCENT, GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function SkipPill({ label, ariaLabel, title, onClick, progress = 0 }) {
   const M = useMotionTokens(useReducedMotion());
@@ -24,15 +24,14 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
       className="np-skip-intro"
       onClick={onClick}
       aria-label={ariaLabel ?? label}
-      title={title ?? ariaLabel ?? label}
-      {...M.PILL_IN}
-      whileTap={{ scale: PRESS_SCALE.CONTROL }}
+      title={title ?? ariaLabel ?? label}          {...M.PILL_IN}
+          whileTap={{ scale: PRESS_SCALE.CONTROL }}
       style={{
         position: "absolute",
         // SAFE_BOTTOM + 96px keeps it above the transport row. The safe-area
         // policy is published as a CSS var by the chrome shell, so no leaf
         // component has to know whether this is touch or desktop.
-        bottom: "calc(var(--np-safe-bottom, 24px) + 96px)",
+        bottom: "calc(var(--np-safe-bottom, 24px) + 130px)",
         right: 24,
         display: "flex",
         alignItems: "center",
@@ -58,12 +57,12 @@ export default function SkipPill({ label, ariaLabel, title, onClick, progress = 
           left: 0,
           top: 0,
           bottom: 0,
-          background: "rgba(255, 255, 255, 0.2)",
+          background: "rgba(149, 255, 80, 0.2)",
           width: `${progress * 100}%`,
           zIndex: 0,
         }}
       />
-      <IconSkipForward10 size={17} />
+      <IconSkipForward10 size={17} color={ACCENT} />
       {label}
     </motion.button>
   );

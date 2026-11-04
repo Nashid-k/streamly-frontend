@@ -7483,3 +7483,22 @@ This is the first slice of the from-scratch redesign now that the shell split is
 
 **Next redesign slices:** HUDs (HUD_POP / PILL_IN are already canonical — verify each); overlay veil → FADE token; menus → MODAL_PANEL; cards/liftoff → PILL_IN / REVEAL; then the visual restyle region by region (colours, radii, glass, scrubber, typography). Each slice is behaviour-preserving (presentation only) and green before the next starts.
 
+## 2026-11-04 - Player redesign, slices 2-13: from-scratch "Signal" chrome (user: "complete from scratch, no previous references")
+
+**The redesign landed on the shell seam.** Every visual surface was rebuilt on top of the completed split: the chrome theme (`player/chrome/theme.js`), the control deck (`BottomChrome`), the title chip (`ChromeTopBar`), the centre stack, the settings card + rows + all ten menu bodies, skip/resume/up-next/fatal/episodes/subtitles/tap-to-unmute, the five HUD leaves, the still-watching prompt and `styles/player.css`. No engine file, timer, listener, event order, log line, role or accessible name changed.
+
+**"Signal" design language.** The player now uses Streamly's own brand accent `#95ff50` instead of the third-party red the old chrome borrowed. Played progress, selected rows, active glyphs, primary actions and focus all resolve to one accent; `ACCENT_FG` (`#07120a`) is the dark glyph used on an accent fill. Surfaces are cool ink glass (`GLASS_*` / `DECK_*`), geometry is rounder (26px deck, 22px cards, 24px sheet), and menus, chips, tooltips and HUDs share one material. `RIVO_MOTION` keeps its name because `motion.test.js` cross-checks its durations against the CSS `--zxc-t-*` tokens.
+
+**New layout.** The transport is one floating rounded glass **deck** (`.np-deck`): a scrubber across its top edge and a single control row beneath it (transport left, volume + clock, utilities right). The top bar is a floating glass **title chip** (`.np-title-chip`) instead of a full-width gradient band. The play/pause, touch centre play and replay buttons are accent-filled discs with dark glyphs; Resume / Play now / Try again / Continue Watching are accent pills. Everything else is anchored to the deck's height: panel `bottom: 142/150`, skip pill `+130`, resume/up-next `136/150`, subtitles `148/72`, fatal banner `140`.
+
+**Motion on every interaction.** Deck/chip border bloom, play-disc hover glow + press scale, icon disc + glyph scale, scrubber line/dot bloom, row cursor-tracked accent glow, skip-pill lift, card springs, tooltip pop, HUD pops. All of it collapses to a cut under `prefers-reduced-motion` (the CSS block plus `useMotionTokens`).
+
+**CSS.** The legacy chrome block (pills, volume, rows, tooltip, panel, reduced motion) was replaced wholesale rather than layered over; dead `.np-volume-slider` / `.np-toggle` / `.np-circle-pill` rules were deleted; the phone utility-cluster wrap rule was re-expressed for the deck (right-aligned row, 38px icons) so settings/fullscreen cannot clip.
+
+**Test edit (presentation only).** `netflixPlayPauseHud.test.jsx` pinned the HUD glyph fill to `#fff`; it now asserts the theme accent. The intent of the test — filled glyph, no stroke — is unchanged; no behaviour assertion was touched.
+
+**Gates.** `npm run lint` exit 0 / 0 errors; full `npm run test` 119 files / 1440 tests pass; `npm run build` clean (NativePlayerView chunk 117.71 kB).
+
+**Docs.** `docs/player-architecture.md` now records the split as complete and documents the Signal language, layout anchors and motion contract.
+
+

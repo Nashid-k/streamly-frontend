@@ -283,44 +283,7 @@
   to   { transform: scaleX(0); }
 }
 
-/* Volume slider — Netflix-style white track + white thumb */
-.np-volume-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-.np-volume-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  background: rgba(var(--white-rgb), 0.3);
-  border-radius: 2px;
-}
-.np-volume-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-  margin-top: -4.5px;
-  transition: transform var(--zxc-t-instant) var(--zxc-ease);
-}
-.np-volume-slider:hover::-webkit-slider-thumb {
-  transform: scale(1.25);
-}
-.np-volume-slider::-moz-range-track {
-  height: 3px;
-  background: rgba(var(--white-rgb), 0.3);
-  border-radius: 2px;
-  border: none;
-}
-.np-volume-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-  border: none;
-}
+/* Volume slider styles live with the deck chips below (.np-vol-range). */
 
 /* Transport icon buttons — subtle scale on active */
 .np-icon-btn {
@@ -336,7 +299,7 @@
   position: absolute;
   inset: 1px;
   border-radius: 50%;
-  background: rgba(var(--white-rgb), 0.14);
+  background: rgba(var(--np-accent-rgb, 149, 255, 80), 0.16);
   opacity: 0;
   transform: scale(0.72);
   transition: opacity var(--zxc-t-fast) var(--zxc-ease),
@@ -358,17 +321,24 @@
   opacity: 0 !important;
 }
 .np-icon-btn:hover:not(:disabled) {
-  transform: scale(1.1);
+  transform: scale(1.08);
 }
 .np-icon-btn:active:not(:disabled) {
   transform: scale(var(--press-scale-icon));
 }
 .np-icon-btn > svg {
   position: relative;
-  transition: transform var(--zxc-t-fast) var(--zxc-ease);
+  transition: transform var(--zxc-t-fast) var(--zxc-ease),
+    color var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-icon-btn:hover:not(:disabled) > svg {
   transform: scale(1.06);
+}
+/* Open/selected chrome lights its glyph in the signal accent. The panel and
+   `aria-expanded` still carry the state for assistive tech; this is the paint. */
+.np-icon-btn[aria-expanded="true"] > svg,
+.np-icon-btn[aria-pressed="true"] > svg {
+  color: var(--np-accent);
 }
 
 /* Keyboard focus must be visible: every player control is reachable by Tab, and
@@ -382,15 +352,15 @@
 .np-replay:focus-visible,
 .np-center-btn:focus-visible,
 .np-fatal-btn:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--np-accent);
   outline-offset: 2px;
 }
 
 /* Chrome that has no persistent shadow of its own gets a dark halo under the
-   white ring. A bare white outline vanishes on a bright frame, and a player
-   that hides focus is a player a keyboard user cannot use (Apple TV+ white
-   accent makes this worse than the old red). Buttons that already carry an
-   elevation shadow keep just the ring so the halo does not flatten them. */
+   accent ring. A bare bright outline can vanish on a bright frame, and a player
+   that hides focus is a player a keyboard user cannot use. Buttons that already
+   carry an elevation shadow keep just the ring so the halo does not flatten
+   them. */
 .np-icon-btn:focus-visible,
 .np-scrub:focus-visible,
 .np-skip-intro:focus-visible,
@@ -399,14 +369,30 @@
   box-shadow: 0 0 0 4px rgba(var(--black-rgb), 0.55);
 }
 
-/* Scrubber: the bar grows a hair and the knob ring blooms on hover/focus/drag. */
+/* Scrubber: the bar grows a hair (inline height) and the accent glow blooms on
+   hover/focus/drag. No transform here — the whole hit area (and the floating
+   preview above it) must not scale with the line. */
 .np-scrub {
   border-radius: var(--radius-full);
-  transition: transform var(--zxc-t-fast) var(--zxc-ease);
 }
-.np-scrub:hover,
-.np-scrub:focus-visible {
-  transform: scaleY(1.06);
+.np-scrub-line {
+  transition: height var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-scrub:hover .np-scrub-line,
+.np-scrub:focus-visible .np-scrub-line {
+  box-shadow: 0 0 0 1px rgba(var(--np-accent-rgb), 0.3),
+    0 0 20px rgba(var(--np-accent-rgb), 0.2);
+}
+.np-scrub-dot {
+  transition: width var(--zxc-t-fast) var(--zxc-ease),
+    height var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-scrub:hover .np-scrub-dot,
+.np-scrub:focus-visible .np-scrub-dot {
+  box-shadow: 0 0 0 6px rgba(var(--np-accent-rgb), 0.2),
+    0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
 /* Skip Intro pill hover */
@@ -416,10 +402,11 @@
     box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-skip-intro:hover {
-  background: rgba(var(--black-rgb), 0.9) !important;
-  border-color: #fff !important;
+  background: rgba(12, 16, 13, 0.92) !important;
+  border-color: rgba(var(--np-accent-rgb), 0.6) !important;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(var(--black-rgb), 0.55);
+  box-shadow: 0 10px 28px rgba(var(--black-rgb), 0.55),
+    0 0 22px rgba(var(--np-accent-rgb), 0.16);
 }
 .np-skip-intro:active {
   transform: translateY(0) scale(var(--press-scale));
@@ -431,9 +418,10 @@
     filter var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-resume-btn:hover {
-  filter: brightness(0.92);
+  filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(var(--black-rgb), 0.45);
+  box-shadow: 0 8px 24px rgba(var(--black-rgb), 0.45),
+    0 0 22px rgba(var(--np-accent-rgb), 0.28);
 }
 .np-resume-btn:active {
   transform: translateY(0) scale(var(--press-scale));
@@ -444,7 +432,7 @@
 }
 .np-restart-btn:hover {
   background: rgba(var(--white-rgb), 0.1) !important;
-  border-color: rgba(var(--white-rgb), 0.6) !important;
+  border-color: rgba(var(--np-accent-rgb), 0.55) !important;
   color: #fff !important;
 }
 .np-restart-btn:active {
@@ -461,10 +449,10 @@
     padding var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-dialog-row:hover:not(:disabled) {
-  background: rgba(var(--white-rgb), 0.07) !important;
+  background: rgba(var(--np-accent-rgb), 0.09) !important;
 }
 .np-dialog-row:active:not(:disabled) {
-  background: rgba(var(--white-rgb), 0.04) !important;
+  background: rgba(var(--np-accent-rgb), 0.14) !important;
   transform: scale(var(--press-scale-row));
 }
 
@@ -486,7 +474,8 @@
 .np-episode-card:hover,
 .np-episode-card:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 10px 26px rgba(var(--black-rgb), 0.55);
+  box-shadow: 0 12px 30px rgba(var(--black-rgb), 0.55),
+    0 0 0 1px rgba(var(--np-accent-rgb), 0.35);
 }
 /* Not aired yet: no lift, no shadow. A hover cue on a card that cannot be
    played is a promise the player cannot keep. */
@@ -506,8 +495,8 @@
     transform var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-subtitle span {
-  background: rgba(var(--black-rgb), 0.42);
-  border-radius: 6px;
+  background: rgba(7, 10, 8, 0.5);
+  border-radius: 8px;
   padding: 2px 10px;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
@@ -572,31 +561,29 @@
   }
 }
 
-/* ═══ ZXC-inspired design tokens (scraped from player.zxcprime.xyz) ═══════
-   Their theme, extracted from the shipped Tailwind bundle: zinc scale for
-   chrome (NOT pure black/white), 0.45rem control radius, fast 150-300ms
-   ease-out motion, one amber accent. Applied to the player chrome only —
-   feature behaviour is untouched. */
+/* ═══ Player-scoped tokens (Signal, 2026-11) ═══════════════════════════════
+   The player owns its own token layer so a redesign cannot leak into the app.
+   Cool ink surfaces, the brand signal accent, rounded geometry, and one
+   interaction tempo. Applied to the player chrome only — feature behaviour is
+   untouched. */
 .np-root {
-  --zxc-bg: #09090b;
-  --zxc-surface: #18181b;
-  --zxc-surface-2: #27272a;
+  --np-accent: #95ff50;
+  --np-accent-rgb: 149, 255, 80;
+  --zxc-bg: #070a08;
+  --zxc-surface: #121713;
+  --zxc-surface-2: #1d241e;
   --zxc-line: rgba(var(--white-rgb), 0.1);
   --zxc-line-strong: rgba(var(--white-rgb), 0.16);
   --zxc-text: #fafafa;
   --zxc-text-dim: #a1a1aa;
   --zxc-text-faint: #71717b;
-  --zxc-accent: #ffd236;
+  --zxc-accent: #95ff50;
   --zxc-danger: #ff6568;
   --zxc-radius: 0.45rem;
   --zxc-radius-lg: 0.75rem;
-  /* RIVO's measured player motion (rivo.st shipped CSS, 2026-11-02):
-       .ease-tv { transition-timing-function: cubic-bezier(.2,.8,.2,1) }
-       transition-duration: .15s (x10), .3s (x6), .5s (x2)
-     The player previously aliased tokens.css's 120/200/280/450ms on a different
-     curve, so every hover and sheet in here decelerated at a tempo RIVO never
-     uses. These are their three steps, on their curve — the same numbers for the
-     CSS half and the framer half (chrome/theme.js RIVO_MOTION). */
+  /* Player interaction tempo: three steps on one decelerating curve
+     (150 / 300 / 500ms). The framer half lives in chrome/theme.js as
+     RIVO_MOTION, and motion.test cross-checks the two so they cannot drift. */
   --zxc-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --zxc-t-instant: 150ms;
   --zxc-t-fast: 150ms;
@@ -608,10 +595,10 @@
   --np-load-period: 1.3s;
 }
 
-/* ── Tailspin loader (their exact construction) ────────────────────────────
+/* ── Tailspin loader ──────────────────────────────────────────────────────
    A masked conic-gradient ring: the conic sweep reads as a comet tail, and the
-   radial mask punches the donut hole. Their defaults: 40px, 0.9s, stroke 5.
-   Ours renders white-on-video at the player's 56px footprint. */
+   radial mask punches the donut hole. Rendered white-on-video at the player's
+   56px footprint. */
 .np-tailspin {
   width: var(--uib-size, 56px);
   height: var(--uib-size, 56px);
@@ -684,7 +671,7 @@
    active server/audio row did not read as selected). */
 .np-dialog-row[aria-pressed="true"] {
   background: rgba(255, 255, 255, 0.16) !important;
-  box-shadow: inset 2px 0 0 #f03, inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  box-shadow: inset 3px 0 0 var(--np-accent), inset 0 0 0 1px rgba(var(--np-accent-rgb), 0.22);
   color: #fff !important;
   padding-left: 8px;
 }
@@ -792,95 +779,72 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   YOUTUBE-STYLE CHROME (NEW PLAYER UI-UX.html, 2026-10-08)
-   Black translucent pills, hover-expanding volume slider, the
-   autoplay switch, the gear's HD badge and custom key tooltips.
+   SIGNAL CHROME (2026-11 player redesign)
+   The transport is one floating glass deck — a scrubber across
+   its top edge, one control row beneath it. Chips share the
+   menus' ink-glass material; the signal accent marks played,
+   selected and active state and fills primary actions.
    ═══════════════════════════════════════════════════════════ */
 
-/* Pills: black translucent capsule under every control. Opacity trimmed from
-   0.6 so the picture reads through the chrome more. */
+/* Deck ------------------------------------------------------------------- */
+.np-deck {
+  transition: border-color var(--zxc-t-med) var(--zxc-ease),
+    box-shadow var(--zxc-t-med) var(--zxc-ease);
+}
+.np-deck:hover,
+.np-deck:focus-within {
+  border-color: rgba(var(--np-accent-rgb), 0.26);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 0 0 1px rgba(var(--np-accent-rgb), 0.05);
+}
+
+/* Primary play disc: accent fill, dark glyph, glow on hover. */
+.np-play-pill .np-icon-btn {
+  border-radius: 50%;
+  transition: filter var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-play-pill .np-icon-btn:hover:not(:disabled) {
+  filter: brightness(1.06);
+  box-shadow: 0 0 28px rgba(var(--np-accent-rgb), 0.45);
+}
+/* On an accent disc the hover wash must darken, not lighten. */
+.np-play-pill .np-icon-btn::before {
+  background: rgba(7, 18, 10, 0.14);
+}
+
+/* Chips ------------------------------------------------------------------ */
 .np-pill {
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.42);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition: background var(--zxc-t-fast) var(--zxc-ease);
+  background: rgba(22, 27, 23, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  backdrop-filter: blur(14px) saturate(1.25);
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    border-color var(--zxc-t-fast) var(--zxc-ease);
 }
-.np-pill:hover {
-  background: rgba(0, 0, 0, 0.55);
-}
-.np-circle-pill {
-  border-radius: 50%;
-}
-
-/* Unified right control cluster (NEW PLAYER UI-UX.html #rp). */
-.np-right-pill {
-  border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.42);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition: background var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-right-pill:hover {
-  background: rgba(0, 0, 0, 0.55);
+.np-pill:hover,
+.np-pill:focus-within {
+  background: rgba(40, 47, 41, 0.82);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* On phones the utility cluster (up to seven controls for a series) is wider
-   than the screen. flex-wrap drops it to a second line, but its fixed intrinsic
-   width then runs off the right edge and the player's overflow:hidden clips the
-   last controls (measured: 84px cut off at 320px, losing settings + fullscreen).
-   Give it its own full-width row and spread the controls evenly, so nothing
-   clips and the touch targets survive. */
-@media (hover: none), (max-width: 768px) {
-  /* The utility cluster (up to seven controls for a series) is wider than a
-     phone, so flex-wrap drops it to its own line. Right-align that wrapped line
-     so it reads as a deliberate control bar instead of a stray left-hugging
-     pill, and compact the icon buttons so the whole capsule fits inside the
-     padding — previously its fixed width ran off the right edge and
-     overflow:hidden clipped the last controls (measured: 84px cut at 320px,
-     losing settings + fullscreen). The autoplay switch (role="switch") keeps
-     its width so its knob stays aligned. */
-  .np-transport {
-    justify-content: flex-end !important;
-  }
-  .np-right-pill {
-    min-width: 0 !important;
-    gap: 2px !important;
-    padding-inline-start: 6px !important;
-    padding-inline-end: 6px !important;
-  }
-  .np-right-pill .np-icon-btn:not([role="switch"]) {
-    width: 34px !important;
-    height: 34px !important;
-  }
+/* The clock is a readout, not a control: it never lights up on hover. */
+.np-time-pill,
+.np-time-pill:hover {
+  background: rgba(12, 16, 13, 0.36);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Fullscreen button hover highlight (NEW PLAYER UI-UX.html line 206). */
-.np-fs-wrap {
-  border-radius: var(--radius-full);
-  padding: 0 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-fs-wrap:hover {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-/* Time pill keeps tabular digits steady while the clock ticks. */
-.np-time-pill {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Volume pill: widens on hover/focus to reveal the slider. The 54→200px
-   expansion matches NEW PLAYER UI-UX.html (#vol). */
+/* Volume chip: widens on hover to reveal the slider. */
 .np-vol-pill {
   width: 54px;
   overflow: hidden;
   justify-content: flex-start !important;
   transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
-    background var(--zxc-t-fast) var(--zxc-ease);
+    background var(--zxc-t-fast) var(--zxc-ease),
+    border-color var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-vol-pill:hover,
 .np-vol-pill:focus-within,
@@ -891,8 +855,8 @@
   flex-shrink: 0;
 }
 
-/* Slider inside the pill: white fill to the current volume (--vol), expanding
-   smoothly when the pill widens. */
+/* Slider inside the chip: accent fill to the current volume (--vol), expanding
+   smoothly when the chip widens. */
 .np-vol-range {
   -webkit-appearance: none;
   appearance: none;
@@ -919,127 +883,62 @@
   height: 4px;
   border-radius: var(--radius-full);
   background: linear-gradient(
-    to right,
-    #fff var(--vol, 0%),
-    rgba(255, 255, 255, 0.3) var(--vol, 0%)
+    90deg,
+    var(--np-accent) 0 var(--vol, 0%),
+    rgba(255, 255, 255, 0.22) var(--vol, 0%) 100%
   );
 }
 .np-vol-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
-  margin-top: -5.5px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--np-accent);
+  margin-top: -4px;
+  box-shadow: 0 0 10px rgba(var(--np-accent-rgb), 0.45);
+  transition: transform var(--zxc-t-instant) var(--zxc-ease);
+}
+.np-vol-range:hover::-webkit-slider-thumb {
+  transform: scale(1.2);
 }
 .np-vol-range::-moz-range-track {
   height: 4px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.3);
-  border: none;
+  background: rgba(255, 255, 255, 0.22);
 }
 .np-vol-range::-moz-range-progress {
   height: 4px;
   border-radius: var(--radius-full);
-  background: #fff;
+  background: var(--np-accent);
 }
 .np-vol-range::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: #fff;
-  border: none;
+  border: 2px solid var(--np-accent);
+  box-shadow: 0 0 10px rgba(var(--np-accent-rgb), 0.45);
 }
 
-/* Autoplay switch (design's pill with a white knob containing || / ▶). */
-.np-toggle {
-  display: block;
-  width: 48px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.25);
-  position: relative;
-  transition: background var(--zxc-t-fast) var(--zxc-ease);
-  cursor: pointer;
-}
-.np-toggle .np-toggle-knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+/* Fullscreen button wrapper (kept so the tooltip can anchor to it). */
+.np-fs-wrap {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: transform var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
-    background var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-toggle.on {
-  background: rgba(255, 255, 255, 0.38);
-}
-.np-toggle.on .np-toggle-knob {
-  transform: translateX(20px);
 }
 
-/* Gear "HD" badge — crimson chip on the cog's corner. */
-.np-hd-badge {
-  position: absolute;
-  top: -4px;
-  right: -6px;
-  min-width: 18px;
-  height: 13px;
-  padding: 0 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f03;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  line-height: 1;
-  border-radius: 3px;
-  pointer-events: none;
-}
-
-/* Menu rows: the icon slot turns crimson on hover, matching the HD chip and
-   the played progress (the design's red emphasis inside the zinc sheet). */
+/* Rows ------------------------------------------------------------------- */
 .np-dialog-row {
-  position: relative;
-  margin: 2px 8px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  cursor: pointer;
-  font-size: 14.5px;
-  font-weight: 400;
-  color: #fff;
-  transition: background var(--zxc-t-fast) var(--zxc-ease);
-  background: transparent;
-  border: none;
-  width: calc(100% - 16px);
-  text-align: left;
-}
-.np-dialog-row:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.1);
-}
-.np-dialog-row.selected,
-.np-dialog-row[aria-pressed="true"] {
-  background: rgba(255, 255, 255, 0.18);
-  font-weight: 500;
+  transition: background var(--zxc-t-fast) var(--zxc-ease),
+    box-shadow var(--zxc-t-fast) var(--zxc-ease),
+    transform var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-dialog-row sup {
   font-size: 10px;
   font-weight: 800;
   margin-left: 4px;
-  color: #f03;
+  color: var(--np-accent);
   position: relative;
   top: -5px;
 }
@@ -1052,28 +951,62 @@
   font-size: 13.5px;
 }
 .np-dialog-row-icon {
-  transition: color var(--zxc-t-fast) var(--zxc-ease);
+  transition: color var(--zxc-t-fast) var(--zxc-ease),
+    transform var(--zxc-t-fast) var(--zxc-ease);
   color: rgba(255, 255, 255, 0.85);
 }
+.np-dialog-row:hover:not(:disabled) .np-dialog-row-icon,
+.np-dialog-row[aria-pressed="true"] .np-dialog-row-icon {
+  color: var(--np-accent);
+}
 .np-dialog-row:hover:not(:disabled) .np-dialog-row-icon {
-  color: #f03;
+  transform: scale(1.06);
 }
 
-/* Custom hover tooltip: dark capsule with a keyboard badge (k / m / f). */
+/* Selected row: the inline accent wash carries the fill; this keeps the corner
+   treatment consistent with the panel. */
+.np-dialog-row.selected {
+  border-radius: 14px;
+}
+
+/* Gear's quality badge: accent chip, dark glyph. */
+.np-hd-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 18px;
+  height: 13px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--np-accent);
+  color: #07120a;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  line-height: 1;
+  border-radius: 4px;
+  pointer-events: none;
+  box-shadow: 0 0 10px rgba(var(--np-accent-rgb), 0.4);
+}
+
+/* Custom hover tooltip: ink capsule with a keyboard badge (k / m / f). */
 .np-tip-key {
   padding: 2px 8px;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
+  border: 1px solid rgba(var(--np-accent-rgb), 0.55);
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 700;
   letter-spacing: 0.6px;
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--np-accent);
+  background: rgba(var(--np-accent-rgb), 0.12);
 }
 
-/* Floating settings panel scrollbar polish */
+/* Panel scrollbar polish */
 .np-panel-surface * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
 }
 .np-panel-surface *::-webkit-scrollbar {
   width: 6px;
@@ -1082,73 +1015,38 @@
   background: transparent;
 }
 .np-panel-surface *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-full);
 }
 .np-panel-surface *::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(var(--np-accent-rgb), 0.5);
 }
 
-/* Reduced motion: the new chrome obeys the same OS preference as the rest of
-   the player — pills jump instead of sliding, no knob travel or hover pops. */
-@media (prefers-reduced-motion: reduce) {
-  .np-pill,
-  .np-right-pill,
-  .np-vol-pill,
-  .np-vol-range,
-  .np-toggle,
-  .np-toggle .np-toggle-knob,
-  .np-dialog-row,
-  .np-dialog-row-icon {
-    transition: none !important;
-    -webkit-transition: none !important;
-    animation: none !important;
-    -webkit-animation: none !important;
-  }
-  /* The volume pill can still widen (snapping, since transition is off); it
-     just never animates. */
-  .np-toggle .np-toggle-knob {
-    transform: none !important;
-  }
-}
-
-/* == Connected panel navigation ==========================================
-   The sheet's open/close is framer-motion's; the PAGE inside it used to swap
-   with a hard cut, so a submenu and the back-return had no flow (user report).
-   The body is keyed by panel, so remounting replays this slide in the direction
-   of travel (data-nav), and the header title fades with it. CSS rather than a
-   delayed exit keeps the new page's rows tappable immediately. */
-/* The page slide itself is framer-motion's (PlayerPanel), which writes the
-   transform inline on the frame the page mounts. It used to be a keyframe here,
-   and the user reported the to/from transitions as "zero animation" — an
-   `animation:` in a stylesheet is silently lost to any override, and it also
-   fought framer for `transform` on the same node. This block now carries ONLY
-   layout; the motion lives where it cannot be overridden. */
+/* Panel navigation (framer animates the slide; CSS carries layout only). */
 .np-panel-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
-/* The title inherits the same rule: framer animates it (see PlayerPanel). */
 .np-panel-title {
   display: inline-block;
 }
 
 /* Cursor-tracked settings glow. DialogRow writes --np-glow-x/y on pointer move
-   and this pool follows the cursor inside the row (user ask: "cursor hover glow
-   in player settings"). Pure decoration layered under the row's own content;
-   selected/pressed states stay on the row so the glow never fakes a selection. */
+   and this pool follows the cursor inside the row. Pure decoration layered under
+   the row's own content; selected/pressed states stay on the row so the glow
+   never fakes a selection. */
 .np-dialog-row::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: radial-gradient(
-    140px circle at var(--np-glow-x, 50%) var(--np-glow-y, 50%),
-    rgba(255, 255, 255, 0.16) 0%,
-    rgba(240, 80, 70, 0.16) 38%,
-    transparent 72%
+    150px circle at var(--np-glow-x, 50%) var(--np-glow-y, 50%),
+    rgba(var(--np-accent-rgb), 0.16) 0%,
+    rgba(var(--np-accent-rgb), 0.07) 42%,
+    transparent 74%
   );
   opacity: 0;
   transition: opacity var(--zxc-t-fast) var(--zxc-ease);
@@ -1162,17 +1060,50 @@
   z-index: 1;
 }
 
+/* Phones: the utility cluster (up to seven controls for a series) is wider than
+   the screen. Let it drop to its own row, right-aligned, and compact the icons
+   so the capsule fits inside the deck padding — otherwise the last controls
+   (settings + fullscreen) are clipped by the player's overflow. */
+@media (hover: none), (max-width: 768px) {
+  .np-transport {
+    justify-content: flex-end !important;
+  }
+  .np-right-pill {
+    min-width: 0 !important;
+    gap: 2px !important;
+    padding-inline-start: 6px !important;
+    padding-inline-end: 6px !important;
+  }
+  .np-right-pill .np-icon-btn {
+    width: 38px !important;
+    height: 38px !important;
+  }
+}
+
+/* Motion preference ------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
-  /* Framer collapses the page slide and the dim; this covers the CSS half — the
-     glow must not fade and the row must not scale on press. */
+  .np-deck,
+  .np-pill,
+  .np-vol-pill,
+  .np-vol-range,
   .np-dialog-row,
-  .np-dialog-row::before {
-    animation: none !important;
-    -webkit-animation: none !important;
+  .np-dialog-row::before,
+  .np-dialog-row-icon,
+  .np-scrub-line,
+  .np-scrub-dot {
     transition: none !important;
     -webkit-transition: none !important;
+    animation: none !important;
+    -webkit-animation: none !important;
   }
   .np-dialog-row:active:not(:disabled) {
+    transform: none !important;
+  }
+  .np-icon-btn:hover:not(:disabled),
+  .np-dialog-row:hover:not(:disabled) .np-dialog-row-icon {
+    transform: none !important;
+  }
+  .np-icon-btn:hover:not(:disabled)::before {
     transform: none !important;
   }
 }

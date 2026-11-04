@@ -1,24 +1,37 @@
-// The bottom chrome: full-width scrubber + pill transport, laid out the
-// YouTube way (NEW PLAYER UI-UX.html, 2026-10-08).
+// The control deck: the player's primary surface.
 //
-// Scrubber is a single full-width line (no edge times) drawn in the design's
-// red #f03; the controls below it are translucent black pills: transport left,
-// a hover-expanding volume pill, a time pill, and the utility cluster right
-// (episodes / audio / servers / autoplay switch / subtitles / settings+HD /
-// fullscreen). Custom hover tooltips carry keyboard badges.
+// From-scratch redesign (2026-11): the transport is no longer a full-bleed
+// gradient bar with floating pills. It is one rounded glass DECK floating at
+// the bottom of the picture — a scrubber across its top edge and a single
+// control row beneath it. The deck is the anchor every other surface (menus,
+// cards, HUDs) is aligned to, so the player reads as one composed instrument.
 //
 // Entangled region, so it takes state/handlers as explicit props and owns only
 // presentation. The desktop hold-to-2x logic stays in the engine: the forward
 // button reports a plain click via `onForward10` and the press/release via the
 // hold callbacks, so quick-press-vs-hold discrimination is not duplicated.
-// (Audio-track switching is NOT a chrome button — the design clubs it inside the
-// Settings menu, so there is no `showAudioButton` here.)
+// (Audio-track switching is NOT a chrome button — it lives inside Settings.)
 import { motion, useReducedMotion } from "framer-motion";
 import { PRESS_SCALE, useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import Tooltip from "./Tooltip";
 import { IS_TOUCH, SAFE_BOTTOM, SCRUBBER_BAND_STYLE } from "./constants";
-import { ACCENT, TRACK, BUFFERED } from "./theme";
+import {
+  ACCENT,
+  ACCENT_DIM,
+  ACCENT_EDGE,
+  ACCENT_FG,
+  ACCENT_GLOW,
+  ACCENT_SOFT,
+  BUFFERED,
+  DECK_BG,
+  DECK_BORDER,
+  DECK_SHADOW,
+  GLASS_BLUR,
+  RADIUS,
+  SCRIM,
+  TRACK,
+} from "./theme";
 import {
   IconCaptions,
   IconChevronLeft,
@@ -93,16 +106,17 @@ export default function BottomChrome({
   showSubsButton,
   isFullscreen,
   onFullscreen,
-  // Gear "HD" quality badge (design's crimson chip next to the cog)
+  // Gear quality badge (the chip next to the cog)
   hdBadge,
 }) {
   // Resolved here (not left to the global MotionConfig) so the show/hide of the
-  // whole transport row honours the same token contract as every other surface.
+  // whole deck honours the same token contract as every other surface.
   const M = useMotionTokens(useReducedMotion());
   const VolumeIcon = muted || volume === 0 ? IconVolumeMute : volume < 0.5 ? IconVolumeLow : IconVolumeHigh;
-  const pillSize = IS_TOUCH ? 56 : 52;
-  const playSize = IS_TOUCH ? 68 : 60;
+  const pillSize = IS_TOUCH ? 54 : 50;
+  const playSize = IS_TOUCH ? 66 : 58;
   const volFill = muted || volume === 0 ? 0 : volume;
+  const knob = hoverRatio != null ? 18 : 14;
 
   return (
     <motion.div
@@ -118,373 +132,394 @@ export default function BottomChrome({
         left: 0,
         right: 0,
         bottom: 0,
-        paddingTop: IS_TOUCH ? 8 : 12,
+        paddingTop: IS_TOUCH ? 14 : 20,
         // The player element can be mirrored by the OS/app under an RTL locale
         // (Arabic is a shipped language), which flips the INLINE axis: the
         // physical `paddingLeft`/`paddingRight` pair then swapped sides and the
-        // whole transport row was flush against the wrong edge (the scrubber's
-        // own `padding: 0 2px` is symmetric, so only this was affected).
-        paddingInlineStart: IS_TOUCH ? 14 : 32,
-        paddingInlineEnd: IS_TOUCH ? 14 : 32,
+        // whole deck was flush against the wrong edge.
+        paddingInlineStart: IS_TOUCH ? 10 : 24,
+        paddingInlineEnd: IS_TOUCH ? 10 : 24,
         paddingBottom: SAFE_BOTTOM,
-        background: "linear-gradient(0deg, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.28) 52%, rgba(0,0,0,0) 100%)",
+        background: SCRIM,
         pointerEvents: visible ? "auto" : "none",
-        // Above the panel's full-frame dim (zIndex 5 in NativePlayerView): the
-        // dim darkens the picture so the panel rows read, but the transport
-        // pills must keep their own black and stay the same colour with or
-        // without a sheet open. (The panel itself is zIndex 6 and is painted
-        // after this node, so it still layers on top.)
+        // Above the panel's full-frame dim: the dim darkens the picture so the
+        // panel rows read, but the deck keeps its own material. (The panel is
+        // painted after this node, so it still layers on top.)
         zIndex: 6,
       }}
     >
-      {/* Scrubber: a bare full-width line, red played, white track/buffered. */}
+      {/* The deck: one continuous instrument, not a row of separate pills. */}
       <div
-        ref={scrubRef}
-        className="np-scrub"
-        role="slider"
-        tabIndex={0}
-        aria-label="Seek"
-        aria-valuemin={0}
-        aria-valuemax={Math.floor(duration)}
-        aria-valuenow={Math.floor(currentTime)}
-        aria-valuetext={`${fmtTime(currentTime)} of ${fmtTime(duration)}`}
-        onKeyDown={onScrubKeyDown}
-        onFocus={onScrubFocus}
-        onPointerDown={onScrubDown}
-        onPointerMove={onScrubMove}
-        onPointerUp={onScrubUp}
-        onPointerCancel={onScrubCancel}
-        onPointerLeave={onScrubLeave}
+        className="np-deck"
         style={{
           position: "relative",
-          // 44px hit target on touch (Apple HIG minimum) — the visual bar
-          // stays thin, only the touchable band grows.
-          height: IS_TOUCH ? 44 : 30,
-          display: "flex",
-          alignItems: "center",
-          cursor: "pointer",
-          touchAction: "none",
-          marginBottom: IS_TOUCH ? 8 : 12,
+          borderRadius: RADIUS.deck,
+          background: DECK_BG,
+          border: `1px solid ${DECK_BORDER}`,
+          boxShadow: DECK_SHADOW,
+          backdropFilter: GLASS_BLUR,
+          WebkitBackdropFilter: GLASS_BLUR,
+          padding: IS_TOUCH ? "4px 10px 8px" : "6px 16px 10px",
         }}
       >
+        {/* Scrubber: one hairline across the deck, accent played. */}
         <div
-          className="np-scrub-line"
+          ref={scrubRef}
+          className="np-scrub"
+          role="slider"
+          tabIndex={0}
+          aria-label="Seek"
+          aria-valuemin={0}
+          aria-valuemax={Math.floor(duration)}
+          aria-valuenow={Math.floor(currentTime)}
+          aria-valuetext={`${fmtTime(currentTime)} of ${fmtTime(duration)}`}
+          onKeyDown={onScrubKeyDown}
+          onFocus={onScrubFocus}
+          onPointerDown={onScrubDown}
+          onPointerMove={onScrubMove}
+          onPointerUp={onScrubUp}
+          onPointerCancel={onScrubCancel}
+          onPointerLeave={onScrubLeave}
           style={{
             position: "relative",
-            height: hoverRatio != null ? 8 : 5,
-            width: "100%",
-            background: TRACK,
-            borderRadius: "var(--radius-full)",
-            transition: "height var(--duration-fast) var(--ease-out)",
+            // 44px hit target on touch (Apple HIG minimum) — the visual bar
+            // stays thin, only the touchable band grows.
+            height: IS_TOUCH ? 40 : 26,
+            display: "flex",
+            alignItems: "center",
+            cursor: "pointer",
+            touchAction: "none",
+            marginBottom: IS_TOUCH ? 2 : 4,
           }}
         >
-          {duration > 0 &&
-            bufferedRanges.map(([s, e], i) =>
-              e > s ? (
-                <div
-                  key={i}
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    bottom: 0,
-                    left: `${(s / duration) * 100}%`,
-                    width: `${((e - s) / duration) * 100}%`,
-                    background: BUFFERED,
-                    borderRadius: "var(--radius-full)",
-                  }}
-                />
-              ) : null,
-            )}
           <div
+            className="np-scrub-line"
             style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: 0,
-              width: `${effectiveRatio * 100}%`,
-              background: ACCENT,
-              borderRadius: "var(--radius-full)",
-            }}
-          />
-          {/* Measured skip windows, drawn the way the provider draws them: a band
-              over the intro, a band over the credits. Estimates never paint here
-              — only cue/provider/dataset boundaries (cueBounds carries its source
-              stamp), so a 90s guess cannot masquerade as measured data. */}
-          {scrubberBands?.intro && (
-            <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.intro }} />
-          )}
-          {scrubberBands?.credits && (
-            <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.credits }} />
-          )}
-          <div
-            className="np-scrub-dot"
-            style={{
-              position: "absolute",
-              top: "50%",
-              left: `calc(${effectiveRatio * 100}% - ${(hoverRatio != null ? 17 : 13) / 2}px)`,
-              width: hoverRatio != null ? 17 : 13,
-              height: hoverRatio != null ? 17 : 13,
-              borderRadius: "50%",
-              background: ACCENT,
-              transform: "translateY(-50%)",
-              transition: "width var(--duration-fast) var(--ease-out), height var(--duration-fast) var(--ease-out)",
-              boxShadow: "0 1px 6px rgba(0,0,0,0.6)",
-            }}
-          />
-        </div>
-        {/* Hover/drag frame preview, clamped so it never leaves the picture. */}
-        {hoverRatio != null && previewUrl && (
-          <div
-            style={{
-              position: "absolute",
-              bottom: previewBox.lift,
-              left: Math.min(
-                Math.max(hoverRatio * playerW, previewBox.thumbInset),
-                Math.max(previewBox.thumbInset, playerW - previewBox.thumbInset),
-              ),
-              transform: "translateX(-50%)",
-              width: previewBox.thumbW,
-              height: previewBox.thumbH,
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.35)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.65)",
-              overflow: "hidden",
-              pointerEvents: "none",
-              zIndex: 4,
-              background: "#000",
+              position: "relative",
+              height: hoverRatio != null ? 10 : 6,
+              width: "100%",
+              background: TRACK,
+              borderRadius: RADIUS.pill,
+              transition: "height var(--zxc-t-fast) var(--zxc-ease)",
             }}
           >
-            <img
-              src={previewUrl}
-              alt=""
-              aria-hidden="true"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            {duration > 0 &&
+              bufferedRanges.map(([s, e], i) =>
+                e > s ? (
+                  <div
+                    key={i}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      bottom: 0,
+                      left: `${(s / duration) * 100}%`,
+                      width: `${((e - s) / duration) * 100}%`,
+                      background: BUFFERED,
+                      borderRadius: RADIUS.pill,
+                    }}
+                  />
+                ) : null,
+              )}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: `${effectiveRatio * 100}%`,
+                background: `linear-gradient(90deg, ${ACCENT_DIM}, ${ACCENT})`,
+                borderRadius: RADIUS.pill,
+                boxShadow: "0 0 14px rgba(149,255,80,0.3)",
+              }}
+            />
+            {/* Measured skip windows, drawn the way the provider draws them: a
+                band over the intro, a band over the credits. Estimates never
+                paint here — only cue/provider/dataset boundaries (cueBounds
+                carries its source stamp), so a 90s guess cannot masquerade as
+                measured data. */}
+            {scrubberBands?.intro && (
+              <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.intro }} />
+            )}
+            {scrubberBands?.credits && (
+              <div aria-hidden="true" style={{ ...SCRUBBER_BAND_STYLE, ...scrubberBands.credits }} />
+            )}
+            <div
+              className="np-scrub-dot"
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: `calc(${effectiveRatio * 100}% - ${knob / 2}px)`,
+                width: knob,
+                height: knob,
+                borderRadius: "50%",
+                background: "#fff",
+                border: `2px solid ${ACCENT}`,
+                transform: "translateY(-50%)",
+                transition:
+                  "width var(--zxc-t-fast) var(--zxc-ease), height var(--zxc-t-fast) var(--zxc-ease)",
+                boxShadow: `0 0 0 4px ${ACCENT_SOFT}, 0 2px 8px rgba(0,0,0,0.55)`,
+              }}
             />
           </div>
-        )}
-        {hoverRatio != null && duration > 0 && (
-          <div
-            className="np-scrub-time"
+          {/* Hover/drag frame preview, clamped so it never leaves the picture. */}
+          {hoverRatio != null && previewUrl && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: previewBox.lift,
+                left: Math.min(
+                  Math.max(hoverRatio * playerW, previewBox.thumbInset),
+                  Math.max(previewBox.thumbInset, playerW - previewBox.thumbInset),
+                ),
+                transform: "translateX(-50%)",
+                width: previewBox.thumbW,
+                height: previewBox.thumbH,
+                borderRadius: 14,
+                border: `1px solid ${ACCENT_EDGE}`,
+                boxShadow: "0 18px 44px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.4)",
+                overflow: "hidden",
+                pointerEvents: "none",
+                zIndex: 4,
+                background: "#000",
+              }}
+            >
+              <img
+                src={previewUrl}
+                alt=""
+                aria-hidden="true"
+                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              />
+            </div>
+          )}
+          {hoverRatio != null && duration > 0 && (
+            <div
+              className="np-scrub-time"
+              style={{
+                position: "absolute",
+                bottom: 34,
+                left: `${Math.min(94, Math.max(6, hoverRatio * 100))}%`,
+                transform: "translateX(-50%)",
+                background: "rgba(9,12,10,0.9)",
+                border: `1px solid ${ACCENT_EDGE}`,
+                color: "#fff",
+                fontSize: 12.5,
+                fontWeight: 700,
+                fontVariantNumeric: "tabular-nums",
+                padding: "4px 9px",
+                borderRadius: 8,
+                pointerEvents: "none",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {fmtTime(hoverRatio * duration)}
+            </div>
+          )}
+        </div>
+
+        {/* Control row: transport left, volume + clock, utilities right. */}
+        <div className="np-transport" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* ±skip buttons flank the play button. The skips are bare IconBtns:
+              each carries its own hover disc, so they need no capsule. */}
+          {!IS_TOUCH && (
+            <Tooltip tip={`Rewind ${skipSeconds} seconds`} kbd="←">
+              <IconBtn size={40} label={`Rewind ${skipSeconds} seconds`} onClick={onBack10}>
+                <IconSkipBack10 size={22} />
+              </IconBtn>
+            </Tooltip>
+          )}
+          {!centerTransport && (
+            <motion.div
+              className="np-play-pill"
+              style={{ ...PILL, width: playSize, height: playSize }}
+              whileTap={{ scale: PRESS_SCALE.CONTROL }}
+              whileHover={{ scale: 1.05 }}
+            >
+              <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
+                <IconBtn
+                  size={playSize}
+                  label={playing ? "Pause" : "Play"}
+                  onClick={onTogglePlay}
+                  style={{
+                    background: ACCENT,
+                    color: ACCENT_FG,
+                    boxShadow: ACCENT_GLOW,
+                  }}
+                >
+                  {playing ? <IconPause size={30} /> : <IconPlay size={28} />}
+                </IconBtn>
+              </Tooltip>
+            </motion.div>
+          )}
+          {!IS_TOUCH && (
+            <Tooltip tip={`Forward ${skipSeconds} seconds (hold for 2×)`} kbd="→">
+              {/* A quick press seeks; a sustained press arms 2x on the engine side
+                  and then reports `desktopHoldFiredRef` so the click that follows
+                  the release does not also seek. The engine owns the timing; this
+                  only reports press and release. */}
+              <IconBtn
+                size={40}
+                label={`Forward ${skipSeconds} seconds`}
+                onClick={onForward10}
+                onPointerDown={onForwardHoldStart}
+                onPointerUp={onForwardHoldRelease}
+                onPointerLeave={onForwardHoldRelease}
+                onPointerCancel={onForwardHoldRelease}
+              >
+                <IconSkipForward10 size={22} />
+              </IconBtn>
+            </Tooltip>
+          )}
+
+          {/* Volume: the chip widens on hover to reveal the slider (CSS-driven). */}
+          <span
+            className={["np-pill np-vol-pill", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
+            onMouseEnter={(e) => {
+              e.stopPropagation();
+              onVolHoverChange?.(true);
+            }}
+            onMouseLeave={() => onVolHoverChange?.(false)}
+            onFocus={() => onVolHoverChange?.(true)}
+            onBlur={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget)) return;
+              onVolHoverChange?.(false);
+            }}
             style={{
-              position: "absolute",
-              bottom: 34,
-              left: `${Math.min(94, Math.max(6, hoverRatio * 100))}%`,
-              transform: "translateX(-50%)",
-              background: "rgba(0,0,0,0.78)",
+              ...PILL,
+              justifyContent: "flex-start",
+              height: pillSize,
+              padding: "0 5px",
+              gap: 2,
+            }}
+          >
+            <Tooltip tip={muted || volume === 0 ? "Unmute" : "Mute"} kbd="m">
+              <IconBtn size={IS_TOUCH ? 44 : 40} label={muted ? "Unmute" : "Mute"} onClick={onToggleMute}>
+                <VolumeIcon size={22} />
+              </IconBtn>
+            </Tooltip>
+            {!IS_TOUCH && (
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={muted ? 0 : volume}
+                onChange={(e) => onVolumeChange(Number(e.target.value))}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Volume"
+                className="np-vol-range"
+                style={{ "--vol": `${volFill * 100}%` }}
+              />
+            )}
+          </span>
+
+          {/* Clock: "3:24 / 4:28". */}
+          <div
+            className="np-pill np-time-pill"
+            aria-hidden="true"
+            style={{
+              ...PILL,
+              height: pillSize,
+              minHeight: pillSize,
+              padding: "0 16px",
               color: "#fff",
-              fontSize: 13,
-              fontWeight: 700,
+              fontSize: IS_TOUCH ? 14 : 13,
+              fontWeight: 650,
+              letterSpacing: 0.4,
               fontVariantNumeric: "tabular-nums",
-              padding: "4px 8px",
-              borderRadius: 6,
-              pointerEvents: "none",
               whiteSpace: "nowrap",
             }}
           >
-            {fmtTime(hoverRatio * duration)}
+            <span>{fmtTime(currentTime)}</span>
+            <span style={{ margin: "0 7px", color: ACCENT, fontWeight: 700 }}>/</span>
+            <span style={{ color: "rgba(255,255,255,0.62)" }}>{fmtTime(duration)}</span>
           </div>
-        )}
-      </div>
 
-      {/* Transport row: skip-back / play / skip-forward + volume + time left,
-          utilities right (NEW PLAYER UI-UX.html). */}
-      <div className="np-transport" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        {/* Transport cluster: the ±10s buttons flank the play button. They were
-            WIRED by the engine all along (onBack10/onForward10/onForwardHold*
-            were passed and destructured) but never rendered, so desktop had no
-            rewind/forward control at all and the whole desktop hold-to-2x path
-            (desktopHoldTimerRef + the desktopHoldFiredRef guard) was unreachable
-            — the feature only ever existed on touch and on the Space key.
-            The skips are bare IconBtns: each carries its own hover disc, so they
-            need no wrapping capsule (the play button keeps its own circle). */}
-        {!IS_TOUCH && (
-          <Tooltip tip={`Rewind ${skipSeconds} seconds`} kbd="←">
-            <IconBtn size={40} label={`Rewind ${skipSeconds} seconds`} onClick={onBack10}>
-              <IconSkipBack10 size={22} />
-            </IconBtn>
-          </Tooltip>
-        )}
-        {!centerTransport && (
-          <motion.div
-            className="np-pill np-circle-pill"
-            style={{ ...PILL, width: playSize, height: playSize }}
-            whileTap={{ scale: PRESS_SCALE.CONTROL }}
+          <div style={{ flex: 1 }} />
+
+          {/* Utility cluster: one capsule on the right edge of the deck. */}
+          <div
+            className="np-pill np-right-pill"
+            style={{
+              ...PILL,
+              height: pillSize,
+              padding: IS_TOUCH ? "0 8px" : "0 10px",
+              gap: IS_TOUCH ? 4 : 6,
+            }}
           >
-            <Tooltip tip={playing ? "Pause" : "Play"} kbd="k">
-              <IconBtn size={playSize} label={playing ? "Pause" : "Play"} onClick={onTogglePlay}>
-                {playing ? <IconPause size={30} /> : <IconPlay size={28} />}
-              </IconBtn>
-            </Tooltip>
-          </motion.div>
-        )}
-        {!IS_TOUCH && (
-          <Tooltip tip={`Forward ${skipSeconds} seconds (hold for 2×)`} kbd="→">
-            {/* A quick press seeks; a sustained press arms 2x on the engine side
-                and then reports `desktopHoldFiredRef` so the click that follows
-                the release does not also seek (YouTube's behaviour). The engine
-                owns the timing; this only reports press and release. */}
-            <IconBtn
-              size={40}
-              label={`Forward ${skipSeconds} seconds`}
-              onClick={onForward10}
-              onPointerDown={onForwardHoldStart}
-              onPointerUp={onForwardHoldRelease}
-              onPointerLeave={onForwardHoldRelease}
-              onPointerCancel={onForwardHoldRelease}
-            >
-              <IconSkipForward10 size={22} />
-            </IconBtn>
-          </Tooltip>
-        )}
-
-        {/* Volume: the pill widens on hover to reveal the slider (CSS-driven). */}
-        <span
-          className={["np-pill np-vol-pill", volHover ? "expanded" : ""].filter(Boolean).join(" ")}
-          onMouseEnter={(e) => {
-            e.stopPropagation();
-            onVolHoverChange?.(true);
-          }}
-          onMouseLeave={() => onVolHoverChange?.(false)}
-          onFocus={() => onVolHoverChange?.(true)}
-          onBlur={(e) => {
-            if (e.currentTarget.contains(e.relatedTarget)) return;
-            onVolHoverChange?.(false);
-          }}
-          style={{
-            ...PILL,
-            justifyContent: "flex-start",
-            height: pillSize,
-            padding: "0 6px",
-            gap: 2,
-          }}
-        >
-          <Tooltip tip={muted || volume === 0 ? "Unmute" : "Mute"} kbd="m">
-            <IconBtn size={IS_TOUCH ? 44 : 40} label={muted ? "Unmute" : "Mute"} onClick={onToggleMute}>
-              <VolumeIcon size={22} />
-            </IconBtn>
-          </Tooltip>
-          {!IS_TOUCH && (
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.05}
-              value={muted ? 0 : volume}
-              onChange={(e) => onVolumeChange(Number(e.target.value))}
-              onClick={(e) => e.stopPropagation()}
-              aria-label="Volume"
-              className="np-vol-range"
-              style={{ "--vol": `${volFill * 100}%` }}
-            />
-          )}
-        </span>
-
-        {/* Time pill: "3:24 / 4:28". */}
-        <div
-          className="np-pill np-time-pill"
-          aria-hidden="true"
-          style={{
-            ...PILL,
-            height: pillSize,
-            minHeight: pillSize,
-            padding: "0 20px",
-            color: "#fff",
-            fontSize: IS_TOUCH ? 15 : 14,
-            fontWeight: 700,
-            letterSpacing: 0.3,
-            fontVariantNumeric: "tabular-nums",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <span>{fmtTime(currentTime)}</span>
-          <span style={{ margin: "0 7px", color: "rgba(255,255,255,0.55)", fontWeight: 600 }}>/</span>
-          <span>{fmtTime(duration)}</span>
-        </div>
-
-        <div style={{ flex: 1 }} />
-
-        {/* Right cluster: a single unified pill container (NEW PLAYER UI-UX.html #rp) */}
-        <div
-          className="np-pill np-right-pill"
-          style={{
-            ...PILL,
-            height: pillSize,
-            padding: IS_TOUCH ? "0 10px" : "0 14px",
-            gap: IS_TOUCH ? 6 : 10,
-          }}
-        >
-          {showEpisodeNav && (
-            <>
-              <Tooltip tip="Previous episode">
-                <IconBtn size={IS_TOUCH ? 40 : 38} label="Previous episode" disabled={prevDisabled} onClick={onEpPrev}>
-                  <IconChevronLeft size={20} />
+            {showEpisodeNav && (
+              <>
+                <Tooltip tip="Previous episode">
+                  <IconBtn size={IS_TOUCH ? 40 : 38} label="Previous episode" disabled={prevDisabled} onClick={onEpPrev}>
+                    <IconChevronLeft size={20} />
+                  </IconBtn>
+                </Tooltip>
+                <Tooltip tip="Next episode">
+                  <IconBtn size={IS_TOUCH ? 40 : 38} label="Next episode" disabled={nextDisabled} onClick={onEpNext}>
+                    <IconChevronRight size={20} />
+                  </IconBtn>
+                </Tooltip>
+              </>
+            )}
+            {showEpisodesButton && (
+              <Tooltip tip="Episodes">
+                <IconBtn
+                  size={IS_TOUCH ? 40 : 38}
+                  label="Episodes"
+                  active={panel === "episodes"}
+                  expanded={panel === "episodes"}
+                  onClick={() => onTogglePanel("episodes")}
+                >
+                  <IconEpisodes size={20} />
                 </IconBtn>
               </Tooltip>
-              <Tooltip tip="Next episode">
-                <IconBtn size={IS_TOUCH ? 40 : 38} label="Next episode" disabled={nextDisabled} onClick={onEpNext}>
-                  <IconChevronRight size={20} />
+            )}
+            {showSubsButton ? (
+              <Tooltip tip="Subtitles/closed captions" kbd="c">
+                <IconBtn
+                  size={IS_TOUCH ? 40 : 38}
+                  label="Subtitles"
+                  active={panel === "subs"}
+                  expanded={panel === "subs"}
+                  onClick={() => onTogglePanel("subs")}
+                >
+                  <IconCaptions size={20} />
                 </IconBtn>
               </Tooltip>
-            </>
-          )}
-          {showEpisodesButton && (
-            <Tooltip tip="Episodes">
+            ) : null}
+            <Tooltip tip="Settings">
               <IconBtn
                 size={IS_TOUCH ? 40 : 38}
-                label="Episodes"
-                active={panel === "episodes"}
-                expanded={panel === "episodes"}
-                onClick={() => onTogglePanel("episodes")}
+                label="Settings"
+                badge={hdBadge}
+                active={
+                  panel === "settings" ||
+                  panel === "audio" ||
+                  panel === "subs" ||
+                  panel === "substyle" ||
+                  panel === "video" ||
+                  panel === "sourcequality" ||
+                  panel === "speed" ||
+                  panel === "sleep" ||
+                  panel === "aspect"
+                }
+                expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}
+                onClick={onToggleSettings}
               >
-                <IconEpisodes size={20} />
+                <IconSettings size={20} />
               </IconBtn>
             </Tooltip>
-          )}
-          {showSubsButton ? (
-            <Tooltip tip="Subtitles/closed captions" kbd="c">
-              <IconBtn
-                size={IS_TOUCH ? 40 : 38}
-                label="Subtitles"
-                active={panel === "subs"}
-                expanded={panel === "subs"}
-                onClick={() => onTogglePanel("subs")}
-              >
-                <IconCaptions size={20} />
-              </IconBtn>
+            <Tooltip tip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} kbd="f">
+              <div className="np-fs-wrap">
+                <IconBtn
+                  size={IS_TOUCH ? 40 : 38}
+                  label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                  onClick={onFullscreen}
+                >
+                  {isFullscreen ? <IconFullscreenExit size={20} /> : <IconFullscreen size={20} />}
+                </IconBtn>
+              </div>
             </Tooltip>
-          ) : null}
-          {/* The autoplay on/off toggle was removed by request: the setting is
-              still honoured (and persists), it is simply no longer a control in
-              the transport bar. */}
-          <Tooltip tip="Settings">
-            <IconBtn
-              size={IS_TOUCH ? 40 : 38}
-              label="Settings"
-              badge={hdBadge}
-              active={
-                panel === "settings" ||
-                panel === "audio" ||
-                panel === "subs" ||
-                panel === "substyle" ||
-                panel === "video" ||
-                panel === "sourcequality" ||
-                panel === "speed" ||
-                panel === "sleep" ||
-                panel === "aspect"
-              }
-              expanded={Boolean(panel && panel !== "episodes" && panel !== "servers")}
-              onClick={onToggleSettings}
-            >
-              <IconSettings size={20} />
-            </IconBtn>
-          </Tooltip>
-          <Tooltip tip={isFullscreen ? "Exit fullscreen" : "Fullscreen"} kbd="f">
-            <div className="np-fs-wrap">
-              <IconBtn size={IS_TOUCH ? 40 : 38} label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} onClick={onFullscreen}>
-                {isFullscreen ? <IconFullscreenExit size={20} /> : <IconFullscreen size={20} />}
-              </IconBtn>
-            </div>
-          </Tooltip>
+          </div>
         </div>
       </div>
     </motion.div>

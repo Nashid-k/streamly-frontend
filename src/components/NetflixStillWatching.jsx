@@ -2,7 +2,8 @@ import { memo } from "react";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { motion } from "framer-motion";
 import {
-  ACCENT_DIM,
+  ACCENT,
+  ACCENT_FG,
   GLASS_BG_STRONG,
   GLASS_BLUR,
   GLASS_BORDER,
@@ -60,14 +61,15 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
             type="button"
             onClick={onContinue}
             style={{
-              padding: "11px 28px",
+              padding: "12px 30px",
               borderRadius: RADIUS.pill,
               border: "none",
-              background: "#fff",
-              color: "#000",
+              background: ACCENT,
+              color: ACCENT_FG,
               fontSize: 15,
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: "pointer",
+              boxShadow: "0 0 24px rgba(149,255,80,0.3)",
             }}
           >
             Continue Watching
@@ -76,10 +78,10 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
             type="button"
             onClick={onExit}
             style={{
-              padding: "11px 28px",
+              padding: "12px 30px",
               borderRadius: RADIUS.pill,
-              border: "1px solid rgba(255,255,255,0.22)",
-              background: ACCENT_DIM,
+              border: "1px solid rgba(255,255,255,0.24)",
+              background: "transparent",
               color: "#fff",
               fontSize: 15,
               fontWeight: 600,

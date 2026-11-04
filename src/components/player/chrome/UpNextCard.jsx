@@ -8,7 +8,7 @@ import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconClose, IconPlay } from "./icons";
 import { IS_TOUCH } from "./constants";
-import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
+import { ACCENT, ACCENT_FG, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
   const M = useMotionTokens(useReducedMotion());
@@ -19,15 +19,15 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
           key="np-upnext"
           role="complementary"
           aria-label={`Up Next: playing in ${Math.round(upNextMs / 1000)} seconds`}
-          initial={{ opacity: 0, x: 28, scale: 0.97 }}
-          animate={{ opacity: 1, x: 0, scale: 1 }}
-          exit={{ opacity: 0, x: 20, scale: 0.98 }}
-          transition={M.SPRING.SHEET}
+          initial={M.MODAL_PANEL.initial}
+          animate={M.MODAL_PANEL.animate}
+          exit={M.MODAL_PANEL.exit}
+          transition={M.MODAL_PANEL.transition}
           onClick={(e) => e.stopPropagation()}
           style={{
             position: "absolute",
             right: 24,
-            bottom: IS_TOUCH ? 120 : 100,
+            bottom: IS_TOUCH ? 150 : 136,
             width: "min(260px, 55%)",
             background: GLASS_BG_STRONG,
             borderRadius: RADIUS.card,
@@ -83,20 +83,21 @@ export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
             className="np-resume-btn"
             onClick={() => onPlayNow(upNext.number)}
             style={{
-              marginTop: 10,
+              marginTop: 12,
               width: "100%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              padding: "9px 16px",
-              background: "#fff",
-              color: "#000",
+              padding: "10px 16px",
+              background: ACCENT,
+              color: ACCENT_FG,
               border: "none",
-              borderRadius: 8,
+              borderRadius: RADIUS.pill,
               fontWeight: 700,
               fontSize: 14,
               cursor: "pointer",
+              boxShadow: "0 0 20px rgba(149,255,80,0.28)",
             }}
           >
             <IconPlay size={18} />

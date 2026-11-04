@@ -4,8 +4,8 @@
 // every leaf component that needed one had to reach back into the engine. They
 // are presentation policy, so they belong to the chrome layer.
 //
-// Colours come from ./theme (the Apple TV+ palette); this module carries only
-// geometry and layout policy.
+// Colours come from ./theme (the player's signal palette); this module carries
+// only geometry and layout policy.
 import { SKIP_BAND } from "./theme";
 
 // Touch-first devices (hover-less, coarse pointer) get bigger tap targets and a

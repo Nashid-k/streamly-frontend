@@ -5,10 +5,11 @@
 // `aria-pressed` behaviour is load-bearing: the a11y tests assert the settings
 // gear lights up while a sheet is open and reports `aria-expanded`.
 //
-// The YouTube-style theme (2026-10-08) keeps glyphs white and reserves the red
-// accent for played/active marks; a `badge` (the gear's "HD" tag) renders in
-// the corner, and `className`/`style` pass through so callers can drop controls
-// into pills without losing the shared a11y branch.
+// The signal theme (2026-11) keeps glyphs white by default, lights them in the
+// accent when a control's panel is open, and reserves the accent fill for
+// primary actions. A `badge` (the gear's "HD" tag) renders in the corner, and
+// `className`/`style` pass through so callers can drop controls into chips
+// without losing the shared a11y branch.
 import { BTN_SIZE } from "./constants";
 import { TEXT } from "./theme";
 

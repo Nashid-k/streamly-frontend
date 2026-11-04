@@ -19,6 +19,7 @@ import { ASPECT_RATIOS } from "../../../constants/playerUi";
 import { SKIP_DATA_CREDIT } from "../../../api/skipBoundarySource";
 import { languageNameFromCode } from "../../../utils/audioLabels";
 import { DEFAULT_SOURCE_KEY, sourceLabel } from "../../../constants/sources";
+import { ACCENT } from "../chrome/theme";
 import { fmtTime, qualityHdTag } from "../nativePlayerHelpers";
 
 export default function PlayerMenus({
@@ -205,7 +206,7 @@ export default function PlayerMenus({
         </div>
       ) : panel === "servers" ? (
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
-            <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", margin: "4px 14px 8px", lineHeight: 1.45 }}>
               Same title, different stream providers. Switching reloads the
               stream from the chosen server.
             </p>
@@ -228,7 +229,7 @@ export default function PlayerMenus({
               title="Off"
             />
             {isFetchingSubtitles ? (
-              <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "8px 14px 4px", lineHeight: 1.45 }}>
+              <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", margin: "8px 14px 4px", lineHeight: 1.45 }}>
                 Searching OpenSubtitles…
               </p>
             ) : subtitleLanguages.length > 0 ? (
@@ -245,7 +246,7 @@ export default function PlayerMenus({
                 />
               ))
             ) : (
-              <p style={{ fontSize: 12.5, color: "#a1a1aa", margin: "8px 14px 4px", lineHeight: 1.45 }}>
+              <p style={{ fontSize: 12.5, color: "rgba(255,255,255,0.62)", margin: "8px 14px 4px", lineHeight: 1.45 }}>
                 {!imdbId
                   ? "No subtitles found for this title on OpenSubtitles (no IMDb id — title search also came up empty)."
                   : "No subtitles found for this title on OpenSubtitles."}
@@ -455,11 +456,11 @@ export default function PlayerMenus({
         </div>
       ) : panel === "substyle" ? (
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
-            <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", margin: "4px 14px 8px", lineHeight: 1.45 }}>
               Appearance of the caption line. Applies to the track you pick
               in the Subtitles menu.
             </p>
-            <p style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "4px 14px 6px", letterSpacing: "0.02em" }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: ACCENT, margin: "4px 14px 6px", letterSpacing: "0.14em" }}>
               SIZE
             </p>
             {["Small", "Medium", "Large"].map((name, i) => (
@@ -470,7 +471,7 @@ export default function PlayerMenus({
                 title={name}
               />
             ))}
-            <p style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", margin: "12px 14px 6px", letterSpacing: "0.02em" }}>
+            <p style={{ fontSize: 11, fontWeight: 800, color: ACCENT, margin: "12px 14px 6px", letterSpacing: "0.14em" }}>
               BACKGROUND
             </p>
             {["None", "Shadow", "Box"].map((name, i) => (
@@ -484,7 +485,7 @@ export default function PlayerMenus({
         </div>
       ) : panel === "sourcequality" ? (
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "4px 0 6px" }}>
-            <p style={{ fontSize: 12, color: "#a1a1aa", margin: "4px 14px 8px", lineHeight: 1.45 }}>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", margin: "4px 14px 8px", lineHeight: 1.45 }}>
               The provider's raw source file resolution. Different from Video
               Quality, which picks a rung of the stream we deliver.
             </p>
@@ -527,7 +528,7 @@ export default function PlayerMenus({
               />
             ))}
             {sleepMinutes ? (
-              <p style={{ fontSize: 12, color: "#a1a1aa", margin: "8px 14px 4px" }}>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", margin: "8px 14px 4px" }}>
                 Pausing in {fmtTime(sleepRemaining ?? sleepMinutes * 60)}.
               </p>
             ) : null}

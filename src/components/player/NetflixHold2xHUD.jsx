@@ -1,8 +1,8 @@
 import { memo } from "react";
-import { motion } from "framer-motion";
-import { SPRING } from "../../constants/motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { useMotionTokens } from "../../constants/motion";
 import { IconChevronsRight } from "./chrome/icons";
-import { HUD_GLASS } from "./chrome/theme";
+import { HUD_GLASS, ACCENT } from "./chrome/theme";
 
 /* Netflix-mobile hold-to-2x pill: a small badge pinned to the right edge of the
    frame while the hold is active. Decorative only (the video element itself
@@ -11,16 +11,22 @@ import { HUD_GLASS } from "./chrome/theme";
    share one pop because they are the same gesture repeated, but this one slides
    in from the edge it is pinned to, which is what tells you a hold is active. */
 const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
+  const M = useMotionTokens(useReducedMotion());
   const scale = metrics?.scale || 1;
   const font = Math.max(13, Math.round(20 * scale));
   const icon = Math.max(16, Math.round(24 * scale));
   return (
     <motion.div
-      initial={{ opacity: 0, x: 18 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 12 }}
-      transition={SPRING.SNAPPY}
+      initial={M.PILL_IN.initial}
+      animate={M.PILL_IN.animate}
+      exit={M.PILL_IN.exit}
+      transition={M.PILL_IN.transition}
       aria-hidden="true"
+      // One-shot status pill, not a value HUD: it narrates the hold by sliding
+      // in from the edge it is pinned to (unlike the value HUDs, which share the
+      // same HUD_POP pop because they are the same gesture repeated). Kept on
+      // PILL_IN on purpose — the test that asserts the shared tokens are adopted
+      // by the value HUDs also asserts the two one-shots are NOT folded in.
       style={{
         position: "absolute",
         top: metrics.top,
@@ -36,7 +42,7 @@ const NetflixHold2xHUD = memo(function NetflixHold2xHUD({ metrics }) {
         zIndex: 65,
       }}
     >
-      <span style={{ fontSize: font, fontWeight: 800, letterSpacing: 0.5, whiteSpace: "nowrap", fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>2x</span>
+      <span style={{ fontSize: font, fontWeight: 800, letterSpacing: 0.5, whiteSpace: "nowrap", color: ACCENT, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif" }}>2x</span>
       <IconChevronsRight size={icon} color="#fff" strokeWidth={2.2} />
     </motion.div>
   );

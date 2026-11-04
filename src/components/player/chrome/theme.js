@@ -1,77 +1,78 @@
-// Player chrome visual language — YouTube-style.
+// Streamly player visual language — "Signal".
 //
-// A player-scoped theme so the chrome can restyle without touching global
-// tokens or the app's brand accent. The design this matches (NEW PLAYER
-// UI-UX.html, 2026-10-08) uses a YouTube idiom: red #f03 played/active marks,
-// filled white control glyphs, translucent black rounded pills, a floating
-// black settings menu (same black glass family as the pills), and custom hover
-// tooltips with keyboard badges.
+// A player-scoped design system rebuilt from scratch for the 2026-11 player
+// redesign. It is deliberately NOT a restyle of the old chrome: the accent is
+// Streamly's own signal green (the same hue the rest of the app brands with),
+// surfaces are cool ink glass, geometry is rounder, and every state — played,
+// selected, active, hover — resolves to the same accent instead of borrowing a
+// third-party player's red.
 //
 // Values are plain strings because the chrome is styled with inline objects
-// (the engine owns no CSS layer for these nodes). Motion, hover and
-// reduced-motion behaviour still live in styles/player.css keyed on class names.
+// (the engine owns no CSS layer for these nodes). Hover, press and
+// reduced-motion behaviour live in styles/player.css keyed on class names.
 
-// Primary accent: played progress, scrubber knob, active marks/checks, HD badge.
-export const ACCENT = "#f03";
-export const ACCENT_DIM = "rgba(255,51,51,0.88)";
+// Primary accent: played progress, active marks, primary actions, focus.
+export const ACCENT = "#95ff50";
+// Glyph/text colour that sits ON an accent fill (dark, never white).
+export const ACCENT_FG = "#07120a";
+export const ACCENT_DIM = "rgba(149,255,80,0.88)";
+export const ACCENT_SOFT = "rgba(149,255,80,0.14)";
+export const ACCENT_EDGE = "rgba(149,255,80,0.42)";
+export const ACCENT_GLOW = "0 0 20px rgba(149,255,80,0.32)";
 
-// Scrubber track layers.
-export const TRACK = "rgba(255,255,255,0.3)";
-export const BUFFERED = "rgba(255,255,255,0.4)";
-// Measured skip windows: a translucent white band, distinct from buffered.
-export const SKIP_BAND = "rgba(255,255,255,0.5)";
+// Scrubber track layers. The played bar is accent; the track is a quiet
+// white film and buffered is a half step brighter so the three read in order.
+export const TRACK = "rgba(255,255,255,0.16)";
+export const BUFFERED = "rgba(255,255,255,0.32)";
+// Measured skip windows: an accent wash, distinct from buffered.
+export const SKIP_BAND = "rgba(149,255,80,0.22)";
 
 export const TEXT = "#ffffff";
-export const TEXT_DIM = "rgba(255,255,255,0.62)";
+export const TEXT_DIM = "rgba(255,255,255,0.66)";
+export const TEXT_FAINT = "rgba(255,255,255,0.42)";
 
-// Bottom-bar + overlay pills (design: rgba(0,0,0,0.6) with soft blur). Opacity
-// trimmed to 0.42 so more of the frame reads through the chrome.
-export const PILL_BG = "rgba(0,0,0,0.42)";
-export const PILL_BG_HOVER = "rgba(0,0,0,0.55)";
+// Chips on the deck (time, volume, utility cluster).
+export const PILL_BG = "rgba(22,27,23,0.58)";
+export const PILL_BG_HOVER = "rgba(40,47,41,0.82)";
 
-// Glass materials. Black, so the settings panel/cards sit in the same family as
-// the translucent black pills instead of reading as a separate zinc material.
-// More opaque than the pills (0.42) because these surfaces carry rows of text,
-// not a single glyph; the blur keeps them legible over the picture.
-export const GLASS_BG = "rgba(0,0,0,0.62)";
-export const GLASS_BG_STRONG = "rgba(0,0,0,0.7)";
-export const GLASS_BORDER = "rgba(255,255,255,0.16)";
-/* rivo.st's shipped stylesheet uses backdrop-filter:blur(24px) most often (x4),
-   then 20px (x2) and 40px once — never 12px. Ours was half their strength, which
-   is most of why our sheets read as flat grey instead of their glass. */
-export const GLASS_BLUR = "blur(24px)";
+// Glass materials: cool ink, not neutral black, so the player sits in the same
+// family as the app's dark surfaces.
+export const GLASS_BG = "rgba(10,13,11,0.74)";
+export const GLASS_BG_STRONG = "rgba(9,12,10,0.86)";
+export const GLASS_BORDER = "rgba(255,255,255,0.12)";
+export const GLASS_BORDER_STRONG = "rgba(255,255,255,0.2)";
+export const GLASS_BLUR = "blur(26px) saturate(1.35)";
 
-/* RIVO motion, read off their shipped CSS rather than guessed. Their player has
-   no custom chrome — it is a native-controls <video> inside this shell — so the
-   player-side half of "be like RIVO" is this vocabulary:
-     · SURFACE  — their `fadeUp`: opacity 0 + translateY(12px) → settled, 0.5s
-     · STANDARD — their `transition-duration:.3s` step (x6 in their CSS)
-     · MICRO    — their `transition-duration:.15s` step (x10 in their CSS), on
-                  their ordinary utility curve (.4,0,.2,1)
-   Surfaces use `ease-tv`; micro-interactions use the utility curve, exactly as
-   their own rules split them. */
+// The control deck's own material. Slightly lighter than the menus so it reads
+// as the primary surface, with an inner top hairline for a machined edge.
+export const DECK_BG =
+  "linear-gradient(180deg, rgba(18,23,19,0.76) 0%, rgba(7,10,8,0.9) 100%)";
+export const DECK_BORDER = "rgba(255,255,255,0.1)";
+export const DECK_SHADOW =
+  "0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)";
+
+// The scrim behind the chrome: a soft falloff, never a hard black band.
+export const SCRIM =
+  "linear-gradient(0deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 44%, rgba(0,0,0,0) 100%)";
+
+/* Motion timing, kept from the measured player motion scale: three steps on one
+   curve (150 / 300 / 500ms). The CSS half lives in styles/player.css as
+   --zxc-t-*; motion.test cross-checks the two so they cannot drift. */
 export const RIVO_MOTION = {
   SURFACE: { duration: 0.5, ease: [0.2, 0.8, 0.2, 1] },
   STANDARD: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
   MICRO: { duration: 0.15, ease: [0.4, 0, 0.2, 1] },
 };
 
-/** Their `fadeUp` entrance shape, as framer props (exit = the same, reversed). */
-export const RIVO_FADE_UP = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 12 },
-};
-
-// Geometry.
-export const RADIUS = { pill: 999, control: 14, card: 14, sheet: 14 };
+// Geometry: a rounder, softer deck than the old chrome.
+export const RADIUS = { pill: 999, control: 16, card: 22, sheet: 24, deck: 26 };
 export const SHADOW = {
-  pill: "0 8px 24px rgba(0,0,0,0.45)",
-  card: "0 12px 40px rgba(0,0,0,0.55)",
+  pill: "0 10px 30px rgba(0,0,0,0.5)",
+  card: "0 24px 70px rgba(0,0,0,0.65)",
 };
 
-// The translucent pill the transient HUDs (volume / brightness / aspect / hold)
-// float in. Shared so a value HUD and a status HUD read as the same material.
+// The translucent pill the transient HUDs (volume / aspect / hold) float in.
+// Shared so a value HUD and a status HUD read as the same material.
 export const HUD_GLASS = {
   background: GLASS_BG_STRONG,
   border: `1px solid ${GLASS_BORDER}`,

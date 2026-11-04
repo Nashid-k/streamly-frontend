@@ -8,7 +8,7 @@
 // token; the back button leaves the player.
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
+import { ACCENT, ACCENT_FG, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function FatalBanner({ message, onRetry, onBack }) {
   const M = useMotionTokens(useReducedMotion());
@@ -16,18 +16,14 @@ export default function FatalBanner({ message, onRetry, onBack }) {
   return (
     <motion.div
       key="np-fatal"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      // The banner used to have no exit AT ALL, so recovering (or failing over)
-      // made it vanish in a single frame while it had arrived on a spring. The
-      // exit is the entry played backwards, and the caller now mounts it inside
-      // an AnimatePresence so the exit can actually run.
-      exit={{ opacity: 0, y: 16 }}
-      transition={M.SPRING.SHEET}
+      initial={M.MODAL_PANEL.initial}
+      animate={M.MODAL_PANEL.animate}
+      exit={M.MODAL_PANEL.exit}
+      transition={M.MODAL_PANEL.transition}
       className="np-fatal"
       style={{
         position: "absolute",
-        bottom: 80,
+        bottom: 140,
         left: 16,
         right: 16,
         display: "flex",
@@ -53,11 +49,11 @@ export default function FatalBanner({ message, onRetry, onBack }) {
         className="np-fatal-btn"
         onClick={onRetry}
         style={{
-          padding: "7px 14px",
-          background: "#fff",
-          color: "#000",
+          padding: "8px 16px",
+          background: ACCENT,
+          color: ACCENT_FG,
           border: "none",
-          borderRadius: 8,
+          borderRadius: RADIUS.pill,
           fontWeight: 700,
           fontSize: 13,
           cursor: "pointer",
@@ -75,11 +71,11 @@ export default function FatalBanner({ message, onRetry, onBack }) {
         aria-label="Back to browse"
         onClick={onBack}
         style={{
-          padding: "7px 14px",
+          padding: "8px 16px",
           background: "transparent",
           color: "#fff",
-          border: "1px solid rgba(255,255,255,0.4)",
-          borderRadius: 8,
+          border: "1px solid rgba(255,255,255,0.28)",
+          borderRadius: RADIUS.pill,
           fontWeight: 600,
           fontSize: 13,
           cursor: "pointer",

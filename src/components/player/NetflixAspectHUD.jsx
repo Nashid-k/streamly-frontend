@@ -32,8 +32,8 @@ const NetflixAspectHUD = memo(function NetflixAspectHUD({ aspectRatioIndex, metr
           animate={{ width, height }}
           transition={SPRING.SNAPPY}
           style={{
-            background: "rgba(0,0,0,0.55)", border: `1.5px solid ${ACCENT}`,
-            borderRadius: 8, boxShadow: "0 0 18px rgba(255,255,255,0.35)",
+            background: "rgba(9,12,10,0.62)", border: `1.5px solid ${ACCENT}`,
+            borderRadius: 9, boxShadow: "0 0 22px rgba(149,255,80,0.32)",
           }}
         />
         <span style={{

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { NetflixPlayPauseHUD } from "../components/player";
+import { ACCENT } from "../components/player/chrome/theme";
 import { hudMetrics } from "../constants/playerUi";
 
 const DESKTOP = hudMetrics(1280, 720);
@@ -24,11 +25,11 @@ describe("NetflixPlayPauseHUD", () => {
     expect(pause.container.firstElementChild.getAttribute("data-kind")).toBe("pause");
   });
 
-  it("renders a filled glyph (YouTube-style solid icon, no stroke)", () => {
+  it("renders a filled accent glyph (solid icon, no stroke)", () => {
     const { container } = render(<NetflixPlayPauseHUD kind="play" metrics={DESKTOP} />);
     const svg = container.querySelector("svg");
     expect(svg).not.toBeNull();
-    expect(svg.getAttribute("fill")).toBe("#fff");
+    expect(svg.getAttribute("fill")).toBe(ACCENT);
   });
 
   it("draws NO dark plate behind the glyph", () => {

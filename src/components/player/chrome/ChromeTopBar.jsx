@@ -1,24 +1,26 @@
-// The top bar: back button + title/subtitle block.
+// The top-left title chip: back button + title/subtitle.
 //
-// Extracted so the Apple TV+ re-layout can restyle it (translucent, larger type,
-// title that hands off to a sidebar/X-ray) without touching the engine. It owns
+// From-scratch redesign (2026-11): the old full-width gradient band is gone.
+// The title now lives in a compact floating glass chip that mirrors the deck's
+// material, so the top and bottom of the player read as one instrument. It owns
 // nothing but presentation and the back action; the close policy stays with the
 // player via `onBack`.
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconArrowLeft } from "./icons";
-import { TEXT_DIM } from "./theme";
+import { GLASS_BG, GLASS_BLUR, GLASS_BORDER, RADIUS, TEXT_DIM } from "./theme";
 
 export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
-  // Matches the transport row: both bars resolve the preference themselves so
-  // they hide/show on the same curve, cuts included.
+  // Matches the deck: both bars resolve the preference themselves so they
+  // hide/show on the same curve, cuts included.
   const M = useMotionTokens(useReducedMotion());
   return (
     <motion.div
-      initial={false}
-      animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : -20 }}
-      transition={M.SPRING.SHEET}
+      initial={M.MODAL_PANEL.initial}
+      animate={M.MODAL_PANEL.animate}
+      exit={M.MODAL_PANEL.exit}
+      transition={M.MODAL_PANEL.transition}
       inert={!visible}
       style={{
         position: "absolute",
@@ -27,74 +29,76 @@ export default function ChromeTopBar({ visible, title, subtitle, onBack }) {
         right: 0,
         display: "flex",
         alignItems: "center",
-        gap: 14,
-        padding: "var(--np-safe-top, 16px) 24px 44px",
-        // The bar holds a back button and a title only. A heavier scrim read as a
-        // black band over the frame; 0.45 fading out faster keeps the text
-        // legible without painting the top third of the picture.
-        background:
-          "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.16) 45%, rgba(0,0,0,0) 100%)",
-        pointerEvents: visible ? "auto" : "none",
-        // Same layer as the transport row: above the panel dim (5) so Back stays
+        padding: "var(--np-safe-top, 16px) 20px 0",
+        // Only the chip is interactive: the rest of the top band must let a
+        // click reach the picture (it toggles the chrome).
+        pointerEvents: "none",
+        // Same layer as the deck: above the panel dim (5) so Back stays
         // operable while a sheet is open, below the sheet itself (6, painted
         // later). At 4 the dim swallowed it and clicks landed on the backdrop.
         zIndex: 6,
       }}
     >
       <div
-        className="np-pill np-circle-pill"
+        className="np-title-chip"
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          width: 48,
-          height: 48,
-          borderRadius: "var(--radius-full)",
-          flexShrink: 0,
-        }}
-      >
-        <IconBtn size={48} label="Back" onClick={onBack}>
-          <IconArrowLeft size={22} />
-        </IconBtn>
-      </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          paddingLeft: 12,
-          paddingRight: 24,
+          gap: 10,
           minWidth: 0,
-          overflow: "hidden",
+          maxWidth: "min(82%, 680px)",
+          padding: "5px 20px 5px 5px",
+          borderRadius: RADIUS.pill,
+          background: GLASS_BG,
+          border: `1px solid ${GLASS_BORDER}`,
+          backdropFilter: GLASS_BLUR,
+          WebkitBackdropFilter: GLASS_BLUR,
+          boxShadow: "0 14px 40px rgba(0,0,0,0.42)",
+          pointerEvents: visible ? "auto" : "none",
         }}
       >
+        <IconBtn size={44} label="Back" onClick={onBack}>
+          <IconArrowLeft size={21} />
+        </IconBtn>
         <div
           style={{
-            color: "#fff",
-            fontWeight: 700,
-            fontSize: "clamp(18px, 2.2vw, 23px)",
-            letterSpacing: "-0.01em",
-            whiteSpace: "nowrap",
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
+            minWidth: 0,
             overflow: "hidden",
-            textOverflow: "ellipsis",
+            paddingRight: 8,
           }}
         >
-          {title}
-        </div>
-        {subtitle ? (
           <div
             style={{
-              color: TEXT_DIM,
-              fontSize: 13,
-              fontWeight: 500,
+              color: "#fff",
+              fontWeight: 650,
+              fontSize: "clamp(15px, 1.6vw, 18px)",
+              letterSpacing: "-0.015em",
               whiteSpace: "nowrap",
               overflow: "hidden",
               textOverflow: "ellipsis",
             }}
           >
-            {subtitle}
+            {title}
           </div>
-        ) : null}
+          {subtitle ? (
+            <div
+              style={{
+                color: TEXT_DIM,
+                fontSize: 12,
+                fontWeight: 500,
+                letterSpacing: 0.1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {subtitle}
+            </div>
+          ) : null}
+        </div>
       </div>
     </motion.div>
   );

@@ -29,7 +29,7 @@ const NetflixVolumeHUD = memo(function NetflixVolumeHUD({ effVolume, isMuted, me
         borderRadius: metrics.pillRadius,
         ...HUD_GLASS,
       }}>
-        <VolumeIcon size={metrics.pillIcon} color="#fff" />
+        <VolumeIcon size={metrics.pillIcon} color={ACCENT} />
         <div style={{
           position: "relative",
           width: metrics.barWidth, height: metrics.barHeight,

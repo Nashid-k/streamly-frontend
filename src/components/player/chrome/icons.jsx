@@ -1,9 +1,9 @@
-// Player chrome iconography — YouTube-style (NEW PLAYER UI-UX.html, 2026-10-08).
+// Player chrome iconography.
 //
-// From-scratch SVG set. The design draws every control on a 24x24 grid with
-// 2px uniform strokes, rounded caps/joins, and a few filled glyphs: the play
-// triangle, pause bars, speaker body, skip wedges. Everything inherits
-// `currentColor` so the theme can drive it.
+// From-scratch SVG set. Every control is drawn on a 24x24 grid with 2px uniform
+// strokes, rounded caps/joins, and a few filled glyphs: the play triangle, pause
+// bars, speaker body, skip wedges. Everything inherits `currentColor` so the
+// theme can drive it.
 //
 // Only the a11y contract matters to the tests (aria-labels, roles, class names),
 // so the drawings are free to change — the buttons that wrap these keep their
@@ -112,7 +112,7 @@ export function IconServers({ size = 24, ...rest }) {
   );
 }
 
-// Filled gear from the YouTube design (NEW PLAYER UI-UX.html).
+// Filled gear glyph.
 export function IconSettings({ size = 24, ...rest }) {
   return (
     <Base size={size} strokeWidth={0} {...rest}>
@@ -266,7 +266,7 @@ export function IconSliders({ size = 24, ...rest }) {
   );
 }
 
-// Playback speed reads as a speedometer, matching NEW PLAYER UI-UX.html.
+// Playback speed reads as a speedometer.
 export function IconGauge({ size = 24, ...rest }) {
   return (
     <Base size={size} {...rest}>

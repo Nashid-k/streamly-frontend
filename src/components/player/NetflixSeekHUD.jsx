@@ -2,12 +2,15 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { HUD_POP } from "../../constants/motion";
 import { IconChevronLeft, IconChevronRight } from "./chrome/icons";
+import { ACCENT, HUD_GLASS } from "./chrome/theme";
 
 /* Rewind / forward badge: a chevron pointing the seek direction beside a
-   "+x"/"-x" seconds label, riding on the picture. Anchored to its own edge of
-   the frame — left for rewind, right for forward — at the vertical position the
-   measured container reports. Presentational only (pointer-events none); it
-   rides above the player chrome and self-fades with the other HUDs. */
+   "+x"/"-x" seconds label, riding on the picture. From-scratch redesign
+   (2026-11): it is now one glass capsule instead of loose glyphs, anchored to
+   its own edge of the frame — left for rewind, right for forward — at the
+   vertical position the measured container reports. Presentational only
+   (pointer-events none); it rides above the player chrome and self-fades with
+   the other HUDs. */
 const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, seconds }) {
   const m = metrics;
   const back = direction === "back";
@@ -31,25 +34,29 @@ const NetflixSeekHUD = memo(function NetflixSeekHUD({ direction, metrics, second
         ...(back ? { left: m.seekInset } : { right: m.seekInset }),
         display: "flex",
         alignItems: "center",
-        gap: Math.max(2, Math.round(font * 0.18)),
+        gap: Math.max(2, Math.round(font * 0.16)),
+        padding: `${Math.round(font * 0.42)}px ${Math.round(font * 0.72)}px`,
+        borderRadius: 999,
+        ...HUD_GLASS,
         pointerEvents: "none",
         zIndex: 65,
       }}
     >
-      {back && <Icon size={m.seekIcon} color="#fff" strokeWidth={2} />}
+      {back && <Icon size={m.seekIcon} color={ACCENT} strokeWidth={2.4} />}
       <span
         style={{
           color: "#fff",
           fontSize: font,
-          fontWeight: 700,
+          fontWeight: 750,
           whiteSpace: "nowrap",
-          textShadow: "0 1px 4px rgba(0,0,0,0.8), 0 0 14px rgba(0,0,0,0.6)",
+          fontVariantNumeric: "tabular-nums",
+          textShadow: "0 1px 4px rgba(0,0,0,0.6)",
           fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
         }}
       >
         {label}
       </span>
-      {!back && <Icon size={m.seekIcon} color="#fff" strokeWidth={2} />}
+      {!back && <Icon size={m.seekIcon} color={ACCENT} strokeWidth={2.4} />}
     </motion.div>
   );
 });

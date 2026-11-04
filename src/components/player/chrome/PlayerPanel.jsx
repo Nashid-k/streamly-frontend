@@ -1,7 +1,5 @@
-// The floating settings popup card (NEW PLAYER UI-UX.html, 2026-10-08).
-//
-// Anchors above the bottom chrome pill at the bottom-right with a scale+fade
-// pop. ONE compact card on every device: the old touch variant stretched to a
+// The floating settings card: a compact glass popover anchored above the control
+// deck. ONE compact card on every device: the old touch variant stretched to a
 // full-width bottom sheet, which on a phone buried the picture behind a wall of
 // chrome — the viewer asked for the desktop-sized card on mobile too.
 // Back-chevron header navigates between submenus and root settings.
@@ -10,7 +8,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, motionSafe } from "../../../constants/motion";
 import IconBtn from "./IconBtn";
 import { IconChevronLeft, IconClose } from "./icons";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
+import { IS_TOUCH } from "./constants";
+import { ACCENT, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 const TITLES = {
   settings: "Settings",
@@ -93,13 +92,15 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
           style={{
             position: "absolute",
             right: 18,
-            bottom: 78,
+            // Sits just above the control deck, which is the surface it belongs
+            // to; the two never overlap.
+            bottom: IS_TOUCH ? 150 : 142,
             left: "auto",
             top: "auto",
             // Compact on every device: a 340px card capped to the frame, so a
             // phone gets the same tidy popover instead of a full-width sheet.
             width: "min(340px, calc(100% - 36px))",
-            maxHeight: "min(460px, calc(100% - 96px))",
+            maxHeight: "min(460px, calc(100% - 166px))",
             height: "auto",
             display: "flex",
             flexDirection: "column",
@@ -108,9 +109,9 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
             backdropFilter: GLASS_BLUR,
             WebkitBackdropFilter: GLASS_BLUR,
             border: `1px solid ${GLASS_BORDER}`,
-            borderRadius: 14,
-            boxShadow: "0 16px 48px rgba(0,0,0,0.65)",
-            padding: "4px 0 8px",
+            borderRadius: RADIUS.sheet,
+            boxShadow: "0 28px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)",
+            padding: "4px 0 10px",
             zIndex: 6,
             outline: "none",
             // The card grows out of the gear that opened it, so the open/close
@@ -124,8 +125,8 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "6px 12px 6px 14px",
-              borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+              padding: "8px 12px 8px 16px",
+              borderBottom: "1px solid rgba(149, 255, 80, 0.16)",
               userSelect: "none",
             }}
           >
@@ -161,14 +162,25 @@ export default function PlayerPanel({ panel, panelRef, onClose, onBackToSettings
                   <IconChevronLeft size={18} strokeWidth={2.4} />
                 </button>
               )}
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: ACCENT,
+                  boxShadow: "0 0 10px rgba(149,255,80,0.55)",
+                  flexShrink: 0,
+                }}
+              />
               <motion.span
                 key={panel}
                 className="np-panel-title"
                 {...titleMotion}
                 style={{
                   color: "#fff",
-                  fontWeight: 500,
-                  fontSize: 14.5,
+                  fontWeight: 600,
+                  fontSize: 15,
                   letterSpacing: "-0.01em",
                 }}
               >

@@ -9,14 +9,40 @@
 // version had one): dimming + blurring the picture during every stall read as a
 // broken player.
 //
+// From-scratch redesign (2026-11): the paused transport and the end card are
+// the player's two big moments, so both use the signal accent as a fill with a
+// dark glyph — the same primary-action language as the deck's play button.
+//
 // Each branch fades via AnimatePresence — a `transition` on a conditionally
 // mounted node never plays, which is why the spinner once looked frozen.
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, DURATION, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
 import { IS_TOUCH, CENTER_GLYPH_SHADOW } from "./constants";
-import { GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER } from "./theme";
-import { IconSkipBack10, IconSkipForward10, IconPlay, IconReplay } from "./icons";
+import {
+  ACCENT,
+  ACCENT_FG,
+  ACCENT_GLOW,
+  GLASS_BG_STRONG,
+  GLASS_BLUR,
+  GLASS_BORDER,
+} from "./theme";
+import { IconSkipBack10, IconSkipForward10, IconReplay } from "./icons";
 import { LoadingMessage, LoadingStage, RingSpinner } from "./primitives";
+
+const CENTER_BTN = {
+  borderRadius: "50%",
+  border: `1px solid ${GLASS_BORDER}`,
+  background: GLASS_BG_STRONG,
+  backdropFilter: GLASS_BLUR,
+  WebkitBackdropFilter: GLASS_BLUR,
+  color: "#fff",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  pointerEvents: "auto",
+  boxShadow: "0 16px 44px rgba(0,0,0,0.55)",
+};
 
 export default function CenterStack({
   showStage,
@@ -100,7 +126,7 @@ export default function CenterStack({
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
               transition={M.SPRING.SHEET}
-              style={{ display: "flex", lineHeight: 0 }}
+              style={{ display: "flex", lineHeight: 0, filter: "drop-shadow(0 0 18px rgba(149,255,80,0.25))" }}
             >
               <RingSpinner size={56} />
             </motion.span>
@@ -119,10 +145,10 @@ export default function CenterStack({
       {/* Paused transport (rewind / play / forward). TOUCH ONLY: on a
           hover-less device this is the primary, large tap target (and the only
           way to start playback when the autoplay policy blocks a cold start).
-          A mouse/trackpad already has the bottom bar's play/pause pill — and,
-          because the chrome always stays up while paused, that pill is on
-          screen — so drawing this here too put two play/pause buttons on the
-          picture at once. */}
+          A mouse/trackpad already has the deck's play button — and, because the
+          chrome always stays up while paused, that button is on screen — so
+          drawing this here too put two play/pause buttons on the picture at
+          once. */}
       {IS_TOUCH && !buffering && !ended && !playing && status === "playing" && (
         <motion.div
           initial={false}
@@ -134,12 +160,12 @@ export default function CenterStack({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: IS_TOUCH ? 20 : 28,
+            gap: IS_TOUCH ? 18 : 26,
             zIndex: 3,
             pointerEvents: "none",
           }}
         >
-          <button
+          <motion.button
             type="button"
             className="np-icon-btn np-center-btn"
             onClick={(e) => {
@@ -148,66 +174,48 @@ export default function CenterStack({
             }}
             aria-label={`Rewind ${skipSeconds} seconds`}
             title={`Rewind ${skipSeconds} seconds`}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: PRESS_SCALE.CONTROL }}
             style={{
+              ...CENTER_BTN,
               position: "relative",
-              width: IS_TOUCH ? 74 : 78,
-              height: IS_TOUCH ? 74 : 78,
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "auto",
+              width: IS_TOUCH ? 72 : 76,
+              height: IS_TOUCH ? 72 : 76,
             }}
           >
-            <IconSkipBack10 size={IS_TOUCH ? 46 : 50} style={CENTER_GLYPH_SHADOW} />
-          </button>
-          <button
+            <IconSkipBack10 size={IS_TOUCH ? 44 : 48} style={CENTER_GLYPH_SHADOW} />
+          </motion.button>
+          <motion.button
             type="button"
             className="np-icon-btn np-center-btn"
             onClick={onTogglePlay}
             aria-label="Play"
             title="Play"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: PRESS_SCALE.CONTROL }}
             style={{
-              width: IS_TOUCH ? 128 : 144,
-              height: IS_TOUCH ? 128 : 144,
-              borderRadius: "50%",
+              ...CENTER_BTN,
+              width: IS_TOUCH ? 122 : 138,
+              height: IS_TOUCH ? 122 : 138,
               border: "none",
-              background: "rgba(70,62,55,0.6)",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "auto",
-              boxShadow: "0 16px 44px rgba(0,0,0,0.55)",
-              transition: "transform var(--duration-fast) var(--ease-out)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "scale(1.04)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "scale(1)";
+              background: ACCENT,
+              color: ACCENT_FG,
+              boxShadow: `${ACCENT_GLOW}, 0 22px 54px rgba(0,0,0,0.5)`,
             }}
           >
             {/* Bias the triangle optically: a centred Play glyph reads as
-                slightly left-heavy against the circle. Exact drawing from NEW PLAYER UI-UX.html. */}
+                slightly left-heavy against the circle. */}
             <svg
-              width={IS_TOUCH ? 68 : 80}
-              height={IS_TOUCH ? 68 : 80}
+              width={IS_TOUCH ? 64 : 76}
+              height={IS_TOUCH ? 64 : 76}
               viewBox="0 0 24 24"
               aria-hidden="true"
               style={{ transform: "translateX(4px)" }}
             >
-              <path d="M8 5.5v13l10.5-6.5z" fill="#fff" stroke="#fff" strokeWidth={2.8} strokeLinejoin="round" />
+              <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="currentColor" strokeWidth={2.8} strokeLinejoin="round" />
             </svg>
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             className="np-icon-btn np-center-btn"
             onClick={(e) => {
@@ -216,70 +224,65 @@ export default function CenterStack({
             }}
             aria-label={`Fast forward ${skipSeconds} seconds`}
             title={`Fast forward ${skipSeconds} seconds`}
+            whileHover={{ scale: 1.06 }}
+            whileTap={{ scale: PRESS_SCALE.CONTROL }}
             style={{
+              ...CENTER_BTN,
               position: "relative",
-              width: IS_TOUCH ? 74 : 78,
-              height: IS_TOUCH ? 74 : 78,
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              color: "#fff",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              pointerEvents: "auto",
+              width: IS_TOUCH ? 72 : 76,
+              height: IS_TOUCH ? 72 : 76,
             }}
           >
-            <IconSkipForward10 size={IS_TOUCH ? 46 : 50} style={CENTER_GLYPH_SHADOW} />
-          </button>
+            <IconSkipForward10 size={IS_TOUCH ? 44 : 48} style={CENTER_GLYPH_SHADOW} />
+          </motion.button>
         </motion.div>
       )}
       {/* End state. Wrapped so the button can LEAVE on the same spring it
           arrived on: replaying used to delete it in one frame, which is the
           half of "to and fro" that was missing everywhere in this file. */}
       <AnimatePresence>
-      {!buffering && ended && (
-        <motion.button
-          key="np-replay"
-          type="button"
-          className="np-replay"
-          onClick={onReplay}
-          aria-label="Watch again"
-          title="Watch again"
-          // A hairline ring that blooms out once when the end card lands, so
-          // the eye is pulled to the only action on screen.
-          initial={{ opacity: 0, scale: 0.7 }}
-          animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          transition={{
-            opacity: { duration: DURATION.FAST, ease: EASE_OUT },
-            scale: M.SPRING.PRESS,
-          }}
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: PRESS_SCALE.CONTROL }}
-          style={{
-            position: "absolute",
-            inset: 0,
-            margin: "auto",
-            width: 84,
-            height: 84,
-            borderRadius: "50%",
-            border: `1px solid ${GLASS_BORDER}`,
-            background: GLASS_BG_STRONG,
-            backdropFilter: GLASS_BLUR,
-            WebkitBackdropFilter: GLASS_BLUR,
-            color: "#fff",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 3,
-          }}
-        >
-          <IconReplay size={42} />
-        </motion.button>
-      )}
+        {!buffering && ended && (
+          <motion.button
+            key="np-replay"
+            type="button"
+            className="np-replay"
+            onClick={onReplay}
+            aria-label="Watch again"
+            title="Watch again"
+            // A hairline ring that blooms out once when the end card lands, so
+            // the eye is pulled to the only action on screen.
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: [0.7, 1.08, 1] }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{
+              opacity: { duration: DURATION.FAST, ease: EASE_OUT },
+              scale: M.SPRING.PRESS,
+            }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: PRESS_SCALE.CONTROL }}
+            style={{
+              position: "absolute",
+              inset: 0,
+              margin: "auto",
+              width: 86,
+              height: 86,
+              borderRadius: "50%",
+              border: "none",
+              background: ACCENT,
+              backdropFilter: GLASS_BLUR,
+              WebkitBackdropFilter: GLASS_BLUR,
+              color: ACCENT_FG,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: `${ACCENT_GLOW}, 0 22px 54px rgba(0,0,0,0.5)`,
+              zIndex: 3,
+            }}
+          >
+            <IconReplay size={42} />
+          </motion.button>
+        )}
       </AnimatePresence>
     </>
   );

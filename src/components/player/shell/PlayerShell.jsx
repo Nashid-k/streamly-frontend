@@ -6,6 +6,7 @@
 // (videoRef / screenRef / scrubRef / panelRef) are handed down to be attached,
 // and every state change arrives as a callback.
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useMotionTokens } from "../../../constants/motion";
 import {
   ChromeTopBar,
   SkipPill,
@@ -21,7 +22,6 @@ import {
   SAFE_TOP,
   SAFE_BOTTOM,
 } from "../chrome";
-import { RIVO_MOTION } from "../chrome/theme";
 import {
   NetflixVolumeHUD,
   NetflixAspectHUD,
@@ -191,6 +191,7 @@ export default function PlayerShell({
   volume,
 }) {
   const dimReducedMotion = useReducedMotion();
+  const M = useMotionTokens(dimReducedMotion);
   return (
     // No local <MotionConfig>: this tree inherits the app-level one
     // (App.jsx: reducedMotion = in-app preference ? "always" : "user"). A nested
@@ -261,12 +262,12 @@ export default function PlayerShell({
             <motion.div
               key="np-panel-dim"
               aria-hidden="true"
-              initial={dimReducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              // RIVO's `.3s` step on `ease-tv` — the same curve and duration as
-              // the panel page swap, so the veil and the card arrive together.
-              transition={dimReducedMotion ? { duration: 0 } : RIVO_MOTION.STANDARD}
+              initial={M.FADE.initial}
+              animate={M.FADE.animate}
+              exit={M.FADE.exit}
+              // Opacity-only fade via the canonical token, so the veil and the
+              // panel card share one vocabulary and one reduced-motion answer.
+              transition={M.FADE.transition}
               onClick={() => {
                 setPanel(null);
                 poke();
@@ -298,10 +299,10 @@ export default function PlayerShell({
           subtitle={displaySubtitle}
           onBack={onExitPlayer}
         />
-        {/* Netflix-style Skip Intro pill: bottom-right, above the transport row,
-            present only inside the intro window, seeks just past the credits.
-            Stays tappable even with the chrome hidden (Netflix keeps it while
-            the intro plays) — but yields to any open panel. */}
+        {/* Skip Intro pill: bottom-right, above the control deck, present only
+            inside the intro window, seeks just past the credits. Stays tappable
+            even with the chrome hidden (the provider keeps it while the intro
+            plays) — but yields to any open panel. */}
 <AnimatePresence>
           {showSkipIntro && !sheetOpen && (
             <SkipPill
@@ -499,7 +500,7 @@ export default function PlayerShell({
           />
         </PlayerPanel>
 
-        {/* YouTube-style Bottom Sheet for Episodes */}
+        {/* Episodes rail (bottom sheet) */}
         <AnimatePresence>
           {panel === "episodes" && (
             <EpisodesRail 

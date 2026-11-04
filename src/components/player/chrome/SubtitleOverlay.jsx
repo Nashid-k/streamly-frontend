@@ -42,7 +42,7 @@ export default function SubtitleOverlay({
     background === 0 ? "none" : "0 2px 6px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.9)";
   const boxStyle =
     background === 2
-      ? { background: "rgba(0,0,0,0.72)", padding: "2px 10px", borderRadius: 8 }
+      ? { background: "rgba(7,10,8,0.8)", padding: "3px 12px", borderRadius: 10 }
       : null;
   return (
     <AnimatePresence mode="wait">
@@ -58,10 +58,10 @@ export default function SubtitleOverlay({
             position: "absolute",
             left: "6%",
             right: "6%",
-            // Clears the visible bottom chrome so a cue never sits under the
+            // Clears the visible control deck so a cue never sits under the
             // transport row; when the chrome is hidden the caption drops back to
             // a cinematic offset.
-            bottom: controlsVisible ? 132 : 64,
+            bottom: controlsVisible ? 148 : 72,
             textAlign: "center",
             zIndex: 3,
             pointerEvents: "none",

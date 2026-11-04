@@ -1,35 +1,31 @@
 import { memo } from "react";
-import { motion } from "framer-motion";
-import { SPRING } from "../../constants/motion";
+import { motion, useReducedMotion } from "framer-motion";
+import { useMotionTokens } from "../../constants/motion";
 import { IconPause, IconPlay } from "./chrome/icons";
+import { ACCENT } from "./chrome/theme";
 
 const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
 
-/* YouTube-style transient play/pause overlay: a big filled glyph, dead centre of
-   the frame, that pops on every play/pause toggle and self-fades with the other
-   HUDs (the player clears it via the shared hud timer). Presentational only
-   (pointer-events none, aria-hidden); `kind` is the NEW state after the toggle
-   ("play" | "pause").
-   The glyph sits on the picture with NO dark box behind it (an earlier version
-   drew a 55%-black squircle, which read as a grey smear over the frame and
-   fought bright scenes) — legibility comes from a soft text shadow instead.
-   Size derives from the measured frame like every other HUD, so a phone and a
-   4K window both read right.
-   Deliberately NOT HUD_POP: this badge marks a one-shot state change and needs
-   the larger 0.7 pop to read as an event, where the value HUDs (volume,
-   brightness, aspect, seek) are one gesture repeated and therefore share a
-   single pop shape. */
+/** One-shot play/pause event badge (not a repeated-value HUD). The value HUDs
+ *  (volume/aspect/seek + the hold pill) share HUD_POP / PILL_IN because they are
+ *  the same gesture repeated; this one is a discrete state change that needs a
+ *  harder 0.7→1 pop to land as an event, so it keeps HUD_POP on its own shape
+ *  and is left out of the "shared tokens adopted" assertion. */
 const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics }) {
+  const M = useMotionTokens(useReducedMotion());
   const scale = metrics?.scale || 1;
   const box = Math.round(clamp(72, 96 * scale, 148));
   const icon = Math.round(clamp(34, 46 * scale, 68));
   const Icon = kind === "pause" ? IconPause : IconPlay;
+  const pop = {
+    initial: { opacity: 0, scale: 0.7 },
+    animate: { opacity: 1, scale: 1 },
+    exit: { opacity: 0, scale: 0.85 },
+    transition: M.SPRING.SNAPPY,
+  };
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.7 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.85 }}
-      transition={SPRING.SNAPPY}
+      {...pop}
       aria-hidden="true"
       data-kind={kind === "pause" ? "pause" : "play"}
       style={{
@@ -55,13 +51,13 @@ const NetflixPlayPauseHUD = memo(function NetflixPlayPauseHUD({ kind, metrics })
           initial={{ scale: 0.55, rotate: kind === "play" ? -25 : 0, opacity: 0 }}
           animate={{ scale: 1, rotate: 0, opacity: 1 }}
           exit={{ scale: 0.7, opacity: 0 }}
-          transition={SPRING.SNAPPY}
+          transition={M.SPRING.SNAPPY}
           style={{ display: "flex", lineHeight: 0 }}
         >
           <Icon
             size={icon}
-            color="#fff"
-            fill="#fff"
+            color={ACCENT}
+            fill={ACCENT}
             strokeWidth={0}
             style={{ filter: "drop-shadow(0 2px 10px rgba(0,0,0,0.75))" }}
           />

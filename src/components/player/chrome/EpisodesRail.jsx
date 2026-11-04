@@ -29,9 +29,9 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
 
   return (
     <motion.div
-      initial={{ y: "100%", opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      exit={{ y: "100%", opacity: 0 }}
+      initial={{ opacity: 0, y: 60, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 40, scale: 0.97 }}
       transition={M.SPRING.SHEET}
       onClick={(e) => e.stopPropagation()}
       style={{
@@ -39,9 +39,9 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
         bottom: 0,
         left: 0,
         right: 0,
-        background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 55%, transparent 100%)",
+        background: "linear-gradient(to top, rgba(7,10,8,0.96) 0%, rgba(9,13,10,0.72) 58%, transparent 100%)",
         zIndex: 6,
-        padding: `40px 24px calc(30px + env(safe-area-inset-bottom, 0px))`,
+        padding: `44px 24px calc(34px + env(safe-area-inset-bottom, 0px))`,
         display: "flex",
         alignItems: "center",
       }}
@@ -118,11 +118,11 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
                   width: "100%",
                   aspectRatio: "16/9",
                   flexShrink: 0,
-                  backgroundColor: "#18181b",
-                  borderRadius: 8,
+                  backgroundColor: "#101512",
+                  borderRadius: 12,
                   overflow: "hidden",
                   marginBottom: 10,
-                  boxShadow: isCurrent ? `0 0 0 2px ${ACCENT}` : "none",
+                  boxShadow: isCurrent ? `0 0 0 2px ${ACCENT}, 0 0 22px rgba(149,255,80,0.25)` : "none",
                 }}
               >
                 {ep.thumbnailUrl ? (
@@ -169,8 +169,8 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
                   </div>
                 )}
                 {isCurrent && (
-                  <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ color: "#000", fontWeight: 700, fontSize: 13, background: ACCENT, padding: "4px 8px", borderRadius: 4 }}>
+                  <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(0,0,0,0.52)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ color: "#07120a", fontWeight: 800, fontSize: 12, letterSpacing: 0.4, background: ACCENT, padding: "5px 10px", borderRadius: 999 }}>
                       Now Playing
                     </span>
                   </div>
@@ -253,13 +253,13 @@ export default function EpisodesRail({ episodes, episode, onSelectEpisode, setPa
         onClick={() => setPanel(null)}
         style={{
           position: "absolute",
-          top: 8,
+          top: 10,
           right: 24,
-          background: "rgba(0,0,0,0.5)",
-          border: "none",
+          background: "rgba(9,12,10,0.72)",
+          border: "1px solid rgba(255,255,255,0.14)",
           borderRadius: "50%",
-          width: 32,
-          height: 32,
+          width: 34,
+          height: 34,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

@@ -7,7 +7,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens } from "../../../constants/motion";
 import { IconCheck, IconChevronRight } from "./icons";
-import { ACCENT } from "./theme";
+import { ACCENT, ACCENT_SOFT } from "./theme";
 
 export default function DialogRow({ selected, onClick, title, sub, disabled, icon, hasChevron }) {
   const M = useMotionTokens(useReducedMotion());
@@ -56,16 +56,18 @@ export default function DialogRow({ selected, onClick, title, sub, disabled, ico
         textAlign: "left",
         margin: "2px 8px",
         padding: sub && !hasChevron ? "8px 12px" : "0 12px",
-        minHeight: sub && !hasChevron ? 52 : 48,
-        borderRadius: 12,
+        minHeight: sub && !hasChevron ? 54 : 48,
+        borderRadius: 14,
         border: "none",
-        background: selected ? "rgba(255,255,255,0.18)" : "transparent",
-        color: selected ? "#fff" : "rgba(255,255,255,0.9)",
+        background: selected ? ACCENT_SOFT : "transparent",
+        boxShadow: selected ? `inset 3px 0 0 ${ACCENT}` : "none",
+        color: selected ? "#fff" : "rgba(255,255,255,0.88)",
         fontWeight: selected ? 600 : 400,
         opacity: disabled ? 0.45 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
         fontSize: 14.5,
-        transition: "background var(--duration-fast) var(--ease-out)",
+        transition:
+          "background var(--zxc-t-fast) var(--zxc-ease), box-shadow var(--zxc-t-fast) var(--zxc-ease), transform var(--zxc-t-instant) var(--zxc-ease)",
       }}
     >
       <span className="np-dialog-row-icon" style={{ width: 24, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginRight: 12 }}>

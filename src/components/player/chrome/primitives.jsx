@@ -203,9 +203,8 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
    reduced-motion block in player.css stops it entirely for viewers who asked for
    that — an endlessly spinning ring is the textbook case of motion that causes
    discomfort, and it is exactly what that media query exists for. */
-/* Tailspin: the conic-gradient ring player.zxcprime.xyz uses (scraped from
-   their shipped CSS module). The comet-tail sweep reads lighter than a
-   border-arc spinner at the same size; rendered white over video. */
+/* Tailspin: the conic-gradient loading ring. The comet-tail sweep reads lighter
+   than a border-arc spinner at the same size; rendered white over video. */
 export function RingSpinner({ size = 34 }) {
   return (
     <span

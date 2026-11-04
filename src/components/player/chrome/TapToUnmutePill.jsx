@@ -16,10 +16,7 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
         <motion.button
           key="np-automute"
           type="button"
-          initial={{ opacity: 0, y: 14, scale: 0.94 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 10, scale: 0.96 }}
-          transition={M.SPRING.LIFT}
+          {...M.PILL_IN}
           onClick={(e) => {
             e.stopPropagation();
             onUnmute();
@@ -33,18 +30,22 @@ export default function TapToUnmutePill({ visible, onUnmute }) {
             display: "flex",
             alignItems: "center",
             gap: 8,
-            padding: "8px 14px",
-            background: "rgba(0,0,0,0.65)",
+            padding: "9px 16px",
+            background: "rgba(9,12,10,0.9)",
             color: "#fff",
-            border: "1px solid rgba(255,255,255,0.55)",
+            border: "1px solid rgba(149,255,80,0.4)",
             borderRadius: "var(--radius-full)",
             fontWeight: 700,
             fontSize: 13,
             cursor: "pointer",
+            boxShadow: "0 14px 34px rgba(0,0,0,0.55)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
             zIndex: 6,
           }}
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: PRESS_SCALE.CONTROL }}
+          data-geometry="bottom-left pill, 140px above safe bottom (skip pill is bottom-right)"
         >
           <IconVolumeMute size={16} color={ACCENT} />
           Tap to unmute

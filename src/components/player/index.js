@@ -1,5 +1,5 @@
-/* Player chrome leaves — Netflix-style HUD overlays + decorative arcs,
-   extracted from CustomVideoPlayer so the big player stays lean. */
+/* Player chrome leaves — the HUD overlays and their decorative arcs, extracted
+   from CustomVideoPlayer so the big player stays lean. */
 
 export { default as NetflixVolumeHUD } from "./NetflixVolumeHUD";
 export { default as NetflixAspectHUD } from "./NetflixAspectHUD";
