@@ -1,95 +1,171 @@
-// Netflix "Left off at …" resume card.
+// Center-screen Resume Watching prompt.
 //
-// Auto-resumes after a short wait (the engine owns the countdown and the
-// session-once gate); this owns the presentation and the two actions. The
-// bottom-right corner matches the episodes rail, whose gradient is transparent
-// at the top, so it does not show through an open panel.
+// Displayed when the title/episode has a saved watch position. Pauses the video
+// and gives the viewer two clear choices on the center of the screen:
+//   1. "Resume Watching" (seeks to the saved timestamp and starts playback)
+//   2. "Start Over" (starts playback from 0:00)
+//
+// Follows player-v4 design tokens: dark charcoal background, subtle border,
+// smooth spring animation, theme accent, and accessible button semantics.
+import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useMotionTokens } from "../../../constants/motion";
 import { IconPlay } from "./icons";
-import { IS_TOUCH } from "./constants";
-import { ACCENT, ACCENT_FG, GLASS_BG_STRONG, GLASS_BLUR, GLASS_BORDER, RADIUS } from "./theme";
 
 export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
-  const M = useMotionTokens(useReducedMotion());
+  const reduceMotion = useReducedMotion();
+  const resumeBtnRef = useRef(null);
+
+  useEffect(() => {
+    if (offer) {
+      resumeBtnRef.current?.focus();
+    }
+  }, [offer]);
+
   return (
     <AnimatePresence>
       {offer && (
-        <motion.div
-          key="np-resume"
-          role="complementary"
-          aria-label={`Resume from ${fmtTime(offer.at)}`}
-          initial={M.MODAL_PANEL.initial}
-          animate={M.MODAL_PANEL.animate}
-          exit={M.MODAL_PANEL.exit}
-          transition={M.MODAL_PANEL.transition}
-          onClick={(e) => e.stopPropagation()}
+        <div
+          className="np-resume-scrim"
           style={{
             position: "absolute",
-            right: "max(1em, env(safe-area-inset-right))",
-            bottom: "calc(6.4em + env(safe-area-inset-bottom))",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.8em",
-            width: "min(20em, calc(100% - 2em))",
-            background: "#0d1219",
-            borderRadius: "1.1em",
-            border: "1px solid #ffffff17",
-            padding: "0.9em 1.1em",
-            zIndex: 6,
-            boxShadow: "0 .5em 1.4em #0007",
+            inset: 0,
+            zIndex: 10,
+            display: "grid",
+            placeItems: "center",
+            background: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
+            WebkitBackdropFilter: "blur(4px)",
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <div style={{ minWidth: 0 }}>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
-              You left off at {fmtTime(offer.at)}
-            </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 3 }}>
-              {offer.left > 1 ? `Auto-resuming in ${offer.left}s` : "Resuming…"}
-            </div>
-          </div>
-          <button
-            type="button"
-            className="np-resume-btn"
-            onClick={() => onResume(offer.at)}
+          <motion.div
+            key="np-resume"
+            role="dialog"
+            aria-modal="true"
             aria-label={`Resume from ${fmtTime(offer.at)}`}
+            className="np-resume-card"
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: 8 }}
+            transition={{ type: "spring", stiffness: 380, damping: 28 }}
             style={{
+              width: "min(340px, calc(100% - 32px))",
+              background: "#0d1219",
+              border: "1px solid #ffffff17",
+              borderRadius: "1.25em",
+              boxShadow: "0 1em 3em #000c",
+              padding: "1.8em 1.5em 1.5em",
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: 8,
-              padding: "9px 20px",
-              background: ACCENT,
-              color: ACCENT_FG,
-              border: "none",
-              borderRadius: RADIUS.pill,
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: "pointer",
-              boxShadow: "0 0 20px rgba(149,255,80,0.28)",
+              textAlign: "center",
+              color: "#fff",
             }}
           >
-            <IconPlay size={16} />
-            Resume
-          </button>
-          <button
-            type="button"
-            className="np-restart-btn"
-            onClick={onRestart}
-            aria-label="Restart from the beginning"
-            style={{
-              padding: "9px 16px",
-              background: "transparent",
-              color: "rgba(255,255,255,0.85)",
-              border: "1px solid rgba(255,255,255,0.28)",
-              borderRadius: RADIUS.pill,
-              fontWeight: 600,
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            Restart
-          </button>
-        </motion.div>
+            {/* Accent-tinted play badge */}
+            <div
+              style={{
+                width: "3.2em",
+                height: "3.2em",
+                borderRadius: "50%",
+                background: "color-mix(in srgb, var(--accent, #8652bb) 20%, #121c27)",
+                display: "grid",
+                placeItems: "center",
+                marginBottom: "0.9em",
+                color: "var(--accent, #8652bb)",
+              }}
+            >
+              <IconPlay size={24} />
+            </div>
+
+            <h3
+              style={{
+                fontSize: "1.25em",
+                fontWeight: 700,
+                color: "#fff",
+                margin: "0 0 0.35em",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Resume Watching?
+            </h3>
+
+            <p
+              style={{
+                fontSize: "0.92em",
+                color: "#8fa3b3",
+                margin: "0 0 1.5em",
+                lineHeight: 1.45,
+              }}
+            >
+              You left off at <b style={{ color: "#dbe4ec" }}>{fmtTime(offer.at)}</b>. Would you like to continue or start over?
+            </p>
+
+            {/* Action buttons */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6em", width: "100%" }}>
+              <button
+                ref={resumeBtnRef}
+                type="button"
+                className="np-resume-btn nxb"
+                onClick={() => onResume(offer.at)}
+                aria-label={`Resume from ${fmtTime(offer.at)}`}
+                style={{
+                  width: "100%",
+                  minHeight: "44px",
+                  padding: ".6em 1em",
+                  borderRadius: ".8em",
+                  background: "var(--accent, #8652bb)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: "1em",
+                  border: 0,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5em",
+                  transition: "transform .2s var(--ease), filter .2s",
+                }}
+              >
+                <IconPlay size={16} />
+                Resume from {fmtTime(offer.at)}
+              </button>
+
+              <button
+                type="button"
+                className="np-restart-btn row"
+                onClick={onRestart}
+                aria-label="Restart from the beginning"
+                style={{
+                  width: "100%",
+                  minHeight: "42px",
+                  padding: ".5em 1em",
+                  borderRadius: ".8em",
+                  background: "#ffffff12",
+                  color: "#b9c6d2",
+                  fontWeight: 600,
+                  fontSize: ".92em",
+                  border: 0,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.5em",
+                  transition: "background .2s, color .2s, transform .2s",
+                }}
+              >
+                <svg
+                  className="ic"
+                  style={{ width: "1.2em", height: "1.2em" }}
+                  viewBox="0 0 24 24"
+                >
+                  <use href="#i-rew" />
+                </svg>
+                Start Over
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </AnimatePresence>
   );

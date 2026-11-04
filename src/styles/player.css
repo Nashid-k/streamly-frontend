@@ -3733,3 +3733,36 @@
   content: none !important;
 }
 
+/* ── Skip Intro / Outro matching player-v4 ────────────────────────────── */
+.skip-pill:hover,
+.np-skip-intro:hover {
+  background: #ffffff14 !important;
+  border-color: #ffffff29 !important;
+  color: #fff !important;
+  transform: translateY(-1px) !important;
+}
+.skip-pill:hover .chv,
+.np-skip-intro:hover .chv {
+  transform: translateX(3px) !important;
+}
+.skip-pill:active,
+.np-skip-intro:active {
+  transform: scale(.97) !important;
+}
+
+/* ── Center Resume Watching Prompt matching player-v4 ────────────────── */
+.np-resume-card .np-resume-btn:hover {
+  filter: brightness(1.12);
+}
+.np-resume-card .np-resume-btn:active {
+  transform: scale(.97);
+}
+.np-resume-card .np-restart-btn:hover {
+  background: #ffffff1f !important;
+  color: #fff !important;
+}
+.np-resume-card .np-restart-btn:active {
+  transform: scale(.97);
+}
+
+

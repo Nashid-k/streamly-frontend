@@ -840,9 +840,9 @@ export default function NativePlayerView({
     }
   };
 
-  /* Netflix resume: when a continue-watching entry exists for this title/
-     episode, offer "Left off at …" once per session and auto-resume into the
-     saved position after a short countdown. Restart scrubs to 0. */
+  /* Resume prompt on center of screen: when a continue-watching entry exists
+     for this title/episode, pause and offer "Resume Watching" / "Start Over"
+     on center of screen so the user can choose without being rushed by a timer. */
   const maybeOfferResume = () => {
     const entry = watchedEntryRef.current;
     const video = videoRef.current;
@@ -853,8 +853,10 @@ export default function NativePlayerView({
     if (resumeHandledKeyRef.current === key) return;
     if (at <= 0 || (dur > 0 && at >= dur * 0.92)) return; // finished / barely started
     resumeHandledKeyRef.current = key;
-    resumeLeftRef.current = RESUME_WAIT_SECONDS;
-    setResumeOffer({ at, left: RESUME_WAIT_SECONDS });
+    setResumeOffer({ at });
+    try {
+      video.pause();
+    } catch {}
   };
   maybeOfferResumeRef.current = maybeOfferResume;
 
@@ -908,30 +910,6 @@ export default function NativePlayerView({
     const iv = setInterval(save, 1000);
     return () => clearInterval(iv);
   }, [playing, onProgressChange]);
-
-  // Resume countdown: ONE interval ticks the mirror ref and, on the tick that
-  // would otherwise just hide the card, commits the resume seek in the same
-  // pass. The old design paired this interval with a parallel setTimeout that
-  // was re-armed every offer-change (the re-render after each tick) — so the
-  // final tick nulled the offer, whose cleanup cancelled the pending auto-commit
-  // and the resume silently never fired. Now the counter reaches zero and the
-  // seek happens in a single step, and pausing still freezes the countdown.
-  useEffect(() => {
-    if (!resumeOffer) return undefined;
-    const tick = setInterval(() => {
-      if (videoRef.current?.paused) return;
-      resumeLeftRef.current -= 1;
-      if (resumeLeftRef.current <= 0) {
-        // Counter expired: commit BEFORE hiding the card so nothing can cancel
-        // the pending seek (the offer is intentionally not derived from the ref).
-        const at = resumeOffer.at;
-        commitResumeRef.current?.(at);
-        return;
-      }
-      setResumeOffer((o) => (o ? { ...o, left: resumeLeftRef.current } : null));
-    }, 1000);
-    return () => clearInterval(tick);
-  }, [resumeOffer]);
 
 
   /* Settings-sheet focus management. Two real problems: focus was never moved
