@@ -597,8 +597,8 @@
 
 /* ── Tailspin loader ──────────────────────────────────────────────────────
    A masked conic-gradient ring: the conic sweep reads as a comet tail, and the
-   radial mask punches the donut hole. Rendered white-on-video at the player's
-   56px footprint. */
+   radial mask punches the donut hole. Rendered in the signal accent at the
+   player's 56px footprint. */
 .np-tailspin {
   width: var(--uib-size, 56px);
   height: var(--uib-size, 56px);
@@ -627,7 +627,7 @@
 }
 
 /* ── Horizontal start loader (INITIAL cold open only) ─────────────────────
-   A hairline track (`.np-loading-line`, sized inline) with a white segment
+   A hairline track (`.np-loading-line`, sized inline) with an accent segment
    sweeping across it. Rendered by LoadingStage ONLY while `initial` is true —
    i.e. the first time the player boots and no frame has played yet; every
    later wait (server/quality/dub switch, stall) keeps the Tailspin ring.

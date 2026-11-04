@@ -5,6 +5,7 @@
 // presentation-only; the stage's data comes in as props so the engine keeps
 // owning the resolve state.
 import { useEffect, useState } from "react";
+import { ACCENT, TEXT, TEXT_DIM, TEXT_FAINT, TRACK } from "./theme";
 
 const FUN_FACTS = [
   "Reticulating splines...",
@@ -29,9 +30,28 @@ export function LoadingMessage({ title }) {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-      {title && <span style={{ fontSize: 20, color: "#fff" }}>Loading {title}</span>}
-      <span style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontStyle: "italic", minHeight: "20px" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      {title && (
+        <span
+          style={{
+            fontSize: 19,
+            fontWeight: 700,
+            letterSpacing: "-0.02em",
+            color: TEXT,
+          }}
+        >
+          Loading {title}
+        </span>
+      )}
+      <span
+        style={{
+          fontSize: 13,
+          color: TEXT_DIM,
+          letterSpacing: "0.01em",
+          minHeight: "20px",
+        }}
+      >
+        <span style={{ color: ACCENT, marginRight: 8 }}>•</span>
         {FUN_FACTS[index]}
       </span>
     </div>
@@ -64,7 +84,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
         justifyContent: "center",
         gap: 18,
         overflow: "hidden",
-        background: "#000",
+        background: "#070a08",
         zIndex: 3,
       }}
     >
@@ -111,7 +131,8 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
         style={{
           position: "absolute",
           inset: 0,
-          background: "radial-gradient(circle at 50% 45%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 70%)",
+          background:
+            "radial-gradient(circle at 50% 45%, rgba(149,255,80,0.1) 0%, rgba(0,0,0,0.42) 30%, rgba(0,0,0,0.82) 72%)",
         }}
       />
       {/* The title art itself, big and centred. The blurred backdrop behind is
@@ -160,11 +181,11 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
               style={{
                 fontSize: "clamp(18px, 3.2vw, 30px)",
                 fontWeight: 700,
-                color: "#fff",
-                letterSpacing: "-0.02em",
+                color: TEXT,
+                letterSpacing: "-0.025em",
                 textAlign: "center",
                 padding: "0 24px",
-                textShadow: "0 2px 18px rgba(0,0,0,0.7)",
+                textShadow: "0 4px 28px rgba(0,0,0,0.8)",
               }}
             >
               {title}
@@ -177,7 +198,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
               dub/episode switch re-mounts this same stage, and a ring reads as
               "the stream is thinking" rather than "the app is starting"). Purely
               decorative → the reduced-motion block stops and parks both. */}
-          <div style={{ marginTop: 10, display: "flex", justifyContent: "center" }}>
+          <div style={{ marginTop: 6, display: "flex", justifyContent: "center" }}>
             {initial ? <LineLoader /> : <RingSpinner size={44} />}
           </div>
         </div>
@@ -186,9 +207,13 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
         <div
           style={{
             position: "relative",
-            fontSize: 12.5,
-            color: "rgba(255,255,255,0.6)",
-            letterSpacing: "0.01em",
+            fontSize: 11,
+            fontWeight: 600,
+            color: TEXT_FAINT,
+            letterSpacing: "0.16em",
+            textTransform: "uppercase",
+            textAlign: "center",
+            maxWidth: "min(84vw, 560px)",
           }}
         >
           {message}
@@ -198,29 +223,29 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
   );
 }
 
-/* A white ring with a gap that travels around it. Purely decorative, so it is
-   aria-hidden and the real state is carried by the visible status line instead. The
-   reduced-motion block in player.css stops it entirely for viewers who asked for
-   that — an endlessly spinning ring is the textbook case of motion that causes
-   discomfort, and it is exactly what that media query exists for. */
-/* Tailspin: the conic-gradient loading ring. The comet-tail sweep reads lighter
-   than a border-arc spinner at the same size; rendered white over video. */
+/* A ring with a gap that travels around it. Purely decorative, so it is
+   aria-hidden and the real state is carried by the visible status line instead.
+   The reduced-motion block in player.css stops it entirely for viewers who asked
+   for that — an endlessly spinning ring is the textbook case of motion that
+   causes discomfort, and it is exactly what that media query exists for.
+   The conic-gradient comet-tail sweep reads lighter than a border-arc spinner
+   at the same size; rendered in the signal accent over video. */
 export function RingSpinner({ size = 34 }) {
   return (
     <span
       className="np-tailspin np-ring-spinner"
       aria-hidden="true"
-      style={{ "--uib-size": `${size}px`, "--uib-color": "#fff", "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
+      style={{ "--uib-size": `${size}px`, "--uib-color": ACCENT, "--uib-speed": "0.9s", "--uib-stroke": "4px" }}
     >
       <span />
     </span>
   );
 }
 
-/* The horizontal loader: a hairline track with a white segment sweeping across
-   it. Used for the SERVER-level cold opens (the first load and a manual server
-   switch — see LoadingStage); every other later wait keeps the round Tailspin
-   ring. Purely decorative, aria-hidden, and the reduced-motion block in
+/* The horizontal loader: a hairline track with an accent segment sweeping
+   across it. Used for the SERVER-level cold opens (the first load and a manual
+   server switch — see LoadingStage); every other later wait keeps the round
+   Tailspin ring. Purely decorative, aria-hidden, and the reduced-motion block in
    player.css parks the segment mid-track (a frozen full bar would read as
    progress; a parked partial bar reads as "loading"). */
 export function LineLoader() {
@@ -231,13 +256,21 @@ export function LineLoader() {
       style={{
         width: "min(56vw, 340px)",
         height: 3,
-        borderRadius: 2,
-        background: "rgba(255,255,255,0.16)",
+        borderRadius: 999,
+        background: TRACK,
         overflow: "hidden",
         display: "block",
       }}
     >
-      <span style={{ display: "block", height: "100%", borderRadius: 2, background: "#fff" }} />
+      <span
+        style={{
+          display: "block",
+          height: "100%",
+          borderRadius: 999,
+          background: `linear-gradient(90deg, rgba(149,255,80,0.45), ${ACCENT})`,
+          boxShadow: "0 0 12px rgba(149,255,80,0.55)",
+        }}
+      />
     </span>
   );
 }

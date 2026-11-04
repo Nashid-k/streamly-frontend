@@ -63,6 +63,9 @@ redesign replaces those two files plus the chrome components — never the engin
 - **Primary actions:** the deck play/pause, the touch centre play and the replay
   button are accent-filled discs with dark glyphs; Resume / Play now / Try again
   / Continue Watching are accent pills.
+- **Cold open:** the resolve stage paints the title art over an ink field with a
+  low accent pool behind it, and both loaders — the first-load sweep and the
+  later-wait Tailspin ring — carry the signal colour.
 - **Motion:** every interaction has a fluid answer — deck/chip border bloom,
   play-disc hover glow and press scale, icon-button disc + glyph scale, scrubber
   line/dot bloom, row cursor-tracked accent glow, skip-pill lift, card springs,
