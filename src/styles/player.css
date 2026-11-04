@@ -2892,6 +2892,11 @@
   pointer-events: auto;
   transform: none;
 }
+@media (hover: none) and (pointer: coarse) {
+  .np-root.paused:not(.loading) .big {
+    pointer-events: none;
+  }
+}
 
 .np-root .ld {
   --ls: min(116px, 32cqmin);

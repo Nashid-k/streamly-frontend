@@ -276,4 +276,58 @@ describe("touch double-tap seek", { timeout: MOUNT_BUDGET_MS }, () => {
 
     expect(v.currentTime).toBe(from);
   });
+
+  it("seeks when double tapping on the #ui overlay directly", async () => {
+    const { container } = await mount();
+    const v = stubSurface(container);
+    const ui = container.querySelector("#ui");
+    expect(ui).toBeTruthy();
+    ui.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 300,
+      height: 600,
+      right: 300,
+      bottom: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+    const from = v.currentTime;
+
+    press(ui, RIGHT);
+    release(ui, RIGHT);
+    advance(120);
+    press(ui, RIGHT);
+    release(ui, RIGHT);
+
+    expect(v.currentTime).toBe(from + 10);
+  });
+
+  it("does not show .osd on play/pause toggle", async () => {
+    const { container } = await mount();
+    const v = stubSurface(container);
+    const ui = container.querySelector("#ui");
+    ui.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      width: 300,
+      height: 600,
+      right: 300,
+      bottom: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+    const osd = container.querySelector("#osd");
+
+    press(ui, CENTER);
+    release(ui, CENTER);
+    advance(120);
+    press(ui, CENTER);
+    release(ui, CENTER);
+
+    expect(v.pause).toHaveBeenCalledTimes(1);
+    expect(osd.classList.contains("show")).toBe(false);
+  });
 });

@@ -777,10 +777,6 @@ export default function NativePlayerView({
     } catch {
       // Autoplay policy — the big custom button stays visible for a tap.
     }
-    // YouTube-style centre flash for the NEW state. After `await`, `video.paused`
-    // is settled either way (play resolved or pause is sync); a rejected play
-    // lands here still paused, so "play" never flashes for a failed start.
-    showHudRef.current(video.paused ? "pause" : "play");
   };
   togglePlayRef.current = togglePlay;
 
@@ -1020,10 +1016,12 @@ export default function NativePlayerView({
      is long enough to be a hold. */
   // Right-half hold: arm 2x after a short delay so double-tap seek wins sprints.
   const handleHoldStart = (e) => {
-    if (!IS_TOUCH || buffering || stillWatching) return;
+    if (buffering || stillWatching) return;
     const t = e.touches && e.touches[0];
     if (!t) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const targetRect = e.currentTarget?.getBoundingClientRect?.();
+    const videoRect = videoRef.current?.getBoundingClientRect?.();
+    const rect = targetRect && targetRect.width > 0 ? targetRect : (videoRect || {});
     if (!rect.width) return;
     if (zoneOf(rect, t.clientX) !== "right") return; // center = play/pause, left = double-tap seek
     holdPointerRef.current = t.identifier ?? "touch";
@@ -1147,7 +1145,9 @@ export default function NativePlayerView({
   const handleVideoTouchEnd = (e) => {
     poke();
     suppressClickRef.current = true;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const targetRect = e.currentTarget?.getBoundingClientRect?.();
+    const videoRect = videoRef.current?.getBoundingClientRect?.();
+    const rect = targetRect && targetRect.width > 0 ? targetRect : (videoRect || {});
     const t = e.changedTouches && e.changedTouches[0];
     const zone = rect.width && t ? zoneOf(rect, t.clientX) : null;
     /* A right-zone press arms 2x after HOLD_2X_DELAY_MS, so the arm is still
@@ -1194,10 +1194,12 @@ export default function NativePlayerView({
   // non-gesture so taps and double-taps survive. A right-zone hold arms 2x;
   // a vertical move on that side cancels the arm.
   const handleGestureStart = (e) => {
-    if (!IS_TOUCH || buffering) return;
+    if (buffering) return;
     const t = e.touches && e.touches[0];
     if (!t) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const targetRect = e.currentTarget?.getBoundingClientRect?.();
+    const videoRect = videoRef.current?.getBoundingClientRect?.();
+    const rect = targetRect && targetRect.width > 0 ? targetRect : (videoRect || {});
     if (!rect.width) return;
     // Only the right zone drives a drag now; left/center drags do nothing.
     if (zoneOf(rect, t.clientX) !== "right") return;

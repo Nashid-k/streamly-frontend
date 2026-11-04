@@ -309,7 +309,7 @@ export default function PlayerShell({
             onClick={onVideoClick}
             onTouchStart={onVideoTouchStart}
             onTouchMove={handleGestureMove}
-            onTouchEnd={IS_TOUCH ? handleVideoTouchEnd : undefined}
+            onTouchEnd={handleVideoTouchEnd}
             onTouchCancel={handleHoldEnd}
             style={{
               position: "absolute",
@@ -330,8 +330,35 @@ export default function PlayerShell({
         <div
           className="ui"
           id="ui"
+          onTouchStart={(e) => {
+            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+              return;
+            }
+            if (panel) return;
+            onVideoTouchStart(e);
+          }}
+          onTouchMove={(e) => {
+            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+              return;
+            }
+            if (panel) return;
+            handleGestureMove(e);
+          }}
+          onTouchEnd={(e) => {
+            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+              return;
+            }
+            if (panel) {
+              setPanel(null);
+              poke();
+              if (e.cancelable) e.preventDefault();
+              return;
+            }
+            handleVideoTouchEnd(e);
+          }}
+          onTouchCancel={handleHoldEnd}
           onClick={(e) => {
-            if (e.target.closest?.("button, [role='button'], input, [role='slider'], .sheet, .nxt")) {
+            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
               return;
             }
             if (panel) {
@@ -388,20 +415,21 @@ export default function PlayerShell({
             className="big"
             id="big"
             aria-label="Play"
-            onClick={togglePlay}
+            onClick={(e) => {
+              if (IS_TOUCH) return;
+              togglePlay(e);
+            }}
           >
             <svg className="ic"><use href="#i-play" /></svg>
           </button>
 
           {/* On-Screen Display pill (.osd) */}
           <div
-            className={["osd", hud || hold2x ? "show" : ""].filter(Boolean).join(" ")}
+            className={["osd", (hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x ? "show" : ""].filter(Boolean).join(" ")}
             id="osd"
             aria-live="polite"
             style={{ left: hud?.kind === "seek" ? (hud.value < 0 ? "22%" : "78%") : "50%" }}
           >
-            {hud?.kind === "play" && <svg className="ic"><use href="#i-play" /></svg>}
-            {hud?.kind === "pause" && <svg className="ic"><use href="#i-pause" /></svg>}
             {hud?.kind === "volume" && (
               <>
                 <svg className="ic"><use href={isMuted ? "#i-mute" : "#i-vol"} /></svg>
