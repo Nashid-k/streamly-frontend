@@ -27,6 +27,9 @@ import usePlayerV4Appearance from "../hooks/usePlayerV4Appearance";
 import PlayerMenus from "./PlayerMenus";
 import PlayerTransport from "./PlayerTransport";
 
+export const CHROME_TARGET_GUARD =
+  "button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']";
+
 export default function PlayerShell({
   activeDub,
   activeSourceKey,
@@ -85,6 +88,7 @@ export default function PlayerShell({
   onForwardHoldStart,
   onForwardSkip,
   onPickPlaybackRate,
+  onSelectSeason,
   onResumeOffer,
   onRewindSkip,
   onScrubCancel,
@@ -103,6 +107,7 @@ export default function PlayerShell({
   orderedSources,
   originalLanguage,
   panel,
+  panelBackRef,
   panelOpener,
   panelRef,
   pickAudio,
@@ -126,11 +131,13 @@ export default function PlayerShell({
   requestedServer,
   restartFromStart,
   resumeOffer,
+  resumePoint,
   retryLoad,
   safeDuration,
   screenRef,
   scrubRef,
   season,
+  seasonsAvailable,
   selectSubtitle,
   serverSwitchStage,
   setAspectRatioIndex,
@@ -172,6 +179,7 @@ export default function PlayerShell({
   videoRef,
   volHover,
   volume,
+  watchedEpisodes,
 }) {
   const v4Appearance = usePlayerV4Appearance({
     subtitleSize,
@@ -237,6 +245,22 @@ export default function PlayerShell({
     }
     poke();
   };
+  /* Escape router for the engine's keymap: back one level while deeper than the
+     root, close the sheet at the root — exactly v4's `stack.length > 1 ?
+     back() : close()`. Assigned every render so the ref always carries current
+     stack state; read by usePlayerKeyboard, which falls back to a plain close
+     while this is still null. */
+  if (panelBackRef) {
+    panelBackRef.current = () => {
+      if (panelStackRef.current.length > 1) handleBack();
+      else {
+        panelStackRef.current = [];
+        setNavDirection(0);
+        setPanel(null);
+        poke();
+      }
+    };
+  }
   const isInitialStage = Boolean(showStage || !everPlayed);
   const isLoading = Boolean((buffering || spinner) && !isInitialStage);
   const isMuted = muted || autoMuted || volume === 0;
@@ -349,21 +373,21 @@ export default function PlayerShell({
           className="ui"
           id="ui"
           onTouchStart={(e) => {
-            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+            if (e.target.closest?.(CHROME_TARGET_GUARD)) {
               return;
             }
             if (panel) return;
             onVideoTouchStart(e);
           }}
           onTouchMove={(e) => {
-            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+            if (e.target.closest?.(CHROME_TARGET_GUARD)) {
               return;
             }
             if (panel) return;
             handleGestureMove(e);
           }}
           onTouchEnd={(e) => {
-            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+            if (e.target.closest?.(CHROME_TARGET_GUARD)) {
               return;
             }
             if (panel) {
@@ -376,7 +400,7 @@ export default function PlayerShell({
           }}
           onTouchCancel={handleHoldEnd}
           onClick={(e) => {
-            if (e.target.closest?.("button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']")) {
+            if (e.target.closest?.(CHROME_TARGET_GUARD)) {
               return;
             }
             if (panel) {
@@ -385,6 +409,20 @@ export default function PlayerShell({
               return;
             }
             onVideoClick(e);
+          }}
+          /* v4 desktop double-click: the sides seek ±skip, the middle toggles
+             fullscreen. Touch keeps its own gesture path; the click guard above
+             already ignores chrome targets, and two rapid single clicks cancel
+             each other's play toggle just like v4. */
+          onDoubleClick={(e) => {
+            if (IS_TOUCH || panel) return;
+            if (e.target.closest?.(CHROME_TARGET_GUARD)) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / Math.max(1, rect.width);
+            poke();
+            if (x < 1 / 3) onRewindSkip();
+            else if (x > 2 / 3) onForwardSkip();
+            else goFullscreen();
           }}
         >
           {/* Dimmer for menu/panel opening */}
@@ -458,6 +496,13 @@ export default function PlayerShell({
               <>
                 <svg className="ic"><use href={hud.value < 0 ? "#i-rew" : "#i-fwd"} /></svg>
                 <span>{hud.value < 0 ? `\u2212${Math.abs(Math.round(hud.value))}s` : `+${Math.round(hud.value)}s`}</span>
+              </>
+            )}
+            {hud?.kind === "speed" && <span>{hud.value}</span>}
+            {hud?.kind === "subs" && (
+              <>
+                <svg className="ic"><use href="#i-subs" /></svg>
+                <span>{hud.value}</span>
               </>
             )}
             {hold2x && (
@@ -613,6 +658,8 @@ export default function PlayerShell({
             }}
             onBackToSettings={handleBack}
             season={season}
+            seasonsAvailable={seasonsAvailable}
+            onChangeSeason={onSelectSeason}
             actionLabel={panel === "subs" ? "Customize" : null}
             onAction={() => {
               if (panel === "subs") {
@@ -635,6 +682,8 @@ export default function PlayerShell({
               qualities={qualities}
               manualHeight={manualHeight}
               currentHeight={currentHeight}
+              currentTime={currentTime}
+              safeDuration={safeDuration}
               playbackRate={playbackRate}
               onPickPlaybackRate={onPickPlaybackRate}
               aspectRatioIndex={aspectRatioIndex}
@@ -676,6 +725,8 @@ export default function PlayerShell({
               episodes={episodes}
               episode={episode}
               chooseEpisode={chooseEpisode}
+              watchedEpisodes={watchedEpisodes}
+              resumePoint={resumePoint}
               setBuffering={setBuffering}
               setResumeOffer={setResumeOffer}
               v4Appearance={v4Appearance}

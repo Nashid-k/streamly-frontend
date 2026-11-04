@@ -130,6 +130,12 @@ export default function PlayerMenus({
   episodes,
   episode,
   chooseEpisode,
+  /* v4 episodes pane: per-season watched set, the parent's single resume
+     point, and this element's progress for the "Now playing" bar. */
+  watchedEpisodes,
+  resumePoint,
+  currentTime,
+  safeDuration,
   setBuffering,
   setResumeOffer,
   // v4 Appearance bundle
@@ -180,6 +186,46 @@ export default function PlayerMenus({
 
   const episodeRows = Array.isArray(episodes) ? episodes : [];
 
+  /* v4 tileOk: a settings tile exists only when its picker would actually
+     offer something. Quality always shows (there is always a ladder); Source
+     with more than one server; Audio with more than one listening option (the
+     source's own tracks when a dub list exists, since its first row is
+     "Original"). Subtitles always shows: the OpenSubtitles lookup is live and
+     an empty list usually means "still searching", not "no subs" — v4's
+     data-known track list doesn't translate (pinned by playerA11y's
+     settings→subtitles-settings flow). */
+  const audioOptionCount =
+    Array.isArray(dubTracks) && dubTracks.length > 0
+      ? Array.isArray(audioTrackList)
+        ? audioTrackList.length
+        : 0
+      : Array.isArray(audioTracks)
+        ? audioTracks.length
+        : 0;
+  const sourceOptionCount = Array.isArray(orderedSources) ? orderedSources.length : 0;
+  const tiles = [
+    <Tile
+      key="quality"
+      label="Quality"
+      value={qualityValue}
+      ariaLabel="Video Quality"
+      onClick={() => setPanel("video")}
+    />,
+    sourceOptionCount > 1 ? (
+      <Tile key="source" label="Source" value={serverValue} ariaLabel="Servers" onClick={() => setPanel("servers")} />
+    ) : null,
+    <Tile
+      key="subs"
+      label="Subtitles"
+      value={subtitlesValue}
+      ariaLabel="Subtitles settings"
+      onClick={() => setPanel("subs")}
+    />,
+    audioOptionCount > 1 ? (
+      <Tile key="audio" label="Audio" value={audioValue} ariaLabel="Audio track" onClick={() => setPanel("audio")} />
+    ) : null,
+  ].filter(Boolean);
+
   useEffect(() => {
     if (panel === "episodes") {
       const cur = document.querySelector(".np-menu .row.ep.cur, .sheet .row.ep.cur, .sheet [aria-current='true']");
@@ -192,17 +238,7 @@ export default function PlayerMenus({
   if (panel === "settings") {
     return (
       <div className="np-root-body">
-        <div className="np-tiles tiles">
-          <Tile label="Quality" value={qualityValue} ariaLabel="Video Quality" onClick={() => setPanel("video")} />
-          <Tile label="Source" value={serverValue} ariaLabel="Servers" onClick={() => setPanel("servers")} />
-          <Tile
-            label="Subtitles"
-            value={subtitlesValue}
-            ariaLabel="Subtitles settings"
-            onClick={() => setPanel("subs")}
-          />
-          <Tile label="Audio" value={audioValue} ariaLabel="Audio track" onClick={() => setPanel("audio")} />
-        </div>
+        <div className="np-tiles tiles">{tiles}</div>
         <button type="button" className="np-menu-row row" onClick={() => setPanel("playback")}>
           <span>Playback settings</span>
           <svg className="ic chv"><use href="#i-chev" /></svg>
@@ -656,6 +692,18 @@ export default function PlayerMenus({
   }
 
   if (panel === "episodes") {
+    // v4 epRow: watched episodes get a check icon, partially-watched ones a
+    // progress bar. Sources: this element for the playing episode, the
+    // parent's single resume point for a partially-watched other episode, and
+    // the continue-watching watched set for finished ones.
+    const watchedSet = new Set(
+      Array.isArray(watchedEpisodes?.[season])
+        ? watchedEpisodes[season]
+        : Array.isArray(watchedEpisodes?.[String(season)])
+          ? watchedEpisodes[String(season)]
+          : [],
+    );
+    const resume = resumePoint || null;
     return (
       <div className="np-list np-list-episodes">
         {episodeRows.length === 0 ? (
@@ -664,6 +712,20 @@ export default function PlayerMenus({
           episodeRows.map((ep) => {
             const current = ep.number === episode;
             const aired = isEpAired(ep);
+            const done = watchedSet.has(ep.number);
+            let progress = 0;
+            if (current && safeDuration > 0) {
+              progress = Math.min(1, currentTime / safeDuration);
+            } else if (
+              !done &&
+              resume &&
+              resume.season === season &&
+              resume.episode === ep.number &&
+              resume.timestamp > 0
+            ) {
+              const mins = Number(ep.durationMins) || 0;
+              if (mins > 0) progress = Math.min(1, resume.timestamp / (mins * 60));
+            }
             return (
               <button
                 key={ep.number}
@@ -684,6 +746,22 @@ export default function PlayerMenus({
                   <span className="np-ep-title">{ep.title || `Episode ${ep.number}`}</span>
                   {!aired ? <span className="np-ep-sub">Airs {formatAirsDate(ep.airDate)}</span> : null}
                 </span>
+                {done ? (
+                  <svg className="ic wd" role="img" aria-label="Watched">
+                    <use href="#i-check" />
+                  </svg>
+                ) : progress > 0.01 && progress < 0.95 ? (
+                  <span
+                    className="epp"
+                    role="progressbar"
+                    aria-label="Watch progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(progress * 100)}
+                  >
+                    <i style={{ width: `${Math.round(progress * 100)}%` }} />
+                  </span>
+                ) : null}
                 {current ? <span className="np-sr-only">Now playing</span> : null}
               </button>
             );

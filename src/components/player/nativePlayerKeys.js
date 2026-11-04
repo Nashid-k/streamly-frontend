@@ -8,10 +8,15 @@
      scrolls behind the overlay, but it only ARMS the hold on the first one.
    - Arrow seeks are also swallowed on auto-repeat and only acted on once, so a
      held arrow cannot machine-gun seeks into the relay.
-   - Escape belongs to the browser while an element is fullscreen. */
+   - Escape belongs to the browser while an element is fullscreen.
+
+   player-v4 parity: "<"/">" step through playback speeds, ","/"." nudge a
+   paused frame, the number keys jump to 0–90 percent, and "c" flips captions
+   — all matched on e.key, because those characters move across layouts. */
 
 export function keyboardAction({
   code,
+  key: rawKey = "",
   repeat = false,
   shiftKey = false,
   defaultPrevented = false,
@@ -20,6 +25,7 @@ export function keyboardAction({
   fullscreen = false,
   spaceHeld = false,
   hasVideo = true,
+  playing = false,
 } = {}) {
   // Another handler already claimed this key.
   if (defaultPrevented) return null;
@@ -30,6 +36,19 @@ export function keyboardAction({
   if (tag === "button" && (code === "Space" || code === "Enter")) return null;
   // The engine ignores every key until the media element exists (fatal mount).
   if (!hasVideo) return null;
+
+  const key = String(rawKey || "");
+  // Character keys (v4 keeps these on e.key, not e.code: "<" is Shift+Comma on
+  // a US layout but a different physical key elsewhere).
+  if (key === "<") return { type: "speed-down", preventDefault: true };
+  if (key === ">") return { type: "speed-up", preventDefault: true };
+  // Frame-stepping only makes sense while paused; while playing, Comma/Period
+  // are handed to the browser untouched.
+  if ((key === "," || key === ".") && !playing) {
+    return { type: "frame-step", value: key === "." ? 1 : -1, preventDefault: true };
+  }
+  if (/^[0-9]$/.test(key)) return { type: "seek-percent", value: Number(key) };
+  if (key === "c") return { type: "toggle-captions" };
 
   switch (code) {
     case "Space":

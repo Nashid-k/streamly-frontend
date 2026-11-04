@@ -2308,6 +2308,24 @@ export default function TitleDetails() {
                               : []
                           }
                           onSelectEpisode={(n) => setPlayingEpisode(n)}
+                          /* v4 episodes pane: season picker + per-episode
+                             watch state come from the title's continue-watching
+                             entry (the watched set and the one saved resume
+                             point the details page already reads). */
+                          seasonsAvailable={availableSeasonNumbers}
+                          onSelectSeason={(n) => setSelectedSeason(n)}
+                          watchedEpisodes={continueEntryForMovie?.watchedEpisodes || null}
+                          resumePoint={
+                            continueEntryForMovie &&
+                            continueEntryForMovie.savedSeason != null &&
+                            continueEntryForMovie.savedEpisode != null
+                              ? {
+                                  season: continueEntryForMovie.savedSeason,
+                                  episode: continueEntryForMovie.savedEpisode,
+                                  timestamp: Number(continueEntryForMovie.timestamp) || 0,
+                                }
+                              : null
+                          }
                           canGoPrev={canGoPrev}
                           canGoNext={canGoNext}
                           onGoPrev={goToPrevEpisode}

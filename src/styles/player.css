@@ -2050,6 +2050,48 @@
   cursor: not-allowed;
   opacity: 0.55;
 }
+/* v4 epRow: finished-episode check + partially-watched progress rail */
+.np-ep .ic.wd {
+  flex: none;
+  width: 1.3em;
+  height: 1.3em;
+}
+.np-ep .epp {
+  position: absolute;
+  left: 1.5em;
+  right: 1.5em;
+  bottom: 0.3em;
+  height: 0.22em;
+  border-radius: 1em;
+  background: #ffffff1f;
+  overflow: hidden;
+}
+.np-ep .epp i {
+  display: block;
+  height: 100%;
+  background: var(--np-accent, var(--accent, #8652bb));
+  border-radius: inherit;
+}
+/* v4 season picker in the sheet header (#xs > select#sn) */
+.np-season-select {
+  margin-left: auto;
+  min-height: 2.4em;
+  padding: 0.3em 0.6em;
+  border: 0;
+  border-radius: 0.6em;
+  background: #ffffff14;
+  color: #dbe4ec;
+  cursor: pointer;
+  font-size: 1em;
+}
+.np-season-select option {
+  background: #0d1219;
+  color: #dbe4ec;
+}
+.np-season-select:focus-visible {
+  outline: 2px solid var(--np-accent, var(--accent, #8652bb));
+  outline-offset: 2px;
+}
 /* The old rail's lift + ring would turn these list rows into floating cards. */
 .np-menu .np-episode-card,
 .np-menu .np-episode-card:hover,

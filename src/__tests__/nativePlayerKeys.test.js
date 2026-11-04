@@ -106,3 +106,55 @@ describe("keyboardAction surfaces", () => {
     expect(key({ code: "Digit1" })).toBeNull();
   });
 });
+
+describe("keyboardAction v4 character keys", () => {
+  /* v4 matches these on e.key — "`<`" is Shift+Comma on a US layout but a
+     different physical key elsewhere, and the digits must not depend on the
+     number row. */
+  it("steps playback speed with < and >", () => {
+    expect(key({ code: "Comma", key: ">", shiftKey: true })).toEqual({
+      type: "speed-up",
+      preventDefault: true,
+    });
+    expect(key({ code: "Period", key: ">", shiftKey: true })).toEqual({
+      type: "speed-up",
+      preventDefault: true,
+    });
+    expect(key({ code: "Comma", key: "<", shiftKey: true })).toEqual({
+      type: "speed-down",
+      preventDefault: true,
+    });
+  });
+
+  it("nudges a paused frame with , and . but ignores them while playing", () => {
+    expect(key({ code: "Comma", key: "," })).toEqual({
+      type: "frame-step",
+      value: -1,
+      preventDefault: true,
+    });
+    expect(key({ code: "Period", key: "." })).toEqual({
+      type: "frame-step",
+      value: 1,
+      preventDefault: true,
+    });
+    expect(key({ code: "Comma", key: ",", playing: true })).toBeNull();
+    expect(key({ code: "Period", key: ".", playing: true })).toBeNull();
+  });
+
+  it("maps 0-9 to jump-to-percent", () => {
+    for (const digit of ["0", "5", "9"]) {
+      expect(key({ code: "Digit0", key: digit })).toEqual({
+        type: "seek-percent",
+        value: Number(digit),
+      });
+    }
+  });
+
+  it("toggles captions with c", () => {
+    expect(key({ code: "KeyC", key: "c" })).toEqual({ type: "toggle-captions" });
+  });
+
+  it("still ignores unowned characters that carry no key match", () => {
+    expect(key({ code: "Digit1", key: "q" })).toBeNull();
+  });
+});

@@ -1,5 +1,7 @@
 // The desktop key map: Space tap-vs-hold, arrows, volume, aspect, mute,
-// fullscreen, episode next/prev, Escape, and the Tab-to-reveal path.
+// fullscreen, episode next/prev, Escape, and the Tab-to-reveal path — plus the
+// v4 character keys ("<"/">" speed, ","/"." frame step, digits, "c" captions),
+// which read live refs because they must work no matter what just changed.
 //
 // Binds once per panel flip, exactly like the effect it replaced. Every
 // callback here only touches refs + functional setState, so a stale closure is
@@ -17,6 +19,7 @@ export default function usePlayerKeyboard({
   setControlsVisible,
   controlsVisibleRef,
   setPanel,
+  panelBackRef,
   changeVolume,
   cycleAspect,
   toggleMute,
@@ -34,6 +37,11 @@ export default function usePlayerKeyboard({
   keyboardEpPrevRef,
   onCloseRef,
   videoRef,
+  playingRef,
+  cyclePlaybackRateRef,
+  nudgeFrameRef,
+  seekToPercentRef,
+  cycleCaptionsRef,
 }) {
   useEffect(() => {
     /* The other half of tap-vs-hold Space. A keyup with no 2x engaged means the
@@ -67,6 +75,7 @@ export default function usePlayerKeyboard({
       }
       const action = keyboardAction({
         code: e.code,
+        key: e.key,
         repeat: e.repeat,
         shiftKey: e.shiftKey,
         defaultPrevented: e.defaultPrevented,
@@ -75,6 +84,7 @@ export default function usePlayerKeyboard({
         fullscreen: Boolean(document.fullscreenElement),
         spaceHeld: spaceHoldRef.current,
         hasVideo: Boolean(videoRef.current),
+        playing: Boolean(playingRef?.current),
       });
       if (!action) return;
       if (action.preventDefault) e.preventDefault();
@@ -127,8 +137,28 @@ export default function usePlayerKeyboard({
         case "episode-prev":
           keyboardEpPrevRef.current();
           break;
+        case "speed-up":
+          cyclePlaybackRateRef.current?.(1);
+          break;
+        case "speed-down":
+          cyclePlaybackRateRef.current?.(-1);
+          break;
+        case "frame-step":
+          nudgeFrameRef.current?.(action.value);
+          break;
+        case "seek-percent":
+          seekToPercentRef.current?.(action.value);
+          break;
+        case "toggle-captions":
+          cycleCaptionsRef.current?.();
+          break;
         case "close-panel":
-          setPanel(null);
+          // The sheet owns its stack (player shell), so Escape routes there:
+          // back one level when a sub-pane is open, close the sheet at the
+          // root — v4's `stack.length > 1 ? back() : close()`. Fallback keeps
+          // the old whole-sheet close if the shell hasn't registered yet.
+          if (panelBackRef?.current) panelBackRef.current();
+          else setPanel(null);
           break;
         case "close-player":
           onCloseRef.current?.();

@@ -18,6 +18,7 @@ import useContainerSize from "../hooks/useContainerSize";
 import {
   hudMetrics,
   ASPECT_RATIOS,
+  PLAYER_SPEEDS,
   STILL_WATCHING_EPISODES,
 } from "../constants/playerUi";
 import {
@@ -181,6 +182,14 @@ export default function NativePlayerView({
   onProgressChange,
   // TMDB original_language — the only language signal the sources give us.
   originalLanguage = "",
+  /* player-v4 episodes pane: the watched set keyed by season
+     (`{ [season]: number[] }`), the single saved resume point
+     (`{ season, episode, timestamp }`), and the season picker the parent owns
+     — all optional; without them the pane lists plain rows exactly as before. */
+  watchedEpisodes = null,
+  resumePoint = null,
+  seasonsAvailable = [],
+  onSelectSeason,
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
@@ -675,6 +684,20 @@ export default function NativePlayerView({
   // rate, never the transient 2x it is about to write).
   const playbackRateRef = useRef(playbackRate);
   playbackRateRef.current = playbackRate;
+  /* Same bind-once story for the v4 character keys: "<"/">" need the live rate,
+     ","/"." need to know if we are actually paused, "c" needs the current
+     subtitle choice and its (non-stable) selector. */
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  /* Escape steps back one sheet level instead of nuking the whole sheet — the
+     stack lives in the shell, which writes its stack-aware back into this ref
+     (see PlayerShell's panelBackRef assignment). Null-safe: until the shell
+     registers, the key handler falls back to closing the sheet outright. */
+  const panelBackRef = useRef(null);
+  const cyclePlaybackRateRef = useRef(() => {});
+  const nudgeFrameRef = useRef(() => {});
+  const seekToPercentRef = useRef(() => {});
+  const cycleCaptionsRef = useRef(() => {});
   /* Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
      plays at 2x; release restores the previous rate. Desktop holds the forward
      transport button. Called here because it needs both `poke` and the rate
@@ -1470,6 +1493,7 @@ export default function NativePlayerView({
     setControlsVisible,
     controlsVisibleRef,
     setPanel,
+    panelBackRef,
     changeVolume,
     cycleAspect,
     toggleMute,
@@ -1487,6 +1511,11 @@ export default function NativePlayerView({
     keyboardEpPrevRef,
     onCloseRef,
     videoRef,
+    playingRef,
+    cyclePlaybackRateRef,
+    nudgeFrameRef,
+    seekToPercentRef,
+    cycleCaptionsRef,
   });
 
 
@@ -2132,6 +2161,67 @@ const showSkipOutro = shouldShowSkipOutro({
     }
     poke();
   };
+  /* v4 keyboard actions that must read live state (the refs above): "<"/">"
+     step PLAYER_SPEEDS, ","/"." nudge a paused frame, digits jump percent,
+     "c" flips captions. Text-only OSD for speed (no icon, just `1.5x`) like
+     v4's iconless speed pill. */
+  const cyclePlaybackRate = (dir) => {
+    const speeds = PLAYER_SPEEDS;
+    const current = playbackRateRef.current;
+    const idx = speeds.indexOf(current);
+    const base = idx === -1 ? speeds.indexOf(1) : idx;
+    const rate = speeds[Math.min(speeds.length - 1, Math.max(0, base + dir))];
+    if (rate === undefined || rate === current) {
+      showHud("speed", `${current}x`);
+      return;
+    }
+    onPickPlaybackRate(rate);
+    showHud("speed", `${rate}x`);
+  };
+  // Frame-step: silent, 1/30s per nudge, paused only (the keymap gates that).
+  const nudgeFrame = (dir) => {
+    const v = videoRef.current;
+    if (!v || v.seeking) return;
+    try {
+      const at = v.currentTime + dir * (1 / 30);
+      v.currentTime = Math.max(
+        0,
+        Number.isFinite(v.duration) ? Math.min(v.duration, at) : at,
+      );
+    } catch {
+      // a webview mid-buffer can reject the write; nothing to recover into
+    }
+  };
+  const seekToPercent = (d) => {
+    const v = videoRef.current;
+    if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return;
+    try {
+      v.currentTime = (v.duration * d) / 10;
+    } catch {
+      // same mid-buffer write rejection
+    }
+    poke();
+  };
+  // "c" — flip between Off and the first available language; OSD names the result.
+  // Fresh closure is fine: these ref assignments run every render.
+  const cycleCaptions = () => {
+    if (currentSubtitle) {
+      selectSubtitle(null);
+      showHud("subs", "Subtitles off");
+      return;
+    }
+    const first = subtitleLanguages[0];
+    if (!first) {
+      showHud("subs", "No subtitles");
+      return;
+    }
+    selectSubtitle(first);
+    showHud("subs", first.language || "Subtitles on");
+  };
+  cyclePlaybackRateRef.current = cyclePlaybackRate;
+  nudgeFrameRef.current = nudgeFrame;
+  seekToPercentRef.current = seekToPercent;
+  cycleCaptionsRef.current = cycleCaptions;
   const onStillWatchingContinue = () => {
     // Route through the ref-backed dismisser, not a bare
     // setStillWatching(false): only pointerdown normally clears
@@ -2214,6 +2304,7 @@ const showSkipOutro = shouldShowSkipOutro({
       onForwardHoldStart={onForwardHoldStart}
       onForwardSkip={onForwardSkip}
       onPickPlaybackRate={onPickPlaybackRate}
+      onSelectSeason={onSelectSeason}
       onResumeOffer={onResumeOffer}
       onRewindSkip={onRewindSkip}
       onScrubCancel={onScrubCancel}
@@ -2232,6 +2323,7 @@ const showSkipOutro = shouldShowSkipOutro({
       orderedSources={orderedSources}
       originalLanguage={originalLanguage}
       panel={panel}
+      panelBackRef={panelBackRef}
       panelOpener={panelOpener}
       panelRef={panelRef}
       pickAudio={pickAudio}
@@ -2257,11 +2349,13 @@ const showSkipOutro = shouldShowSkipOutro({
       requestedServer={requestedServer}
       restartFromStart={restartFromStart}
       resumeOffer={resumeOffer}
+      resumePoint={resumePoint}
       retryLoad={retryLoad}
       safeDuration={safeDuration}
       screenRef={screenRef}
       scrubRef={scrubRef}
       season={season}
+      seasonsAvailable={seasonsAvailable}
       selectSubtitle={selectSubtitle}
       serverSwitchStage={serverSwitchStage}
       setAspectRatioIndex={setAspectRatioIndex}
@@ -2304,6 +2398,7 @@ const showSkipOutro = shouldShowSkipOutro({
       videoRef={videoRef}
       volHover={volHover}
       volume={volume}
+      watchedEpisodes={watchedEpisodes}
     />
   );
 }
