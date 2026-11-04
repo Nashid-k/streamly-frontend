@@ -459,56 +459,51 @@ export default function PlayerMenus({
     const iconSize = v4Appearance?.iconSize || 1;
     return (
       <div className="np-pbody">
-        <div className="np-lbl first" style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Control icon size</span>
-          <span style={{ opacity: 0.65 }}>{iconSize.toFixed(1)}x</span>
-        </div>
+        <div className="np-lbl first">Control icon size</div>
+        {/* `.np-vol-slider` was on this input, so it inherited the volume
+            control's collapsed state (width 0, opacity 0) and the slider was
+            invisible and unusable. A plain v4 `.range` is what the pane wants. */}
         <input
           type="range"
-          className="np-vol-slider range"
+          className="range"
           min={0.5}
           max={2.2}
           step={0.1}
           value={iconSize}
           aria-label="Control icon size"
+          style={{ "--p": `${((iconSize - 0.5) / 1.7) * 100}%` }}
           onChange={(e) => {
             v4Appearance?.setIconSize?.(parseFloat(e.target.value));
             poke();
           }}
-          style={{ width: "100%", margin: "8px 0 16px" }}
         />
+        <div className="marks" aria-hidden="true">
+          <span>Small</span>
+          <b>{iconSize.toFixed(1)}x</b>
+          <span>Large</span>
+        </div>
 
         <div className="np-lbl">Theme color</div>
-        <div className="themes" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, margin: "10px 0 16px" }}>
+        {/* v4 draws the presets as `.th` radio swatches — colour dot plus name.
+            They were colour-only pills with no label and no radio semantics. */}
+        <div className="themes" role="radiogroup" aria-label="Theme color">
           {PLAYER_V4_THEMES.map(([name, hex]) => {
             const isSel = accent.toLowerCase() === hex.toLowerCase();
             return (
               <button
                 key={hex}
                 type="button"
-                className={["sw", isSel ? "sel" : ""].filter(Boolean).join(" ")}
+                role="radio"
+                className="th"
+                aria-checked={isSel}
+                aria-label={`Theme ${name}`}
                 onClick={() => {
                   v4Appearance?.setAccent?.(hex);
                   poke();
                 }}
-                style={{
-                  background: hex,
-                  height: 38,
-                  borderRadius: "0.6em",
-                  border: isSel ? "2px solid #fff" : "1px solid rgba(255,255,255,0.15)",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: isSel ? `0 0 14px ${hex}` : "none",
-                }}
-                aria-label={`Theme ${name}`}
               >
-                {isSel && (
-                  <svg viewBox="0 0 24 24" width={18} height={18} fill="#fff">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                  </svg>
-                )}
+                <i style={{ background: hex }} />
+                {name}
               </button>
             );
           })}

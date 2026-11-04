@@ -13,14 +13,7 @@
 // - High-contrast SVG icons matching player-v4.html
 import { useState } from "react";
 import { IS_TOUCH } from "./constants";
-import {
-  IconCaptions,
-  IconEpisodes,
-  IconPip,
-  IconSettings,
-  IconSkipBack10,
-  IconSkipForward10,
-} from "./icons";
+import { IconCaptions, IconEpisodes, IconPip, IconSettings } from "./icons";
 
 const SETTINGS_PANELS = new Set([
   "settings",
@@ -101,6 +94,15 @@ export default function BottomChrome({
 
   return (
     <>
+      {/* v4 paints the transport on a bottom scrim; without it the white icons
+          sit straight on the picture. Decorative and pointer-transparent. */}
+      <div className="bot np-scrim" aria-hidden="true" />
+      {/* v4's progress row: current time, the seek bar, duration. The bar was
+          rendered alone, so the player had no elapsed/remaining time readout. */}
+      <div className="prog np-prog">
+        <span className="t" aria-hidden="true">
+          {fmtTime(currentTime)}
+        </span>
       <div
         ref={scrubRef}
         className={["np-progress", "np-scrub", "seek", visible ? "" : "np-chrome-hidden", hoverRatio != null ? "hover" : ""]
@@ -152,6 +154,10 @@ export default function BottomChrome({
           </div>
         ) : null}
       </div>
+        <span className="t" aria-hidden="true">
+          {fmtTime(duration)}
+        </span>
+      </div>
 
       <div
         className={["np-controls", "ctl", visible ? "" : "np-chrome-hidden"].filter(Boolean).join(" ")}
@@ -179,7 +185,11 @@ export default function BottomChrome({
           aria-label={`Rewind ${skipSeconds} seconds`}
           onClick={onBack10}
         >
-          <IconSkipBack10 size={34} />
+          {/* v4 draws the skip controls as plain chevrons (`#i-rew` / `#i-fwd`);
+              the skip-to-end marks read as "previous/next track". */}
+          <svg className="ic lg" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
+            <path d="m15 5-7 7 7 7" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
         <button
@@ -193,7 +203,9 @@ export default function BottomChrome({
           onPointerLeave={onForwardHoldRelease}
           onPointerCancel={onForwardHoldRelease}
         >
-          <IconSkipForward10 size={34} />
+          <svg className="ic lg" viewBox="0 0 24 24" aria-hidden="true" width={32} height={32}>
+            <path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </button>
 
         <span
