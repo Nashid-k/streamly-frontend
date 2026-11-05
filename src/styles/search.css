@@ -16,7 +16,7 @@
   left: 0;
   height: 100%;
   background: var(--accent-gradient, linear-gradient(90deg, var(--accent-color), #5ce21c));
-  animation: bannerProgress 10s linear forwards;
+  animation: bannerProgress 15s linear forwards;
   transform-origin: left;
   width: 100%;
   will-change: transform;
