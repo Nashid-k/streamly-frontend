@@ -7719,4 +7719,23 @@ This is the first slice of the from-scratch redesign now that the shell split is
 
 **Files.** `index.html`, `src/styles/tokens.css`, `src/main.jsx`, `vercel.json`, `api/{tmdb,groq,stream,sync-contract,usage}.js`, `public/sw.js`, `public/fonts/*` (7 woff2 + OFL.txt), `public/fonts.js` (deleted), `package.json`, `package-lock.json`.
 
+## 2026-11-05 - Phase 5: image-format audit (user: "what about all images webP/avif?")
+
+**The "WebP/AVIF" claim was half-true — corrected by live probe, not by the code comments.** `output=webp` → 200 `image/webp`; `output=avif` → **HTTP 400** (wsrv.nl v5 has no AVIF output; its `output=` accepts jpg/jxl/png/gif/tiff/webp/json only); `output=webp&q=80&af=true` returns **byte-identical** images to plain `output=webp`, because `&af` is officially "adaptive row filtering… only supported for the png format" — the adapter comment claiming "af=true → AVIF-first (auto-falls back to WebP for unsupported browsers)" described a mechanism that does not exist. Reality: the app was serving **forced WebP** on every adapter-routed image and AVIF never happened (nor can it, through this proxy today). JXL works (`output=jxl` → `image/jxl`) but no browser decodes it by default.
+
+**Adapter truth-fix.** Dropped the no-op `&af=true` from both URL builders and rewrote the comments to state the provable constraint (WebP-only ceiling; no format negotiation exists server-side; if AVIF appears upstream, request it explicitly here). `cdnImageAdapter.test.js`'s five exact-URL pins updated to match; `q=80` kept (explicit, meaningful quality, not default noise). Non-visual-only change: URLs get shorter and the CD cache key stops carrying a dead parameter.
+
+**Three render paths that bypassed the adapter — closed:**
+1. `ProductionCompaniesBlock.jsx` — built `https://image.tmdb.org/t/p/w300…` by hand and used it straight in `<img src>`: company logos (the details page always renders them) shipped as raw TMDB JPEG/PNG. Now `CdnImageAdapter.getUrl(logoPath, "w300")` — handles both bare paths and full TMDB URLs, same as the rest of the app.
+2. `useTitleLogo.js` — the one shared wordmark rule (hero banner + details hero + player stage) returned raw TMDB URLs/paths. Now returns `CdnImageAdapter.getUrl(…, "w500")`; full TMDB renditions get re-targeted to w500 and routed through wsrv. Its own test pins arbitrary `img.test/*` URLs, which are non-TMDB and pass through byte-identically — the test needed no edit.
+3. `LoadingStage` (`player/chrome/primitives.jsx`) — the cold-open blurred backdrop and the centred logo took raw full-URL props. Now w780/w500 adapter URLs (the blur reads as colour; w780 suffices). `image.test` pass-through keeps `nativePlayerView.test.jsx`'s `src` assertions untouched — no test edits needed.
+
+**Verified already-optimized (audit, no change):** MovieCard (blur-up + card srcSet), HomePage hero (backdrop preload + backdrop srcSet), TitleDetailsPage hero + episode stills, DiscoveryPage, ContinueWatchingRail, WatchlistPage, LeavingSoonBanner, TitleInfoModal, AmbientBackground, CastRail avatars, `discover.js` logos, gallery images (`normalize.js`). YouTube thumbs (`img.youtube.com/vi/…/mqdefault.jpg` in TitleDetailsPage) stay origin-direct: i.ytimg content-negotiates WebP itself and wsrv would add a third-party hop for a thumbnail. `via.placeholder.com` is CSP-legacy only — no code uses it.
+
+**Architecture unchanged.** Raw TMDB URLs inside the API payloads (`normalize.js`/`detail.js`/`person.js`, pinned by `movieService.test.js`) remain the data contract; optimization happens at render through the shared adapter — exactly the pattern `posterUrl`/`backdropUrl` already use. No data/UI contract modified.
+
+**Gates.** npm run lint exit 0 / 0 errors (baseline warnings only); full npm run test 120 files / 1454 tests pass; npm run build clean.
+
+**Files.** `src/api/cdnImageAdapter.js`, `src/__tests__/cdnImageAdapter.test.js`, `src/hooks/useTitleLogo.js`, `src/components/player/chrome/primitives.jsx`, `src/components/detail/ProductionCompaniesBlock.jsx`.
+
 

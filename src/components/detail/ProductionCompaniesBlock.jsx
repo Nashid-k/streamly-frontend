@@ -1,3 +1,5 @@
+import { CdnImageAdapter } from "../../api/cdnImageAdapter";
+
 function ProductionCompaniesBlock({ companies }) {
   if (!companies || companies.length === 0) return null;
 
@@ -5,12 +7,10 @@ function ProductionCompaniesBlock({ companies }) {
     .map((c, i) => {
       if (!c) return null;
       if (typeof c === "string") return null;
+      /* Optimized at render like the rest of the app's imagery: raw paths and
+         full TMDB URLs both leave as w300 WebP via the shared adapter. */
       const logoPath = c.logoUrl || c.logo_path;
-      const fullLogoUrl = logoPath
-        ? (logoPath.startsWith("http")
-            ? logoPath
-            : `https://image.tmdb.org/t/p/w300${logoPath.startsWith("/") ? logoPath : `/${logoPath}`}`)
-        : null;
+      const fullLogoUrl = logoPath ? CdnImageAdapter.getUrl(logoPath, "w300") : null;
       if (!fullLogoUrl) return null;
       return {
         id: c.id || `pc-${i}`,

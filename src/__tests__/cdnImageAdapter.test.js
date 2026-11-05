@@ -10,12 +10,12 @@ describe('CdnImageAdapter', () => {
 
     it('generates correct TMDB URL from path', () => {
       const url = CdnImageAdapter.getUrl('/abc123.jpg');
-      expect(url).toBe('https://wsrv.nl/?url=https://image.tmdb.org/t/p/w500/abc123.jpg&output=webp&q=80&af=true');
+      expect(url).toBe('https://wsrv.nl/?url=https://image.tmdb.org/t/p/w500/abc123.jpg&output=webp&q=80');
     });
 
     it('uses custom size', () => {
       const url = CdnImageAdapter.getUrl('/abc123.jpg', 'w342');
-      expect(url).toBe('https://wsrv.nl/?url=https://image.tmdb.org/t/p/w342/abc123.jpg&output=webp&q=80&af=true');
+      expect(url).toBe('https://wsrv.nl/?url=https://image.tmdb.org/t/p/w342/abc123.jpg&output=webp&q=80');
     });
 
     it('handles full URLs', () => {
@@ -25,17 +25,17 @@ describe('CdnImageAdapter', () => {
 
     it('downgrades large TMDB URLs', () => {
       const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w1280/abc.jpg', 'w500');
-      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw500%2Fabc.jpg&output=webp&q=80&af=true');
+      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw500%2Fabc.jpg&output=webp&q=80');
     });
 
     it('resizes an existing medium TMDB URL for data-saving cards', () => {
       const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w500/abc.jpg', 'w342');
-      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw342%2Fabc.jpg&output=webp&q=80&af=true');
+      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw342%2Fabc.jpg&output=webp&q=80');
     });
 
     it('does not downgrade when size is original', () => {
       const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w1280/abc.jpg', 'original');
-      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw1280%2Fabc.jpg&output=webp&q=80&af=true');
+      expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw1280%2Fabc.jpg&output=webp&q=80');
     });
   });
 

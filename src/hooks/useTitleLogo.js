@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { useOptionalPreferences } from "../context/preferences";
 import { logDebug, reportQueryError } from "../utils/debugLogger";
+import { CdnImageAdapter } from "../api/cdnImageAdapter";
 
 /* One rule for "which image is this title's logo", shared by the hero banner,
    the details hero and the player's loading stage.
@@ -41,7 +42,12 @@ export function useTitleLogo(movie, scope = "useTitleLogo") {
     }
   }, [error, id, movie?.title, scope]);
 
-  const logoUrl = useImageLogos && !imageError ? (movie?.logoUrl || data || null) : null;
+  /* The wordmark leaves here as an optimized w500 WebP rendition — the details
+     payload and the /images lookup both supply raw TMDB URLs/paths; non-TMDB
+     URLs pass through the adapter unchanged. */
+  const logoUrl = useImageLogos && !imageError
+    ? CdnImageAdapter.getUrl(movie?.logoUrl || data || null, "w500")
+    : null;
 
   useEffect(() => {
     if (!logoUrl && id) {

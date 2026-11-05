@@ -7,7 +7,12 @@
  * instead of a single frame — see getSrcSet/getSizes "backdrop").
  */
 export class CdnImageAdapter {
-  // Use wsrv.nl for extreme image optimization (WebP/AVIF, global CDN cache)
+  // Use wsrv.nl (Cloudflare-backed) for image optimization: every TMDB
+  // JPEG/PNG leaves as lossy WebP at q80. wsrv v5 has no AVIF output —
+  // `output=avif` answers HTTP 400 — so WebP, which every current browser
+  // decodes, is the ceiling for this proxy. The "af" parameter is NOT format
+  // negotiation (it is a PNG-only adaptive row filter); if AVIF ever lands
+  // upstream, request it explicitly here instead of piggybacking on it.
   static USE_PROXY = true;
   static PROXY_BASE = "https://wsrv.nl/?url=https://image.tmdb.org/t/p/";
 
@@ -30,14 +35,14 @@ export class CdnImageAdapter {
         targetUrl = path.replace(/\/t\/p\/(?:w\d+|original)\//, `/t/p/${size}/`);
       }
       if (this.USE_PROXY && targetUrl.includes("image.tmdb.org")) {
-        return `https://wsrv.nl/?url=${encodeURIComponent(targetUrl)}&output=webp&q=80&af=true`;
+        return `https://wsrv.nl/?url=${encodeURIComponent(targetUrl)}&output=webp&q=80`;
       }
       return targetUrl;
     }
 
     if (this.USE_PROXY) {
-      // af=true → AVIF-first (auto-falls back to WebP for unsupported browsers)
-      return `${this.PROXY_BASE}${size}/${cleanPath}&output=webp&q=80&af=true`;
+      // Same forced-WebP pipeline as the full-URL branch above.
+      return `${this.PROXY_BASE}${size}/${cleanPath}&output=webp&q=80`;
     }
 
     return `https://image.tmdb.org/t/p/${size}/${cleanPath}`;

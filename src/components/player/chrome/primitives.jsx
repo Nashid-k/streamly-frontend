@@ -6,6 +6,7 @@
 // owning the resolve state.
 import { useEffect, useState } from "react";
 import { ACCENT, TEXT, TEXT_DIM, TEXT_FAINT, TRACK } from "./theme";
+import { CdnImageAdapter } from "../../../api/cdnImageAdapter";
 
 const FUN_FACTS = [
   "Reticulating splines...",
@@ -73,6 +74,11 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
     setArtFailed(false);
   }, [posterUrl]);
   const showArt = !!posterUrl && !frame && !artFailed;
+  /* The stage's art leaves as optimized WebP renditions: the blurred backdrop
+     reads as colour, so w780 is plenty, and the centred logo gets w500.
+     Non-TMDB or already-optimized URLs pass through the adapter unchanged. */
+  const backdropSrc = backdropUrl ? CdnImageAdapter.getUrl(backdropUrl, "w780") : null;
+  const posterSrc = posterUrl ? CdnImageAdapter.getUrl(posterUrl, "w500") : null;
   return (
     <div
       style={{
@@ -106,9 +112,9 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
             filter: "brightness(0.55)",
           }}
         />
-      ) : backdropUrl ? (
+      ) : backdropSrc ? (
         <img
-          src={backdropUrl}
+          src={backdropSrc}
           alt=""
           aria-hidden="true"
           className="np-loading-art"
@@ -159,7 +165,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
               still names what is happening). */}
           {showArt ? (
             <img
-              src={posterUrl}
+              src={posterSrc}
               alt=""
               aria-hidden="true"
               className="np-loading-poster"
