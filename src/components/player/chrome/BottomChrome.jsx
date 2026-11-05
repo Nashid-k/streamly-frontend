@@ -358,6 +358,8 @@ export default function BottomChrome({
                     role="option"
                     aria-selected={mode === "streamly"}
                     className={mode === "streamly" ? "active" : ""}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       setModeDropdownOpen?.(false);
@@ -372,6 +374,8 @@ export default function BottomChrome({
                     role="option"
                     aria-selected={mode === "embed"}
                     className={mode === "embed" ? "active" : ""}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onTouchStart={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation();
                       setModeDropdownOpen?.(false);

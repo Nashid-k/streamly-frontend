@@ -28,7 +28,7 @@ import PlayerMenus from "./PlayerMenus";
 import PlayerTransport from "./PlayerTransport";
 
 const CHROME_TARGET_GUARD =
-  "button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']";
+  "button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu'], [role='listbox'], [role='option'], .np-mode-dropdown-wrap, .np-mode-menu, .np-mode-selector";
 
 export default function PlayerShell({
   activeDub,
@@ -217,7 +217,15 @@ export default function PlayerShell({
     if (!modeDropdownOpen) return;
     const handleClickOutside = (e) => {
       const target = e.target;
-      if (target.closest?.(".np-mode-selector")) return;
+      const el = target instanceof Element ? target : target?.parentElement;
+      if (
+        el?.closest?.(".np-mode-selector") ||
+        el?.closest?.(".np-mode-dropdown-wrap") ||
+        el?.closest?.(".np-mode-menu") ||
+        el?.closest?.(".np-mode-dropdown")
+      ) {
+        return;
+      }
       setModeDropdownOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -364,23 +372,39 @@ export default function PlayerShell({
           onClick={playerMode === "embed" ? undefined : onVideoClick}
           style={{ position: "absolute", inset: 0, background: "#000" }}
         >
-          {playerMode === "embed" && embedUrl ? (
-            <iframe
-              ref={embedRef}
-              src={embedUrl}
-              title="CineSrc embed player"
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                border: "none",
-                display: "block",
-                zIndex: 1,
-              }}
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-            />
+          {playerMode === "embed" ? (
+            embedUrl ? (
+              <iframe
+                ref={embedRef}
+                src={embedUrl}
+                title="CineSrc embed player"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  border: "none",
+                  display: "block",
+                  zIndex: 1,
+                }}
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowFullScreen
+              />
+            ) : (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "rgba(255,255,255,0.7)",
+                  fontSize: 15,
+                }}
+              >
+                Loading CineSrc embed player...
+              </div>
+            )
           ) : (
             <video
               ref={videoRef}
@@ -520,6 +544,8 @@ export default function PlayerShell({
                 <button
                   type="button"
                   className="np-mode-select"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
                   onClick={(e) => {
                     e.stopPropagation();
                     setModeDropdownOpen(!modeDropdownOpen);
@@ -540,6 +566,8 @@ export default function PlayerShell({
                       role="option"
                       aria-selected={playerMode === "streamly"}
                       className={playerMode === "streamly" ? "active" : ""}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleMode && onToggleMode("streamly");
@@ -553,6 +581,8 @@ export default function PlayerShell({
                       role="option"
                       aria-selected={playerMode === "embed"}
                       className={playerMode === "embed" ? "active" : ""}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         onToggleMode && onToggleMode("embed");

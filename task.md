@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **Mode dropdown pill selection bugfix (user: "the pill i click, drop down appears, click on embed but nothing happens stays on streamly.refer cinesrc.st documents", "still same, even if i click on embed from the drop down nothing happening as well as it stays on streamly") — 2026-11-05.**
+  - **Root causes:**
+    1. In `PlayerShell.jsx`, `handleClickOutside` checked only `target.closest?.(".np-mode-selector")`. Because the top-right mode selector pill and dropdown use classes `.np-mode-dropdown-wrap` and `.np-mode-menu`, clicking on the "Embed" option evaluated to `null`.
+    2. Additionally, if the click landed on the inner text node (`target instanceof Text`), `target.closest` was undefined.
+    3. Because this check failed on `mousedown`, `handleClickOutside` fired immediately and unmounted the dropdown menu on mouse-down, destroying the button element before the browser could trigger a `click` event. As a result, `onClick` never ran, `onToggleMode("embed")` was never called, and the player remained on "Streamly".
+  - **Fix:**
+    - Updated `handleClickOutside` in `PlayerShell.jsx` to normalize the element target (`target instanceof Element ? target : target?.parentElement`) and guard `.np-mode-dropdown-wrap`, `.np-mode-menu`, `.np-mode-selector`, and `.np-mode-dropdown`.
+    - Added `onMouseDown={(e) => e.stopPropagation()}` and `onTouchStart={(e) => e.stopPropagation()}` to both the pill trigger button and dropdown options in `PlayerShell.jsx` and `BottomChrome.jsx`, preventing document listeners and gesture layers from unmounting the menu prematurely.
+    - Added `[role='listbox']`, `[role='option']`, `.np-mode-dropdown-wrap`, `.np-mode-menu`, `.np-mode-selector` to `CHROME_TARGET_GUARD` in `PlayerShell.jsx` to prevent interaction conflict with player video overlay gestures.
+    - Added fallback placeholder when in embed mode if `embedUrl` is still resolving.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (19 files / 196 tests green), `npx vitest run src/__tests__/TitleDetailsPage.test.jsx` (7 tests green), `npm run build` (clean production build).
+
 - [x] **Embed player switching, FF/BW circular dark background removal, and rapid seek UI hide bugfix (user: "on chaning the drop down frm streamly to embedd nothing happening. find the causes", "fix it, use embedd when on embedd", "Circular Dark Background on Ff/bw is not removed, as well as if i use ff/bw freequently the ui is completly hidden from the screen") — 2026-11-05.**
   - **Streamly-to-Embed switching aligned with CineSrc docs (`TitleDetailsPage.jsx`, `NativePlayerView.jsx`, `PlayerShell.jsx`, `BottomChrome.jsx`, `vercel.json`):**
     - Root causes:
