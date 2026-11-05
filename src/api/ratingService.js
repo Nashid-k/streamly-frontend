@@ -12,9 +12,22 @@ function readCache(id) {
     const raw = localStorage.getItem(CACHE_PREFIX + id);
     if (!raw) return undefined;
     const entry = JSON.parse(raw);
-    if (!entry || Date.now() - entry.ts > CACHE_TTL) return undefined;
+    if (!entry || Date.now() - entry.ts > CACHE_TTL) {
+      // Expired entries are read at most once — removing them here (instead of
+      // letting them pile up for every title ever viewed) keeps the ratings
+      // cache bounded without a separate sweep job.
+      localStorage.removeItem(CACHE_PREFIX + id);
+      return undefined;
+    }
     return entry.value;
   } catch {
+    // A corrupt raw blob would otherwise live forever: drop it too. Storage
+    // may itself be the reason we landed here (private mode) — ignore that.
+    try {
+      localStorage.removeItem(CACHE_PREFIX + id);
+    } catch {
+      // storage unavailable — refetch handles it
+    }
     return undefined;
   }
 }

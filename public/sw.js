@@ -36,7 +36,14 @@ self.addEventListener('activate', (event) => {
               .map((k) => caches.delete(k))
           )
         ),
-    ]).then(() => self.clients.claim())
+    ])
+      .then(() =>
+        Promise.all([
+          trimCache(CACHE_NAME, SHELL_CACHE_MAX, SHELL_PROTECTED),
+          trimCache(IMAGE_CACHE, IMAGE_CACHE_MAX, []),
+        ])
+      )
+      .then(() => self.clients.claim())
   );
 });
 
@@ -82,6 +89,30 @@ async function cleanStaleShell() {
   }
 }
 
+// CacheStorage has no built-in eviction: every wsrv image, every visited SPA
+// route and every deploy's hashed assets pile into these buckets until the
+// browser decides the origin is out of disk space — months of browsing can
+// quietly grow them to hundreds of MB. Keep them bounded: when a write pushes
+// past the cap, drop the oldest entries first. The offline shell keys are
+// untouchable, and a skipped run self-corrects on the next put or SW boot.
+const IMAGE_CACHE_MAX = 600;
+const SHELL_CACHE_MAX = 150;
+const SHELL_PROTECTED = ['/', '/index.html'];
+
+async function trimCache(name, maxEntries, protectedPaths) {
+  try {
+    const cache = await caches.open(name);
+    const keys = await cache.keys();
+    // keys() is insertion-ordered on every current engine: oldest first.
+    const victims = keys
+      .filter((k) => !protectedPaths.includes(new URL(k.url).pathname))
+      .slice(0, keys.length - maxEntries);
+    await Promise.all(victims.map((k) => cache.delete(k)));
+  } catch {
+    // Housekeeping must never be able to fail the request that scheduled it.
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -102,7 +133,15 @@ self.addEventListener('fetch', (event) => {
         const cached = await cache.match(request);
         const fetchPromise = fetch(request)
           .then((res) => {
-            if (res && res.ok) cache.put(request, res.clone());
+            if (res && res.ok) {
+              // The put must swallow its own quota failures — a floating
+              // rejection here was one unhandled promise per bad write — and
+              // each write is the moment to trim the bucket back to its cap.
+              cache
+                .put(request, res.clone())
+                .then(() => trimCache(IMAGE_CACHE, IMAGE_CACHE_MAX, []))
+                .catch(() => {});
+            }
             return res;
           })
           .catch(() => cached);
@@ -157,6 +196,7 @@ self.addEventListener('fetch', (event) => {
                 cache.put('/index.html', responseClone),
               ])
             )
+            .then(() => trimCache(CACHE_NAME, SHELL_CACHE_MAX, SHELL_PROTECTED))
             .catch(() => {});
         }
         return response;
@@ -199,6 +239,7 @@ self.addEventListener('fetch', (event) => {
           // A cache write must not be able to fail the delivery it was
           // opportunistically copying.
           await cache.put(event.request, response.clone()).catch(() => {});
+          await trimCache(CACHE_NAME, SHELL_CACHE_MAX, SHELL_PROTECTED);
         } else if (response && response.status === 404) {
           // Only a stale index.html explains a 404 on a hash nobody else requests.
           await cleanStaleShell();
@@ -221,6 +262,7 @@ self.addEventListener('fetch', (event) => {
             caches
               .open(CACHE_NAME)
               .then((cache) => cache.put(event.request, responseClone))
+              .then(() => trimCache(CACHE_NAME, SHELL_CACHE_MAX, SHELL_PROTECTED))
               .catch(() => {});
             return response;
           }
@@ -246,6 +288,7 @@ self.addEventListener('fetch', (event) => {
           caches
             .open(CACHE_NAME)
             .then((cache) => cache.put(event.request, responseClone))
+            .then(() => trimCache(CACHE_NAME, SHELL_CACHE_MAX, SHELL_PROTECTED))
             .catch(() => {});
         }
         return response;
