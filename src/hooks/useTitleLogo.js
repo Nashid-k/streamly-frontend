@@ -15,10 +15,10 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
    resolves to null so the caller draws the styled text title — a logo slot
    filled with the poster or backdrop art reads as a preview still of the title,
    not as a wordmark, which is what the player's cold-open stage used to do. */
-export function useTitleLogo(movie, scope = "useTitleLogo") {
+export function useTitleLogo(movie, scope = "useTitleLogo", earlyId = null) {
   const prefs = useOptionalPreferences();
   const useImageLogos = prefs?.useImageLogos ?? true;
-  const id = movie?.id;
+  const id = earlyId || movie?.id;
   const hasDetailLogo = !!movie?.logoUrl;
   const [imageError, setImageError] = useState(false);
 
@@ -26,11 +26,12 @@ export function useTitleLogo(movie, scope = "useTitleLogo") {
     setImageError(false);
   }, [id]);
 
-  const { data, error } = useQuery({
+  const { data, error, isLoading: queryLoading } = useQuery({
     queryKey: ["titleLogo", id],
     queryFn: () => movieService.getTitleLogo(id),
     // Only the missing-logo case pays for the lookup: a details payload that
-    // already carries the logo never hits /images again.
+    // already carries the logo never hits /images again. `earlyId` lets the
+    // fetch start in parallel with the details request instead of after it.
     enabled: !!id && useImageLogos && !hasDetailLogo,
     staleTime: 1000 * 60 * 60 * 24,
     retry: 1,
@@ -42,23 +43,23 @@ export function useTitleLogo(movie, scope = "useTitleLogo") {
     }
   }, [error, id, movie?.title, scope]);
 
-  /* The wordmark leaves here optimized: a raw TMDB URL/path from the details
-     payload becomes the w500 WebP rendition, while a value the adapter already
-     wrapped (the /images lookup path) passes through unchanged — re-wrapping
-     it would nest wsrv inside wsrv and the CDN answers that with a 404. */
   const logoUrl = useImageLogos && !imageError
     ? CdnImageAdapter.getUrl(movie?.logoUrl || data || null, "w500")
     : null;
 
+  // True only while the lookup is actually in flight (not a cached hit, and
+  // not disabled because the details payload already carried a logo).
+  const isLoading = !!id && useImageLogos && !hasDetailLogo && !movie?.logoUrl && queryLoading;
+
   useEffect(() => {
-    if (!logoUrl && id) {
+    if (!logoUrl && id && !isLoading) {
       logDebug(scope, `No logo for "${movie?.title}" — text title fallback is intentional, not an error.`, { id });
     }
-  }, [logoUrl, id, movie?.title, scope]);
+  }, [logoUrl, id, isLoading, movie?.title, scope]);
 
   const onLogoError = useCallback(() => setImageError(true), []);
 
-  return { logoUrl, useImageLogos, onLogoError };
+  return { logoUrl, useImageLogos, onLogoError, isLoading };
 }
 
 export default useTitleLogo;

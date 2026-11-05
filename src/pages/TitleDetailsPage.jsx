@@ -329,7 +329,8 @@ export default function TitleDetails() {
      used to receive `logoUrl || posterUrl || backdropUrl`, so a title TMDB has
      no logo for got its full poster/backdrop preview squeezed into the logo
      slot. One lookup, one fallback (text title), same rule as the home hero. */
-  const { logoUrl: titleLogoUrl, onLogoError: onTitleLogoError } = useTitleLogo(movie, "TitleDetails");
+  const { logoUrl: titleLogoUrl, onLogoError: onTitleLogoError } =
+    useTitleLogo(movie || { id }, "TitleDetails");
 
   // Member of at least one collection → tiny folder badge on the List button.
   const inAnyCollection = useMemo(
@@ -970,6 +971,8 @@ export default function TitleDetails() {
                 className="details-hero__logo drop-shadow-2xl"
                 src={titleLogoUrl}
                 alt={movie.title}
+                fetchPriority="high"
+                decoding="async"
                 onError={onTitleLogoError}
               />
             ) : (

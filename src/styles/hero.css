@@ -63,7 +63,7 @@
 }
 
 .hero-title {
-  font-size: clamp(2rem, 4.5vw, 3.8rem);
+  font-size: clamp(1.5rem, 3.5vw, 2.8rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -324,8 +324,8 @@
 
 /* Logo image */
 .hero-logo-img {
-  max-height: clamp(110px, 20vw, 200px);
-  max-width: min(640px, 95%);
+  max-height: clamp(80px, 14vw, 140px);
+  max-width: min(480px, 90%);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -333,6 +333,14 @@
   margin-bottom: 1.1rem;
   filter: drop-shadow(0 4px 20px rgba(var(--black-rgb), 0.85));
   display: block;
+}
+
+/* Reserved slot while the wordmark lookup is in flight (see HeroTitleLogo). */
+.hero-logo-img--placeholder {
+  display: block;
+  min-height: clamp(55px, 10vw, 100px);
+  min-width: 8rem;
+  margin-bottom: 1.1rem;
 }
 
 /* Apple-variant meta — spec: gold star · calendar · heart */
