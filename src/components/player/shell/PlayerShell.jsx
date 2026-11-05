@@ -502,51 +502,60 @@ export default function PlayerShell({
             </div>
           ) : null}
 
-          {/* Mode selector dropdown - right side, only when not fullscreen */}
-          {!isFullscreen && !showStage && (
-            <div className="np-mode-dropdown-wrap">
-              <button
-                type="button"
-                className="np-mode-select"
-                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
-                aria-label="Player mode"
-                aria-expanded={modeDropdownOpen}
-                aria-haspopup="listbox"
-              >
-                <span>{playerMode === "embed" ? "Embed" : "Streamly"}</span>
-                <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </button>
+          {/* Mode selector dropdown - right side, visible above initial loader when not fullscreen */}
+          {!isFullscreen && (
+            <>
               {modeDropdownOpen && (
-                <div className="np-mode-menu" role="listbox" aria-label="Player mode">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={playerMode === "streamly"}
-                    className={playerMode === "streamly" ? "active" : ""}
-                    onClick={() => {
-                      setPlayerMode("streamly");
-                      setModeDropdownOpen(false);
-                    }}
-                  >
-                    Streamly
-                  </button>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={playerMode === "embed"}
-                    className={playerMode === "embed" ? "active" : ""}
-                    onClick={() => {
-                      setPlayerMode("embed");
-                      setModeDropdownOpen(false);
-                    }}
-                  >
-                    Embed
-                  </button>
-                </div>
+                <div
+                  className="np-mode-menu-wrap"
+                  onClick={() => setModeDropdownOpen(false)}
+                  aria-hidden="true"
+                />
               )}
-            </div>
+              <div className="np-mode-dropdown-wrap">
+                <button
+                  type="button"
+                  className="np-mode-select"
+                  onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+                  aria-label="Player mode"
+                  aria-expanded={modeDropdownOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span>{playerMode === "embed" ? "Embed" : "Streamly"}</span>
+                  <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </button>
+                {modeDropdownOpen && (
+                  <div className="np-mode-menu" role="listbox" aria-label="Player mode">
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={playerMode === "streamly"}
+                      className={playerMode === "streamly" ? "active" : ""}
+                      onClick={() => {
+                        setPlayerMode("streamly");
+                        setModeDropdownOpen(false);
+                      }}
+                    >
+                      Streamly
+                    </button>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={playerMode === "embed"}
+                      className={playerMode === "embed" ? "active" : ""}
+                      onClick={() => {
+                        setPlayerMode("embed");
+                        setModeDropdownOpen(false);
+                      }}
+                    >
+                      Embed
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {/* Big center play button on paused state (.big) — only when paused and not loading */}
