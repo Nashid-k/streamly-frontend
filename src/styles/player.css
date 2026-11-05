@@ -3959,6 +3959,26 @@
   content: none !important;
 }
 
+/* Guard: the app-wide phone cascade (responsive.css ≤768px `.btn` block) styles
+   every app button full-width with 12.8/22.4px !important paddings and an
+   8px margin-bottom. Inside the player that flattens the round v4 transport
+   into 47x54 ellipses with a vertical jitter (the "circular gray background"
+   behind ff/bw), squeezes the top-bar title sideways and stretches the sheet
+   rows. player.css loads after responsive.css in main.jsx, so this later
+   equally-important restatement (0,2,0 specificity) wins the cascade, while
+   every non-player .btn keeps the app's phone sizing. */
+@media (max-width: 768px) {
+  :is(.player, .np-root) .btn {
+    width: auto !important;
+    margin-bottom: 0 !important;
+    padding: .5em !important;
+    font-size: inherit !important;
+  }
+  .np-root .ctl .btn {
+    font-size: calc(1em * var(--is, 1)) !important;
+  }
+}
+
 /* Retire legacy green tailspin ring in favour of v4 double-arc loader */
 .np-tailspin,
 .np-ring-spinner {

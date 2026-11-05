@@ -7683,4 +7683,18 @@ This is the first slice of the from-scratch redesign now that the shell split is
 
 **Docs.** `docs/player-architecture.md` now records the split as complete and documents the Signal language, layout anchors and motion contract.
 
+## 2026-11-05 - Phase 3: phone-cascade guard for player buttons (user: "in mobile if on vertical screen player ui has align issues, still for mobile and lap for ff/bw there is circular gray bg which v4 player dont have")
+
+**Root cause — one rule, both reports.** `responsive.css`'s app-wide phone block (`@media (max-width: 768px)`, the `.btn` rule at responsive.css:238-255) styles EVERY app button with `padding: 0.8rem 1.4rem !important; font-size: 0.95rem !important; width: 100%; margin-bottom: 0.5rem`. It loads before `player.css` in `main.jsx`, but its `!important` beats the player's higher-specificity declarations regardless of order. Inside the player that flattens the round v4 transport into 47x54 ellipses with an 8px vertical jitter (margin-bottom) — the distorted "circular gray background" shape behind the ff/bw chevrons on both touch and small-window machines — pushes the top-bar back button to a full-width block that drags the title right, and stretches the settings-sheet rows. The same geometry noise is the "alignment issues on vertical screen".
+
+**Reproduction needed the full app cascade.** A 19-stylesheet harness (all of `src/main.jsx`'s css, CDP-screenlined at 360x740 / 375x812 / 412x915) was required: with only tokens.css + player.css the page is v4-perfect, which is why earlier sessions could not see the bug. Measured at 360 wide before the fix: `#fwd` 47x54, padding 12.8/22.4px, margin-bottom 8px, control row 62px tall (v4: 41x44, 7px, 0px, 44px).
+
+**Fix — one guard in player.css (player.css:3962-3980).** A `@media (max-width: 768px)` block reasserts the player's own geometry with equal `!important` at higher specificity (`:is(.player, .np-root) .btn`): `width: auto; margin-bottom: 0; padding: .5em; font-size: inherit`, plus the ctl row's `calc(1em * var(--is, 1))`. player.css loads after responsive.css, so the restatement wins the cascade at equal importance; every non-player `.btn` keeps the app's phone sizing. The guard deliberately omits `min-width` so the <=360px container query's 40px refinement still applies.
+
+**Verified (headless Chrome 156 + CDP, full app cascade).** After the fix: `#fwd` 41x44, padding 7px, margin 0, ctlH 44 at 360/375/412; portrait screenshots match the v4 reference composition (title left, compact round transport, remaining time visible, osd pill at 22%/78% + edge ripple). Laptop 1280x720 hover / pressed / released states re-verified clean (`bg rgba(0,0,0,0)`, no ::after gradient, no box-shadow, focus-visible false, only the v4 scale press); real touch dispatch (`Input.dispatchTouchEvent`) clean at 360 wide (tap-highlight transparent, no focus ring).
+
+**Explicitly not changed (v4-faithful).** The `.osd` seek pill (`#000a`, left 22%/78%, top 50%) is pixel-identical to v4 (player-v4.html:130, 356); the `.dt` edge ripple gradient matches v4; tap-highlight is already transparent app-wide (tokens.css:296-302); `NetflixSeekHUD.jsx` + `hudMetrics.seekDiameter` are dead code (never rendered), left in place; the old-generation `.np-topbar`/`.np-ctl-btn` classes remain untouched (minimal-diffs rule).
+
+**Gates.** npm run lint exit 0 / 0 errors (baseline warnings only); full npm run test 120 files / 1454 tests pass; npm run build clean.
+
 
