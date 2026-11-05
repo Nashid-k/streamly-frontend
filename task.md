@@ -7738,4 +7738,30 @@ This is the first slice of the from-scratch redesign now that the shell split is
 
 **Files.** `src/api/cdnImageAdapter.js`, `src/__tests__/cdnImageAdapter.test.js`, `src/hooks/useTitleLogo.js`, `src/components/player/chrome/primitives.jsx`, `src/components/detail/ProductionCompaniesBlock.jsx`.
 
+## 2026-11-05 - Phase 6: extreme audit — skeletons where they matter, background queues, hot-path indexes + timeouts
+
+**Skeleton audit — every surface that waits on a fetch, verdict recorded (no gaps found; zero skeleton code changed):**
+- HomePage hero: inline `className="skeleton"` markup (title/description lines + two CTA pills) renders while the featured query pends. Lesson from this audit: greps for capital-S `Skeleton` component imports missed it — lowercase inline skeleton `<div>`s are a first-class pattern here, same as the blur-up placeholders.
+- HomePage rails: `HomeRails.jsx:84-88` renders `SkeletonRail` ×4 (`cards={8}`) while `loading`. The home rails live in `HomeRails` (memoized boundary), not `DiscoveryRails` — an earlier "HomePage has no rails skeleton" hypothesis was a grep-naming artifact, not a real gap.
+- CategoryPage / GenrePage / SearchPage / PersonDetailsPage / DiscoveryPage grid / TitleDetailsPage (details + episodes + similar rails): `MovieCardSkeleton` grids and loading gates already in place.
+- ExploreCollectionsPage: full loading skeleton + error + retry affordance, localStorage-first merge.
+- PublicCollectionPage: full skeleton for header + card grid while per-item details resolve.
+- HistoryPage / WatchlistPage: no skeleton **by design** — localStorage-first, instant paint, no fetch to wait on. Correct as built.
+
+**Slow requests / background queue audit (the pattern already exists — no changes):**
+- PublicCollectionPage implements a bounded-concurrency worker queue (CONCURRENCY=6, MAX_ITEMS=300, RQ-cached) for the slow per-item TMDB fetches — the literal "slow requests in a background queue" ask, already built per earlier phases.
+- `useUserData` sync is throttled; `prefetchAdapter` + idle route warmup cover hover/idle backgrounding; the RQ persister keeps repeat visits painting from localStorage. No eager video/trailer fetches on HomePage (grep: none); the hero pre-loads the next slide's art.
+- Kept: `register` still awaits SMTP before responding — a signup whose verification mail failed must not report success (documented contract, unchanged).
+- Kept: DiscoveryPage's editorial rail renders only after data resolves — below-grid, gated content, no layout shift; a skeleton there would be noise, not signal.
+
+**Fix 1 — OMDb fetch had no timeout (`src/api/omdbClient.js`).** The raw `fetch(url)` left a hung OMDb connection holding the ratings query open forever on the hot path (hero meta row, details cluster). Now `AbortSignal.timeout(15_000)` — the same ceiling Phase 4 gave sync-contract's ghJson lookups. The rejection path is unchanged (log + rethrow; a timeout never writes a poisoned null into the 24h localStorage cache). Only test pin is `barrels.test.js:63` (`toBeDefined`) — unaffected.
+
+**Fix 2 — `userData.accountId` had no Mongo index (`api/sync.js`).** `users.email` was the only indexed lookup in the app (Phase-certified earlier); every `/api/sync` GET/POST/DELETE filtered `{ accountId }` through a full collection scan. Added a best-effort `ensureIndexes` helper — `createIndex({ accountId: 1 })`, non-unique, no-op when it already exists, called once after `connectToDatabase` on every request — mirroring the `publicCollections.ensureIndexes` pattern (index creation is an optimization, never a request gate). Responses unchanged; contract-safe.
+
+**Kept-as-is, audited clean:** `server/rateLimit.js` already prunes (`MAX_TRACKED_KEYS` 5000 + 1s prune timer — no memory leak on warm instances); `MovieCard` is already `memo`'d, so hero-rotation/hover context ticks stop at the rails boundary; `ratingService` has exactly one consumer (`RatingsCluster`, hero + details only — no per-card OMDb N+1) with the 24h cache + explicit refresh affordance.
+
+**Gates.** npm run lint exit 0 / 0 errors; full npm run test 120 files / 1454 tests pass; npm run build clean.
+
+**Files.** `src/api/omdbClient.js`, `api/sync.js`.
+
 

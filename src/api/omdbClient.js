@@ -19,7 +19,9 @@ export async function fetchOmdbByImdbId(imdbId, type) {
   if (type) url.searchParams.set("type", type);
   let res;
   try {
-    res = await fetch(url.toString());
+    // Ratings sit on the hero/details hot path — a hung connection must release
+    // the query instead of leaving the meta row pending forever.
+    res = await fetch(url.toString(), { signal: AbortSignal.timeout(15_000) });
   } catch (error) {
     logError("omdb", `OMDb network error for ${imdbId}. Check connection / ad-blocker.`, error, { imdbId, type });
     throw error;

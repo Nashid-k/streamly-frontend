@@ -45,6 +45,17 @@ function bearerToken(req) {
   return match ? match[1].trim() : '';
 }
 
+// Best-effort index creation (no-op when it already exists): GET, POST and
+// DELETE all read, upsert or wipe the one row matching { accountId }; without
+// an index that is a full collection scan per sync call.
+async function ensureIndexes(col) {
+  try {
+    await col.createIndex({ accountId: 1 });
+  } catch {
+    // Index creation is an optimization, never a request gate.
+  }
+}
+
 function asString(value, maxChars) {
   if (typeof value !== 'string') return '';
   return value.slice(0, maxChars).trim();
@@ -165,6 +176,7 @@ export default withLog(async function handler(req, res) {
 
     const { db } = await connectToDatabase();
     const userDataCol = db.collection('userData');
+    await ensureIndexes(userDataCol);
     const filter = { accountId };
 
     if (req.method === 'POST') {
