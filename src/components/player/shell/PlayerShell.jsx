@@ -183,10 +183,10 @@ export default function PlayerShell({
   watchedEpisodes,
   // Mode selector props
   playerMode,
-  modeDropdownOpen,
-  setModeDropdownOpen,
   onToggleMode,
 }) {
+  // Local state for mode dropdown (PlayerShell owns this)
+  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const v4Appearance = usePlayerV4Appearance({
     subtitleSize,
     setSubtitleSize,

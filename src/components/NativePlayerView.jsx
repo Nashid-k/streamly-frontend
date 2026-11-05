@@ -2444,8 +2444,6 @@ const showSkipOutro = shouldShowSkipOutro({
       watchedEpisodes={watchedEpisodes}
       // Mode selector props
       playerMode={actualPlayerMode}
-      modeDropdownOpen={modeDropdownOpen}
-      setModeDropdownOpen={setModeDropdownOpen}
       onToggleMode={setLocalPlayerMode}
     />
   );
