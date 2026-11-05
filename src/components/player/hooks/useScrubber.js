@@ -324,6 +324,31 @@ export default function useScrubber({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoverRatio, safeDuration]);
 
+  // Flush queued deltas once the in-flight seek completes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return undefined;
+    const onSeeked = () => {
+      if (pendingSeekRef.current !== 0) {
+        const queued = pendingSeekRef.current;
+        pendingSeekRef.current = 0;
+        const dur = Number(video.duration);
+        const from = video.currentTime || 0;
+        const next = from + queued;
+        const real = Number.isFinite(dur) && dur > 0 ? Math.min(Math.max(0, next), dur) : Math.max(0, next);
+        try {
+          video.currentTime = real;
+        } catch {
+          // ignore out-of-range seeks
+        }
+      }
+    };
+    video.addEventListener("seeked", onSeeked);
+    return () => {
+      video.removeEventListener("seeked", onSeeked);
+    };
+  }, [videoRef]);
+
   /* Pending timers / frames on unmount: a leftover rAF writes state into a dead
      component, and a hover deadline would resurrect the overlay. */
   useEffect(

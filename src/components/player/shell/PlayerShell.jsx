@@ -280,7 +280,7 @@ export default function PlayerShell({
       }
     };
   }
-  const isInitialStage = Boolean(showStage || !everPlayed);
+  const isInitialStage = Boolean((showStage || !everPlayed) && playerMode !== "embed");
   const isLoading = Boolean((buffering || spinner) && !isInitialStage);
   const isMuted = muted || autoMuted || volume === 0;
   // The buffered bar follows the element's real buffer: the end of the range
@@ -410,6 +410,9 @@ export default function PlayerShell({
         <div
           className="ui"
           id="ui"
+          style={{
+            pointerEvents: playerMode === "embed" ? "none" : undefined,
+          }}
           onTouchStart={(e) => {
             if (e.target.closest?.(CHROME_TARGET_GUARD)) {
               return;
@@ -486,8 +489,8 @@ export default function PlayerShell({
             aria-hidden="true"
           />
 
-          {/* Player v4 Double-Arc Spinner (.ld) — hidden during initial logo image loader */}
-          {!isInitialStage ? (
+          {/* Player v4 Double-Arc Spinner (.ld) — hidden during initial logo image loader or embed */}
+          {!isInitialStage && playerMode !== "embed" ? (
             <div className="ld" aria-hidden="true">
               <svg viewBox="0 0 100 100">
                 <defs>
@@ -562,6 +565,7 @@ export default function PlayerShell({
           )}
 
           {/* Big center play button on paused state (.big) — only when paused and not loading */}
+          {playerMode !== "embed" && (
           <button
             type="button"
             className="big"
@@ -574,6 +578,7 @@ export default function PlayerShell({
           >
             <svg className="ic"><use href="#i-play" /></svg>
           </button>
+          )}
 
           {/* On-Screen Display pill (.osd). Keyed by hudSeq so every flash
               REMOUNTS the node and its one-shot `osd` keyframe replays — a
@@ -581,7 +586,7 @@ export default function PlayerShell({
               900ms run (the "fast clicks show no HUD" report). */}
           <div
             key={`osd-${hudSeq || 0}`}
-            className={["osd", (hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x ? "show" : ""].filter(Boolean).join(" ")}
+            className={["osd", (hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x ? "show" : "", hud?.kind === "seek" ? "osd-seek" : ""].filter(Boolean).join(" ")}
             id="osd"
             aria-live="polite"
             style={{ left: hud?.kind === "seek" ? (hud.value < 0 ? "22%" : "78%") : "50%" }}
@@ -660,17 +665,19 @@ export default function PlayerShell({
           </AnimatePresence>
 
           {/* Center stack: cold stage art during initial load / server switch & replay */}
-          <CenterStack
-            showStage={showStage}
-            stageNote={stageNote}
-            stageInitial={!everPlayed || serverSwitchStage}
-            switchFrame={switchFrame}
-            displayTitle={displayTitle}
-            backdropUrl={backdropUrl}
-            posterUrl={posterUrl}
-            ended={ended}
-            onReplay={replay}
-          />
+          {playerMode !== "embed" && (
+            <CenterStack
+              showStage={showStage}
+              stageNote={stageNote}
+              stageInitial={!everPlayed || serverSwitchStage}
+              switchFrame={switchFrame}
+              displayTitle={displayTitle}
+              backdropUrl={backdropUrl}
+              posterUrl={posterUrl}
+              ended={ended}
+              onReplay={replay}
+            />
+          )}
 
           <TapToUnmutePill
             visible={autoMuted && playing && !sheetOpen}

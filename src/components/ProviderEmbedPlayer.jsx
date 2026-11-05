@@ -49,7 +49,18 @@ export function providerEmbedUrl({ type = "movie", id, season = 1, episode = 1 }
   return url;
 }
 
-export default function ProviderEmbedPlayer({ type, id, season, episode, title, subtitle, onClose }) {
+export default function ProviderEmbedPlayer({
+  type,
+  id,
+  season,
+  episode,
+  title,
+  subtitle,
+  onClose,
+  playerMode = "embed",
+  onToggleMode,
+}) {
+  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [chromeVisible, setChromeVisible] = useState(true);
   const idleTimerRef = useRef(null);
@@ -216,6 +227,54 @@ export default function ProviderEmbedPlayer({ type, id, season, episode, title, 
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{subtitle}</div>
           ) : null}
         </div>
+        {onToggleMode && (
+          <div className="np-mode-dropdown-wrap" style={{ position: "relative", right: "auto", top: "auto" }}>
+            <button
+              type="button"
+              className="np-mode-select"
+              onClick={(e) => {
+                e.stopPropagation();
+                setModeDropdownOpen(!modeDropdownOpen);
+              }}
+              aria-label="Player mode"
+              aria-expanded={modeDropdownOpen}
+              aria-haspopup="listbox"
+            >
+              <span>Embed</span>
+              <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            {modeDropdownOpen && (
+              <div className="np-mode-menu" role="listbox" aria-label="Player mode">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModeDropdownOpen(false);
+                    onToggleMode("streamly");
+                  }}
+                >
+                  Streamly
+                </button>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={true}
+                  className="active"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModeDropdownOpen(false);
+                  }}
+                >
+                  Embed
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {url && (
           <a
             href={url}

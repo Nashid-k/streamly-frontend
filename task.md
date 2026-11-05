@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **Embed player switching, FF/BW circular dark background removal, and rapid seek UI hide bugfix (user: "on chaning the drop down frm streamly to embedd nothing happening. find the causes", "fix it, use embedd when on embedd", "Circular Dark Background on Ff/bw is not removed, as well as if i use ff/bw freequently the ui is completly hidden from the screen") — 2026-11-05.**
+  - **Streamly-to-Embed switching (`TitleDetailsPage.jsx`, `NativePlayerView.jsx`, `ProviderEmbedPlayer.jsx`, `PlayerShell.jsx`):**
+    - Root cause: NativePlayerView's mode toggle only updated internal local state and never notified the parent (`onToggleMode` wasn't invoked). The embed URL was hardcoded to `cinesrc.st`, which was blocked by the CSP in `vercel.json` (`frame-src` strictly whitelisted `zxcstream.cc`). In addition, NativePlayerView's `CenterStack` and `.ui` container covered the iframe with opaque black layers and event traps.
+    - Fix: Added parent-level `playerMode` tracking to `TitleDetailsPage` that switches cleanly to `ProviderEmbedPlayer` on embed selection (using the allowed `zxcstream.cc` provider URL). Wired the player mode dropdown back into `ProviderEmbedPlayer` so viewers can return to native Streamly. In `NativePlayerView` and `PlayerShell`, synchronized `playerMode`, paused native media on embed, prevented `.ui` from blocking pointer events to the embed iframe, and suppressed stage loaders.
+  - **Removal of circular dark background on FF/BW seek HUD (`PlayerShell.jsx`, `player.css`):**
+    - Root cause: `.osd` possessed a 5em rounded pill geometry and `.dt` rendered a radial gradient circular arc (`background: radial-gradient(circle at var(--cx) 50%, #ffffff33, #0000 70%)` with `border-radius: 60%`), appearing as a dark/gray circular disc on seeking.
+    - Fix: Fully stripped background, backdrop-filter, border, and border-radius from `.osd`, `.osd.show`, and `.osd.osd-seek` with `!important`. Enhanced readability via `drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9))` on seek icons and typography. Hidden `.dt` flash elements (`display: none !important`), leaving only the clean floating seek HUD without any dark circular plates.
+  - **UI auto-hiding during frequent FF/BW usage & in-flight seek queue flush (`usePlayerChrome.js`, `useScrubber.js`):**
+    - Root cause: `usePlayerChrome` rate-limited `poke()` to 250ms, returning early without clearing `idleTimer.current`. Rapid clicks within 250ms allowed the pre-existing 3-second auto-hide timeout to trigger mid-interaction, setting `controlsVisible = false` and hiding the entire transport UI. Furthermore, deltas queued into `pendingSeekRef.current` while `video.seeking` was true were never flushed because no `seeked` listener existed.
+    - Fix: In `usePlayerChrome.js`, `poke()` now clears and re-arms `idleTimer.current` on every single interaction, ensuring the 3-second idle hide timer is pushed back and controls remain fully visible during continuous seeking. In `useScrubber.js`, attached a `seeked` event listener on `<video>` that immediately applies any accumulated seek deltas once the previous seek completes.
+  - **Gates passed:** `npm run lint` (0 errors, 124 warnings), `npx vitest run player` (19 files / 196 tests green), `npx vitest run src/__tests__/TitleDetailsPage.test.jsx` (7 tests green), `npm run build` (clean production build in 12.54s).
+
 - [x] **Remaining player-v4 parity gaps (user: "do the remaining v4 gaps which you mentioned. and push") — 2026-11-05.**
   - **Keyboard parity, character keys (`nativePlayerKeys.js`, `usePlayerKeyboard.js`, `NativePlayerView.jsx`):** `keyboardAction` now receives `e.key` (v4 matches these on key, not `e.code` — `<` is Shift+Comma on US but a different physical key elsewhere). New actions: `<`/`>` step through `PLAYER_SPEEDS` (text-only `speed` OSD pill, `1.5x`), `,`/`.` nudge a paused frame by 1/30s (silent), digits 0-9 jump to 0–90% of the video, `c` flips captions between Off and the first available language (`subs` OSD names the result). The keydown handler reads `playingRef`/`cyclePlaybackRateRef`/`nudgeFrameRef`/`seekToPercentRef`/`cycleCaptionsRef` so the bind-once effect never ships a stale rate or pause state.
   - **Escape steps back one sheet level (`PlayerShell.jsx`, `usePlayerKeyboard.js`):** the shell owns the stack, so it assigns `panelBackRef.current` = v4's `stack.length > 1 ? back() : close()` every render; `usePlayerKeyboard`'s `close-panel` case routes through `panelBackRef.current()` (falls back to the old whole-sheet close while the shell hasn't registered). Escape in a subpane returns to the parent pane; at the root it closes the sheet.
@@ -7837,4 +7849,35 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 
 **Files.** `src/components/browse/SearchSuggest.jsx`, `src/pages/SearchPage.jsx`, `src/styles/search.css`, `src/i18n/en.js`, `src/__tests__/SearchPage.test.jsx`.
 
+## 2026-11-05 - Phase 12: Embed player switching, FF/BW circular dark background removal, and rapid seek UI hide bugfix
 
+**Fix 1 — Embed player switching ("on chaning the drop down frm streamly to embedd nothing happening" & "use embedd when on embedd").**
+- Root causes:
+  1. `NativePlayerView` handled `onToggleMode` via a dead-end internal state setter `debugSetPlayerMode` and never forwarded mode changes to the parent `TitleDetailsPage`.
+  2. Embed URL in `NativePlayerView` was hardcoded to `https://cinesrc.st/embed`, which was actively blocked by the browser due to CSP violations (`vercel.json` whitelists `https://zxcstream.cc`).
+  3. `TitleDetailsPage` only mounted `<ProviderEmbedPlayer>` on `PROVIDER_EMBED_PLAYBACK` flag or native failure, lacking dynamic mode switching.
+  4. In `PlayerShell`, `<CenterStack>` and `<div className="ui">` blocked visual output and click interactions to iframe embeds.
+- Fix:
+  - Added `playerMode` state to `TitleDetailsPage` and switched engine mounting between `<NativePlayerView>` and `<ProviderEmbedPlayer>` dynamically.
+  - Added the player mode dropdown to `<ProviderEmbedPlayer>` with "Streamly" and "Embed" options, allowing seamless switching back and forth.
+  - In `NativePlayerView`, imported and utilized `providerEmbedUrl` (from `ProviderEmbedPlayer.jsx`), synchronized `localPlayerMode` with parent `playerMode`, invoked `onToggleMode` callback, and paused native playback on switch.
+  - In `PlayerShell`, prevented `.ui` and `CenterStack` from interfering with or obscuring embed playback.
+
+**Fix 2 — Circular Dark Background on FF/BW seek HUD ("Circular Dark Background on Ff/bw is not removed").**
+- Root cause: `.osd` retained a 5em rounded pill geometry and `.dt` rendered a 36% radial gradient arc with border-radius, flashing a dark circular disc behind the seek indicators.
+- Fix:
+  - Added `osd-seek` to seek HUD and explicitly removed all background, backdrop-filter, border, and border-radius styles across `.osd`, `.osd.show`, and `.osd.osd-seek` (`background: none !important; border-radius: 0 !important;`).
+  - Added text/icon drop-shadow (`filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9))`) for optimal contrast over bright or dark video frames.
+  - Completely suppressed `.dt` flash ripple background artifacts (`display: none !important; background: none !important;`).
+
+**Fix 3 — UI disappearing on rapid FF/BW clicks and un-flushed in-flight seek queue ("if i use ff/bw freequently the ui is completly hidden from the screen").**
+- Root cause:
+  1. `usePlayerChrome.js` had a 250ms `POKE_REARM_MIN_MS` rate limit inside `poke()`. Clicking FF/BW faster than 250ms caused `poke()` to return early without clearing or re-arming `idleTimer.current`. The previously-scheduled 3-second auto-hide fired while the user was actively clicking, applying `.idle` and rendering `.bot` and `.top` invisible and unclickable.
+  2. `useScrubber.js` queued relative deltas into `pendingSeekRef.current` when `video.seeking` was true, but never attached a `seeked` event listener to apply the accumulated queued seek once the seek resolved.
+- Fix:
+  - In `usePlayerChrome.js`, `poke()` now immediately clears and re-arms `idleTimer.current` on every interaction, properly extending the 3-second idle countdown.
+  - In `useScrubber.js`, attached a `seeked` listener to `<video>` to flush `pendingSeekRef.current` as soon as each seek resolves.
+
+**Gates.** npm run lint 0 errors; npx vitest run player 19 files / 196 tests pass; npx vitest run src/__tests__/TitleDetailsPage.test.jsx 7 tests pass; npm run build clean.
+
+**Files.** `src/pages/TitleDetailsPage.jsx`, `src/components/ProviderEmbedPlayer.jsx`, `src/components/NativePlayerView.jsx`, `src/components/player/shell/PlayerShell.jsx`, `src/components/player/hooks/usePlayerChrome.js`, `src/components/player/hooks/useScrubber.js`, `src/styles/player.css`, `task.md`.

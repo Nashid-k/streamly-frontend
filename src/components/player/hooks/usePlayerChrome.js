@@ -32,8 +32,6 @@ import { logDebug } from "../../../utils/debugLogger";
 
 /** Idle time before the chrome hides itself. */
 const HIDE_DELAY_MS = 3000;
-/** mousemove fires 100+/s; re-arming two timers that often is wasteful. */
-const POKE_REARM_MIN_MS = 250;
 /** How long an ignored "Still watching?" prompt stays up. */
 const STILL_WATCHING_OFFER_MS = 90 * 1000;
 
@@ -52,7 +50,6 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
   const [stillWatching, setStillWatching] = useState(false);
 
   const idleTimer = useRef(null);
-  const lastPokeArm = useRef(0);
   // Still-watching bookkeeping.
   const swIdleRef = useRef(null); // rolling play-with-no-input timer
   const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
@@ -102,18 +99,14 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
      viewer stops moving. */
   const poke = useCallback(() => {
     setControlsVisible(true);
-    // Any interaction re-arms the still-watching countdown, but must not
-    // dismiss an OPEN prompt (see header).
-    if (swIdleRef.current) {
-      clearTimeout(swIdleRef.current);
-      swIdleRef.current = null;
-    }
-    const now = Date.now();
-    if (now - lastPokeArm.current < POKE_REARM_MIN_MS) return;
-    lastPokeArm.current = now;
+    // Any interaction re-arms the still-watching countdown and postpones auto-hide
     if (idleTimer.current) {
       clearTimeout(idleTimer.current);
       idleTimer.current = null;
+    }
+    if (swIdleRef.current) {
+      clearTimeout(swIdleRef.current);
+      swIdleRef.current = null;
     }
     if (videoRef.current && !videoRef.current.paused) {
       idleTimer.current = setTimeout(() => setControlsVisible(false), HIDE_DELAY_MS);

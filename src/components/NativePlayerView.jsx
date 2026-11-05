@@ -56,6 +56,7 @@ import useSourceResolve from "./player/engine/useSourceResolve";
 import usePlayerKeyboard from "./player/hooks/usePlayerKeyboard";
 import useMediaElementEvents from "./player/hooks/useMediaElementEvents";
 import PlayerShell from "./player/shell/PlayerShell";
+import { providerEmbedUrl } from "./ProviderEmbedPlayer";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveTouchRelease } from "./player/nativePlayerHold";
 
@@ -202,20 +203,31 @@ export default function NativePlayerView({
   const embedRef = useRef(null);
   // Local state for player mode (used when NativePlayerView owns the mode)
   const [localPlayerMode, setLocalPlayerMode] = useState(playerMode);
-  // Debug wrapper for mode changes
-  const debugSetPlayerMode = useCallback((mode) => {
-    console.log(`[Streamly][mode] NativePlayerView received mode change to: ${mode}`);
-    setLocalPlayerMode(mode);
-  }, []);
-  /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
+
+  useEffect(() => {
+    setLocalPlayerMode(playerMode);
+  }, [playerMode]);
+
+  const handleToggleMode = useCallback(
+    (mode) => {
+      setLocalPlayerMode(mode);
+      onToggleMode?.(mode);
+    },
+    [onToggleMode],
+  );
+
+  /* Build provider embed URL per ZXC origin */
   const embedUrl = useMemo(() => {
     if (localPlayerMode !== "embed") return null;
-    const base = "https://cinesrc.st/embed";
-    if (type === "tv") {
-      return `${base}/tv/${id}?s=${season}&e=${episode}`;
-    }
-    return `${base}/movie/${id}`;
+    return providerEmbedUrl({ type, id, season, episode });
   }, [localPlayerMode, type, id, season, episode]);
+
+  /* Pause native playback if switching to embed */
+  useEffect(() => {
+    if (localPlayerMode === "embed" && videoRef.current && !videoRef.current.paused) {
+      videoRef.current.pause();
+    }
+  }, [localPlayerMode]);
   /* Viewer preferences. Read here, at the top of the component, because the
      skip amount below is needed by handlers declared further down (and a
      `const` declared later would be a TDZ error at those call sites).
@@ -2449,7 +2461,7 @@ const showSkipOutro = shouldShowSkipOutro({
       // Mode selector props
       playerMode={localPlayerMode}
       embedUrl={embedUrl}
-      onToggleMode={debugSetPlayerMode}
+      onToggleMode={handleToggleMode}
     />
   );
 }

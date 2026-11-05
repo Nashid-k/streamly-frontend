@@ -2334,9 +2334,13 @@
   transform: none;
 }
 
-/* OSD pill */
+/* OSD pill — no background circle or plate on FF/BW */
 :is(.player, .np-root) .osd,
-.osd {
+.osd,
+:is(.player, .np-root) .osd.show,
+.osd.show,
+:is(.player, .np-root) .osd.osd-seek,
+.osd.osd-seek {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -2344,7 +2348,13 @@
   height: 5em;
   padding: 0 1.1em;
   z-index: 3;
-  border-radius: 2.5em;
+  border-radius: 0 !important;
+  background: none !important;
+  background-color: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: none !important;
   /* No plate: the OSD floats directly on the picture (a repeated viewer
      request). Legibility is carried by the text-shadow alone. */
   text-shadow: 0 1px 6px #000c;
@@ -2358,6 +2368,14 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
+:is(.player, .np-root) .osd svg,
+.osd svg,
+:is(.player, .np-root) .osd span,
+.osd span,
+:is(.player, .np-root) .osd b,
+.osd b {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9)) !important;
+}
 :is(.player, .np-root) .osd.show,
 .osd.show {
   animation: osd 900ms var(--ease);
@@ -2368,42 +2386,11 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
 }
 
-/* Double-tap flash matching player-v4.html */
+/* Double-tap flash matching player-v4.html — no background circle */
 :is(.player, .np-root) .dt,
 .dt {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 36%;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(circle at var(--cx) 50%, #ffffff33, #0000 70%);
-}
-:is(.player, .np-root) .dt.l,
-:is(.player, .np-root) .dt.dtl,
-.dt.l,
-.dt.dtl {
-  left: 0;
-  --cx: 30%;
-  border-radius: 0 60% 60% 0 / 0 100% 100% 0;
-}
-:is(.player, .np-root) .dt.r,
-:is(.player, .np-root) .dt.dtr,
-.dt.r,
-.dt.dtr {
-  right: 0;
-  --cx: 70%;
-  border-radius: 60% 0 0 60% / 100% 0 0 100%;
-}
-:is(.player, .np-root) .dt.show,
-.dt.show {
-  animation: dtf 600ms var(--ease);
-}
-@keyframes dtf {
-  0% { opacity: 0; }
-  20% { opacity: 1; }
-  100% { opacity: 0; }
+  display: none !important;
+  background: none !important;
 }
 
 /* Buffered */

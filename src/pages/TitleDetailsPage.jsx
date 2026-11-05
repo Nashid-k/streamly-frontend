@@ -242,6 +242,7 @@ export default function TitleDetails() {
   // we must use the embed). `null` = not yet known, so we hold the frame black
   // instead of flashing the embed and then swapping engines.
   const [zxcNative, setZxcNative] = useState(null);
+  const [playerMode, setPlayerMode] = useState("streamly");
   useEffect(() => {
     if (PROVIDER_EMBED_PLAYBACK) return undefined;
     let alive = true;
@@ -2265,7 +2266,7 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
+                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false || playerMode === "embed" ? (
                         <ProviderEmbedPlayer
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}
@@ -2278,6 +2279,8 @@ export default function TitleDetails() {
                               : releaseYear(movie)
                           }
                           onClose={() => setIsPlaying(false)}
+                          playerMode={playerMode}
+                          onToggleMode={setPlayerMode}
                         />
                       ) : zxcNative === true ? (
                         <NativePlayerView
@@ -2334,6 +2337,8 @@ export default function TitleDetails() {
                           onGoPrev={goToPrevEpisode}
                           onGoNext={goToNextEpisode}
                           onClose={() => setIsPlaying(false)}
+                          playerMode={playerMode}
+                          onToggleMode={setPlayerMode}
                           imdbId={movie?.imdbId || ""}
                           backdropUrl={movie?.backdropUrl || ""}
                           posterUrl={titleLogoUrl || ""}
