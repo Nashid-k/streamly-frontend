@@ -183,6 +183,7 @@ export default function PlayerShell({
   watchedEpisodes,
   // Mode selector props
   playerMode,
+  embedUrl,
   onToggleMode,
 }) {
   // Local state for mode dropdown (PlayerShell owns this)

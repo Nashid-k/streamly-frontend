@@ -2448,6 +2448,7 @@ const showSkipOutro = shouldShowSkipOutro({
       watchedEpisodes={watchedEpisodes}
       // Mode selector props
       playerMode={localPlayerMode}
+      embedUrl={embedUrl}
       onToggleMode={debugSetPlayerMode}
     />
   );
