@@ -67,13 +67,11 @@ textarea:focus-visible {
 
 .movie-rail {
   gap: 1.5rem;
-  /* rivo.st's rail: `py-6 sm:py-8` (24px, then 32px) plus `overscroll-x-contain`
-     and `scroll-smooth`. Ours was 12px of padding, which is why our rows sat
-     tighter than theirs, and wheel/trackpad overscroll propagated to the PAGE —
-     one flick past the end of a rail scrolled the whole home page. */
   padding: 1.5rem 0;
   overscroll-behavior-x: contain;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
+  contain: content;
+  will-change: scroll-position;
 }
 @media (min-width: 640px) {
   .movie-rail {

@@ -30,28 +30,14 @@ function AmbientBackground({ src, alt = "", fallback = false, children }) {
       <div className="absolute inset-0 w-full h-full">
         {src && (
           <img
-            className="w-full h-full object-cover scale-[1.2] blur-[80px] saturate-100 opacity-50"
+            className="ambient-backdrop-img"
             alt={alt}
             loading="eager"
             decoding="async"
             src={blurSrc}
           />
         )}
-        {src && (
-          <div className="absolute top-0 left-0 w-full h-[40vh] mix-blend-screen opacity-20 hidden lg:block">
-            <img
-              className="w-full h-full object-cover scale-[1.2] blur-[50px] saturate-100"
-              alt={alt}
-              loading="eager"
-              decoding="async"
-              style={{
-                maskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 100%)",
-              }}
-              src={blurSrc}
-            />
-          </div>
-        )}
+        {src && <div className="ambient-top-glow hidden lg:block" aria-hidden="true" />}
         {/* Cinejoy-style liquid backdrop — a few blurred color blobs drifting
             slowly. Transform-only animation (GPU-cheap); disabled for
             prefers-reduced-motion via CSS. */}

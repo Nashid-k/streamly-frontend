@@ -198,42 +198,71 @@
    frozen for prefers-reduced-motion. */
 .ambient-liquid {
   position: absolute;
-  inset: -15%;
+  inset: -12%;
   overflow: hidden;
-  opacity: 0.5;
+  opacity: 0.55;
   pointer-events: none;
+  contain: strict;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
+/* Pure CSS soft radial gradients: Gaussian-soft falloff without costly GPU filter: blur() passes */
 .ambient-liquid__blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(60px) saturate(130%);
-  -webkit-filter: blur(60px) saturate(130%);
-  mix-blend-mode: screen;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
   will-change: transform;
+  pointer-events: none;
 }
 .ambient-liquid__blob--a {
-  width: 44vw;
-  height: 44vw;
+  width: 46vw;
+  height: 46vw;
   left: -10%;
   top: -14%;
-  background: radial-gradient(circle at 35% 35%, rgba(149, 255, 80, 0.55), rgba(149, 255, 80, 0) 70%);
+  background: radial-gradient(circle at 38% 38%, rgba(149, 255, 80, 0.38) 0%, rgba(149, 255, 80, 0.2) 28%, rgba(149, 255, 80, 0.06) 52%, transparent 72%);
   animation: ambient-blob-a 46s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--b {
-  width: 36vw;
-  height: 36vw;
+  width: 38vw;
+  height: 38vw;
   right: -8%;
   top: 18%;
-  background: radial-gradient(circle at 60% 40%, rgba(92, 226, 28, 0.5), rgba(92, 226, 28, 0) 70%);
+  background: radial-gradient(circle at 55% 42%, rgba(92, 226, 28, 0.34) 0%, rgba(92, 226, 28, 0.17) 30%, rgba(92, 226, 28, 0.05) 50%, transparent 70%);
   animation: ambient-blob-b 58s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--c {
-  width: 40vw;
-  height: 40vw;
+  width: 42vw;
+  height: 42vw;
   left: 22%;
   bottom: -20%;
-  background: radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.42), rgba(129, 140, 248, 0) 70%);
+  background: radial-gradient(circle at 50% 50%, rgba(129, 140, 248, 0.3) 0%, rgba(129, 140, 248, 0.15) 32%, rgba(129, 140, 248, 0.04) 52%, transparent 72%);
   animation: ambient-blob-c 66s ease-in-out infinite alternate;
+}
+
+/* Hardware-composited ambient image backdrop + top glow */
+.ambient-backdrop-img {
+  position: absolute;
+  inset: -8%;
+  width: 116%;
+  height: 116%;
+  object-fit: cover;
+  transform: translate3d(0, 0, 0);
+  filter: blur(28px) saturate(115%);
+  -webkit-filter: blur(28px) saturate(115%);
+  opacity: 0.45;
+  backface-visibility: hidden;
+  will-change: transform;
+  pointer-events: none;
+}
+.ambient-top-glow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40vh;
+  background: radial-gradient(ellipse 80% 100% at 50% 0%, rgba(149, 255, 80, 0.08), transparent 75%);
+  pointer-events: none;
 }
 @keyframes ambient-blob-a {
   from { transform: translate3d(-6%, -4%, 0) scale(1); }
@@ -422,8 +451,9 @@
   /* Cinejoy `.theme-btn-secondary`: white/10 glass, white hairline border */
   background-color: rgba(var(--white-rgb), 0.1);
   border: 1px solid rgba(var(--white-rgb), 0.2);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  transform: translateZ(0);
   box-shadow: 0 10px 30px rgba(var(--black-rgb), 0.35);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -450,8 +480,9 @@
   color: #ffffff;
   background: rgba(var(--white-rgb), 0.1);
   border: 1px solid rgba(var(--white-rgb), 0.1);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  transform: translateZ(0);
   box-shadow: 0 8px 20px rgba(var(--black-rgb), 0.35);
   cursor: pointer;
   /* Lift on the silk hover curve; colour shifts stay fast (a slow colour fade

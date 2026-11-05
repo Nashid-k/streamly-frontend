@@ -199,12 +199,12 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */
 .glass-card {
-  background: rgba(20, 20, 20, 0.6);
+  background: rgba(18, 18, 22, 0.75);
   border: 1px solid rgba(var(--white-rgb), 0.08);
   border-radius: 20px;
   padding: clamp(1.25rem, 2.5vw, 1.75rem);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   scroll-margin-top: 100px;
   transition: box-shadow var(--duration-fast) var(--ease-out);
 }

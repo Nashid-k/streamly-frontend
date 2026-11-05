@@ -70,10 +70,6 @@
 }
 
 .movie-card {
-  /* No permanent translateZ(0)/will-change here: a rail of 20 cards times
-     every rail on the page meant 180+ always-on compositor layers eating GPU
-     memory. The hover lift is a CSS transition, which promotes the card for
-     exactly as long as it animates. */
   backface-visibility: hidden;
   display: flex;
   flex-direction: column;
@@ -83,6 +79,7 @@
   border-radius: var(--radius-xl);
   padding: 0;
   background: rgba(var(--white-rgb),0.01);
+  contain: layout style;
   /* Leave-side transition for the lift: no delay, decelerating. The enter
      side lives on the :hover/:focus-visible rules below, so entering gets the
      silk curve + staged delays and leaving gets this quick settle — CSS's

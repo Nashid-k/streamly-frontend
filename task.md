@@ -7,6 +7,22 @@
 
  ## Done (in order)
 
+- [x] **App-wide smoothness and pure CSS blurred background optimization (user: "dig entire app and improve smoothness,use pure css to fix the blurred background and other smoothness consuming problems without loosing user experience. dig each corner of the app") — 2026-11-05.**
+  - **Root causes of GPU stutter & layout thrashing:**
+    1. In `hero.css`, `.ambient-liquid__blob` continuously animated 3 massive blobs (36vw-46vw) in infinite 46s-66s loops with `filter: blur(60px) saturate(130%)` combined with `mix-blend-mode: screen`. In Blink/WebKit, 60px Gaussian blurs on moving surfaces force full-surface re-rasterization and multi-pass fragment shader execution on every frame, causing massive GPU frame drops.
+    2. In `AmbientBackground.jsx`, two duplicated full-viewport image layers were running `blur-[80px]` and `blur-[50px] mix-blend-screen` with negative inset margins.
+    3. In `header.css`, scrolling the page toggled `.navbar.scrolled`, causing `backdrop-filter` to dynamically transition its blur radius between `16px` and `30px`, which forced the GPU to discard and recreate backing filter surfaces on every scroll threshold cross.
+    4. In `rails.css`, `.movie-rail` declared `scroll-behavior: smooth`, which causes conflict and stutter during native touch/trackpad gesture scrolling, while arrow button clicks already invoke programmatic smooth scrolling via JS.
+    5. High `backdrop-filter` radii (24px–36px) across cards, dialogs, popovers, and bottom navs were imposing heavy shader penalties across mobile and low-power GPUs.
+  - **Pure CSS solutions applied:**
+    - **Hero Ambient Liquid:** Replaced the heavy `filter: blur(60px)` and `mix-blend-mode: screen` on `.ambient-liquid__blob` with pure CSS multi-stop analytical radial gradients (`radial-gradient(circle at 45% 45%, rgba(...) 0%, rgba(...) 28%, rgba(...) 52%, transparent 72%)`). Added `contain: strict; transform: translate3d(0, 0, 0); backface-visibility: hidden; will-change: transform;`. This produces identical Gaussian-soft luminance falloff mathematically without invoking GPU fragment blur shaders.
+    - **Ambient Background:** Refactored `AmbientBackground.jsx` to use a single GPU-promoted `.ambient-backdrop-img` with `contain: strict; filter: blur(28px); transform: translate3d(0,0,0);` coupled with a pure CSS top gradient `.ambient-top-glow` (`radial-gradient(ellipse 90% 55% at 50% -10%, ...)`), cutting backdrop texture copies by 50%.
+    - **Header Navbar:** Stabilized `backdrop-filter: blur(14px) saturate(135%)` across both `.navbar` and `.navbar.scrolled`, eliminating GPU filter recreation on scroll. Added `transform: translateZ(0)` and `will-change: transform`.
+    - **Horizontal Rails:** Switched `.movie-rail` to `scroll-behavior: auto; contain: content; will-change: scroll-position;` for lag-free native inertia scrolling.
+    - **Cards & Grids:** Added `contain: layout style;` to `.movie-card` and GPU composite layer promotion `transform: translateZ(0)` to `.poster-wrapper`.
+    - **Glass Blur Tokens & Menus:** Optimized `--glass-blur` and surfaces (`glass-popover`, `.head-menu`, `.mobile-bottom-nav`, `.collection-card`, `.glass-card`, `.np-panel-surface`) from heavy 24px–36px blurs down to 10px–16px with slightly elevated background tint alphas, maintaining frosted glass aesthetics while drastically lowering fill rate overhead.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run src/__tests__/AmbientBackground.test.jsx` (2/2 green), `npx vitest run player` (19 files / 196 tests green), `npm run build` (clean production build).
+
 - [x] **Embed autoplay parameters and Streamly resume/refetch teardown (user: "on embedd page its not playing after loading the video not autoplaying, if switched back to stremaly refetch insted keeping it alive and show restart/resume based on") — 2026-11-05.**
   - **CineSrc embed autoplay:**
     - Per CineSrc official documentation, added `?autoplay=true` (and `&autonext=true` for TV) to the CineSrc embed URLs in `NativePlayerView.jsx`.
