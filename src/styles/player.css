@@ -2315,9 +2315,8 @@
   padding: 0 1.1em;
   z-index: 3;
   border-radius: 2.5em;
-  background: #000a;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  /* No plate: the OSD floats directly on the picture (a repeated viewer
+     request). Legibility is carried by the text-shadow alone. */
   text-shadow: 0 1px 6px #000c;
   display: flex;
   align-items: center;
@@ -3614,15 +3613,10 @@
   100% { opacity: 0; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .np-root .ld::before, .np-root .osd {
+  .np-root .ld::before {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-  .np-root .ld::before {
     background: #0a0e12e6;
-  }
-  .np-root .osd {
-    background: #000d;
   }
 }
 

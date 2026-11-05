@@ -89,7 +89,7 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
     expect(relayCalls.length).toBeGreaterThan(0);
     const relayTargets = relayCalls.map(([u]) => new URL(u).searchParams.get("url"));
     expect(
-      relayTargets.some((target) => String(target).includes("/backend/tmdb/details/")),
+      relayTargets.some((target) => String(target).includes(zxcContractSeed().detailsPath)),
     ).toBe(true);
     // Every relay request carries the provider URL, never the relay URL again.
     expect(relayTargets.every((target) => String(target).startsWith("https://zxcstream.cc/"))).toBe(true);
@@ -124,7 +124,7 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
 
   it("hits the provider directly when no relay is configured", async () => {
     const fetchMock = vi.fn(async (url) =>
-      String(url).includes("/backend/tmdb/details/")
+      String(url).includes(zxcContractSeed().detailsPath)
         ? new Response(JSON.stringify({ title: "T", release_date: "2020-01-01" }), { status: 200 })
         : new Response("nope", { status: 502 }),
     );
@@ -133,7 +133,7 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
     await callZxc({ type: "tv", season: 1, episode: 1, server: "atlas" });
 
     expect(
-      fetchMock.mock.calls.some(([u]) => String(u).includes("zxcstream.cc/backend/tmdb/details/")),
+      fetchMock.mock.calls.some(([u]) => String(u).includes(`zxcstream.cc${zxcContractSeed().detailsPath}`)),
     ).toBe(true);
     expect(fetchMock.mock.calls.every(([u]) => !String(u).includes("script.google.com"))).toBe(true);
   });

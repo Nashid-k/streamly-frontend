@@ -68,7 +68,7 @@ beforeEach(() => {
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       if (url.includes(MINT_PATH)) { calls.mint += 1; return json({ token: "tok", ts: "1700000000" }); }
-      if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
+      if (url.includes(DETAILS_PATH)) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes("/backend_/sources/")) { calls.servers += 1; return json({ success: true, links, dubs }); }
       if (url.endsWith(".mpd") || url.includes("stub")) {
         calls.mpd += 1;
@@ -83,6 +83,7 @@ const { default: handler, zxcContractSeed, clearZxcMpdCache, clearZxcTitleMetaCa
 
 // Derived from the module seed so a provider rename can never strand this suite.
 const MINT_PATH = zxcContractSeed().mintPath;
+const DETAILS_PATH = zxcContractSeed().detailsPath;
 
 function makeRes() {
   const res = {

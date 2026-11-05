@@ -98,6 +98,17 @@ const MAX_REQUEST_BODY_BYTES = 512 * 1024;
                     param names AND the imdb/latestDate params — see ZXC_PARAM.
                     The AES link passphrase is unchanged, so only the paths/param
                     names above had to move.)
+        2026-11-05  mint -> `/backend/getthefuckoutniiguh` (read off the mint
+                    `.post(…)` in shipped chunk `08nqq1tbc4x2r.js`; FIELD_MAP and
+                    the salt are UNCHANGED this rotation). THE SAME rotation
+                    renamed the details GET `/backend/tmdb/details/{type}/{id}`
+                    -> `/backend/imdb/details/{type}/{id}` (the shipped
+                    `useTmdbDetails` hook, chunk `0agr7nm3pfn-..js`). The details
+                    call runs BEFORE a resolve's mint, so its 404 masked the
+                    mint-side heal completely — every row died at "Could not load
+                    title details". That is why the details path is contract data
+                    now (ZXC_DETAILS_PATH): its own heal fires first, then the
+                    mint's.
 
       `meow` was never an endpoint at all: it is one of their SERVER names
       ("Ursa", `path=meow`). A 404 here fails the mint, so all four servers
@@ -190,7 +201,10 @@ const ZXC_ORIGIN = "https://zxcstream.cc";
 // below is rewritten in place from values the script derives from the
 // provider's own shipped chunk and then confirms by real playback. Do not
 // hand-edit inside the markers — edit the script instead.
-const ZXC_MINT_PATH = "/backend/wtfnigga";
+const ZXC_MINT_PATH = "/backend/getthefuckoutniiguh";
+/* The title-details GET prefix, read off the shipped `useTmdbDetails` hook —
+   upstream renames it alongside the mint. */
+const ZXC_DETAILS_PATH = "/backend/imdb/details";
 /* The obfuscated parameter names the client sends. Read straight off the
    shipped bundle's `FIELD_MAP` export — renaming any of them makes the
    request fail closed. */
@@ -342,6 +356,7 @@ let zxcLastForcedDiscoveryAt = 0;
 let zxcDiscoveryInFlight = null;
 let zxcContract = {
   mintPath: ZXC_MINT_PATH,
+  detailsPath: ZXC_DETAILS_PATH,
   params: { ...ZXC_PARAM },
   imdbParam: ZXC_IMDB_PARAM,
   latestDateParam: ZXC_LATEST_DATE_PARAM,
@@ -473,6 +488,22 @@ function parseZxcFrontendSalt(chunks) {
   return "";
 }
 
+/* The title-details GET. The shipped `useTmdbDetails` hook reads a template
+   literal that starts at /backend and carries a `/details/` segment — measured
+   live as `GET /backend/imdb/details/${type}/${id}` with `{params:{language}}`
+   (chunk `0agr7nm3pfn-..js`; previously `/backend/tmdb/details/…`). Structural
+   like every contract path: the middle segment is captured whatever it says
+   today, so the next rename keeps parsing. Returns "" when the shape is absent
+   (the caller keeps its working seed value). */
+function parseZxcDetailsPath(chunks) {
+  for (const src of chunks) {
+    if (typeof src !== "string") continue;
+    const m = src.match(/\.get\(\s*`(\/backend\/[A-Za-z0-9_-]+\/details)\//);
+    if (m) return m[1];
+  }
+  return "";
+}
+
 /* Parse the param contract out of the shipped client chunks. Returns null unless
    EVERY field resolved — a partial parse must never replace a working contract. */
 export function deriveZxcContractFromChunks(chunks) {
@@ -488,6 +519,7 @@ export function deriveZxcContractFromChunks(chunks) {
   // finds nothing. Parse the object directly, and take the mint path from the
   // `.post("/backend/…")` that consumes `FIELD_MAP`.
   const fieldList = chunks.filter((s) => typeof s === "string");
+  const detailsPath = parseZxcDetailsPath(chunks);
   const fieldMap = fieldList.map(parseZxcFieldMap).find(Boolean);
   if (fieldMap) {
     let mintPath = "";
@@ -503,6 +535,7 @@ export function deriveZxcContractFromChunks(chunks) {
     if (mintPath && (!fieldMap.params.fToken || fTokenSalt)) {
       return {
         mintPath,
+        detailsPath,
         params: { ...fieldMap.params },
         imdbParam: fieldMap.imdbParam,
         latestDateParam: fieldMap.latestDateParam,
@@ -582,6 +615,7 @@ export function deriveZxcContractFromChunks(chunks) {
       if (!complete) continue;
       return {
         mintPath,
+        detailsPath,
         params,
         imdbParam,
         latestDateParam,
@@ -593,6 +627,16 @@ export function deriveZxcContractFromChunks(chunks) {
     }
   }
   return null;
+}
+
+/* A derived contract may lack the details path when the chunk that ships the
+   `useTmdbDetails` hook failed to fetch (or the shape moved again). Leaving it
+   "" would make the discovery look like a perpetual drift against the seed, so
+   an absent value inherits the current contract's — the seed before the first
+   discovery, whatever a previous discovery read otherwise. */
+function fillZxcDetailsPath(contract) {
+  if (contract && !contract.detailsPath) contract.detailsPath = zxcContract.detailsPath || ZXC_DETAILS_PATH;
+  return contract;
 }
 
 /* Fetch the embed page and its shipped client chunks, then derive the live
@@ -617,7 +661,7 @@ export async function fetchLiveZxcContract({ timeoutMs = 8000 } = {}) {
   const settled = await Promise.allSettled(chunkPaths.map(fetchChunk));
   let chunks = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
   let contract = deriveZxcContractFromChunks(chunks);
-  if (contract) return contract;
+  if (contract) return fillZxcDetailsPath(contract);
 
   // One chunk carries FIELD_MAP and another carries the mint path, so a single
   // transient failure in either chunk turns a real rename into a null contract.
@@ -631,7 +675,7 @@ export async function fetchLiveZxcContract({ timeoutMs = 8000 } = {}) {
     });
     const retried = await Promise.allSettled(failed.map(fetchChunk));
     chunks = chunks.concat(retried.filter((r) => r.status === "fulfilled").map((r) => r.value));
-    contract = deriveZxcContractFromChunks(chunks);
+    contract = fillZxcDetailsPath(deriveZxcContractFromChunks(chunks));
   }
   return contract;
 }
@@ -664,7 +708,7 @@ async function discoverZxcContract({ force = false } = {}) {
           // the cooldown after the contract has already healed.
           clearZxcServerHealth();
         }
-        logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}`);
+        logWarn("zxc", `provider mint contract re-discovered: mint=${found.mintPath}` + (found.detailsPath ? ` details=${found.detailsPath}` : ""));
       } else {
         logWarn("zxc", "provider mint contract re-discovery found nothing usable; keeping current");
       }
@@ -694,6 +738,7 @@ export function clearZxcDiscoveryCache() {
   zxcDiscoveryInFlight = null;
   zxcContract = {
     mintPath: ZXC_MINT_PATH,
+    detailsPath: ZXC_DETAILS_PATH,
     params: { ...ZXC_PARAM },
     imdbParam: ZXC_IMDB_PARAM,
     latestDateParam: ZXC_LATEST_DATE_PARAM,
@@ -718,6 +763,7 @@ const ZXC_CONTRACT_PARAM_KEYS = [
 export function zxcContractSeed() {
   return {
     mintPath: ZXC_MINT_PATH,
+    detailsPath: ZXC_DETAILS_PATH,
     params: { ...ZXC_PARAM },
     imdbParam: ZXC_IMDB_PARAM,
     latestDateParam: ZXC_LATEST_DATE_PARAM,
@@ -730,6 +776,7 @@ export function zxcContractEquals(a, b) {
     !!a &&
     !!b &&
     a.mintPath === b.mintPath &&
+    (a.detailsPath || "") === (b.detailsPath || "") &&
     a.imdbParam === b.imdbParam &&
     (a.fTokenSalt || "") === (b.fTokenSalt || "") &&
     a.latestDateParam === b.latestDateParam &&
@@ -745,6 +792,9 @@ export function describeZxcContractChange(from, to) {
   if (!from || !to) return [];
   const changes = [];
   if (from.mintPath !== to.mintPath) changes.push(`mint ${from.mintPath} -> ${to.mintPath}`);
+  if ((from.detailsPath || "") !== (to.detailsPath || "")) {
+    changes.push(`detailsPath ${from.detailsPath || "(none)"} -> ${to.detailsPath || "(none)"}`);
+  }
   for (const k of ZXC_CONTRACT_PARAM_KEYS) {
     if (from.params?.[k] !== to.params?.[k]) {
       changes.push(`${k} ${from.params?.[k]} -> ${to.params?.[k]}`);
@@ -769,6 +819,9 @@ export function renderZxcContractBlock(contract) {
     "// provider's own shipped chunk and then confirms by real playback. Do not",
     "// hand-edit inside the markers — edit the script instead.",
     `const ZXC_MINT_PATH = "${contract.mintPath}";`,
+    "/* The title-details GET prefix, read off the shipped `useTmdbDetails` hook —",
+    "   upstream renames it alongside the mint. */",
+    `const ZXC_DETAILS_PATH = "${contract.detailsPath || ZXC_DETAILS_PATH}";`,
     "/* The obfuscated parameter names the client sends. Read straight off the",
     "   shipped bundle's `FIELD_MAP` export — renaming any of them makes the",
     "   request fail closed. */",
@@ -792,9 +845,15 @@ export function applyZxcContractToSource(source, contract) {
   return source.slice(0, b) + renderZxcContractBlock(contract) + source.slice(e + ZXC_CONTRACT_END.length);
 }
 
-/* Repin the mint path in src/__tests__/zxcMintPath.test.js. */
+/* Repin the paths in src/__tests__/zxcMintPath.test.js (the mint OPTIONAL chain
+   and the details GET use the same literals the suite mocks and asserts). */
 export function applyZxcContractToTest(source, contract) {
-  return source.replace(/const MINT_PATH = "[^"]*";/, `const MINT_PATH = "${contract.mintPath}";`);
+  return source
+    .replace(/const MINT_PATH = "[^"]*";/, `const MINT_PATH = "${contract.mintPath}";`)
+    .replace(
+      /const DETAILS_PATH = "[^"]*";/,
+      `const DETAILS_PATH = "${contract.detailsPath || ZXC_DETAILS_PATH}";`,
+    );
 }
 
 // Our own playlist marker. A generated playlist has to be ADDRESSABLE, because
@@ -966,7 +1025,7 @@ function setMpdCache(key, result) {
 
 export function clearZxcMpdCache() { mpdCache.clear(); }
 
-/* Title metadata cache: /backend/tmdb/details is the same for every server
+/* Title metadata cache: the details GET is the same for every server
    row (same tmdb ID), so resolvezxc calls for the other four servers after the
    first all re-fetch identical data. A 30s TTL mirrors the MPD cache: enough to
    ride a playlist-load burst, short enough to pick up a re-release date. */
@@ -1094,33 +1153,63 @@ async function zxcTitleMeta({ type, tmdbId, refererPath }) {
   const cacheKey = zxcTitleMetaKey({ type, tmdbId });
   const cached = titleMetaCache.get(cacheKey);
   if (cached && Date.now() - cached.at < ZXC_TITLE_TTL_MS) return cached.meta;
-  const text = await fetchUpstream(`${ZXC_ORIGIN}/backend/tmdb/details/${type}/${tmdbId}?language=en-US`, {
-    referer: `${ZXC_ORIGIN}${refererPath}`,
-    extraHeaders: zxcHeaders(refererPath, { json: true }),
-  });
-  const data = JSON.parse(text);
-  const date = String(data?.release_date || data?.last_air_date || "");
-  const meta = {
-    title: String(data?.title || ""),
-    date,
-    year: /^\d{4}/.test(date) ? date.slice(0, 4) : "",
-    imdbId: String(data?.imdb_id || ""),
+  /* The details URL is contract data: the path IS renamed alongside the mint
+     (2026-11-05: `/backend/tmdb/details` -> `/backend/imdb/details`). It runs
+     BEFORE a resolve's mint, so a stale path 404s one round trip earlier than
+     the mint-side heal could ever fire — every row died at "Could not load
+     title details" while the contract still read fine on paper. Same shape as
+     zxcMint: attempt, heal on a rename-shaped failure, retry once — and only
+     when the path actually moved (the capture-the-old-value wording mirrors
+     zxcMint's `attemptedContract` reasoning). */
+  let attemptedPath = null;
+  const attempt = async () => {
+    const detailsPath = zxcContract.detailsPath || ZXC_DETAILS_PATH;
+    attemptedPath = detailsPath;
+    const text = await fetchUpstream(`${ZXC_ORIGIN}${detailsPath}/${type}/${tmdbId}?language=en-US`, {
+      referer: `${ZXC_ORIGIN}${refererPath}`,
+      extraHeaders: zxcHeaders(refererPath, { json: true }),
+    });
+    const data = JSON.parse(text);
+    const date = String(data?.release_date || data?.last_air_date || "");
+    const meta = {
+      title: String(data?.title || ""),
+      date,
+      year: /^\d{4}/.test(date) ? date.slice(0, 4) : "",
+      imdbId: String(data?.imdb_id || ""),
+    };
+    if (type === "tv") meta.latestDate = String(data?.last_air_date || "");
+    // Fail here, loudly, rather than at the servers endpoint 400 lines below with a
+    // message that names neither the cause nor the fix. A blank field is a hard
+    // upstream rejection, so "no metadata" and "no playable source" must not be
+    // the same error the player sees.
+    const missing = ["title", "year", "date"].filter((k) => !meta[k]);
+    if (missing.length > 0) {
+      throw new Error(`title metadata incomplete (missing ${missing.join(", ")}) for tmdb ${tmdbId}`);
+    }
+    titleMetaCache.set(cacheKey, { at: Date.now(), meta });
+    while (titleMetaCache.size > ZXC_TITLE_CACHE_MAX) {
+      const oldest = titleMetaCache.keys().next().value;
+      titleMetaCache.delete(oldest);
+    }
+    return meta;
   };
-  if (type === "tv") meta.latestDate = String(data?.last_air_date || "");
-  // Fail here, loudly, rather than at the servers endpoint 400 lines below with a
-  // message that names neither the cause nor the fix. A blank field is a hard
-  // upstream rejection, so "no metadata" and "no playable source" must not be
-  // the same error the player sees.
-  const missing = ["title", "year", "date"].filter((k) => !meta[k]);
-  if (missing.length > 0) {
-    throw new Error(`title metadata incomplete (missing ${missing.join(", ")}) for tmdb ${tmdbId}`);
+
+  try {
+    return await attempt();
+  } catch (error) {
+    // The rename signatures are the mint's: a rotated path answers 404 (or 200
+    // with the Next.js HTML page -> JSON.parse throws). Timeouts/429/5xx are not
+    // contract events and must not pay the chunk re-discovery.
+    const looksRenamed =
+      error?.status === 404 ||
+      error?.status === 400 ||
+      error instanceof SyntaxError;
+    if (!looksRenamed) throw error;
+    const discovered = await discoverZxcContract();
+    const freshPath = discovered?.detailsPath || "";
+    if (!discovered || freshPath === attemptedPath) throw error;
+    return attempt();
   }
-  titleMetaCache.set(cacheKey, { at: Date.now(), meta });
-  while (titleMetaCache.size > ZXC_TITLE_CACHE_MAX) {
-    const oldest = titleMetaCache.keys().next().value;
-    titleMetaCache.delete(oldest);
-  }
-  return meta;
 }
 
 /* The provider's client proves "a real browser asked" with a per-request pair:
@@ -1207,7 +1296,7 @@ async function zxcMint({ type, tmdbId, server, season, episode, refererPath }) {
 async function zxcServerLinks(meta, { server, dubCode, dubType, prefetchedToken } = {}) {
   // `prefetchedToken` is a token minted EARLIER — in handleResolveZxc it is
   // minted CONCURRENTLY with the title-metadata lookup, since the mint depends
-  // only on type/id/server/season/episode and NOT on /backend/tmdb/details.
+  // only on type/id/server/season/episode and NOT on the details lookup.
   // Spending it here folds one upstream round trip out of the resolve's
   // critical path; when absent (playlist re-mint, dub switch, other callers)
   // the normal mint runs unchanged.
@@ -1828,8 +1917,8 @@ async function handleResolveZxc(body, res) {
 
   const refererPath = zxcEmbedPath({ type, tmdbId, season, episode });
 
-  // The token mint depends ONLY on type/id/server/season/episode — never on
-  // /backend/tmdb/details — so kick it off CONCURRENTLY with the metadata
+  // The token mint depends ONLY on type/id/server/season/episode — never on the
+  // details lookup — so kick it off CONCURRENTLY with the metadata
   // lookup. That folds one upstream round trip out of every resolve's critical
   // path. For a `prefer` (manual pick that may fall through) we mint the SECOND
   // candidate too, so a dead pick does not ALSO pay a mint round trip before it

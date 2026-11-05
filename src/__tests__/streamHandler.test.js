@@ -27,6 +27,7 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, zxcContractS
 // so a provider rename (rewritten by the sync-zxc-contract step) can never strand
 // this suite on stale hex literals.
 const ZXC_PARAM = zxcContractSeed().params;
+const DETAILS_PATH = zxcContractSeed().detailsPath;
 
 function makeRes() {
   const res = {
@@ -189,7 +190,7 @@ describe("POST /api/stream — resolvezxc", () => {
     // Title metadata is mandatory upstream, so the details lookup gets a
     // canned success while everything else stays refused.
     const fetchMock = vi.fn(async (url) =>
-      String(url).includes("/backend/tmdb/details/")
+      String(url).includes(DETAILS_PATH)
         ? new Response(JSON.stringify({ title: "T", release_date: "2020-01-01", imdb_id: "tt0000001" }), { status: 200 })
         : new Response("nope", { status: 502 }),
     );
@@ -209,7 +210,7 @@ describe("POST /api/stream — resolvezxc", () => {
     // Same canned-metadata arrangement as the TV case above: metadata is
     // mandatory, so only the details lookup succeeds.
     const fetchMock = vi.fn(async (url) =>
-      String(url).includes("/backend/tmdb/details/")
+      String(url).includes(DETAILS_PATH)
         ? new Response(JSON.stringify({ title: "T", release_date: "2020-01-01", imdb_id: "tt0000001" }), { status: 200 })
         : new Response("nope", { status: 502 }),
     );
@@ -232,7 +233,7 @@ describe("POST /api/stream — resolvezxc", () => {
     // two-episode session re-fetches identical metadata per episode.
     let detailsCalls = 0;
     const fetchMock = vi.fn(async (url) => {
-      if (String(url).includes("/backend/tmdb/details/")) {
+      if (String(url).includes(DETAILS_PATH)) {
         detailsCalls += 1;
         return new Response(JSON.stringify({ title: "T", release_date: "2020-01-01" }), { status: 200 });
       }

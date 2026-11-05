@@ -18,6 +18,7 @@ vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 const mod = await import("../../api/stream.js");
 const { default: handler } = mod;
 const MINT_PATH = mod.zxcContractSeed().mintPath;
+const DETAILS_PATH = mod.zxcContractSeed().detailsPath;
 const SERVER_PARAM = mod.zxcContractSeed().params.path;
 
 const b64 = (u) => Buffer.from(u, "utf8").toString("base64");
@@ -94,7 +95,7 @@ beforeEach(() => {
     "fetch",
     vi.fn(async (input, init) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
-      if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
+      if (url.includes(DETAILS_PATH)) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
       if (url.includes(MINT_PATH)) {
         let body = {};
         try {
@@ -215,7 +216,7 @@ describe("ZXC preferred server with fast fallback", () => {
       "fetch",
       vi.fn(async (input, init) => {
         const url = String(typeof input === "string" ? input : input?.url || input);
-        if (url.includes("/backend/tmdb/details/")) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
+        if (url.includes(DETAILS_PATH)) return json({ title: "Stub", release_date: "2024-01-01", imdb_id: "" });
         if (url.includes(MINT_PATH)) {
           let body = {};
           try {

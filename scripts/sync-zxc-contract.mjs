@@ -1,7 +1,8 @@
 /* sync-zxc-contract.mjs — keep the ZXC provider contract truthful, hands-free.
  *
- * The upstream provider periodically renames its token-mint path and rotates
- * the obfuscated param names (see the rename history in api/stream.js). When it
+ * The upstream provider periodically renames its token-mint path AND the
+ * title-details path and rotates the obfuscated param names (see the rename
+ * history in api/stream.js). When it
  * does, every server 404s at once. `api/stream.js` already self-heals at request
  * time by re-deriving the contract from the provider's own chunk, but that fix
  * lives only in memory — this script makes the fix PERMANENT and PROVEN:
@@ -228,8 +229,8 @@ let changes = [];
 if (derived && !zxcContractEquals(seed, derived)) {
   changes = describeZxcContractChange(seed, derived);
   log("contract DRIFT detected");
-  log(`  committed: mint=${seed.mintPath} tmdbId=${seed.params.tmdbId}`);
-  log(`  live:      mint=${derived.mintPath} tmdbId=${derived.params.tmdbId}`);
+  log(`  committed: mint=${seed.mintPath} details=${seed.detailsPath || "(none)"} tmdbId=${seed.params.tmdbId}`);
+  log(`  live:      mint=${derived.mintPath} details=${derived.detailsPath || "(none)"} tmdbId=${derived.params.tmdbId}`);
   for (const change of changes) log(`  changed: ${change}`);
   rewrote = applySeed(derived);
   log(DRY_RUN ? "dry-run: seed rewrite skipped" : "rewrote api/stream.js seed + pinned test path");

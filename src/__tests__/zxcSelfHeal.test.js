@@ -24,6 +24,7 @@ const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZ
 // sync-zxc-contract step) can NEVER strand this suite. The seed is what the
 // handler tries first, so the stub must match it — not a frozen literal.
 const SEED_MINT = zxcContractSeed().mintPath; // the seeded contract (a human last read this)
+const SEED_DETAILS = zxcContractSeed().detailsPath; // same doctrine for the details GET
 // Host-agnostic: the handler builds this from ZXC_ORIGIN, which moves when the
 // provider migrates. The assertion only needs to prove the embed PAGE was read,
 // so match the path, not the (rotating) origin.
@@ -87,7 +88,7 @@ function installFetch() {
   vi.stubGlobal("fetch", vi.fn(async (input, init) => {
     const url = String(typeof input === "string" ? input : input?.url || input);
     requests.push(url);
-    if (url.includes("/backend/tmdb/details/")) return json(details);
+    if (url.includes(SEED_DETAILS)) return json(details);
     if (url.includes(NEW_MINT_PATH)) {
       const body = init?.body ? JSON.parse(init.body) : null;
       mintPayloads.push(body);
@@ -181,7 +182,7 @@ describe("ZXC mint self-heal", () => {
     vi.stubGlobal("fetch", vi.fn(async (input, init) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(SEED_DETAILS)) return json(details);
       if (url.includes(NEW_MINT_PATH)) {
         mintPayloads.push(init?.body ? JSON.parse(init.body) : null);
         return json({ token: "newtok", ts: "1800000000" });
@@ -224,7 +225,7 @@ describe("ZXC mint self-heal", () => {
     vi.stubGlobal("fetch", vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(SEED_DETAILS)) return json(details);
       if (url.includes(SEED_MINT)) return new Response("<html>404</html>", { status: 404 });
       if (url.includes("/embed/")) return html(EMBED_HTML);
       if (url.includes("/_next/static/chunks/")) return html("var x=1;");
@@ -268,7 +269,7 @@ describe("ZXC mint self-heal", () => {
     vi.stubGlobal("fetch", vi.fn(async (input, init) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(SEED_DETAILS)) return json(details);
       if (url.includes(NEW_MINT_PATH_B)) {
         mintPayloads.push(init?.body ? JSON.parse(init.body) : null);
         return json({ token: "btok", ts: "1800000001" });
@@ -323,7 +324,7 @@ describe("ZXC mint self-heal", () => {
     vi.stubGlobal("fetch", vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(SEED_DETAILS)) return json(details);
       if (url.includes(SEED_MINT)) return new Response("<html>400</html>", { status: 400 });
       if (url.includes("/embed/")) return html(EMBED_HTML);
       if (url.includes("/_next/static/chunks/")) return html(SEED_CHUNK);
@@ -335,6 +336,71 @@ describe("ZXC mint self-heal", () => {
     expect(r.ok).toBe(false);
     expect(requests.filter((u) => u.includes(SEED_MINT)).length).toBe(2);
     expect(requests.filter((u) => u.includes("/embed/")).length).toBe(1);
+  });
+});
+
+describe("ZXC details-path self-heal", () => {
+  /* The details GET runs BEFORE a resolve's mint, so a details-path rename
+     masks the mint-side heal: every row died at "Could not load title details"
+     while discovery never fired. This is the exact 2026-11-05 rotation shape —
+     mint/params/salt unchanged, only the details segment moved — so the heal
+     must live there too. */
+  it("re-derives the details path when the metadata GET 404s before the mint", async () => {
+    const seed = zxcContractSeed();
+    const NEW_DETAILS_PATH = "/backend/newupstream/details";
+    const SEED_CHUNK_WITH_NEW_DETAILS = [
+      `let r="${seed.fTokenSalt}",i={id:"${seed.params.tmdbId}",fToken:"${seed.params.fToken}",ts:"${seed.params.ts}",token:"${seed.params.token}",title:"${seed.params.title}",year:"${seed.params.year}",season:"${seed.params.season}",episode:"${seed.params.episode}",imdbId:"${seed.imdbParam}",path:"${seed.params.path}",mediaType:"${seed.params.mediaType}",date:"${seed.params.date}",latestDate:"${seed.latestDateParam}"};`,
+      'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}',
+      'function q(){return{queryFn:async()=>{let{data:e}=await X.post("' + seed.mintPath + '",'
+        + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l});'
+        + 'await X.get(`' + NEW_DETAILS_PATH + '/${t}/${n}`,{params:{language:"en-US"}});}}}}',
+    ].join("");
+
+    vi.stubGlobal("fetch", vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes(SEED_DETAILS)) return new Response("<html><body>404</body></html>", { status: 404 });
+      if (url.includes(NEW_DETAILS_PATH)) return json(details);
+      if (url.includes(seed.mintPath)) return json({ token: "tok", ts: "1700000000" });
+      if (url.includes("/embed/")) return html(EMBED_HTML);
+      if (url.includes("/_next/static/chunks/")) return html(SEED_CHUNK_WITH_NEW_DETAILS);
+      if (url.includes("/backend_/sources/")) return json(serversResponse);
+      if (url.includes(".m3u8")) {
+        return new Response("#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:13\n#EXTINF:12.0,\nhttps://93.184.216.34/s0\n#EXT-X-ENDLIST\n", {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
+      }
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const r = await resolve({ server: "atlas" });
+    expect(r.ok).toBe(true);
+    // The seeded details path was tried and renames like this answer the Next.js
+    // HTML 404 page...
+    expect(requests.filter((u) => u.includes(SEED_DETAILS)).length).toBe(1);
+    // ...discovery actually ran (embed page + shipped chunk)...
+    expect(requests.some((u) => u.includes(EMBED))).toBe(true);
+    // ...and the retry hit the renamed details path and succeeded.
+    expect(requests.filter((u) => u.includes(NEW_DETAILS_PATH)).length).toBe(1);
+    // The healed contract drove the rest of the resolve, not a blank payload.
+    expect(serversUrl()).toContain("Inception");
+  });
+
+  it("does not heal (or re-discover) when the details failure is not rename-shaped", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url || input);
+      requests.push(url);
+      if (url.includes(SEED_DETAILS)) return new Response("upstream unreachable", { status: 502 });
+      if (url.includes("/embed/")) return html(EMBED_HTML);
+      return new Response("upstream unreachable", { status: 502 });
+    }));
+
+    const r = await resolve({ server: "atlas" });
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("upstream");
+    // A 5xx is not a contract event: no embed-page fetch may fire.
+    expect(requests.some((u) => u.includes("/embed/"))).toBe(false);
   });
 });
 
@@ -356,7 +422,8 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     + 'latestDate:"e9543416ad739e5814b3027"};'
     + 'function n(t){let i=Date.now();return{xt:e.default.createHash("sha512").update(`${i}:${r}:${t}`).digest("hex").slice(0,64),rt:i}}'
     + 'function q(){return{queryFn:async()=>{let{data:e}=await X.post("/backend/wtfnigga",'
-    + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l})}}}';
+    + '{[FIELD_MAP.id]:r,[FIELD_MAP.mediaType]:t,[FIELD_MAP.path]:l});'
+    + 'await X.get(`/backend/imdb/details/${t}/${n}`,{params:{language:"en-US"}});}}}}';
 
   it("reads the literal field-named params and the FIELD_MAP-fed mint path", () => {
     const c = deriveZxcContractFromChunks([FIELD_MAP_CHUNK]);
@@ -378,6 +445,9 @@ describe("ZXC contract derivation — the CURRENT `FIELD_MAP` bundle shape", () 
     expect(c.imdbParam).toBe("f35a81943265e871c4933a725f");
     expect(c.latestDateParam).toBe("e9543416ad739e5814b3027");
     expect(c.fTokenSalt).toBe("23423653");
+    // The details GET rides the same structural read (the shipped
+    // `useTmdbDetails` hook's template literal).
+    expect(c.detailsPath).toBe("/backend/imdb/details");
   });
 
   it("ignores a `FIELD_MAP`-shaped object whose core params are incomplete", () => {

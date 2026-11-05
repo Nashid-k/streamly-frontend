@@ -480,8 +480,12 @@ export default function PlayerShell({
             <svg className="ic"><use href="#i-play" /></svg>
           </button>
 
-          {/* On-Screen Display pill (.osd) */}
+          {/* On-Screen Display pill (.osd). Keyed by hudSeq so every flash
+              REMOUNTS the node and its one-shot `osd` keyframe replays — a
+              class that simply stays applied silently dies after the first
+              900ms run (the "fast clicks show no HUD" report). */}
           <div
+            key={`osd-${hudSeq || 0}`}
             className={["osd", (hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x ? "show" : ""].filter(Boolean).join(" ")}
             id="osd"
             aria-live="polite"

@@ -1129,6 +1129,15 @@ export default function NativePlayerView({
     poke();
   };
 
+  // Every close path — outside clicks (the .ui surface and the sheet's dim
+  // overlay), Escape, server/quality picks pane-closing — writes setPanel(null)
+  // directly, so the pair must not be trusted to stay consistent. The opener's
+  // aria-expanded ("active purple") is read from panelOpener, and a stale
+  // opener with no panel left the button lit after a click-outside close.
+  useEffect(() => {
+    if (panel === null && panelOpener !== null) setPanelOpener(null);
+  }, [panel, panelOpener]);
+
   const toggleAutoplay = () => {
     setAutoplayEnabled((prev) => {
       const next = !prev;

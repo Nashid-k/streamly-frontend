@@ -130,6 +130,7 @@ export default function PlayerMenus({
   episodes,
   episode,
   chooseEpisode,
+  season,
   /* v4 episodes pane: per-season watched set, the parent's single resume
      point, and this element's progress for the "Now playing" bar. */
   watchedEpisodes,

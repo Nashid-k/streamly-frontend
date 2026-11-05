@@ -16,7 +16,11 @@
 //
 //   1. The mint path. Asserted against the CURRENT path so the next rename fails
 //      a test naming the string to change, instead of failing every title.
-//   2. The metadata contract. title + year + date are MANDATORY: a matrix over
+//   2. The details path (DETAILS_PATH below) — repinned the same way. The
+//      2026-11-05 rotation renamed it alongside the mint (`tmdb` -> `imdb`),
+//      and because the details call runs before the mint, its 404 used to mask
+//      the mint-side self-heal entirely.
+//   3. The metadata contract. title + year + date are MANDATORY: a matrix over
 //      movie 27205 showed the sources endpoint answers 400 "missing params" if
 //      any one is blank. The handler used to swallow a failed lookup and send
 //      blanks, converting a flaky TMDB call into "no playable source" on every
@@ -37,9 +41,11 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcReso
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/wtfnigga";
+const MINT_PATH = "/backend/getthefuckoutniiguh";
 /* The current sources endpoint. Retired name: `/backend/servers/{server}`. */
 const SOURCES_PATH = "/backend_/sources/";
+/* The current metadata endpoint. Retired name: `/backend/tmdb/details/{type}/{id}`. */
+const DETAILS_PATH = "/backend/imdb/details";
 
 const json = (payload) =>
   new Response(JSON.stringify(payload), { status: 200, headers: { "content-type": "application/json" } });
@@ -65,7 +71,7 @@ beforeEach(() => {
     vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) {
+      if (url.includes(DETAILS_PATH)) {
         return details === null ? new Response("upstream unreachable", { status: 502 }) : json(details);
       }
       if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
@@ -125,7 +131,7 @@ const serversUrl = () => requests.find((u) => u.includes(SOURCES_PATH)) || "";
 describe("ZXC mint endpoint", () => {
   it("mints through the current path, not a retired one", async () => {
     await resolve({ server: "orion" });
-    const mints = requests.filter((u) => u.includes("/backend/") && !u.includes("/backend/tmdb/") && !u.includes(SOURCES_PATH));
+    const mints = requests.filter((u) => u.includes("/backend/") && !u.includes(DETAILS_PATH) && !u.includes(SOURCES_PATH));
     expect(mints.length).toBeGreaterThan(0);
     expect(mints.every((u) => u.includes(MINT_PATH))).toBe(true);
   });
@@ -135,8 +141,9 @@ describe("ZXC mint endpoint", () => {
     // `/backend/meow` is a SERVER name ("Ursa"), never an endpoint; `fuckyou`,
     // `fuckoffniggawtf`, `fuckoffniggawtaf`, `scrapeurfckingmom` and
     // `scrapeurfckingdad` are all retired mint names that answer the Next.js
-    // HTML 404 page. `/backend/servers/` is the retired sources endpoint.
-    for (const dead of ["/backend/meow", "/backend/fuckyou", "/backend/fuckoffniggawtf", "/backend/fuckoffniggawtaf", "/backend/scrapeurfckingmom", "/backend/scrapeurfckingdad", "/backend/fucku", "/backend/servers/"]) {
+    // HTML 404 page. `/backend/servers/` is the retired sources endpoint and
+    // `/backend/tmdb/details` the retired metadata endpoint.
+    for (const dead of ["/backend/meow", "/backend/fuckyou", "/backend/fuckoffniggawtf", "/backend/fuckoffniggawtaf", "/backend/scrapeurfckingmom", "/backend/scrapeurfckingdad", "/backend/fucku", "/backend/servers/", "/backend/tmdb/details"]) {
       expect(requests.some((u) => u.includes(dead))).toBe(false);
     }
   });
@@ -160,7 +167,7 @@ describe("resolve latency (the mint runs concurrently with the metadata lookup)"
       vi.fn(async (input) => {
         const url = String(typeof input === "string" ? input : input?.url || input);
         requests.push(url);
-        if (url.includes("/backend/tmdb/details/")) {
+        if (url.includes(DETAILS_PATH)) {
           await detailsGate;
           detailsSettled = true;
           return json(details);
@@ -298,6 +305,7 @@ describe("ZXC roster discovery (self-healing server order)", () => {
 describe("ZXC contract change description (auto-sync commit messages)", () => {
   const contract = () => ({
     mintPath: "/backend/aaa",
+    detailsPath: "/backend/imdb/details",
     params: {
       tmdbId: "1", mediaType: "2", path: "3", season: "4", episode: "5",
       ts: "6", token: "7", title: "8", year: "9", date: "a",
@@ -309,6 +317,13 @@ describe("ZXC contract change description (auto-sync commit messages)", () => {
   it("names a mint rename first, in 'x -> y' form", () => {
     expect(describeZxcContractChange(contract(), { ...contract(), mintPath: "/backend/bbb" }))
       .toEqual(["mint /backend/aaa -> /backend/bbb"]);
+  });
+
+  it("names a details-path rename right after the mint", () => {
+    expect(describeZxcContractChange(
+      { ...contract(), detailsPath: "/backend/tmdb/details" },
+      contract(),
+    )).toEqual(["detailsPath /backend/tmdb/details -> /backend/imdb/details"]);
   });
 
   it("lists every rotated param name, in contract order", () => {
@@ -368,7 +383,7 @@ describe("ZXC MPD cache", () => {
     vi.stubGlobal("fetch", vi.fn(async (input) => {
       const url = String(typeof input === "string" ? input : input?.url || input);
       requests.push(url);
-      if (url.includes("/backend/tmdb/details/")) return json(details);
+      if (url.includes(DETAILS_PATH)) return json(details);
       if (url.includes(MINT_PATH)) return json({ token: "tok", ts: "1700000000" });
       if (url.includes(SOURCES_PATH)) return json(serversResponse);
       if (url.includes(DASH_URL)) return new Response(MPD_XML, { status: 200 });
@@ -445,18 +460,18 @@ describe("ZXC MPD cache", () => {
   });
 
   it("title metadata is cached across servers with same tmdbId", async () => {
-    /* Same tmdbId, different servers - the /backend/tmdb/details/ endpoint
+    /* Same tmdbId, different servers - the details endpoint (DETAILS_PATH)
        should be hit only once across all rows, not once per server. */
     requests = [];
     const r1 = await resolve({ server: "orion", type: "movie", tmdbId: "27205" });
     expect(r1.ok).toBe(true);
-    expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(1);
+    expect(requests.filter((u) => u.includes(DETAILS_PATH)).length).toBe(1);
 
     requests = [];
     const r2 = await resolve({ server: "valstrax", type: "movie", tmdbId: "27205" });
     expect(r2.ok).toBe(true);
     // Cached: no second metadata fetch for the same tmdbId.
-    expect(requests.filter((u) => u.includes("/backend/tmdb/details/")).length).toBe(0);
+    expect(requests.filter((u) => u.includes(DETAILS_PATH)).length).toBe(0);
   });
 
   it("writes contract-independent marker identity so a rotation cannot orphan a live session", async () => {
