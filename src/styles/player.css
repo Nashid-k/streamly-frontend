@@ -229,9 +229,11 @@
 }
 .np-icon-btn:hover:not(:disabled) {
   transform: scale(1.08);
+  transition-duration: var(--zxc-t-fast);
 }
 .np-icon-btn:active:not(:disabled) {
   transform: scale(var(--press-scale-icon));
+  transition-duration: var(--zxc-t-instant);
 }
 .np-icon-btn > svg {
   position: relative;
@@ -240,6 +242,9 @@
 }
 .np-icon-btn:hover:not(:disabled) > svg {
   transform: scale(1.06);
+}
+.np-icon-btn:active:not(:disabled) > svg {
+  transform: scale(var(--press-scale-icon));
 }
 /* Open/selected chrome lights its glyph in the signal accent. The panel and
    `aria-expanded` still carry the state for assistive tech; this is the paint. */
@@ -281,20 +286,29 @@
    preview above it) must not scale with the line. */
 .np-scrub {
   border-radius: var(--radius-full);
+  cursor: pointer;
+  touch-action: none;
 }
 .np-scrub-line {
   transition: height var(--zxc-t-fast) var(--zxc-ease),
     box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-scrub:hover .np-scrub-line,
-.np-scrub:focus-visible .np-scrub-line {
-  box-shadow: 0 0 0 1px rgba(var(--np-accent-rgb), 0.3),
-    0 0 20px rgba(var(--np-accent-rgb), 0.2);
+.np-scrub:focus-visible .np-scrub-line,
+.np-scrub.scrub-active .np-scrub-line {
+  box-shadow: 0 0 0 1px rgba(var(--np-accent-rgb), 0.4),
+    0 0 24px rgba(var(--np-accent-rgb), 0.25);
 }
 .np-scrub-dot {
   transition: width var(--zxc-t-fast) var(--zxc-ease),
     height var(--zxc-t-fast) var(--zxc-ease),
     box-shadow var(--zxc-t-fast) var(--zxc-ease);
+}
+.np-scrub:hover .np-scrub-dot,
+.np-scrub:focus-visible .np-scrub-dot,
+.np-scrub.scrub-active .np-scrub-dot {
+  box-shadow: 0 0 0 6px rgba(var(--np-accent-rgb), 0.25),
+    0 2px 12px rgba(0, 0, 0, 0.6);
 }
 .np-scrub:hover .np-scrub-dot,
 .np-scrub:focus-visible .np-scrub-dot {
@@ -1877,14 +1891,25 @@
   text-align: left;
   color: var(--np-muted);
   font-size: 24px;
-  transition: background var(--duration-fast) var(--np-ease), color var(--duration-fast) var(--np-ease), transform var(--duration-instant) var(--np-ease);
+  transition: background var(--duration-fast) var(--np-ease), color var(--duration-fast) var(--np-ease), transform var(--duration-instant) var(--np-ease), box-shadow var(--duration-fast) var(--ease-out);
 }
 .np-ep:hover,
 .np-ep.cur {
   background: #131c25;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.np-ep:hover {
+  transform: translateX(2px);
 }
 .np-ep:active {
   transform: scale(var(--press-scale-row));
+  transition-duration: var(--duration-instant);
+}
+.np-ep.has-progress {
+  border-left: 3px solid var(--np-accent, var(--accent, #8652bb));
+}
+.np-ep.watched {
+  opacity: 0.85;
 }
 .np-ep:focus-visible {
   outline: 2px solid var(--np-accent);
@@ -2214,6 +2239,72 @@
 }
 .np-root .ctl .btn {
   font-size: calc(1em * var(--is, 1));
+}
+
+/* Mode selector dropdown - embed vs streamly */
+.np-mode-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.np-mode-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 8px;
+  min-width: 160px;
+  background: #1a232e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  animation: dropdownIn 150ms var(--ease) backwards;
+}
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+/* Animation duration for dropdown - using var for consistency */
+.np-mode-dropdown {
+  animation-duration: var(--duration-fast);
+}
+.np-mode-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #e6edf3;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.np-mode-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.np-mode-dropdown button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.np-mode-dropdown button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.np-mode-dropdown button span {
+  white-space: nowrap;
+}
+.np-mode-btn {
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* Icon morphing */
@@ -3073,24 +3164,24 @@
   min-height: 0;
 }
 .np-root .pane.in {
-  animation: pin 550ms var(--ease-spring) backwards;
+  animation: pin 450ms var(--ease-spring) backwards;
 }
 .pane.out {
-  animation: pout 320ms var(--ease) forwards;
+  animation: pout 280ms var(--ease) forwards;
   pointer-events: none;
 }
 @keyframes pin {
-  from { opacity: 0; transform: translateX(var(--dx, 0)); }
+  from { opacity: 0; transform: translateX(var(--dx, 0)) scale(0.98); }
 }
 @keyframes pout {
-  to { opacity: 0; transform: translateX(calc(var(--dx, 0) * -.7)); }
+  to { opacity: 0; transform: translateX(calc(var(--dx, 0) * -.7)) scale(0.97); }
 }
 .pane.in .pi :is(.tile, .row, .th, .lbl, .np-lbl, .seg, .range, .marks, .custom, .hr, .note) {
-  animation: rise 500ms var(--ease) backwards;
-  animation-delay: calc(var(--i, 0) * 30ms + 70ms);
+  animation: rise 400ms var(--ease) backwards;
+  animation-delay: calc(var(--i, 0) * 25ms + 60ms);
 }
 @keyframes rise {
-  from { opacity: 0; transform: translateY(.8em); }
+  from { opacity: 0; transform: translateY(.6em); }
 }
 :is(.player, .np-root, .sheet) .row,
 :is(.player, .np-root, .sheet) .tile,

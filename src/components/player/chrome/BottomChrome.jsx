@@ -77,6 +77,11 @@ export default function BottomChrome({
   onTogglePip,
   isFullscreen,
   onFullscreen,
+  // Mode selector (embed vs streamly)
+  mode = "streamly",
+  modeDropdownOpen = false,
+  setModeDropdownOpen,
+  onToggleMode,
 }) {
   const isMuted = muted || volume === 0;
   const volFill = isMuted ? 0 : volume;
@@ -332,6 +337,54 @@ export default function BottomChrome({
               <svg className="ic b"><use href="#i-fsx" /></svg>
             </span>
           </button>
+
+          {/* Mode selector dropdown - only visible when not fullscreen */}
+          {!isFullscreen && onToggleMode ? (
+            <div className="np-mode-selector">
+              <button
+                type="button"
+                className={["btn", "mode-btn", mode === "embed" ? "active" : ""].filter(Boolean).join(" ")}
+                aria-label="Player mode"
+                aria-haspopup="listbox"
+                aria-expanded={modeDropdownOpen}
+                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+              >
+                <svg className="ic"><use href={mode === "embed" ? "#i-embed" : "#i-streamly"} /></svg>
+              </button>
+              {modeDropdownOpen && (
+                <div className="np-mode-dropdown" role="listbox" aria-label="Player mode">
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={mode === "streamly"}
+                    className={mode === "streamly" ? "active" : ""}
+                    onClick={() => {
+                      setMode("streamly");
+                      setModeDropdownOpen(false);
+                      onToggleMode("streamly");
+                    }}
+                  >
+                    <svg className="ic"><use href="#i-streamly" /></svg>
+                    <span>Streamly (All Servers)</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={mode === "embed"}
+                    className={mode === "embed" ? "active" : ""}
+                    onClick={() => {
+                      setMode("embed");
+                      setModeDropdownOpen(false);
+                      onToggleMode("embed");
+                    }}
+                  >
+                    <svg className="ic"><use href="#i-embed" /></svg>
+                    <span>Embed (CineSrc)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
   );

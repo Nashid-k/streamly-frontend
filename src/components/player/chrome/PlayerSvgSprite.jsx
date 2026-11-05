@@ -65,6 +65,13 @@ export default function PlayerSvgSprite() {
           <circle cx="12" cy="12" r="11" fill="var(--accent)" stroke="none" />
           <path d="m7 12.5 3.5 3.5 6.5-7.5" stroke="#fff" strokeWidth="2.4" />
         </symbol>
+        <symbol id="i-streamly" viewBox="0 0 24 24">
+          <path fill="currentColor" stroke="none" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+        </symbol>
+        <symbol id="i-embed" viewBox="0 0 24 24">
+          <path fill="currentColor" stroke="none" d="M19 5h-2V3H7v2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-7 10h2v-2h-2v2zm0-4h2v-2h-2v2z" />
+          <rect x="9" y="9" width="6" height="4" rx="1" />
+        </symbol>
       </defs>
     </svg>
   );

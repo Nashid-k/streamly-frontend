@@ -190,6 +190,10 @@ export default function PlayerShell({
     initialSubColor: prefs?.subtitleColor,
   });
 
+  // Player mode: "streamly" (full player with all servers) or "embed" (CineSrc-style embed)
+  const [playerMode, setPlayerMode] = useState("streamly");
+  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
+
   const [navDirection, setNavDirection] = useState(0);
   const panelStackRef = useRef([]);
 
@@ -205,6 +209,18 @@ export default function PlayerShell({
       setNavDirection(0);
     }
   }, [panel]);
+
+  // Close mode dropdown on outside click
+  useEffect(() => {
+    if (!modeDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      const target = e.target;
+      if (target.closest?.(".np-mode-selector")) return;
+      setModeDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [modeDropdownOpen]);
 
   const handleSetPanel = (next) => {
     if (!next) {
@@ -633,6 +649,10 @@ export default function PlayerShell({
             }}
             isFullscreen={isFullscreen}
             onFullscreen={goFullscreen}
+            mode={playerMode}
+            modeDropdownOpen={modeDropdownOpen}
+            setModeDropdownOpen={setModeDropdownOpen}
+            onToggleMode={setPlayerMode}
           />
 
           {/* Resume offer card */}
