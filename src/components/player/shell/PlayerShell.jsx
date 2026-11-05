@@ -482,6 +482,51 @@ export default function PlayerShell({
             </div>
           ) : null}
 
+          {/* Mode selector floating pill - right side, only when not fullscreen */}
+          {!isFullscreen && !showStage && (
+            <div
+              className="np-mode-pill"
+              onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+              aria-label="Player mode"
+              aria-expanded={modeDropdownOpen}
+            >
+              <div className="np-mode-pill-inner">
+                <svg className="np-mode-pill-icon">
+                  <use href={mode === "embed" ? "#i-embed" : "#i-streamly"} />
+                </svg>
+                <span className="np-mode-pill-label">{mode === "embed" ? "Embed" : "Streamly"}</span>
+              </div>
+              {modeDropdownOpen && (
+                <div className="np-mode-pill-dropdown">
+                  <button
+                    type="button"
+                    className={mode === "streamly" ? "active" : ""}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPlayerMode("streamly");
+                      setModeDropdownOpen(false);
+                    }}
+                  >
+                    <svg className="np-mode-pill-icon"><use href="#i-streamly" /></svg>
+                    <span>Streamly (All Servers)</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={mode === "embed" ? "active" : ""}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPlayerMode("embed");
+                      setModeDropdownOpen(false);
+                    }}
+                  >
+                    <svg className="np-mode-pill-icon"><use href="#i-embed" /></svg>
+                    <span>Embed (CineSrc)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Big center play button on paused state (.big) — only when paused and not loading */}
           <button
             type="button"

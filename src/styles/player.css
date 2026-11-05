@@ -2948,6 +2948,91 @@
   color: #fff;
   cursor: pointer;
 }
+
+/* Mode selector floating pill - right side */
+.np-mode-pill {
+  position: absolute;
+  right: max(1em, env(safe-area-inset-right));
+  top: max(1em, env(safe-area-inset-top));
+  z-index: 10;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.np-mode-pill-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(26, 35, 46, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: background var(--duration-fast) var(--ease), transform var(--duration-instant) var(--ease);
+}
+.np-mode-pill:hover .np-mode-pill-inner {
+  background: rgba(26, 35, 46, 0.95);
+  transform: scale(1.03);
+}
+.np-mode-pill-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+.np-mode-pill-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6edf3;
+  white-space: nowrap;
+}
+
+/* Mode pill dropdown */
+.np-mode-pill-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 8px;
+  min-width: 180px;
+  background: rgba(26, 35, 46, 0.98);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: dropdownIn var(--duration-instant) var(--ease) backwards;
+}
+.np-mode-pill-dropdown button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #e6edf3;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+}
+.np-mode-pill-dropdown button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.np-mode-pill-dropdown button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.np-mode-pill-dropdown button svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.np-mode-pill-dropdown button span {
+  white-space: nowrap;
+}
 .np-root .big .ic {
   width: 2.6em;
   height: 2.6em;
