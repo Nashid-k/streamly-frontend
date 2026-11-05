@@ -534,7 +534,8 @@ export default function PlayerShell({
                       aria-selected={playerMode === "streamly"}
                       className={playerMode === "streamly" ? "active" : ""}
                       onClick={() => {
-                        onToggleMode("streamly");
+                        console.log('[Streamly][mode] Selecting streamly mode');
+                        onToggleMode && onToggleMode("streamly");
                         setModeDropdownOpen(false);
                       }}
                     >
@@ -546,7 +547,8 @@ export default function PlayerShell({
                       aria-selected={playerMode === "embed"}
                       className={playerMode === "embed" ? "active" : ""}
                       onClick={() => {
-                        onToggleMode("embed");
+                        console.log('[Streamly][mode] Selecting embed mode');
+                        onToggleMode && onToggleMode("embed");
                         setModeDropdownOpen(false);
                       }}
                     >
