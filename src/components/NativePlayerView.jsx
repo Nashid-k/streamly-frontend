@@ -2469,6 +2469,7 @@ const showSkipOutro = shouldShowSkipOutro({
       // Mode selector props
       playerMode={localPlayerMode}
       embedUrl={embedUrl}
+      embedRef={embedRef}
       onToggleMode={handleToggleMode}
     />
   );

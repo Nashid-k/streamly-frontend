@@ -184,10 +184,13 @@ export default function PlayerShell({
   // Mode selector props
   playerMode,
   embedUrl,
+  embedRef,
   onToggleMode,
 }) {
   // Local state for mode dropdown (PlayerShell owns this)
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
+  const localEmbedRef = useRef(null);
+  const activeEmbedRef = embedRef || localEmbedRef;
   const v4Appearance = usePlayerV4Appearance({
     subtitleSize,
     setSubtitleSize,
@@ -375,7 +378,7 @@ export default function PlayerShell({
           {playerMode === "embed" ? (
             embedUrl ? (
               <iframe
-                ref={embedRef}
+                ref={activeEmbedRef}
                 src={embedUrl}
                 title="CineSrc embed player"
                 style={{
@@ -723,7 +726,7 @@ export default function PlayerShell({
 
           {/* Bottom chrome: scrubber + controls */}
           <PlayerTransport
-            visible={controlsVisible}
+            visible={controlsVisible && playerMode !== "embed"}
             scrubRef={scrubRef}
             duration={safeDuration}
             currentTime={currentTime}

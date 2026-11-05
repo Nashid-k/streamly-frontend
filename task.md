@@ -7,6 +7,17 @@
 
  ## Done (in order)
 
+- [x] **Fix embedRef ReferenceError crash on mode switch to embed (user: "ReferenceError: embedRef is not defined at xr (NativePlayerView-p5VShqYF.js:3:54918)") — 2026-11-05.**
+  - **Root causes:**
+    1. In `PlayerShell.jsx`, the CineSrc `<iframe>` element declared `ref={embedRef}`, but `embedRef` was never declared or destructured in `PlayerShell`'s props or component scope.
+    2. In `NativePlayerView.jsx`, `embedRef` was declared with `useRef(null)` but was not forwarded to `<PlayerShell ... />`.
+    3. As soon as the user clicked "Embed" and the player switched to embed mode, React attempted to evaluate `embedRef` during render and threw `ReferenceError: embedRef is not defined`, triggering the global error boundary.
+  - **Fix:**
+    - Destructured `embedRef` from props in `PlayerShell.jsx` and provided a safe internal fallback ref (`const activeEmbedRef = embedRef || localEmbedRef`).
+    - Forwarded `embedRef={embedRef}` from `NativePlayerView.jsx` to `<PlayerShell />`.
+    - Gated `PlayerTransport` visibility to hide the native bottom scrubber/controls while in embed mode (`visible={controlsVisible && playerMode !== "embed"}`) so it does not overlap CineSrc's iframe player controls.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (19 files / 196 tests green), `npm run build` (clean production build).
+
 - [x] **Mode dropdown pill selection bugfix (user: "the pill i click, drop down appears, click on embed but nothing happens stays on streamly.refer cinesrc.st documents", "still same, even if i click on embed from the drop down nothing happening as well as it stays on streamly") — 2026-11-05.**
   - **Root causes:**
     1. In `PlayerShell.jsx`, `handleClickOutside` checked only `target.closest?.(".np-mode-selector")`. Because the top-right mode selector pill and dropdown use classes `.np-mode-dropdown-wrap` and `.np-mode-menu`, clicking on the "Embed" option evaluated to `null`.
