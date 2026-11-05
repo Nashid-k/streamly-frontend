@@ -7780,4 +7780,17 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 
 **Files.** `public/sw.js`, `src/api/ratingService.js`.
 
+## 2026-11-05 - Phase 8: player Auto-quality — double-circle toggle fixed + measured-progression ladder upgrades
+
+**Fix 1 — the Auto quality toggle rendered TWO knobs (user-visible bug).** The button carried `np-tog np-tog-acc switch` together — the only element in the app doing so — so the legacy `.np-tog i` circle (grey, near-black when on) AND the v4 `.switch::after` circle (white knob) both drew on top of each other: the "dark and white circle". Stripped the legacy classes from `PlayerMenus.jsx` (the v4 switch keys off `aria-checked` itself), deleted the dead `.np-tog`/`.np-tog-acc` rules from `player.css`, and replaced the two dead `.np-tog` references in the reduced-motion block with the live `.np-root .switch`/`.switch::after` selectors so motion preference still applies to the toggle that actually ships.
+
+**Fix 2 — non-master "Auto" was a STATIC mid-rung for life; now it walks the ladder up on measured bandwidth.** Root cause: for sources whose ladder is separate per-rung URLs (relay-only providers), "Auto" just replayed the settle rung forever — and settle was capped at ≤720p through the relay with zero re-evaluation, so a fast connection stayed at 720p for the entire film. Masters were already fine (hls.js ABR). Now:
+- The relay OPEN ceiling is seed-gated instead of blind: `navigator.connection` prior (via the existing `pickInitialBandwidthBits`) ≥25Mbps opens directly on the tallest ≤1080p rung even through the relay; below that the old ≤720p guard stays.
+- A measured upgrade walker rides the run's hls instance (`FRAG_BUFFERED`, ~one beat per buffered fragment): when `hls.bandwidthEstimate` clears the next rung's advertised bitrate ×2.2 headroom (providers that omit `bandwidth` use H.264 preset bitrates), it escalates via the existing `pickQuality({auto:true})` path — which keeps Auto highlighted, rolls back honestly if the probe fails, never blanks the frame except at the point of no return, and resumes position. A refused rung is attempt-locked (no thrash against a lying sibling manifest), one rung per beat, capped at the seed-gated ceiling; the listener dies with the hls instance on every teardown path and self-inerts when `hlsRef` moves.
+- Hands-off guards: a manually pinned rung is never yanked (new `autoLevelRef` mirror in NativePlayerView read inside the engine), a pinned dub keeps its language (sibling manifests are single-rung — an upgrade there would silently drop the audio), and stay-paused/rerender-safety are inherited from `pickQuality`'s own rules.
+
+**Gates.** npm run lint exit 0 / 0 errors; full npm run test 120 files / 1454 tests pass; npm run build clean.
+
+**Files.** `src/components/player/shell/PlayerMenus.jsx`, `src/styles/player.css`, `src/components/player/engine/useSourceResolve.js`, `src/components/NativePlayerView.jsx`.
+
 

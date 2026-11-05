@@ -26,6 +26,26 @@ import { pickInitialBandwidthBits } from "../../../utils/streamTuning";
 import { clearPreviewCache } from "../../../api/previewThumbs";
 import { buildQualityRows } from "../nativePlayerHelpers";
 
+/* Auto's per-rung ladder upgrades (non-master Auto only). A settled rung walks
+   UP one beat at a time when the MEASURED throughput clears the next rung's
+   advertised bitrate by AUTO_UPGRADE_HEADROOM — relayed fragments carry their
+   real overhead inside the estimate, so the factor stays honest. Providers
+   that omit `bandwidth` fall back to mainstream H.264 presets. */
+const AUTO_UPGRADE_HEADROOM = 2.2;
+const AUTO_UPGRADE_FALLBACK_BITS = {
+  240: 5e5,
+  360: 8e5,
+  420: 1.1e6,
+  480: 1.6e6,
+  540: 2.2e6,
+  576: 2.6e6,
+  720: 4e6,
+  900: 6e6,
+  1080: 9e6,
+  1440: 18e6,
+  2160: 32e6,
+};
+
 export default function useSourceResolve({
   // Media identity: the effect re-runs (full teardown → fresh resolve) when any
   // of these change, exactly as the inline effect did.
@@ -60,6 +80,8 @@ export default function useSourceResolve({
   hasStartedRef,
   autoUriRef,
   autoUriHeightRef,
+  autoLevelRef,
+  pickQualityRef,
   maybeOfferResumeRef,
   // Assigned after this hook in the player; see the file header.
   mergeBoundariesRef,
@@ -466,6 +488,13 @@ export default function useSourceResolve({
 
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
+        // ABR seed — navigator.connection as a PRIOR for how the ladder opens
+        // and upgrades (hls.js's own measurement wins after the first
+        // segments). Absent the API (Safari, Firefox) this is the fixed seed.
+        const streamSeedBits = pickInitialBandwidthBits(
+          typeof navigator !== "undefined" ? navigator.connection : undefined,
+          INITIAL_BW_BITS,
+        );
         // Master sources ship levels + audio groups in ONE url; others are per-rendition.
         const isMaster = Boolean(liveSource?.multiLevelMaster);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
@@ -513,11 +542,17 @@ export default function useSourceResolve({
             return false;
           }
           setTransportRelay(probe?.via === "relay");
-          // Relay delivery is latency-bound (fresh serverless round trip per chunk), so
-          // a relay start reopens at the tallest ≤720p; the direct path keeps ≤1080p.
-          if (!isMaster && probe.via === "relay" && (smoothStart?.height || 0) > 720) {
+          // Relay delivery is latency-bound (fresh serverless round trip per chunk),
+          // so the auto OPEN is seeded by the connection prior, not a blind cap: a
+          // connection that comfortably sustains 1080p (the seed knows) opens ON
+          // 1080p even through the relay; a modem-pace seed keeps the old ≤720p
+          // guard. The upgrade walker below still corrects this with MEASURED
+          // bandwidth once fragments bite.
+          const autoTopHeight =
+            probe?.via === "relay" && streamSeedBits < 25_000_000 ? 720 : 1080;
+          if (!isMaster && (smoothStart?.height || 0) > autoTopHeight) {
             const relayFriendly = variants
-              .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= 720)
+              .filter((v) => (v.height || 0) > 0 && (v.height || 0) <= autoTopHeight)
               .sort((a, b) => (b.height || 0) - (a.height || 0))[0];
             if (relayFriendly && relayFriendly.uri !== smoothStart?.uri) {
               smoothStart = relayFriendly;
@@ -541,17 +576,6 @@ export default function useSourceResolve({
           const maxBufferSize = Math.min(
             MAX_BUFFER_SIZE,
             Math.max(MIN_BUFFER_SIZE, Math.ceil((topBps / 8) * BUFFER_DEPTH_SECONDS * 3)),
-          );
-          // ABR seed. A fixed 10Mbps is a blind guess: too low on a fast TV, far
-          // too high on a phone (an over-optimistic first rung shows a rebuffer
-          // before hls.js corrects itself). navigator.connection already knows
-          // the pipe's shape before a byte flows, so use it as a PRIOR only —
-          // hls.js's own measurement still wins after the first segments, and
-          // the underflow step-down is unchanged. Absent the API (Safari,
-          // Firefox) this is exactly the old fixed seed.
-          const streamSeedBits = pickInitialBandwidthBits(
-            typeof navigator !== "undefined" ? navigator.connection : undefined,
-            INITIAL_BW_BITS,
           );
           // Start-conservative, pick-liberal: fragments come through the Vercel relay with
           // parallel range chunking, so a manual tall pick may try and the buffer-floor
@@ -857,6 +881,43 @@ export default function useSourceResolve({
           // Remember the rung the player negotiated (non-master "Auto").
           autoUriRef.current = isMaster ? null : smoothStart?.uri || null;
           autoUriHeightRef.current = isMaster ? null : smoothStart?.height ?? null;
+          // Measured-progression Auto for a per-rung ladder (a master rides
+          // hls.js ABR instead). The settle rung is a latency-aware prior; once
+          // real fragments measure the pipe, an estimate that comfortably
+          // clears the next rung walks the ladder UP — the old fixed rung kept
+          // a fast connection at the open quality for the whole film. A
+          // manually pinned rung stays manual (autoLevelRef), and a pinned dub
+          // keeps its language (its sibling manifests are single-rung — an
+          // upgrade here would silently drop the audio). Each upgrade rides
+          // pickQuality's own probe/rollback path; a refused rung is
+          // attempt-locked so the ladder cannot thrash against a lying
+          // sibling. Listeners die with this hls instance at every teardown.
+          if (!isMaster) {
+            const autoLadder = variants
+              .filter((v) => (v.height || 0) > 0)
+              .sort((a, b) => (a.height || 0) - (b.height || 0));
+            const baseHeight = smoothStart?.height || 0;
+            const attemptedRungs = new Set([baseHeight]);
+            hls.on(Hls.Events.FRAG_BUFFERED, () => {
+              if (stale() || hlsRef.current !== hls) return;
+              if (!autoLevelRef.current || activeDubRef.current > 0) return;
+              const estimate = hls.bandwidthEstimate || 0;
+              if (estimate <= 0) return;
+              for (const next of autoLadder) {
+                const h = next.height || 0;
+                if (h <= baseHeight || h > autoTopHeight || attemptedRungs.has(h)) continue;
+                const advertised = Number(next.bandwidth) || 0;
+                const need =
+                  (advertised > 0 ? advertised : AUTO_UPGRADE_FALLBACK_BITS[h] || 0) *
+                  AUTO_UPGRADE_HEADROOM;
+                if (need > 0 && estimate >= need) {
+                  attemptedRungs.add(h);
+                  pickQualityRef.current?.(next.uri, h, { auto: true });
+                }
+                break; // one rung per buffered fragment; a taller rung needs this one proven
+              }
+            });
+          }
           attachAudio(hls);
           // A real "playing" phase, not a label: consumers (the paused centre
           // transport in CenterStack, the low-buffer ABR step-down below) test

@@ -315,7 +315,7 @@ export default function PlayerMenus({
           <button
             type="button"
             role="switch"
-            className={["np-tog", "np-tog-acc", "switch", autoOn ? "on" : ""].filter(Boolean).join(" ")}
+            className={["switch", autoOn ? "on" : ""].filter(Boolean).join(" ")}
             aria-label="Automatic quality"
             aria-checked={autoOn}
             onClick={onAutoToggle}

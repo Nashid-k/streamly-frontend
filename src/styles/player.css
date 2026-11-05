@@ -1907,44 +1907,6 @@
   font-size: 22px;
   color: var(--np-muted);
 }
-.np-tog {
-  width: 66px;
-  height: 36px;
-  border: 0;
-  border-radius: 18px;
-  background: #2a3540;
-  position: relative;
-  cursor: pointer;
-  flex: none;
-  transition: background var(--duration-normal) var(--np-ease);
-}
-.np-tog i {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #8fa3b3;
-  transition: transform var(--duration-normal) var(--np-ease-spring), background var(--duration-normal) var(--np-ease);
-}
-.np-tog.on {
-  background: #fff;
-}
-.np-tog.on i {
-  transform: translateX(30px);
-  background: #090d11;
-}
-.np-tog-acc.on {
-  background: var(--np-accent);
-}
-.np-tog-acc.on i {
-  background: #090d11;
-}
-.np-tog:focus-visible {
-  outline: 2px solid var(--np-accent);
-  outline-offset: 2px;
-}
 
 /* ── Quality / notes ───────────────────────────────────────────────────── */
 .player .np-hr {
@@ -2195,8 +2157,8 @@
   .np-menu,
   .np-menu *,
   .np-seg-thumb,
-  .np-tog,
-  .np-tog i {
+  .np-root .switch,
+  .np-root .switch::after {
     transition: none !important;
     animation: none !important;
   }

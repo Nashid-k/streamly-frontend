@@ -568,6 +568,13 @@ export default function NativePlayerView({
   // from the shape of what actually opened.
   const [autoLevel, setAutoLevel] = useState(null);
   const [manualHeight, setManualHeight] = useState(null);
+  // The ABR upgrade walker lives inside the resolve engine's hls listeners —
+  // plain callbacks, not React — so it reads the Auto state through this ref
+  // mirror (null = not yet claimed = the boot settle, which IS Auto).
+  const autoLevelRef = useRef(true);
+  useEffect(() => {
+    autoLevelRef.current = autoLevel !== false;
+  }, [autoLevel]);
   // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
   // "now playing" resolution in the quality dialog even while on Auto.
   const [currentHeight, setCurrentHeight] = useState(null);
@@ -1554,6 +1561,8 @@ export default function NativePlayerView({
     hasStartedRef,
     autoUriRef,
     autoUriHeightRef,
+    autoLevelRef,
+    pickQualityRef,
     maybeOfferResumeRef,
     mergeBoundariesRef,
     clearSleepTimer,
