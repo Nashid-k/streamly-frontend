@@ -411,7 +411,7 @@ export default function PlayerShell({
                   display: "block",
                   zIndex: 1,
                 }}
-                allow="autoplay; fullscreen; picture-in-picture"
+                allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"
                 allowFullScreen
               />
             ) : (
@@ -780,7 +780,7 @@ export default function PlayerShell({
 
           {/* Resume offer card */}
           <ResumeCard
-            offer={resumeOffer && !ended && !sheetOpen ? resumeOffer : null}
+            offer={resumeOffer && !ended && !sheetOpen && playerMode !== "embed" ? resumeOffer : null}
             fmtTime={fmtTime}
             onResume={onResumeOffer}
             onRestart={restartFromStart}

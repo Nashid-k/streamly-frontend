@@ -225,9 +225,9 @@ export default function NativePlayerView({
     if (type === "tv") {
       const s = Math.max(1, Number(season) || 1);
       const e = Math.max(1, Number(episode) || 1);
-      return `${base}/tv/${cleanId}?s=${s}&e=${e}`;
+      return `${base}/tv/${cleanId}?s=${s}&e=${e}&autoplay=true&autonext=true`;
     }
-    return `${base}/movie/${cleanId}`;
+    return `${base}/movie/${cleanId}?autoplay=true`;
   }, [localPlayerMode, type, id, season, episode]);
 
 
@@ -441,28 +441,62 @@ export default function NativePlayerView({
   // dependency of that effect and not just a local teardown.
   const [reloadToken, setReloadToken] = useState(0);
 
-  /* Mode switch handler: pause video when switching to embed; resume or reload when switching back */
+  /* Mode switch handler: tear down native playback on embed (do not keep alive);
+     refetch and offer restart/resume prompt based on progress when switching back */
   const prevPlayerModeRef = useRef(localPlayerMode);
+  const savedPositionRef = useRef(0);
+
   useEffect(() => {
     const prevMode = prevPlayerModeRef.current;
     prevPlayerModeRef.current = localPlayerMode;
 
     if (localPlayerMode === "embed") {
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
+      // 1. Capture current playback position before tearing down
+      const currentPos = videoRef.current ? Math.floor(videoRef.current.currentTime || 0) : 0;
+      if (currentPos > 0) {
+        savedPositionRef.current = currentPos;
+      }
+      // 2. Tear down playback instead of keeping it alive in the background
+      try {
+        if (videoRef.current && !videoRef.current.paused) {
+          videoRef.current.pause();
+        }
+      } catch {}
+      if (hlsRef.current) {
+        try {
+          hlsRef.current.stopLoad();
+          hlsRef.current.destroy();
+        } catch {}
+        hlsRef.current = null;
+      }
+      if (videoRef.current) {
+        try {
+          videoRef.current.removeAttribute("src");
+          videoRef.current.load();
+        } catch {}
       }
     } else if (localPlayerMode === "streamly" && prevMode === "embed") {
-      if (videoRef.current) {
-        if (videoRef.current.src || hlsRef.current) {
-          if (videoRef.current.paused) {
-            videoRef.current.play().catch(() => {});
-          }
-        } else {
-          setReloadToken((t) => t + 1);
-        }
+      // 3. User switched back to Streamly:
+      // Allow resume offer prompt based on progress
+      resumeHandledKeyRef.current = null;
+      const at =
+        savedPositionRef.current ||
+        Number(watchedEntryRef.current?.timestamp) ||
+        Number(resumePoint?.timestamp) ||
+        0;
+
+      if (at > 0) {
+        watchedEntryRef.current = {
+          ...(watchedEntryRef.current || {}),
+          timestamp: at,
+        };
+        setResumeOffer({ at });
       }
+
+      // 4. Refetch stream from scratch
+      setReloadToken((t) => t + 1);
     }
-  }, [localPlayerMode]);
+  }, [localPlayerMode, resumePoint]);
   // `poke` is declared further down the component, so this callback cannot close
   // over it directly (TDZ); the ref is the same pattern the file already uses
   // for once-bound handlers.

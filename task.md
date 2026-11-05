@@ -7,6 +7,15 @@
 
  ## Done (in order)
 
+- [x] **Embed autoplay parameters and Streamly resume/refetch teardown (user: "on embedd page its not playing after loading the video not autoplaying, if switched back to stremaly refetch insted keeping it alive and show restart/resume based on") — 2026-11-05.**
+  - **CineSrc embed autoplay:**
+    - Per CineSrc official documentation, added `?autoplay=true` (and `&autonext=true` for TV) to the CineSrc embed URLs in `NativePlayerView.jsx`.
+    - Enhanced the `<iframe>` permission policy with `allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"` in `PlayerShell.jsx`.
+  - **Streamly teardown & refetch with restart/resume offer:**
+    - When switching to embed mode, recorded the current playback position into `savedPositionRef.current` and immediately tore down native playback (paused `<video>`, destroyed `hls.js` and detached media) instead of keeping streams alive in the background.
+    - When switching back to Streamly mode, reset `resumeHandledKeyRef.current = null`, surfaced the center "Resume Watching" / "Start Over" prompt (`ResumeCard`) with `setResumeOffer({ at })` whenever saved watch progress exists, and triggered a fresh stream refetch with `setReloadToken((t) => t + 1)`.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (19 files / 196 tests green), `npm run build` (clean production build).
+
 - [x] **Fix switching back from embed mode to Streamly (user: "now embedd is working but switching back is not working,find the cause and fix") — 2026-11-05.**
   - **Root causes:**
     1. In `PlayerShell.jsx`, when `playerMode === "embed"`, the `<video>` element was conditionally unmounted from the DOM. This destroyed the HTMLMediaElement instance, detached the underlying `hls.js` MediaSource, discarded buffered segments, and severed event listeners. When switching back to Streamly, a new blank `<video>` element was mounted with no stream attached and no resolve trigger, leaving playback broken on a black screen.
