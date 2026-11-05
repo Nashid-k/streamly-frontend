@@ -1,11 +1,6 @@
 import { DURATION, EASE_OUT, EASE_IN } from "./motion";
 
-export const ROUTE_EASE = EASE_OUT;
-
-const BASE_TRANSITION = {
-  duration: DURATION.MED,
-  ease: ROUTE_EASE,
-};
+const ROUTE_EASE = EASE_OUT;
 
 export const ROUTE_TRANSITIONS = {
   "fade-up-subtle": { duration: DURATION.FAST, ease: ROUTE_EASE },
@@ -113,5 +108,3 @@ export function getRouteVariant(pathname = "") {
   }
   return "fade-up-subtle";
 }
-
-export { BASE_TRANSITION };

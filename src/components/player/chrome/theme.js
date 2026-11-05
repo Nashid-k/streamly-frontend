@@ -49,10 +49,8 @@ export const PILL_BG_HOVER = "rgba(40,47,41,0.82)";
 
 // Glass materials: cool ink, not neutral black, so the player sits in the same
 // family as the app's dark surfaces.
-export const GLASS_BG = "rgba(10,13,11,0.74)";
 export const GLASS_BG_STRONG = "rgba(9,12,10,0.86)";
 export const GLASS_BORDER = "rgba(255,255,255,0.12)";
-export const GLASS_BORDER_STRONG = "rgba(255,255,255,0.2)";
 export const GLASS_BLUR = "blur(26px) saturate(1.35)";
 
 // The control deck's own material. Slightly lighter than the menus so it reads

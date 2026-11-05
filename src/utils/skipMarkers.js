@@ -49,7 +49,7 @@ export const SKIP_INTRO_OVERRIDES = {
 };
 
 export const SKIP_INTRO_DEFAULT_END = 90; // cold open + title card
-export const SKIP_INTRO_MIN_EPISODE_SECONDS = 15 * 60; // never guess on a short
+const SKIP_INTRO_MIN_EPISODE_SECONDS = 15 * 60; // never guess on a short
 export const SKIP_INTRO_GRACE = 10; // linger a few seconds past the boundary
 /* The pill appears LEAD seconds BEFORE the boundary, not from t=0. A Skip button
    sitting on screen through the whole cold open is noise that trains viewers to
@@ -69,7 +69,7 @@ export const SKIP_OUTRO_TAIL_SECONDS = 150;
 export const SKIP_OUTRO_MIN_EPISODE_SECONDS = 20 * 60;
 /* Land this far from the very end so `ended` fires (and Up Next appears)
    instead of the browser treating the seek as unseekable at duration. */
-export const SKIP_OUTRO_END_MARGIN = 4;
+const SKIP_OUTRO_END_MARGIN = 4;
 
 const isFiniteNum = (n) => typeof n === "number" && Number.isFinite(n);
 

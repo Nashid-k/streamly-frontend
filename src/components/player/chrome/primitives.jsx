@@ -5,59 +5,8 @@
 // presentation-only; the stage's data comes in as props so the engine keeps
 // owning the resolve state.
 import { useEffect, useState } from "react";
-import { ACCENT, TEXT, TEXT_DIM, TEXT_FAINT, TRACK } from "./theme";
+import { TEXT, TEXT_FAINT, TRACK } from "./theme";
 import { CdnImageAdapter } from "../../../api/cdnImageAdapter";
-
-const FUN_FACTS = [
-  "Reticulating splines...",
-  "Warming up the projector...",
-  "Dimming the lights...",
-  "Grabbing the popcorn...",
-  "Tuning the audio...",
-  "Finding the best quality...",
-  "Rolling film...",
-  "Silencing cellphones...",
-  "Preparing the stream...",
-];
-
-export function LoadingMessage({ title }) {
-  const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((i) => (i + 1) % FUN_FACTS.length);
-    }, 2500);
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-      {title && (
-        <span
-          style={{
-            fontSize: 19,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-            color: TEXT,
-          }}
-        >
-          Loading {title}
-        </span>
-      )}
-      <span
-        style={{
-          fontSize: 13,
-          color: TEXT_DIM,
-          letterSpacing: "0.01em",
-          minHeight: "20px",
-        }}
-      >
-        <span style={{ color: ACCENT, marginRight: 8 }}>•</span>
-        {FUN_FACTS[index]}
-      </span>
-    </div>
-  );
-}
 
 /* The stage a viewer stares at while a stream resolves: the title's own art,
    blurred and dimmed as a backdrop, with the name and a spinner over it.

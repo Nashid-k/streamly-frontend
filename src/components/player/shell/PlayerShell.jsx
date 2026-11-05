@@ -27,7 +27,7 @@ import usePlayerV4Appearance from "../hooks/usePlayerV4Appearance";
 import PlayerMenus from "./PlayerMenus";
 import PlayerTransport from "./PlayerTransport";
 
-export const CHROME_TARGET_GUARD =
+const CHROME_TARGET_GUARD =
   "button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu']";
 
 export default function PlayerShell({

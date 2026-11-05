@@ -9,7 +9,7 @@
 // variants from them.
 
 const KIND_TS = "ts";
-export const KIND_FMP4 = "fmp4";
+const KIND_FMP4 = "fmp4";
 
 // Resolve a possibly-relative URI against the playlist's base URL.
 // Exported because api/stream.js resolves manifest/segment URIs server-side
@@ -78,7 +78,7 @@ export function resolutionLabel(width, height) {
 /* HDR/SDR/60fps are only ever shown when the playlist actually says so.
    Anything unproven (no VIDEO-RANGE, no colour transfer, no codec string, no
    FRAME-RATE) gets no tag rather than a guess. */
-export function rangeTag(v = {}) {
+function rangeTag(v = {}) {
   const vr = String(v.videoRange || "").toUpperCase();
   const ct = String(v.colorTransfer || "").toLowerCase();
   if (vr === "PQ" || vr === "HLG" || /smpte2084|arib-std-b67/.test(ct)) return "HDR";

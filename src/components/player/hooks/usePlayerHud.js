@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /** How long a HUD badge stays on screen before it dismisses itself. */
-export const HUD_MS = 1100;
+const HUD_MS = 1100;
 
 /**
  * @param {object} [options]

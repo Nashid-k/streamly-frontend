@@ -31,11 +31,11 @@ import { STILL_WATCHING_IDLE_MS, STILL_WATCHING_EPISODES } from "../../../consta
 import { logDebug } from "../../../utils/debugLogger";
 
 /** Idle time before the chrome hides itself. */
-export const HIDE_DELAY_MS = 3000;
+const HIDE_DELAY_MS = 3000;
 /** mousemove fires 100+/s; re-arming two timers that often is wasteful. */
-export const POKE_REARM_MIN_MS = 250;
+const POKE_REARM_MIN_MS = 250;
 /** How long an ignored "Still watching?" prompt stays up. */
-export const STILL_WATCHING_OFFER_MS = 90 * 1000;
+const STILL_WATCHING_OFFER_MS = 90 * 1000;
 
 
 /**
