@@ -815,7 +815,7 @@ export default function Home({
       if (!isHeroHoveredRef.current) {
         setFeaturedIndex((prev) => prev + 1);
       }
-    }, 10000);
+    }, 15000);
     return () => clearInterval(timer);
   }, [totalFeatured, reduceMotion]);
 
@@ -978,14 +978,12 @@ export default function Home({
               setIsHeroHovered(false);
             }}
             onKeyDown={(event) => {
-              if (totalFeatured <= 1) return;
-              if (event.key === "ArrowLeft") {
+              // Manual switching is disabled (see the removed arrows above) so the
+              // banner keeps its dwell time for the title logo to load. Only Enter
+              // activates the hero; arrow keys no longer advance slides.
+              if (event.key === "Enter" && activeFeaturedMovie) {
                 event.preventDefault();
-                setFeaturedIndex((current) => (current - 1 + totalFeatured) % totalFeatured);
-              }
-              if (event.key === "ArrowRight") {
-                event.preventDefault();
-                setFeaturedIndex((current) => (current + 1) % totalFeatured);
+                openDetails(activeFeaturedMovie);
               }
             }}
           >
@@ -1014,35 +1012,10 @@ export default function Home({
             {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
             <div className="hero-overlay hero-overlay--apple" />
 
-            {/* Prev / Next arrows — appear on hover */}
-            <AnimatePresence>
-              {(isHeroHovered || isCoarse) && totalFeatured > 1 && (
-                <>
-                  <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                  >
-                    <RailArrow
-                      dir="left"
-                      sideClass="left-4"
-                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex - 1 + totalFeatured) % totalFeatured); }}
-                    />
-                  </motion.div>
-                  <motion.div
-                    initial={{ opacity: 0, x: 10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 10 }}
-                  >
-                    <RailArrow
-                      dir="right"
-                      sideClass="right-4"
-                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex((featuredIndex + 1) % totalFeatured); }}
-                    />
-                  </motion.div>
-                </>
-              )}
-            </AnimatePresence>
+            {/* Prev / Next arrows removed: manual switching cut the banner's
+                dwell time short, so the title logo never had time to load and
+                the banner flashed the styled text title. Auto-rotation (below)
+                still advances slides on its own cadence. */}
 
             {/* ── Apple Hero Content ─────────────────────────────────────── */}
             <AnimatePresence>
@@ -1155,18 +1128,16 @@ export default function Home({
                 {Array.from({ length: totalFeatured }).map((_, i) => {
                   const isActive = i === featuredIndex % totalFeatured;
                   return (
-                    <motion.button
+                    <span
                       key={i}
-                      onClick={(e) => { e.stopPropagation(); setFeaturedIndex(i); }}
-                      whileTap={{ scale: PRESS_SCALE.ICON }}
-                      aria-label={`Show ${finalPool[i]?.title || `featured title ${i + 1}`}`}
                       aria-current={isActive ? "true" : undefined}
+                      aria-label={finalPool[i]?.title || `featured title ${i + 1}`}
                       className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
                     >
                       {isActive && (
                         <div className="dot-filler" />
                       )}
-                    </motion.button>
+                    </span>
                   );
                 })}
               </div>

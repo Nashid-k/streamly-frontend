@@ -222,7 +222,10 @@ describe("HomePage hero", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lets the hero be paged with the arrow keys", async () => {
+  it("keeps the banner on its current slide under manual input (no paging)", async () => {
+    // Manual paging (arrows + clickable dots) was removed so the banner holds
+    // its dwell time and the title logo has time to load before the slide
+    // advances. Only the auto-rotation timer advances slides.
     stubHomeService({ featured: [MOVIE, SERIES] });
     renderHome({ filter: "all" });
 
@@ -230,21 +233,28 @@ describe("HomePage hero", () => {
     const hero = revealHeroControls();
 
     fireEvent.keyDown(hero, { key: "ArrowRight" });
-    await waitFor(() => expect(activeSlideName()).toMatch(/show game of thrones/i));
+    // Give any (now-removed) handler a chance to fire.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(activeSlideName()).toMatch(/fight club/i);
 
-    // Wraps back to the first slide.
     fireEvent.keyDown(hero, { key: "ArrowLeft" });
-    await waitFor(() => expect(activeSlideName()).toMatch(/show fight club/i));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(activeSlideName()).toMatch(/fight club/i);
   });
 
-  it("offers a slide dot per hero title, and clicking one jumps to that slide", async () => {
+  it("renders one slide dot per hero title as a non-interactive indicator", async () => {
     stubHomeService({ featured: [MOVIE, SERIES] });
     renderHome();
 
     await screen.findByText(/an insomniac office worker forms an underground fight club/i);
     revealHeroControls();
-    const gotDot = await screen.findByRole("button", { name: /show game of thrones/i });
-    fireEvent.click(gotDot);
-    await waitFor(() => expect(activeSlideName()).toMatch(/show game of thrones/i));
+    // Dots are indicators only — no click target, no slide jump.
+    const dots = document.querySelectorAll(".hero-dot");
+    expect(dots.length).toBe(2);
+    expect(dots[0].getAttribute("aria-current")).toBe("true");
+    // Clicking a dot must not advance the slide.
+    fireEvent.click(dots[1]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(activeSlideName()).toMatch(/fight club/i);
   });
 });
