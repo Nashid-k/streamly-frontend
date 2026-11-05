@@ -534,7 +534,7 @@ export default function PlayerShell({
                       aria-selected={playerMode === "streamly"}
                       className={playerMode === "streamly" ? "active" : ""}
                       onClick={() => {
-                        setPlayerMode("streamly");
+                        onToggleMode("streamly");
                         setModeDropdownOpen(false);
                       }}
                     >
@@ -546,7 +546,7 @@ export default function PlayerShell({
                       aria-selected={playerMode === "embed"}
                       className={playerMode === "embed" ? "active" : ""}
                       onClick={() => {
-                        setPlayerMode("embed");
+                        onToggleMode("embed");
                         setModeDropdownOpen(false);
                       }}
                     >
@@ -728,7 +728,7 @@ export default function PlayerShell({
             mode={playerMode}
             modeDropdownOpen={modeDropdownOpen}
             setModeDropdownOpen={setModeDropdownOpen}
-            onToggleMode={setPlayerMode}
+            onToggleMode={onToggleMode}
           />
 
           {/* Resume offer card */}
