@@ -482,45 +482,47 @@ export default function PlayerShell({
             </div>
           ) : null}
 
-          {/* Mode selector floating pill - right side, only when not fullscreen */}
+          {/* Mode selector dropdown - right side, only when not fullscreen */}
           {!isFullscreen && !showStage && (
-            <div
-              className="np-mode-pill"
-              onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
-              aria-label="Player mode"
-              aria-expanded={modeDropdownOpen}
-            >
-              <div className="np-mode-pill-inner">
-                <svg className="np-mode-pill-icon">
-                  <use href={playerMode === "embed" ? "#i-embed" : "#i-streamly"} />
+            <div className="np-mode-dropdown-wrap">
+              <button
+                type="button"
+                className="np-mode-select"
+                onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+                aria-label="Player mode"
+                aria-expanded={modeDropdownOpen}
+                aria-haspopup="listbox"
+              >
+                <span>{playerMode === "embed" ? "Embed" : "Streamly"}</span>
+                <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m6 9 6 6 6-6" />
                 </svg>
-                <span className="np-mode-pill-label">{playerMode === "embed" ? "Embed" : "Streamly"}</span>
-              </div>
+              </button>
               {modeDropdownOpen && (
-                <div className="np-mode-pill-dropdown">
+                <div className="np-mode-menu" role="listbox" aria-label="Player mode">
                   <button
                     type="button"
+                    role="option"
+                    aria-selected={playerMode === "streamly"}
                     className={playerMode === "streamly" ? "active" : ""}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       setPlayerMode("streamly");
                       setModeDropdownOpen(false);
                     }}
                   >
-                    <svg className="np-mode-pill-icon"><use href="#i-streamly" /></svg>
-                    <span>Streamly (All Servers)</span>
+                    Streamly
                   </button>
                   <button
                     type="button"
+                    role="option"
+                    aria-selected={playerMode === "embed"}
                     className={playerMode === "embed" ? "active" : ""}
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() => {
                       setPlayerMode("embed");
                       setModeDropdownOpen(false);
                     }}
                   >
-                    <svg className="np-mode-pill-icon"><use href="#i-embed" /></svg>
-                    <span>Embed (CineSrc)</span>
+                    Embed
                   </button>
                 </div>
               )}
