@@ -492,15 +492,15 @@ export default function PlayerShell({
             >
               <div className="np-mode-pill-inner">
                 <svg className="np-mode-pill-icon">
-                  <use href={mode === "embed" ? "#i-embed" : "#i-streamly"} />
+                  <use href={playerMode === "embed" ? "#i-embed" : "#i-streamly"} />
                 </svg>
-                <span className="np-mode-pill-label">{mode === "embed" ? "Embed" : "Streamly"}</span>
+                <span className="np-mode-pill-label">{playerMode === "embed" ? "Embed" : "Streamly"}</span>
               </div>
               {modeDropdownOpen && (
                 <div className="np-mode-pill-dropdown">
                   <button
                     type="button"
-                    className={mode === "streamly" ? "active" : ""}
+                    className={playerMode === "streamly" ? "active" : ""}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPlayerMode("streamly");
@@ -512,7 +512,7 @@ export default function PlayerShell({
                   </button>
                   <button
                     type="button"
-                    className={mode === "embed" ? "active" : ""}
+                    className={playerMode === "embed" ? "active" : ""}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPlayerMode("embed");
