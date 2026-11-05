@@ -181,6 +181,11 @@ export default function PlayerShell({
   volHover,
   volume,
   watchedEpisodes,
+  // Mode selector props
+  playerMode,
+  modeDropdownOpen,
+  setModeDropdownOpen,
+  onToggleMode,
 }) {
   const v4Appearance = usePlayerV4Appearance({
     subtitleSize,
@@ -189,10 +194,6 @@ export default function PlayerShell({
     setSubtitleBg,
     initialSubColor: prefs?.subtitleColor,
   });
-
-  // Player mode: "streamly" (full player with all servers) or "embed" (CineSrc-style embed)
-  const [playerMode, setPlayerMode] = useState("streamly");
-  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
 
   const [navDirection, setNavDirection] = useState(0);
   const panelStackRef = useRef([]);
@@ -362,27 +363,46 @@ export default function PlayerShell({
           onClick={onVideoClick}
           style={{ position: "absolute", inset: 0, background: "#000" }}
         >
-          <video
-            ref={videoRef}
-            playsInline
-            onClick={onVideoClick}
-            onTouchStart={onVideoTouchStart}
-            onTouchMove={handleGestureMove}
-            onTouchEnd={handleVideoTouchEnd}
-            onTouchCancel={handleHoldEnd}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "contain",
-              display: "block",
-              ...aspectVideoStyle(aspectRatioIndex),
-              touchAction: "manipulation",
-              WebkitUserSelect: "none",
-              filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
-            }}
-          />
+          {playerMode === "embed" && embedUrl ? (
+            <iframe
+              ref={embedRef}
+              src={embedUrl}
+              title="CineSrc embed player"
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                border: "none",
+                display: "block",
+              }}
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              playsInline
+              onClick={onVideoClick}
+              onTouchStart={onVideoTouchStart}
+              onTouchMove={handleGestureMove}
+              onTouchEnd={handleVideoTouchEnd}
+              onTouchCancel={handleHoldEnd}
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                ...aspectVideoStyle(aspectRatioIndex),
+                touchAction: "manipulation",
+                WebkitUserSelect: "none",
+                filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
+              }}
+            />
+          )}
         </div>
 
         {/* UI Overlay */}

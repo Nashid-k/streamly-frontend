@@ -190,9 +190,25 @@ export default function NativePlayerView({
   resumePoint = null,
   seasonsAvailable = [],
   onSelectSeason,
+  // Mode selector props
+  playerMode = "streamly",
+  modeDropdownOpen = false,
+  setModeDropdownOpen,
+  onToggleMode,
 }) {
   const videoRef = useRef(null);
   const screenRef = useRef(null);
+  // Embed iframe state
+  const embedRef = useRef(null);
+  /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
+  const embedUrl = useMemo(() => {
+    if (playerMode !== "embed") return null;
+    const base = "https://cinesrc.st/embed";
+    if (type === "tv") {
+      return `${base}/tv/${id}?s=${season}&e=${episode}`;
+    }
+    return `${base}/movie/${id}`;
+  }, [playerMode, type, id, season, episode]);
   /* Viewer preferences. Read here, at the top of the component, because the
      skip amount below is needed by handlers declared further down (and a
      `const` declared later would be a TDZ error at those call sites).
