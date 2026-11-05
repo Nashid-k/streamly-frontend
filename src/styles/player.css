@@ -1935,13 +1935,13 @@
   width: 1.3em;
   height: 1.3em;
 }
-/* Circular progress indicator for episode watch progress */
+/* Circular progress indicator for episode watch progress - positioned RIGHT side */
 .np-ep .epp {
   position: absolute;
-  left: 1.5em;
+  right: 1.5em;
   bottom: 0.45em;
-  width: 0.55em;
-  height: 0.55em;
+  width: 0.85em;
+  height: 0.85em;
   border-radius: 50%;
   background: #ffffff1f;
   overflow: hidden;
@@ -2641,10 +2641,10 @@
 .np-root .epp,
 .epp {
   position: absolute;
-  left: .9em;
+  right: .9em;
   bottom: .45em;
-  width: .55em;
-  height: .55em;
+  width: 0.85em;
+  height: 0.85em;
   border-radius: 50%;
   background: #ffffff1f;
   overflow: hidden;

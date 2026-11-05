@@ -76,7 +76,7 @@ const THROTTLE_BACKOFF_MS = 6000;
 // nothing and every skip jumped 10s.
 const SKIP_SECONDS = 10;
 // Netflix "Up Next" auto-play countdown for a TV episode's next installment.
-const UP_NEXT_MS = 15000;
+const UP_NEXT_MS = 10000; // 10s countdown — shorter than the 15s default for snappier auto-advance
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
 // rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
 // ahead (~20Mbps burns 60MB in ~24s), which is why 4K never buffered. The
@@ -1720,6 +1720,10 @@ export default function NativePlayerView({
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
     setBuffering(true);
+    // A switch never offers resume/restart — that prompt is an initial-play
+    // concern only. Carry-over of the position is handled by armReloadCarry().
+    setResumeOffer(null);
+    resumeHandledKeyRef.current = `${type}:${id}:${season}:${episode}`;
   };
 
   /* Source-quality pick: the raw source ladder a plain-HLS server exposes

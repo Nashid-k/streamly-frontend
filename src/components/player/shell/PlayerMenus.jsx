@@ -694,8 +694,9 @@ export default function PlayerMenus({
 
   if (panel === "episodes") {
     // v4 epRow: watched episodes get a check icon, partially-watched ones a
-    // small circular progress indicator. Shows progress for ALL episodes that
-    // have been started — not just the currently-playing one.
+    // bigger circular progress indicator. Shows progress for ALL episodes that
+    // have been started — including the current episode and any previously
+    // watched episode, so switching between episodes always shows full progress.
     const watchedSet = new Set(
       Array.isArray(watchedEpisodes?.[season])
         ? watchedEpisodes[season]
@@ -718,7 +719,7 @@ export default function PlayerMenus({
             if (current && safeDuration > 0) {
               progress = Math.min(1, currentTime / safeDuration);
             }
-            // Any other episode with a saved resume point: show its progress too.
+            // Any episode with a saved resume point (including previously-watched): show its progress.
             if (
               !done &&
               resume &&
@@ -735,7 +736,7 @@ export default function PlayerMenus({
               <button
                 key={ep.number}
                 type="button"
-                className={["np-ep", "np-episode-card", "row", "ep", current ? "cur active" : ""].filter(Boolean).join(" ")}
+                className={["np-ep", "np-episode-card", "row", "ep", current ? "cur active" : "", done ? "watched" : "", progress > 0.01 ? "has-progress" : ""].filter(Boolean).join(" ")}
                 aria-current={current ? "true" : undefined}
                 aria-disabled={aired ? undefined : "true"}
                 onClick={() => {
