@@ -200,9 +200,12 @@ export default function NativePlayerView({
   const screenRef = useRef(null);
   // Embed iframe state
   const embedRef = useRef(null);
+  // Local state for player mode (used when NativePlayerView owns the mode)
+  const [localPlayerMode, setLocalPlayerMode] = useState(playerMode);
   /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
+  const actualPlayerMode = playerMode !== undefined ? playerMode : localPlayerMode;
   const embedUrl = useMemo(() => {
-    if (playerMode !== "embed") return null;
+    if (actualPlayerMode !== "embed") return null;
     const base = "https://cinesrc.st/embed";
     if (type === "tv") {
       return `${base}/tv/${id}?s=${season}&e=${episode}`;
@@ -2439,6 +2442,11 @@ const showSkipOutro = shouldShowSkipOutro({
       volHover={volHover}
       volume={volume}
       watchedEpisodes={watchedEpisodes}
+      // Mode selector props
+      playerMode={actualPlayerMode}
+      modeDropdownOpen={modeDropdownOpen}
+      setModeDropdownOpen={setModeDropdownOpen}
+      onToggleMode={setLocalPlayerMode}
     />
   );
 }
