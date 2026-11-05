@@ -7823,4 +7823,18 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 
 **Files.** `api/stream.js`, `scripts/sync-zxc-contract.mjs`, `src/__tests__/zxcMintPath.test.js`, `src/__tests__/zxcSelfHeal.test.js`, `src/__tests__/streamHandler.test.js`, `src/__tests__/zxcDubList.test.js`, `src/__tests__/zxcAutoFailover.test.js`, `src/__tests__/zxcMirrorFallback.test.js`, `src/__tests__/zxcRelay.test.js`, `src/components/player/shell/PlayerMenus.jsx`, `src/components/player/shell/PlayerShell.jsx`, `src/components/NativePlayerView.jsx`, `src/styles/player.css`.
 
+## 2026-11-05 - Phase 11: search autocomplete — combobox suggestion listbox over the ranked results
+
+**Feature — live autocomplete in the query box (no new endpoint, no contract change).** The search data contract (`search:<q>` → `searchMovies` → `/search/multi`, movie+tv only) is frozen, and the page already debounces a search per keystroke, so the box can offer the top of the ranked results it has already fetched instead of a second request or a second cache. Implementation:
+- `src/components/browse/SearchSuggest.jsx` — a presentational `role="listbox"` `ul` of `role="option"` rows (poster thumb, title, type badge, year, rating star). Purely presentational: the page owns the combobox state because the input and its keys are one control. onMouseDown prevents the caret loss so the click lands; a11y via `aria-selected` + per-option ids.
+- `SearchPage.jsx` becomes a combobox: `role="combobox"` + `aria-expanded/controls/activedescendant`; `suggestOpen`/`suggestIndex` state; `suggestVisible` gates on a typed term (≥2 chars) whose results still answer it (prefix match in either direction, so a retyped term hides the list the moment it stops being reachable) — the list opens on TYPING, never on focus, so a Ctrl+K arrival or the grid's ArrowUp return never drops a menu over the page. ArrowDown/Up/Home/End walk the list (standard combobox: Home/End jump to its ends, ArrowUp past the first row un-highlights); Enter on a highlight opens the title via `/watch/:id/:slug` (the frozen route, built like TitleInfoModal) WITHOUT a resubmit, so history stays reserved for real searches; Escape closes and hands the arrows back to the grid. Click on a row navigates too. Outside pointerdown + scroll close it; blur only closes when focus leaves the panel (guarded by mousedown).
+- Styling in `src/styles/search.css`: glass listbox under the box (matches the search-hero card recipe), poster + badge + rating; a compact mobile variant hides the badge/year/rating. The `.search-hero` z-index is lifted above the results grid (which shares the same z-index and is a later sibling) so the dropdown — absolutely positioned from the form — paints over the grid instead of under it.
+- `en.js` adds `search.suggest`, `search.suggestMovie`, `search.suggestShow` (en only; other languages fall back to English per the existing gap policy).
+
+**Tests.** Six new pins in `SearchPage.test.jsx`: opens-on-typing with the ranked order + badges + roles; ArrowDown highlight + Enter opens the title without a resubmit (history stays one call); ArrowUp backs out and Escape closes for the grid handoff; click navigates; hides on an unreachable term; caps at seven. The four existing keyboard tests are untouched — with open-on-typing they still exercise the grid handoff exactly as before (no focus-driven open).
+
+**Gates.** npm run lint 0 errors (pre-existing warnings only); npm run test 120 files / 1465 tests pass; npm run build clean (2.23s).
+
+**Files.** `src/components/browse/SearchSuggest.jsx`, `src/pages/SearchPage.jsx`, `src/styles/search.css`, `src/i18n/en.js`, `src/__tests__/SearchPage.test.jsx`.
+
 

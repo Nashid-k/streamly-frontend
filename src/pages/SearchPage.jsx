@@ -2,9 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, useId } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
+import slugify from "slugify";
 import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
@@ -14,6 +15,7 @@ import Button from "../components/Button";
 import Chip from "../components/Chip";
 import AmbientBackground from "../components/AmbientBackground";
 import ErrorBoundary from "../components/ErrorBoundary";
+import SearchSuggest from "../components/browse/SearchSuggest";
 import { useAppAuth } from "../context/auth";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
@@ -27,6 +29,9 @@ const QUICK_STARTS = [
 ];
 
 const SEARCH_CHIPS = ["All", "Movies", "TV Shows", "Anime"];
+/* Suggestions are a jump list over the ranked results, not a second search —
+   keep it short (Google's box caps around here too). */
+const SUGGEST_LIMIT = 7;
 const SEARCH_SORTS = [
   { label: "Relevant", value: "Relevance" },
   { label: "Rating", value: "Rating" },
@@ -57,6 +62,15 @@ export default function SearchPage() {
 
   const searchInputRef = useRef(null);
   const resultsRef = useRef(null);
+  /* ── Suggestion list (autocomplete) ──────────────────────────────────────
+     The box is a combobox whose list is the top of the results the page
+     already fetched. Typing opens it (never mount/autofocus — a cold load
+     must not drop a menu over the grid); Escape, an outside press, a scroll
+     or leaving the panel closes it. `suggestIndex` is the highlight (-1 =
+     input itself). */
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggestIndex, setSuggestIndex] = useState(-1);
+  const suggestListboxId = useId();
   /* The last term this box wrote into the URL. React Router round-trips that
      write back through `query`, and the old "URL changed → setLocalQuery"
      effect could not tell the echo from an outside arrival: a character typed
@@ -163,6 +177,44 @@ export default function SearchPage() {
     // Rank by relevance — exact title matches first
     return rankSearchResults(unique, query);
   }, [rawResults, query]);
+
+  /* ── Suggestion list data ─────────────────────────────────────────────────
+     Shape-tolerant lift off the ranked results: tests and callers hand us
+     either normalized ids ("movie-603") or raw ids, and either releaseYear or
+     year / imdbRating or voteAverage — the dropdown must render both and link
+     the frozen /watch/:id/:slug route the same way TitleInfoModal does. */
+  const suggestions = useMemo(
+    () =>
+      (results || []).slice(0, SUGGEST_LIMIT).map((m) => ({
+        id: m.id,
+        title: m.title || "",
+        year: m.releaseYear || m.year || "",
+        isSeries: !!(m.isSeries ?? m.mediaType === "tv"),
+        poster: m.posterUrl || m.poster || "",
+        rating:
+          m.imdbRating ||
+          (typeof m.voteAverage === "number" && m.voteAverage > 0
+            ? Math.round(m.voteAverage * 10) / 10
+            : ""),
+      })),
+    [results],
+  );
+
+  /* The list must never answer a term the viewer has already moved past. The
+     grid's results are the committed URL term, and while the 300ms debounce is
+     in flight the box may be ahead of (or behind) them — offer the list only
+     while the two terms still share the prefix. A different word closes it at
+     once instead of flashing suggestions for a query the viewer abandoned. */
+  const suggestVisible =
+    suggestOpen &&
+    suggestions.length > 0 &&
+    localQuery.trim().length >= 2 &&
+    (localQuery.trim().startsWith(query.trim()) || query.trim().startsWith(localQuery.trim()));
+
+  // A changed result set invalidates any held highlight (nothing else does).
+  useEffect(() => {
+    setSuggestIndex(-1);
+  }, [results]);
 
   const error = queryError ? "Failed to load search results." : null;
 
@@ -284,30 +336,105 @@ export default function SearchPage() {
     [resultCards],
   );
 
+  // Suggestion activation: straight to the title, no resubmit — history stays
+  // reserved for real searches (submitQuery), matching the quick chips' rule.
+  const openSuggestion = useCallback(
+    (item) => {
+      if (!item?.id) return;
+      setSuggestOpen(false);
+      setSuggestIndex(-1);
+      const slug = slugify(item.title || "title", { lower: true, strict: true });
+      navigate(`/watch/${item.id}${slug ? `/${slug}` : ""}`);
+    },
+    [navigate],
+  );
+
+  /* The list closes for everything that means "the viewer moved on": a press
+     outside the panel, a page scroll (the grid grows under it), or a blur to
+     something that is not the panel itself. Selection never blurs first — the
+     item's mousedown keeps the caret in the box — so the blur guard cannot
+     swallow a click. */
+  useEffect(() => {
+    if (!suggestVisible) return;
+    const dismiss = () => {
+      setSuggestOpen(false);
+      setSuggestIndex(-1);
+    };
+    const handlePointerDown = (e) => {
+      if (e.target?.closest?.(".search-panel")) return;
+      dismiss();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("scroll", dismiss, { passive: true });
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("scroll", dismiss);
+    };
+  }, [suggestVisible]);
+
   const handleInputKeyDown = (e) => {
     // Mid-composition an IME owns these keys: ArrowDown picks a conversion
     // candidate and Enter confirms it (229/"isComposing" covers every such
     // sequence), so skip both until the composition is committed.
     if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    const listOpen = suggestVisible;
+    if (e.key === "Escape") {
+      if (!listOpen) return;
+      e.preventDefault();
+      setSuggestOpen(false);
+      setSuggestIndex(-1);
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
+      // A highlighted suggestion wins the Enter key: it opens the title, not
+      // a resubmit. Without highlight, Enter commits the full-search term.
+      if (listOpen && suggestIndex >= 0 && suggestions[suggestIndex]) {
+        openSuggestion(suggestions[suggestIndex]);
+        return;
+      }
+      setSuggestOpen(false);
+      setSuggestIndex(-1);
       submitQuery();
       return;
     }
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      // While the list is open the arrows walk IT (standard combobox); the
+      // grid handoff is the no-list path — Escape then ArrowDown reaches it.
+      if (listOpen) {
+        setSuggestIndex((i) => Math.min(i + 1, suggestions.length - 1));
+        return;
+      }
       focusResultCard(0);
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      if (!listOpen) return;
+      e.preventDefault();
+      // Backing out past the first row un-highlights and leaves the caret
+      // in the box; Escape takes it the rest of the way.
+      setSuggestIndex((i) => (i <= 0 ? -1 : i - 1));
       return;
     }
     // From the query box the walk can also jump straight to either end — a
     // keyboard viewer should never have to click into the grid to position.
+    // With the list open, Home/End jump to its ends instead.
     if (e.key === "Home") {
       e.preventDefault();
+      if (listOpen) {
+        setSuggestIndex(0);
+        return;
+      }
       focusResultCard(0);
       return;
     }
     if (e.key === "End") {
       e.preventDefault();
+      if (listOpen) {
+        setSuggestIndex(suggestions.length - 1);
+        return;
+      }
       focusResultCard(resultCards().length - 1);
       return;
     }
@@ -406,10 +533,33 @@ export default function SearchPage() {
               className="search-panel__input"
               type="text"
               value={localQuery}
-              onChange={(e) => setLocalQuery(e.target.value)}
+              onChange={(e) => {
+                // Typing is the open gesture: a focus event (mount, Ctrl+K,
+                // the grid's ArrowUp return) must never drop a menu over the
+                // page. Re-typing after Escape reopens it.
+                setLocalQuery(e.target.value);
+                setSuggestOpen(true);
+              }}
               onKeyDown={handleInputKeyDown}
+              onBlur={(e) => {
+                // Only a focus that LEAVES the panel closes the list; focus
+                // inside (suggestion mousedown held the caret) must not.
+                if (!e.currentTarget.closest(".search-panel")?.contains(e.relatedTarget)) {
+                  setSuggestOpen(false);
+                  setSuggestIndex(-1);
+                }
+              }}
               placeholder={t("search.placeholder")}
               aria-label={t("nav.search")}
+              role="combobox"
+              aria-expanded={suggestVisible}
+              aria-controls={suggestVisible ? suggestListboxId : undefined}
+              aria-autocomplete="list"
+              aria-activedescendant={
+                suggestVisible && suggestIndex >= 0
+                  ? `${suggestListboxId}-opt-${suggestIndex}`
+                  : undefined
+              }
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"
@@ -433,6 +583,15 @@ export default function SearchPage() {
               >
                 <X size={16} />
               </button>
+            )}
+            {suggestVisible && (
+              <SearchSuggest
+                items={suggestions}
+                activeIndex={suggestIndex}
+                listboxId={suggestListboxId}
+                onHover={setSuggestIndex}
+                onSelect={openSuggestion}
+              />
             )}
         </form>
 

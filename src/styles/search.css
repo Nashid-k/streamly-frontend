@@ -478,10 +478,132 @@ body::after {
 }
 }
 
+/* ── Search suggestions (autocomplete listbox under the query box) ─────── */
+.search-suggest {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  max-height: min(22rem, 55svh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border: 1px solid rgba(var(--white-rgb), 0.12);
+  border-radius: 1rem;
+  background: rgba(11, 11, 14, 0.9);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 26px 60px -34px rgba(var(--black-rgb), 0.95), inset 0 1px 0 rgba(var(--white-rgb), 0.06);
+}
+
+.search-suggest__item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.72rem;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.search-suggest__item.is-active {
+  background: rgba(var(--white-rgb), 0.09);
+}
+
+@media (hover: hover) and (pointer: fine) {
+.search-suggest__item:hover {
+  background: rgba(var(--white-rgb), 0.09);
+}
+}
+
+.search-suggest__poster {
+  flex: none;
+  width: 2.7rem;
+  height: 4rem;
+  border-radius: 0.45rem;
+  object-fit: cover;
+  background: rgba(var(--white-rgb), 0.07);
+}
+
+.search-suggest__poster--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(var(--white-rgb), 0.4);
+}
+
+.search-suggest__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.search-suggest__meta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.search-suggest__badge {
+  padding: 0.18rem 0.5rem;
+  border: 1px solid rgba(var(--white-rgb), 0.14);
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(var(--white-rgb), 0.7);
+}
+
+.search-suggest__year {
+  color: rgba(var(--white-rgb), 0.55);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-suggest__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  color: rgba(var(--white-rgb), 0.75);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-suggest__rating svg {
+  color: rgba(149, 255, 80, 0.85);
+}
+
+@media (max-width: 560px) {
+  .search-suggest {
+    max-height: min(18rem, 50svh);
+  }
+  .search-suggest__rating,
+  .search-suggest__year,
+  .search-suggest__badge {
+    display: none;
+  }
+  .search-suggest__poster {
+    width: 2.2rem;
+    height: 3.3rem;
+  }
+}
+
 /* ── Cinejoy-style search hero & landing ─────────────────────────────── */
 .search-hero {
   position: relative;
-  z-index: 1;
+  /* The suggestion listbox is absolutely positioned from the form inside and
+     extends BELOW the hero's box, over the results grid — which is a LATER
+     sibling stacking context at the same z-index, so it would paint on top.
+     The hero needs the floor (under the header's --z-sticky for certain). */
+  z-index: 40;
   display: flex;
   flex-direction: column;
   align-items: center;

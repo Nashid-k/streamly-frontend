@@ -148,6 +148,136 @@ describe("SearchPage keyboard navigation", () => {
   });
 });
 
+describe("SearchPage suggestion list (autocomplete)", () => {
+  /* The suggestion list is the combobox overlay in the query box: it opens on
+     TYPING (never on focus — a Ctrl+K arrival or the grid's ArrowUp return
+     must not drop a menu over the grid), offers the top of the ranked results
+     the page already has, and hands the arrows to itself while open. All of
+     it is exercised here. */
+
+  it("opens while typing and lists the top ranked results as options", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    input.focus();
+    expect(document.querySelector(".search-suggest")).toBeNull();
+
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    const list = document.querySelector(".search-suggest");
+    expect(list).toBeTruthy();
+    expect(list.getAttribute("role")).toBe("listbox");
+    expect(input.getAttribute("aria-expanded")).toBe("true");
+    expect(input.getAttribute("aria-controls")).toBe(list.id);
+    const options = [...document.querySelectorAll(".search-suggest__item")];
+    expect(options).toHaveLength(3);
+    // Ranked order: the prefix match ("Matrix Rising") outranks the substring
+    // matches, and the shorter title wins the tie — so this is the real order
+    // the box shows, not insertion order.
+    expect(options[0].textContent).toContain("Matrix Rising");
+    expect(options[0].textContent).toContain("TV");
+    expect(options[1].textContent).toContain("The Matrix");
+    expect(options[1].textContent).toContain("Movie");
+    expect(options[0].getAttribute("role")).toBe("option");
+  });
+
+  it("ArrowDown highlights a suggestion and Enter opens its title page without resubmitting", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    const active = document.querySelector(".search-suggest__item.is-active");
+    expect(active?.textContent).toContain("Matrix Rising");
+    expect(document.querySelector(".search-suggest__item")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => {
+      expect(document.querySelector("[data-testid=loc]").textContent).toContain(
+        "/watch/tmdb-tv-1399/matrix-rising",
+      );
+    });
+    // The query was not resubmitted: one search call total, from the page load.
+    expect(searchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("ArrowUp backs out of the highlight and Escape closes for the grid handoff", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(document.querySelector(".search-suggest__item.is-active")).toBeTruthy();
+
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+    expect(document.querySelector(".search-suggest__item.is-active")).toBeNull();
+    expect(input.getAttribute("aria-activedescendant")).toBeNull();
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(document.querySelector(".search-suggest")).toBeNull();
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+
+    // With the list closed the arrows return to the grid handoff (the pin
+    // above guards the same path from a non-typed focus).
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    expect(document.activeElement?.classList.contains("movie-card")).toBe(true);
+  });
+
+  it("opens on a title click too, via the same route as the play modal", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    const options = [...document.querySelectorAll(".search-suggest__item")];
+    fireEvent.click(options[1]);
+    await waitFor(() => {
+      expect(document.querySelector("[data-testid=loc]").textContent).toContain(
+        "/watch/tmdb-movie-603/the-matrix",
+      );
+    });
+  });
+
+  it("hides the list when the typed term stops matching the committed results", async () => {
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    expect(document.querySelector(".search-suggest")).toBeTruthy();
+
+    // A different word, mid-debounce: the staged results cannot answer it,
+    // so the list must not flash stale titles while it is away.
+    fireEvent.change(input, { target: { value: "nar" } });
+    expect(document.querySelector(".search-suggest")).toBeNull();
+  });
+
+  it("caps the list to the top seven suggestions", async () => {
+    const dozen = Array.from({ length: 12 }, (_, i) => ({
+      id: `tmdb-movie-${600 + i}`,
+      title: `Matrix ${i + 1}`,
+      mediaType: "movie",
+      releaseYear: 2000 + i,
+      posterUrl: null,
+      voteAverage: 8,
+      isSeries: false,
+    }));
+    searchSpy.mockResolvedValue(dozen);
+    renderPage("matrix");
+    await waitForResults();
+
+    const input = queryInput();
+    fireEvent.change(input, { target: { value: "matrixx" } });
+    const options = document.querySelectorAll(".search-suggest__item");
+    expect(options).toHaveLength(7);
+  });
+});
+
 describe("SearchPage result highlighting", () => {
   it("marks the typed query inside each result title", async () => {
     renderPage("matrix");

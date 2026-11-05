@@ -113,6 +113,9 @@ export const en = {
     sort: { relevant: "Relevant", rating: "Rating", newest: "Newest", oldest: "Oldest" },
     resultsOne: "1 result",
     resultsMany: "{n} results",
+    suggest: "Suggestions",
+    suggestMovie: "Movie",
+    suggestShow: "TV",
   },
   details: {
     play: "Play",
