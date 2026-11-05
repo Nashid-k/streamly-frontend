@@ -27,13 +27,13 @@
   }
 }
 
-/* Tablet viewport between 769px and 1024px — keep nav comfortable and prevent collision with brand */
+/* Tablet viewport between 769px and 1024px — keep compact nav sleek and prevent collision with brand */
 @media (min-width: 769px) and (max-width: 1024px) {
   .nav-cluster {
-    gap: 12px;
+    gap: 8px;
   }
   .nav-link {
-    padding: 5px 10px;
+    padding: 0 9px;
     font-size: 0.82rem;
     gap: 5px;
   }

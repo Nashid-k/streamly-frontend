@@ -56,6 +56,8 @@ textarea:focus-visible {
 .fade-in-section {
   opacity: 0;
   transform: translateY(12px);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
   transition:
     opacity 0.42s var(--ease-tv),
     transform 0.42s var(--ease-tv);

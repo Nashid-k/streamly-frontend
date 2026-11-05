@@ -130,9 +130,9 @@
   /* Legacy alias — .brand-mark still sizes itself from this. */
   --brand-h: var(--header-mark-h);
 
-  /* ── Nav (official Cinejoy tokens) ──────────────────────── */
-  --nav-pad: 6px;
-  --nav-item-h: 40px;
+  /* ── Nav (compact sleek floating dock) ─────────────────── */
+  --nav-pad: 4px;
+  --nav-item-h: 36px;
   --nav-fade: var(--duration-fast) var(--ease-out);
   --condense-ease: var(--ease-out);
 

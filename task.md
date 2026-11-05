@@ -7,6 +7,25 @@
 
  ## Done (in order)
 
+- [x] **Compact navbar width and deep app-wide smoothness fixes (user: "dig more and deeper, reduce the navbar width and fix everything") — 2026-11-05.**
+  - **Navbar width reduction & proportion refinements:**
+    - Reduced `--nav-item-h` from 40px to 36px and `--nav-pad` from 6px to 4px in `tokens.css`.
+    - Added `max-width: fit-content;` and tightened outer padding on `.navbar` in `header.css`.
+    - Reduced `.nav-links` gap from 28px to 4px and `.nav-cluster` gap from 22px to 12px.
+    - Compacted `.nav-link` padding from 14px to 11px (12px for Home) and font-size to 13px (weight 500).
+    - Reduced `.nav-right` icon gap from 16px to 4px and icon buttons to 36px.
+    - Updated responsive breakpoint in `header.css` from 1200px to 880px so laptop and tablet screens retain clean legible tab labels instead of abruptly collapsing to icons.
+    - Total navbar footprint reduced by ~135px (from ~625px down to ~490px), leaving ample breathing room alongside the brand logo.
+  - **Deep rendering & blur optimization across UI corners:**
+    - `discovery.css`: Optimized `.discovery-menu` dropdown blur from heavy 28px down to 14px with `rgba(18, 18, 24, 0.88)` and `transform: translateZ(0)`.
+    - `collections.css` & `auth.css`: Optimized `.collection-dialog` and `.auth-dialog` from 28px down to 12px with hardware promotion, eliminating nested blur compositor stalls against modal backdrops.
+    - `modals.css`: Optimized `.title-info-backdrop` blur from 18px to 10px and hardware promoted `.title-info-card` with `transform: translateZ(0)`.
+    - `player.css`: Replaced remaining 24px/20px blurs on `.np-panel-surface` (to 14px), `.np-fatal` (to 12px), and `.np-mode-menu` (to 8px).
+    - `search.css`: Optimized `.search-suggest` popup from 20px to 12px with `transform: translateZ(0)`.
+    - `rails.css`: Added `will-change: opacity, transform; backface-visibility: hidden;` to `.fade-in-section` for compositor-driven rail reveals.
+    - `buttons.css`: Promoted `.btn-glass` with `transform: translateZ(0);` and reduced blur to 10px to eliminate hover scale stutter.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest` (AmbientBackground, HomePage, layoutRouteKey all green), `npm run build` (clean production build).
+
 - [x] **App-wide smoothness and pure CSS blurred background optimization (user: "dig entire app and improve smoothness,use pure css to fix the blurred background and other smoothness consuming problems without loosing user experience. dig each corner of the app") — 2026-11-05.**
   - **Root causes of GPU stutter & layout thrashing:**
     1. In `hero.css`, `.ambient-liquid__blob` continuously animated 3 massive blobs (36vw-46vw) in infinite 46s-66s loops with `filter: blur(60px) saturate(130%)` combined with `mix-blend-mode: screen`. In Blink/WebKit, 60px Gaussian blurs on moving surfaces force full-surface re-rasterization and multi-pass fragment shader execution on every frame, causing massive GPU frame drops.

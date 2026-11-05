@@ -242,8 +242,8 @@
   justify-content: center;
   padding: clamp(12px, 3vh, 40px) clamp(12px, 3vw, 40px);
   background: rgba(var(--black-rgb), 0.72);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   contain: layout paint;
 }
 
@@ -256,6 +256,7 @@
   background: var(--bg-elevated, #14141c);
   border: 1px solid rgba(var(--white-rgb), 0.1);
   box-shadow: 0 32px 90px rgba(var(--black-rgb), 0.65);
+  transform: translateZ(0);
   scrollbar-width: thin;
   scrollbar-color: rgba(var(--white-rgb), 0.25) transparent;
 }

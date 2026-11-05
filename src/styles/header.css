@@ -131,7 +131,8 @@
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
-  padding: var(--nav-pad) 8px var(--nav-pad) var(--nav-pad);
+  padding: var(--nav-pad) 6px var(--nav-pad) var(--nav-pad);
+  max-width: fit-content;
   border-radius: var(--radius-full);
   background: rgba(14, 14, 16, 0.55);
   backdrop-filter: blur(14px) saturate(135%);
@@ -168,7 +169,7 @@
 .nav-cluster {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 12px;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -180,7 +181,8 @@
   position: relative;
   z-index: 1;
   width: 1px;
-  height: 18px;
+  height: 14px;
+  margin: 0 2px;
   flex: 0 0 auto;
   background: linear-gradient(to bottom, rgba(var(--white-rgb), 0), rgba(var(--white-rgb), 0.16), rgba(var(--white-rgb), 0));
   border-radius: 1px;
@@ -190,7 +192,7 @@
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 4px;
 }
 
 .nav-link {
@@ -201,9 +203,9 @@
   justify-content: center;
   gap: 6px;
   height: var(--nav-item-h);
-  padding: 0 14px;
-  font-size: 14px;
-  font-weight: 600;
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 500;
   color: rgba(var(--white-rgb), 0.86);
   text-decoration: none;
   border-radius: var(--radius-full);
@@ -230,7 +232,7 @@
    full-strength white so `difference` resolves it to pure black over the pill. */
 .nav-link--home {
   gap: 6px;
-  padding: 0 16px;
+  padding: 0 12px;
 }
 .nav-link--active {
   color: #ffffff;
@@ -288,22 +290,22 @@
     transition: none !important;
   }
 }
-@media (max-width: 1200px) {
+@media (max-width: 880px) {
   .nav-links {
-    gap: 8px;
+    gap: 4px;
   }
   .nav-cluster {
-    gap: 12px;
+    gap: 8px;
   }
   .nav-link {
-    padding: 7px 10px;
+    padding: 0 9px;
     gap: 0;
   }
   .nav-link-label {
     display: none !important;
   }
   .nav-link--home {
-    padding: 7px 10px;
+    padding: 0 9px;
   }
 }
 
@@ -312,7 +314,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: 4px;
 }
 
 /* Ghost icon buttons — Cinejoy `.nav-item.is-icon` 40px circles */
