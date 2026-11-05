@@ -305,7 +305,7 @@ export default function PlayerMenus({
                 selected={selected}
                 onClick={() => pickQuality(q.uri, q.height, { external: q.external })}
               >
-                {`${q.label || `${q.height}p`}${qualityHdTag(q) ? " HD" : ""}`}
+                {q.label || `${q.height}p`}
               </Pick>
             );
           })}
@@ -694,9 +694,8 @@ export default function PlayerMenus({
 
   if (panel === "episodes") {
     // v4 epRow: watched episodes get a check icon, partially-watched ones a
-    // progress bar. Sources: this element for the playing episode, the
-    // parent's single resume point for a partially-watched other episode, and
-    // the continue-watching watched set for finished ones.
+    // small circular progress indicator. Shows progress for ALL episodes that
+    // have been started — not just the currently-playing one.
     const watchedSet = new Set(
       Array.isArray(watchedEpisodes?.[season])
         ? watchedEpisodes[season]
@@ -715,9 +714,12 @@ export default function PlayerMenus({
             const aired = isEpAired(ep);
             const done = watchedSet.has(ep.number);
             let progress = 0;
+            // Current playing episode: use live currentTime.
             if (current && safeDuration > 0) {
               progress = Math.min(1, currentTime / safeDuration);
-            } else if (
+            }
+            // Any other episode with a saved resume point: show its progress too.
+            if (
               !done &&
               resume &&
               resume.season === season &&
@@ -727,6 +729,8 @@ export default function PlayerMenus({
               const mins = Number(ep.durationMins) || 0;
               if (mins > 0) progress = Math.min(1, resume.timestamp / (mins * 60));
             }
+            // Circular progress rotation: 0% = 0deg, 100% = 270deg (leaves 25% gap).
+            const rot = progress > 0.01 ? progress * 270 : 0;
             return (
               <button
                 key={ep.number}
@@ -759,8 +763,9 @@ export default function PlayerMenus({
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(progress * 100)}
+                    style={{ "--epp-rot": `${rot}deg` }}
                   >
-                    <i style={{ width: `${Math.round(progress * 100)}%` }} />
+                    <i />
                   </span>
                 ) : null}
                 {current ? <span className="np-sr-only">Now playing</span> : null}

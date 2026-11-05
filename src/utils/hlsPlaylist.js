@@ -68,8 +68,8 @@ export function resolutionLabel(width, height) {
   // standard rungs, rounding DOWN — an 804-row frame is below 1080p, never
   // above it, so "720p" is the honest rung.
   const eq = w && h ? Math.max((w * 9) / 16, h) : Math.max(h, w);
-  if (eq >= 2160) return "4K";
-  if (eq >= 1440) return "2K";
+  if (eq >= 2160) return "2160p";
+  if (eq >= 1440) return "1440p";
   if (eq >= 1080) return "1080p";
   if (eq >= 720) return "720p";
   return "480p";

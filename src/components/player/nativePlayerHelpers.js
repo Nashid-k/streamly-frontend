@@ -17,13 +17,11 @@ export function qualityLabelFor(v) {
   return variantLabel(v);
 }
 
-/* "HD or better" tag that agrees with the LABELS, not the raw pixel rows: a
-   scope/cinema rung cut at 1920x804 labels "1080p" (width-first resolutionLabel)
-   but its raw height is below 1080, so height-based checks left both the gear
-   badge and the inline row tag missing on exactly the rungs the menu calls HD. */
-export function qualityHdTag(v) {
-  const label = String(v?.label || qualityLabelFor(v) || "");
-  return /^(1080p|2K)(\s|$)/.test(label) ? "HD" : "";
+/* Quality badge is retired: the menu now shows the actual resolution label
+   (1080p, 1440p, 2160p, etc.) rather than a cramped HD/2K bucket, so there is
+   nothing to badge. Kept as a no-op so existing call sites keep compiling. */
+export function qualityHdTag(_v) {
+  return "";
 }
 
 /* One row per DISTINCT LABEL, tallest/highest-bandwidth rendition kept. Shared

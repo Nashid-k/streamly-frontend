@@ -93,12 +93,19 @@ seg2.m4s`;
 
 describe("quality labels", () => {
   it("maps pixel height to a bare resolution label", () => {
-    expect(resolutionLabel(3840, 2160)).toBe("4K");
-    expect(resolutionLabel(2560, 1440)).toBe("2K");
+    expect(resolutionLabel(3840, 2160)).toBe("2160p");
+    expect(resolutionLabel(2560, 1440)).toBe("1440p");
     expect(resolutionLabel(1920, 1080)).toBe("1080p");
     expect(resolutionLabel(1280, 720)).toBe("720p");
     expect(resolutionLabel(854, 480)).toBe("480p");
     expect(resolutionLabel(0, 0)).toBe("Auto");
+  });
+
+  it("no longer emits 4K/2K shorthand — only the real pixel rung", () => {
+    expect(resolutionLabel(3840, 2160)).not.toBe("4K");
+    expect(resolutionLabel(2560, 1440)).not.toBe("2K");
+    expect(resolutionLabel(3840, 2160)).toBe("2160p");
+    expect(resolutionLabel(2560, 1440)).toBe("1440p");
   });
 
   it("buckets a 2.39:1 scope master by its full-width rung, not its raw height", () => {
@@ -107,7 +114,7 @@ describe("quality labels", () => {
     expect(resolutionLabel(1920, 804)).toBe("1080p");
     expect(resolutionLabel(1280, 536)).toBe("720p");
     expect(resolutionLabel(640, 272)).toBe("480p");
-    expect(resolutionLabel(3840, 1608)).toBe("4K");
+    expect(resolutionLabel(3840, 1608)).toBe("2160p");
     // A cropped 640x360 cannot read as 720p: its 16:9-equivalent is 360.
     expect(resolutionLabel(640, 360)).toBe("480p");
     // Height-only metadata ranks raw height, rounding down: 804 is below 1080p.
@@ -126,8 +133,8 @@ describe("quality labels", () => {
 
   it("tags HDR/SDR/60fps only when the playlist proves it", () => {
     // Proved by VIDEO-RANGE, colour transfer, HDR codec markers or AVC (cannot be HDR).
-    expect(variantLabel({ width: 3840, height: 2160, videoRange: "PQ", framerate: 60 })).toBe("4K HDR · 60fps");
-    expect(variantLabel({ width: 3840, height: 2160, colorTransfer: "smpte2084" })).toBe("4K HDR");
+    expect(variantLabel({ width: 3840, height: 2160, videoRange: "PQ", framerate: 60 })).toBe("2160p HDR · 60fps");
+    expect(variantLabel({ width: 3840, height: 2160, colorTransfer: "smpte2084" })).toBe("2160p HDR");
     expect(variantLabel({ width: 1920, height: 1080, codecs: "hev1.1.6.L93.B0" })).toBe("1080p HDR");
     expect(variantLabel({ width: 1920, height: 1080, videoRange: "SDR", framerate: 50 })).toBe("1080p SDR");
     expect(variantLabel({ width: 1920, height: 1080, codecs: "avc1.640028" })).toBe("1080p SDR");
@@ -138,7 +145,7 @@ describe("quality labels", () => {
 
   it("labels a parsed ladder straight from its own playlist signals", () => {
     const variants = parseMasterPlaylist(MASTER, MASTER_URL);
-    expect(variants.map((v) => variantLabel(v))).toEqual(["4K HDR · 60fps", "1080p SDR", "720p SDR"]);
+    expect(variants.map((v) => variantLabel(v))).toEqual(["2160p HDR · 60fps", "1080p SDR", "720p SDR"]);
   });
 
   it("counts 59.94/60 as 60fps and leaves 50fps unmentioned", () => {

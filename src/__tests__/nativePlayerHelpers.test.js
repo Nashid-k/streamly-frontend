@@ -65,23 +65,17 @@ describe("qualityLabelFor", () => {
 
   it("delegates to the playlist variant label", () => {
     expect(qualityLabelFor({ width: 1920, height: 1080 })).toBe("1080p");
-    expect(qualityLabelFor({ width: 3840, height: 2160 })).toBe("4K");
+    expect(qualityLabelFor({ width: 3840, height: 2160 })).toBe("2160p");
   });
 });
 
 describe("qualityHdTag", () => {
-  it("trusts the label, so a scope-cut 1080p rung is HD", () => {
-    // 1920x804 ranks as 1080p by width; a raw-height check called it below HD.
-    const scope = { width: 1920, height: 804 };
-    expect(qualityLabelFor(scope)).toBe("1080p");
-    expect(qualityHdTag(scope)).toBe("HD");
-  });
-
-  it("tags 2K labels and keeps sub-HD labels untagged", () => {
-    expect(qualityHdTag({ label: "2K" })).toBe("HD");
-    expect(qualityHdTag({ label: "1080p · HDR" })).toBe("HD");
-    expect(qualityHdTag({ label: "720p" })).toBe("");
-    expect(qualityHdTag({ label: "480p" })).toBe("");
+  it("is retired: the menu now shows the real resolution label instead of HD/2K", () => {
+    // The badge is gone — every rung now reads as its actual label.
+    expect(qualityHdTag({ label: "1080p" })).toBe("");
+    expect(qualityHdTag({ label: "1440p" })).toBe("");
+    expect(qualityHdTag({ label: "2160p" })).toBe("");
+    expect(qualityHdTag({ label: "2K" })).toBe("");
     expect(qualityHdTag({})).toBe("");
   });
 });
@@ -93,7 +87,7 @@ describe("buildQualityRows", () => {
       { uri: "b", width: 1280, height: 720 },
       { uri: "c", width: 1920, height: 1080 },
     ]);
-    expect(rows.map((r) => r.label)).toEqual(["720p", "1080p", "4K"]);
+    expect(rows.map((r) => r.label)).toEqual(["720p", "1080p", "2160p"]);
     expect(rows.map((r) => r.uri)).toEqual(["b", "c", "a"]);
   });
 
