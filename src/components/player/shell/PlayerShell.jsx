@@ -375,6 +375,27 @@ export default function PlayerShell({
           onClick={playerMode === "embed" ? undefined : onVideoClick}
           style={{ position: "absolute", inset: 0, background: "#000" }}
         >
+          <video
+            ref={videoRef}
+            playsInline
+            onClick={onVideoClick}
+            onTouchStart={onVideoTouchStart}
+            onTouchMove={handleGestureMove}
+            onTouchEnd={handleVideoTouchEnd}
+            onTouchCancel={handleHoldEnd}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "contain",
+              display: playerMode === "embed" ? "none" : "block",
+              ...aspectVideoStyle(aspectRatioIndex),
+              touchAction: "manipulation",
+              WebkitUserSelect: "none",
+              filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
+            }}
+          />
           {playerMode === "embed" ? (
             embedUrl ? (
               <iframe
@@ -408,29 +429,7 @@ export default function PlayerShell({
                 Loading CineSrc embed player...
               </div>
             )
-          ) : (
-            <video
-              ref={videoRef}
-              playsInline
-              onClick={onVideoClick}
-              onTouchStart={onVideoTouchStart}
-              onTouchMove={handleGestureMove}
-              onTouchEnd={handleVideoTouchEnd}
-              onTouchCancel={handleHoldEnd}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                display: "block",
-                ...aspectVideoStyle(aspectRatioIndex),
-                touchAction: "manipulation",
-                WebkitUserSelect: "none",
-                filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
-              }}
-            />
-          )}
+          ) : null}
         </div>
 
         {/* UI Overlay */}
@@ -539,14 +538,16 @@ export default function PlayerShell({
               {modeDropdownOpen && (
                 <div
                   className="np-mode-menu-wrap"
+                  style={{ pointerEvents: "auto" }}
                   onClick={() => setModeDropdownOpen(false)}
                   aria-hidden="true"
                 />
               )}
-              <div className="np-mode-dropdown-wrap">
+              <div className="np-mode-dropdown-wrap" style={{ pointerEvents: "auto" }}>
                 <button
                   type="button"
                   className="np-mode-select"
+                  style={{ pointerEvents: "auto" }}
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -563,7 +564,7 @@ export default function PlayerShell({
                   </svg>
                 </button>
                 {modeDropdownOpen && (
-                  <div className="np-mode-menu" role="listbox" aria-label="Player mode">
+                  <div className="np-mode-menu" style={{ pointerEvents: "auto" }} role="listbox" aria-label="Player mode">
                     <button
                       type="button"
                       role="option"

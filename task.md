@@ -7,6 +7,17 @@
 
  ## Done (in order)
 
+- [x] **Fix switching back from embed mode to Streamly (user: "now embedd is working but switching back is not working,find the cause and fix") — 2026-11-05.**
+  - **Root causes:**
+    1. In `PlayerShell.jsx`, when `playerMode === "embed"`, the `<video>` element was conditionally unmounted from the DOM. This destroyed the HTMLMediaElement instance, detached the underlying `hls.js` MediaSource, discarded buffered segments, and severed event listeners. When switching back to Streamly, a new blank `<video>` element was mounted with no stream attached and no resolve trigger, leaving playback broken on a black screen.
+    2. In embed mode, `.ui` has `pointer-events: none`, and without explicit inline `pointerEvents: "auto"` on the dropdown wrap, button, and menu items, pointer events could be prevented by parent layers.
+    3. When switching back to Streamly mode, there was no auto-resume effect to restart paused native video playback.
+  - **Fix:**
+    - Kept the native `<video>` element continuously mounted in `PlayerShell.jsx`, toggling its style between `display: playerMode === "embed" ? "none" : "block"` so its `hls.js` engine, MediaSource, buffered segments, and DOM references remain 100% intact during embed viewing.
+    - Added explicit inline `style={{ pointerEvents: "auto" }}` to `.np-mode-dropdown-wrap`, `.np-mode-select`, `.np-mode-menu`, and `.top` in `PlayerShell.jsx` and `ChromeTopBar.jsx`.
+    - Added an effect in `NativePlayerView.jsx` tracking mode transitions: when switching back from embed to Streamly, it resumes playback (`videoRef.current.play()`) if already loaded, or kicks off `setReloadToken((t) => t + 1)` if a fresh resolve is needed.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run player` (19 files / 196 tests green), `npm run build` (clean production build).
+
 - [x] **Fix embedRef ReferenceError crash on mode switch to embed (user: "ReferenceError: embedRef is not defined at xr (NativePlayerView-p5VShqYF.js:3:54918)") — 2026-11-05.**
   - **Root causes:**
     1. In `PlayerShell.jsx`, the CineSrc `<iframe>` element declared `ref={embedRef}`, but `embedRef` was never declared or destructured in `PlayerShell`'s props or component scope.

@@ -230,12 +230,7 @@ export default function NativePlayerView({
     return `${base}/movie/${cleanId}`;
   }, [localPlayerMode, type, id, season, episode]);
 
-  /* Pause native playback if switching to embed */
-  useEffect(() => {
-    if (localPlayerMode === "embed" && videoRef.current && !videoRef.current.paused) {
-      videoRef.current.pause();
-    }
-  }, [localPlayerMode]);
+
   /* Viewer preferences. Read here, at the top of the component, because the
      skip amount below is needed by handlers declared further down (and a
      `const` declared later would be a TDZ error at those call sites).
@@ -445,6 +440,29 @@ export default function NativePlayerView({
   // transient 403 usually clears on a second resolve), which is why it is a
   // dependency of that effect and not just a local teardown.
   const [reloadToken, setReloadToken] = useState(0);
+
+  /* Mode switch handler: pause video when switching to embed; resume or reload when switching back */
+  const prevPlayerModeRef = useRef(localPlayerMode);
+  useEffect(() => {
+    const prevMode = prevPlayerModeRef.current;
+    prevPlayerModeRef.current = localPlayerMode;
+
+    if (localPlayerMode === "embed") {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
+    } else if (localPlayerMode === "streamly" && prevMode === "embed") {
+      if (videoRef.current) {
+        if (videoRef.current.src || hlsRef.current) {
+          if (videoRef.current.paused) {
+            videoRef.current.play().catch(() => {});
+          }
+        } else {
+          setReloadToken((t) => t + 1);
+        }
+      }
+    }
+  }, [localPlayerMode]);
   // `poke` is declared further down the component, so this callback cannot close
   // over it directly (TDZ); the ref is the same pattern the file already uses
   // for once-bound handlers.
