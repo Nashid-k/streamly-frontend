@@ -42,9 +42,10 @@ export function useTitleLogo(movie, scope = "useTitleLogo") {
     }
   }, [error, id, movie?.title, scope]);
 
-  /* The wordmark leaves here as an optimized w500 WebP rendition — the details
-     payload and the /images lookup both supply raw TMDB URLs/paths; non-TMDB
-     URLs pass through the adapter unchanged. */
+  /* The wordmark leaves here optimized: a raw TMDB URL/path from the details
+     payload becomes the w500 WebP rendition, while a value the adapter already
+     wrapped (the /images lookup path) passes through unchanged — re-wrapping
+     it would nest wsrv inside wsrv and the CDN answers that with a 404. */
   const logoUrl = useImageLogos && !imageError
     ? CdnImageAdapter.getUrl(movie?.logoUrl || data || null, "w500")
     : null;

@@ -28,6 +28,15 @@ export class CdnImageAdapter {
 
     // If it's already a full URL, check if we can optimize it
     if (path.startsWith("http")) {
+      // Already an optimized proxy URL (the /images logo lookup and
+      // normalizeResult both leave this shape) must pass through UNCHANGED.
+      // Re-wrapping nests wsrv inside wsrv and the CDN answers 404 (probed
+      // 2026-11): every logo consumer then fell back to the styled text
+      // title. The encoded inner URL still carries "image.tmdb.org" as
+      // literal text, so this test runs BEFORE the TMDB check below.
+      if (this.USE_PROXY && path.includes("wsrv.nl/?url=")) {
+        return path;
+      }
       // API adapters may already return w500. Resize any TMDB rendition (not
       // only w1280) so the artwork-quality preference is actually honored.
       let targetUrl = path;

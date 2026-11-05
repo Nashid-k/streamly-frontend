@@ -817,6 +817,7 @@ export default function NativePlayerView({
     safeDuration,
     effectiveRatio,
     hoverRatio,
+    scrubDragging,
     seekRelative,
     safeSeek,
     pendingSeekRef,
@@ -2296,6 +2297,7 @@ const showSkipOutro = shouldShowSkipOutro({
       handleVideoTouchEnd={handleVideoTouchEnd}
       hold2x={hold2x}
       hoverRatio={hoverRatio}
+      scrubDragging={scrubDragging}
       hud={hud}
       hudSeq={hudSeq}
       hudBox={hudBox}

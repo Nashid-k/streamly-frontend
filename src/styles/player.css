@@ -2823,6 +2823,7 @@
   background: var(--accent);
   transform-origin: 0 50%;
   transform: scaleX(0);
+  transition: transform 250ms linear;
 }
 .np-root .knob {
   position: absolute;
@@ -2836,12 +2837,22 @@
   box-shadow: 0 0 0 .25em color-mix(in srgb, var(--accent) 45%, transparent);
   translate: 0 0;
   scale: 0;
-  transition: scale 200ms var(--ease);
+  transition: scale 200ms var(--ease), left 250ms linear;
 }
 .seek:hover .knob,
 .seek.drag .knob,
 .np-root .seek:focus-visible .knob {
   scale: 1;
+}
+/* Progress glide: timeupdate lands ~4x/s, so an idle knob/played bar would
+   ratchet between ticks — the linear bridge animates to the cadence of the
+   last-known frame instead. While the pointer is PRESSED (drag) the glide is
+   off so the chrome sticks to the finger; hover keeps it and stays live. */
+.seek.pressed .knob {
+  transition: scale 200ms var(--ease);
+}
+.seek.pressed .played {
+  transition: none;
 }
 @media (pointer: coarse) {
   .np-root .seek {

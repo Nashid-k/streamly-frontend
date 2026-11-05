@@ -72,6 +72,7 @@ export default function PlayerShell({
   handleVideoTouchEnd,
   hold2x,
   hoverRatio,
+  scrubDragging,
   hud,
   hudBox,
   hudSeq,
@@ -590,6 +591,7 @@ export default function PlayerShell({
             effectiveRatio={effectiveRatio}
             bufferedRatio={bufferedRatio}
             hoverRatio={hoverRatio}
+            scrubDragging={scrubDragging}
             previewUrl={previewUrl}
             previewBox={previewBox}
             fmtTime={fmtTime}

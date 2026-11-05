@@ -7793,4 +7793,14 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 
 **Files.** `src/components/player/shell/PlayerMenus.jsx`, `src/styles/player.css`, `src/components/player/engine/useSourceResolve.js`, `src/components/NativePlayerView.jsx`.
 
+## 2026-11-05 - Phase 9: title logos restored everywhere + player progress-row fluidity
+
+**Fix 1 — every title logo 404'd (root cause found by live probe).** `useTitleLogo` re-wrapped what `getTitleLogo` returns, but that value is ALREADY an adapter URL: `logoUrlFromImages(data, 'original')` leaves `CdnImageAdapter.getUrl(file_path)` as a wrapped `wsrv.nl/?url=...` string, and the full-URL branch of `getUrl` re-wrapped it because "image.tmdb.org" survives JSON query encoding literally (dots/letters are never %-encoded, the surrounding slashes are). Result: wsrv-inside-wsrv — probed live, the CDN answers the nested fetch **HTTP 404 even for a source file that exists** (verified with a known-good Wikimedia file: single-hop 200, double-hop 404). `onLogoError` fired on every surface, so hero/details/player cold-open all fell back to styled text. Fix: `CdnImageAdapter.getUrl` is now IDEMPOTENT — a value carrying `wsrv.nl/?url=` passes through unchanged (byte-identical to the pre-Phase-5 working output), covering the useTitleLogo, LoadingStage and any future re-wrap; raw paths/URLs still get their w500 WebP rendition. Two test pins added (pass-through + wrap-of-wrapped idempotency). `useTitleLogo`'s comment now states the real flow.
+
+**Fix 2 — player progress row glides instead of ratcheting.** `timeupdate` lands ~4×/s, so the playhead knob (`left: N%`) and the played bar (`scaleX`) jumped in visible steps while idling. Both now carry a 250ms linear bridge that animates to the last-known frame's cadence (`transform`/`left` transitions, no layout thrash, consistent with the v4 design). While the pointer is PRESSED on the bar the glide switches off (`seek.pressed` class, threaded `scrubDragging` from `useScrubber` → `NativePlayerView` → `PlayerShell` → `BottomChrome`) so the chrome sticks to the finger during a drag; hover keeps the live glide. Audited the rest of the animation layer — `.bot/.top` idle fades (350ms + will-change), center play button spring, loader arcs, settings sheet (250ms opacity + 550ms spring + delayed `visibility`), OSD keyframe, double-tap `dtf` keyframe, volume `.vs` expand, buffered bar (300ms linear), framer-motion HUDs — all already composited/opacity-spring based; no changes needed there.
+
+**Gates.** npm run lint 0 errors (pre-existing warnings only); npm run test 120 files / 1456 tests pass; npm run build clean.
+
+**Files.** `src/api/cdnImageAdapter.js`, `src/__tests__/cdnImageAdapter.test.js`, `src/hooks/useTitleLogo.js`, `src/components/player/chrome/BottomChrome.jsx`, `src/components/player/shell/PlayerShell.jsx`, `src/components/NativePlayerView.jsx`, `src/styles/player.css`.
+
 

@@ -37,6 +37,19 @@ describe('CdnImageAdapter', () => {
       const url = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w1280/abc.jpg', 'original');
       expect(url).toBe('https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Fw1280%2Fabc.jpg&output=webp&q=80');
     });
+
+    // The /images logo lookup and normalizeResult already return wrapped wsrv
+    // URLs; re-wrapping nests wsrv inside wsrv and the CDN 404s the double
+    // hop, which is what killed every title logo (2026-11).
+    it('passes an already-optimized proxy URL through unchanged', () => {
+      const wrapped = 'https://wsrv.nl/?url=https%3A%2F%2Fimage.tmdb.org%2Ft%2Fp%2Foriginal%2Fabc.png&output=webp&q=80';
+      expect(CdnImageAdapter.getUrl(wrapped, 'w500')).toBe(wrapped);
+    });
+
+    it('is idempotent: wrapping the wrapped URL changes nothing', () => {
+      const once = CdnImageAdapter.getUrl('https://image.tmdb.org/t/p/w1280/abc.jpg');
+      expect(CdnImageAdapter.getUrl(once, 'w500')).toBe(once);
+    });
   });
 
   describe('getTinyUrl', () => {

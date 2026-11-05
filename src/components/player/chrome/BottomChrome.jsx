@@ -41,6 +41,7 @@ export default function BottomChrome({
   effectiveRatio = 0,
   bufferedRatio = null,
   hoverRatio,
+  scrubDragging,
   previewUrl,
   previewBox,
   fmtTime,
@@ -118,7 +119,7 @@ export default function BottomChrome({
           <div
             ref={scrubRef}
             id="seek"
-            className={["seek", hoverRatio != null ? "drag" : ""].filter(Boolean).join(" ")}
+            className={["seek", hoverRatio != null ? "drag" : "", scrubDragging ? "pressed" : ""].filter(Boolean).join(" ")}
             role="slider"
             tabIndex={0}
             inert={!visible}
