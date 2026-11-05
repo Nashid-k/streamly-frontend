@@ -413,6 +413,7 @@ body::after {
 /* ── Search ───────────────────────────────────────────────────────────── */
 .search-panel {
   position: relative;
+  contain: layout paint;
   width: min(100%, 900px);
   margin: 0 auto;
 }

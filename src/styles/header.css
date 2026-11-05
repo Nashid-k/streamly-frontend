@@ -126,6 +126,7 @@
   margin-left: auto;
   pointer-events: auto;
   isolation: isolate;
+  contain: layout paint;
   overflow: hidden;
   z-index: var(--z-sticky);
   display: flex;

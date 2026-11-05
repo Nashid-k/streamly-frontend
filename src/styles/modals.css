@@ -244,6 +244,7 @@
   background: rgba(var(--black-rgb), 0.72);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
+  contain: layout paint;
 }
 
 .title-info-card {

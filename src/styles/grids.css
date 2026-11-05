@@ -22,6 +22,9 @@
 
 .movie-grid {
   display: grid;
+  contain: layout paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
   /* RIVO browse grid: 2 → 3 → 4 → 6 columns with wide clamp-based gutters.
      Streamly used an auto-fill minmax approximation; the reference site pins
      explicit breakpoints, which also keeps the column count stable across

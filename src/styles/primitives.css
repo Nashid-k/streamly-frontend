@@ -5,6 +5,7 @@
   position: absolute;
   top: 120%;
   pointer-events: auto;
+  contain: layout paint;
   background: var(--glass-bg);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
@@ -26,6 +27,7 @@
 .head-menu {
   width: 240px;
   max-width: calc(100vw - 16px);
+  contain: layout paint;
   background: rgba(15, 15, 15, 0.72);
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
