@@ -361,7 +361,7 @@ export default function PlayerShell({
         {/* Video Stage */}
         <div
           className="stage"
-          onClick={onVideoClick}
+          onClick={playerMode === "embed" ? undefined : onVideoClick}
           style={{ position: "absolute", inset: 0, background: "#000" }}
         >
           {playerMode === "embed" && embedUrl ? (
@@ -376,10 +376,10 @@ export default function PlayerShell({
                 height: "100%",
                 border: "none",
                 display: "block",
+                zIndex: 1,
               }}
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             />
           ) : (
             <video
@@ -520,7 +520,10 @@ export default function PlayerShell({
                 <button
                   type="button"
                   className="np-mode-select"
-                  onClick={() => setModeDropdownOpen(!modeDropdownOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setModeDropdownOpen(!modeDropdownOpen);
+                  }}
                   aria-label="Player mode"
                   aria-expanded={modeDropdownOpen}
                   aria-haspopup="listbox"
@@ -537,8 +540,8 @@ export default function PlayerShell({
                       role="option"
                       aria-selected={playerMode === "streamly"}
                       className={playerMode === "streamly" ? "active" : ""}
-                      onClick={() => {
-                        console.log('[Streamly][mode] Selecting streamly mode');
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onToggleMode && onToggleMode("streamly");
                         setModeDropdownOpen(false);
                       }}
@@ -550,8 +553,8 @@ export default function PlayerShell({
                       role="option"
                       aria-selected={playerMode === "embed"}
                       className={playerMode === "embed" ? "active" : ""}
-                      onClick={() => {
-                        console.log('[Streamly][mode] Selecting embed mode');
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onToggleMode && onToggleMode("embed");
                         setModeDropdownOpen(false);
                       }}

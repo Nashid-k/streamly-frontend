@@ -358,10 +358,10 @@ export default function BottomChrome({
                     role="option"
                     aria-selected={mode === "streamly"}
                     className={mode === "streamly" ? "active" : ""}
-                    onClick={() => {
-                      setMode("streamly");
-                      setModeDropdownOpen(false);
-                      onToggleMode("streamly");
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModeDropdownOpen?.(false);
+                      onToggleMode?.("streamly");
                     }}
                   >
                     <svg className="ic"><use href="#i-streamly" /></svg>
@@ -372,10 +372,10 @@ export default function BottomChrome({
                     role="option"
                     aria-selected={mode === "embed"}
                     className={mode === "embed" ? "active" : ""}
-                    onClick={() => {
-                      setMode("embed");
-                      setModeDropdownOpen(false);
-                      onToggleMode("embed");
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setModeDropdownOpen?.(false);
+                      onToggleMode?.("embed");
                     }}
                   >
                     <svg className="ic"><use href="#i-embed" /></svg>

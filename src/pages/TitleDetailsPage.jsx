@@ -2266,7 +2266,7 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false || playerMode === "embed" ? (
+                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
                         <ProviderEmbedPlayer
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}

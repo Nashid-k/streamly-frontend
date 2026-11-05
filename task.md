@@ -8,9 +8,18 @@
  ## Done (in order)
 
 - [x] **Embed player switching, FF/BW circular dark background removal, and rapid seek UI hide bugfix (user: "on chaning the drop down frm streamly to embedd nothing happening. find the causes", "fix it, use embedd when on embedd", "Circular Dark Background on Ff/bw is not removed, as well as if i use ff/bw freequently the ui is completly hidden from the screen") — 2026-11-05.**
-  - **Streamly-to-Embed switching (`TitleDetailsPage.jsx`, `NativePlayerView.jsx`, `ProviderEmbedPlayer.jsx`, `PlayerShell.jsx`):**
-    - Root cause: NativePlayerView's mode toggle only updated internal local state and never notified the parent (`onToggleMode` wasn't invoked). The embed URL was hardcoded to `cinesrc.st`, which was blocked by the CSP in `vercel.json` (`frame-src` strictly whitelisted `zxcstream.cc`). In addition, NativePlayerView's `CenterStack` and `.ui` container covered the iframe with opaque black layers and event traps.
-    - Fix: Added parent-level `playerMode` tracking to `TitleDetailsPage` that switches cleanly to `ProviderEmbedPlayer` on embed selection (using the allowed `zxcstream.cc` provider URL). Wired the player mode dropdown back into `ProviderEmbedPlayer` so viewers can return to native Streamly. In `NativePlayerView` and `PlayerShell`, synchronized `playerMode`, paused native media on embed, prevented `.ui` from blocking pointer events to the embed iframe, and suppressed stage loaders.
+  - **Streamly-to-Embed switching aligned with CineSrc docs (`TitleDetailsPage.jsx`, `NativePlayerView.jsx`, `PlayerShell.jsx`, `BottomChrome.jsx`, `vercel.json`):**
+    - Root causes:
+      1. In `BottomChrome.jsx`, clicking "Embed (CineSrc)" executed `setMode("embed")`, which threw an unhandled `ReferenceError: setMode is not defined`, aborting before `onToggleMode` could be called.
+      2. In `PlayerShell.jsx`, clicking on the mode pill / options lacked `e.stopPropagation()`, bubbling to `.ui` handlers and collapsing the state.
+      3. In `NativePlayerView.jsx`, embed URL used `providerEmbedUrl` (ZXC) instead of the CineSrc documentation standard (`https://cinesrc.st/embed/movie/{id}` and `https://cinesrc.st/embed/tv/{id}?s={season}&e={episode}`).
+      4. In `vercel.json`, `frame-src` omitted `https://cinesrc.st`.
+      5. In `PlayerShell.jsx`, `sandbox` on the embed iframe restricted CineSrc execution, and `.stage` click handlers interfered with iframe interaction.
+    - Fix:
+      - Aligned embed URL with CineSrc documentation in `NativePlayerView.jsx`: movie -> `https://cinesrc.st/embed/movie/{cleanId}`, TV -> `https://cinesrc.st/embed/tv/{cleanId}?s={season}&e={episode}`.
+      - Whitelisted `https://cinesrc.st` in `vercel.json`'s Content-Security-Policy `frame-src`.
+      - Removed buggy `setMode` calls in `BottomChrome.jsx`, added `e.stopPropagation()` to pill dropdown interactions, removed restrictive iframe sandbox, and disabled stage click interception in embed mode.
+      - Kept `NativePlayerView` mounted so the user stays in the full player shell while the stage seamlessly swaps to CineSrc.
   - **Removal of circular dark background on FF/BW seek HUD (`PlayerShell.jsx`, `player.css`):**
     - Root cause: `.osd` possessed a 5em rounded pill geometry and `.dt` rendered a radial gradient circular arc (`background: radial-gradient(circle at var(--cx) 50%, #ffffff33, #0000 70%)` with `border-radius: 60%`), appearing as a dark/gray circular disc on seeking.
     - Fix: Fully stripped background, backdrop-filter, border, and border-radius from `.osd`, `.osd.show`, and `.osd.osd-seek` with `!important`. Enhanced readability via `drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9))` on seek icons and typography. Hidden `.dt` flash elements (`display: none !important`), leaving only the clean floating seek HUD without any dark circular plates.

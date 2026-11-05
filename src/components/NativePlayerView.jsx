@@ -216,10 +216,18 @@ export default function NativePlayerView({
     [onToggleMode],
   );
 
-  /* Build provider embed URL per ZXC origin */
+  /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
   const embedUrl = useMemo(() => {
     if (localPlayerMode !== "embed") return null;
-    return providerEmbedUrl({ type, id, season, episode });
+    const cleanId = String(id || "").replace(/\D+/g, "");
+    if (!cleanId) return null;
+    const base = "https://cinesrc.st/embed";
+    if (type === "tv") {
+      const s = Math.max(1, Number(season) || 1);
+      const e = Math.max(1, Number(episode) || 1);
+      return `${base}/tv/${cleanId}?s=${s}&e=${e}`;
+    }
+    return `${base}/movie/${cleanId}`;
   }, [localPlayerMode, type, id, season, episode]);
 
   /* Pause native playback if switching to embed */

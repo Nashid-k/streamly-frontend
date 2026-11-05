@@ -3064,6 +3064,14 @@
   z-index: 49;
 }
 
+.np-root .ui[style*="pointer-events: none"] > :is(.top, .np-mode-dropdown-wrap, .ctl, .bot) {
+  pointer-events: auto !important;
+}
+
+:is(.player, .np-root) :is(.np-mode-dropdown-wrap, .np-mode-select, .np-mode-menu, .np-mode-menu button, .np-mode-menu-wrap) {
+  pointer-events: auto !important;
+}
+
 .np-root .big .ic {
   width: 2.6em;
   height: 2.6em;
