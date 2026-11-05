@@ -202,6 +202,11 @@ export default function NativePlayerView({
   const embedRef = useRef(null);
   // Local state for player mode (used when NativePlayerView owns the mode)
   const [localPlayerMode, setLocalPlayerMode] = useState(playerMode);
+  // Debug wrapper for mode changes
+  const debugSetPlayerMode = useCallback((mode) => {
+    console.log(`[Streamly][mode] NativePlayerView received mode change to: ${mode}`);
+    setLocalPlayerMode(mode);
+  }, []);
   /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
   const embedUrl = useMemo(() => {
     if (localPlayerMode !== "embed") return null;
@@ -2443,7 +2448,7 @@ const showSkipOutro = shouldShowSkipOutro({
       watchedEpisodes={watchedEpisodes}
       // Mode selector props
       playerMode={localPlayerMode}
-      onToggleMode={setLocalPlayerMode}
+      onToggleMode={debugSetPlayerMode}
     />
   );
 }
