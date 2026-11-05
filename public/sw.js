@@ -209,7 +209,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 4b. Unhashed same-origin JS/CSS (sw.js, boot.js, fonts.js) — network-first,
+  // 4b. Unhashed same-origin JS/CSS (sw.js, boot.js) — network-first,
   // so a deploy is always picked up. A 404 means the served shell is stale: fall
   // back to a cached copy and self-heal so it can't keep 404ing later.
   if (event.request.url.match(/\.(js|css)$/)) {

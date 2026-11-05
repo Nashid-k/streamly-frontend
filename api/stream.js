@@ -2194,7 +2194,10 @@ async function handleResolveRivo(body, res) {
   let serverName = server;
   let providerName = "rivo";
   try {
+    /* 30s of the 60s maxDuration — RIVO resolves JSON; hanging on it starves
+       every other leg of the playback pipeline. */
     const upstream = await fetch(upstreamUrl, {
+      signal: AbortSignal.timeout(30_000),
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",

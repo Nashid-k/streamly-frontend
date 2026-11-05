@@ -74,7 +74,9 @@ function ghHeaders(token) {
 }
 
 async function ghJson(url, token, init) {
-  const res = await fetch(url, { ...init, headers: ghHeaders(token) });
+  /* 15s per GitHub call: the cron chains a half-dozen of these under the 60s
+     maxDuration, so one hung call fails fast and the next run retries. */
+  const res = await fetch(url, { ...init, headers: ghHeaders(token), signal: AbortSignal.timeout(15_000) });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`GitHub ${init?.method || "GET"} ${url} -> HTTP ${res.status} ${detail.slice(0, 200)}`);

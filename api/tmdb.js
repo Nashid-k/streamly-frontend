@@ -104,8 +104,11 @@ export default withLog(async function handler(req, res) {
       }
     }
 
+    /* 12s of the 15s maxDuration — TMDB is normally <1s; this only caps a hung
+       upstream so the client's direct-TMDB fallback engages in time. */
     const upstream = await fetch(`${TMDB_BASE}/${resource}?${params.toString()}`, {
       headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(12_000),
     });
     const body = await upstream.text();
     res.status(upstream.status);

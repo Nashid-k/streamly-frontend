@@ -35,8 +35,14 @@ export default async function handler(req, res) {
 
   try {
     const { db } = await connectToDatabase();
-    const doc = await db.collection('usage').findOne({ _id: 'daily' });
     const day = new Date().toISOString().slice(0, 10);
+    // The ledger doc accumulates a `days.<date>` slice per UTC day but the
+    // dashboard only ever reads today's slice — project it, so the document
+    // reaching the wire today stays the same size it is today, not the size
+    // it will be in a year. Read is on-demand (Settings row) either way.
+    const doc = await db
+      .collection('usage')
+      .findOne({ _id: 'daily' }, { projection: { _id: 0, [`days.${day}`]: 1 } });
     const merged = (doc && doc.days && doc.days[day]) || {};
     const scopes = {};
     for (const [scope, budget] of Object.entries(SCOPE_BUDGETS)) {

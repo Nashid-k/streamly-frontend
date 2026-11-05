@@ -20,19 +20,20 @@
          extra TCP+TLS handshake. -->
     <link rel="preconnect" href="https://wsrv.nl" />
     <link rel="dns-prefetch" href="https://image.tmdb.org" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-
-    <!-- Non-blocking font load: preloaded + applied by public/boot.js once ready
-         (an onload= attribute would be an inline event handler, which the CSP's
-         script-src without 'unsafe-inline' blocks) -->
-    <!-- One variable font file instead of six static instances — same trick as
-         the reference site: a single request covers every weight the app
-         renders (300–800), so no weight boundary ever re-requests a font. -->
+    <!-- Self-hosted Inter (public/fonts/, license OFL.txt): the @font-face rules
+         ship in the bundled CSS (src/styles/tokens.css). Preloading the latin
+         file here puts its bytes in flight at head-parse time — with no onload=
+         handler, which the CSP's script-src blocks as inline JS anyway. The
+         other subsets (latin-ext, cyrillic, greek, vietnamese) stay on demand
+         via unicode-range. One variable file per subset instead of static
+         instances: a single request covers every weight the app renders
+         (300–800), so no weight boundary ever re-requests a font. -->
     <link
       rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap"
+      href="/fonts/inter-var-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -42,9 +43,6 @@
 
     <!-- External boot script: keeps the CSP free of script-src 'unsafe-inline' -->
     <script src="/boot.js"></script>
-    <!-- Fonts: apply the preloaded Google stylesheet before first paint (CSP-safe,
-         no inline handler) -->
-    <script src="/fonts.js"></script>
     <style>
       html, body {
         background: #050505;

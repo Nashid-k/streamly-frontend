@@ -28,6 +28,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { persistQueryCacheOptions } from "./queryCachePersister";
 import { HelmetProvider } from "react-helmet-async";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import { queryClient } from "./queryClient";
 import { initGlobalErrorLogging, logBootDiagnostics, logDebug } from "./utils/debugLogger";
 import { shouldAttemptRecovery, clearRuntimeCaches } from "./utils/chunkRecovery";
@@ -75,6 +76,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <App />
               </ToastProvider>
               <Analytics />
+              {/* LCP/INP/CLS real-user timings; injects a same-origin
+                  /_vercel/ script, so the CSP needs no extra origin. */}
+              <SpeedInsights />
             </I18nProvider>
           </PreferencesProvider>
         </AuthProvider>

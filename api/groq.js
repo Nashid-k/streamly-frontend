@@ -86,7 +86,12 @@ export default withLog(async function handler(req, res) {
     if (pathname === "/") pathname = "models";
     if (req.method === "GET") {
       if (pathname === "models") {
-        const r = await fetch(`${GROQ_BASE}/models`, { headers: auth });
+        const r = await fetch(`${GROQ_BASE}/models`, {
+          headers: auth,
+          /* Groq calls are timeboxed under this function's 30s maxDuration so a
+             hung upstream answers a clean 502 instead of a Vercel timeout. */
+          signal: AbortSignal.timeout(20_000),
+        });
         res.status(r.status);
         res.setHeader("content-type", r.headers.get("content-type") || "application/json");
         res.send(await r.text());
@@ -110,6 +115,7 @@ export default withLog(async function handler(req, res) {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ ...body, stream: false }),
+        signal: AbortSignal.timeout(25_000),
       });
       res.status(r.status);
       res.setHeader("content-type", r.headers.get("content-type") || "application/json");
