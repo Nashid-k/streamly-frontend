@@ -17,7 +17,7 @@ import { logError, logInfo } from "../utils/debugLogger.js";
 
 const ENDPOINT = "/api/stream";
 
-export class StreamUnavailableError extends Error {
+class StreamUnavailableError extends Error {
   constructor(message, code) {
     super(message);
     this.name = "StreamUnavailableError";
@@ -99,11 +99,6 @@ export function hasFreshResolve(args) {
   const entry = resolveCache.get(zxcResolveKey(args));
   return Boolean(entry && Date.now() - entry.at < RESOLVE_TTL_MS);
 }
-
-export function clearZxcResolveCacheForTests() {
-  resolveCache.clear();
-}
-
 /* Whether this DEPLOYMENT can serve native ZXC playback — true only when the
    server has a relay configured (its egress is otherwise WAF-blocked; see
    server/net.js). Cached for the session: it is a deployment property, not a

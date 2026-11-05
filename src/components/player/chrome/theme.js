@@ -15,9 +15,6 @@ export const DEFAULT_V4_ACCENT = "#8652bb";
 export const ACCENT = "#8652bb";
 // Glyph/text colour that sits ON an accent fill (dark, never white).
 export const ACCENT_FG = "#ffffff";
-export const ACCENT_DIM = "rgba(134,82,187,0.88)";
-export const ACCENT_SOFT = "rgba(134,82,187,0.14)";
-export const ACCENT_EDGE = "rgba(134,82,187,0.42)";
 export const ACCENT_GLOW = "0 0 20px rgba(134,82,187,0.32)";
 
 // The 8 theme swatches from player-v4.html
@@ -37,29 +34,17 @@ export const PLAYER_V4_THEMES = [
 export const TRACK = "rgba(255,255,255,0.16)";
 export const BUFFERED = "rgba(255,255,255,0.32)";
 // Measured skip windows: an accent wash, distinct from buffered.
-export const SKIP_BAND = "rgba(134,82,187,0.22)";
 
 export const TEXT = "#ffffff";
-export const TEXT_DIM = "rgba(255,255,255,0.66)";
 export const TEXT_FAINT = "rgba(255,255,255,0.42)";
 
 // Chips on the deck (time, volume, utility cluster).
-export const PILL_BG = "rgba(22,27,23,0.58)";
-export const PILL_BG_HOVER = "rgba(40,47,41,0.82)";
 
 // Glass materials: cool ink, not neutral black, so the player sits in the same
 // family as the app's dark surfaces.
 export const GLASS_BG_STRONG = "rgba(9,12,10,0.86)";
 export const GLASS_BORDER = "rgba(255,255,255,0.12)";
 export const GLASS_BLUR = "blur(26px) saturate(1.35)";
-
-// The control deck's own material. Slightly lighter than the menus so it reads
-// as the primary surface, with an inner top hairline for a machined edge.
-export const DECK_BG =
-  "linear-gradient(180deg, rgba(18,23,19,0.76) 0%, rgba(7,10,8,0.9) 100%)";
-export const DECK_BORDER = "rgba(255,255,255,0.1)";
-export const DECK_SHADOW =
-  "0 24px 64px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)";
 
 // The scrim behind the chrome: a soft falloff, never a hard black band.
 export const SCRIM =
@@ -79,25 +64,6 @@ export const RADIUS = { pill: 999, control: 16, card: 22, sheet: 24, deck: 26 };
 export const SHADOW = {
   pill: "0 10px 30px rgba(0,0,0,0.5)",
   card: "0 24px 70px rgba(0,0,0,0.65)",
-};
-
-/* The "Pitch" chrome (2026-11 player redesign, from the pasted reference).
-   These are the reference design's own values — cool slate surfaces, muted
-   labels, one accent. The signal green stays Streamly's, so the geometry and
-   typography match the mock while the brand does not change. The CSS half of
-   this token set lives on `.np-root` in styles/player.css. */
-export const PITCH = {
-  accent: ACCENT,
-  muted: "#6b7f8f",
-  value: "#b9c0c8",
-  tile: "#121a22",
-  tileHover: "#17222c",
-  iconTile: "#1c2a3a",
-  divider: "#19232d",
-  track: "#2b2b2b",
-  panelBg: "linear-gradient(160deg, #10161d 0%, #0c1117 60%, #0e1319 100%)",
-  panelBorder: "#1d2935",
-  radius: 22,
 };
 
 // The translucent pill the transient HUDs (volume / aspect / hold) float in.
