@@ -808,16 +808,25 @@ export default function Home({
       : null;
   const resumePct = cwResumeEntry ? Math.round(progressPct(cwResumeEntry)) : 0;
 
-  // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts
+  // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts.
+  // `totalFeatured` is read through a ref inside the tick so that data still
+  // streaming in (which grows finalPool and used to reset this interval on every
+  // change) can no longer restart the 15s clock — that reset was why the progress
+  // pill filled but the banner never advanced.
+  const totalFeaturedRef = useRef(totalFeatured);
   useEffect(() => {
-    if (totalFeatured <= 1 || reduceMotion) return;
+    totalFeaturedRef.current = totalFeatured;
+  });
+  useEffect(() => {
+    if (reduceMotion || totalFeatured <= 1) return;
     const timer = setInterval(() => {
-      if (!isHeroHoveredRef.current) {
-        setFeaturedIndex((prev) => prev + 1);
-      }
+      if (isHeroHoveredRef.current) return;
+      const tf = totalFeaturedRef.current;
+      if (tf <= 1) return;
+      setFeaturedIndex((prev) => (prev + 1) % tf);
     }, 15000);
     return () => clearInterval(timer);
-  }, [totalFeatured, reduceMotion]);
+  }, [reduceMotion, totalFeatured > 1]);
 
   // Preload next hero image to eliminate flash on slide change
   useEffect(() => {
