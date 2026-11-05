@@ -331,7 +331,22 @@ export default function TitleDetails() {
      no logo for got its full poster/backdrop preview squeezed into the logo
      slot. One lookup, one fallback (text title), same rule as the home hero. */
   const { logoUrl: titleLogoUrl, onLogoError: onTitleLogoError } =
-    useTitleLogo(movie || { id }, "TitleDetails");
+    useTitleLogo(movie, "TitleDetails", id);
+
+  // Preload the logo image into browser cache the instant its URL is known
+  useEffect(() => {
+    if (titleLogoUrl) {
+      const link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.href = titleLogoUrl;
+      link.fetchPriority = "high";
+      document.head.appendChild(link);
+      return () => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+      };
+    }
+  }, [titleLogoUrl]);
 
   // Member of at least one collection → tiny folder badge on the List button.
   const inAnyCollection = useMemo(
@@ -972,6 +987,7 @@ export default function TitleDetails() {
                 className="details-hero__logo drop-shadow-2xl"
                 src={titleLogoUrl}
                 alt={movie.title}
+                loading="eager"
                 fetchPriority="high"
                 decoding="async"
                 onError={onTitleLogoError}

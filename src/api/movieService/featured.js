@@ -29,14 +29,16 @@ export const getFeaturedMovies = async () => {
   }
 };
 
-// Fetch just the English title logo for a movie or TV show, so the hero banner
-// renders the real logo instead of the text fallback. Biggest available (original).
+// Fetch just the English or language-neutral title logo for a movie or TV show,
+// sized for fast loading (w500 = retina 2x for hero display, ~30KB vs 5MB original).
 export const getTitleLogo = async (id) => {
   const isTV = isTvId(id);
   const rid = rawId(id);
   try {
-    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/images`);
-    const out = logoUrlFromImages(data, 'original');
+    const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/images`, {
+      include_image_language: 'en,null',
+    });
+    const out = logoUrlFromImages(data, 'w500');
     if (!out) {
       logDebug('movieService', `getTitleLogo: no logo on TMDB for ${id} — hero falls back to text title.`, { id });
     }

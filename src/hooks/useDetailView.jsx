@@ -30,7 +30,7 @@ export default function useDetailView() {
         setModalMovie(movie);
       } else {
         const slug = slugify(movie.title || "title", { lower: true, strict: true });
-        navigate(`/watch/${movie.id}/${slug}`);
+        navigate(`/watch/${movie.id}/${slug}`, { state: { movie } });
       }
     },
     [detailViewType, navigate],

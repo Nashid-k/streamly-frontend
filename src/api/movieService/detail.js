@@ -17,6 +17,7 @@ export const getMovieDetails = async (id) => {
     const [detail, externalIds] = await Promise.all([
       tmdb(`/${endpoint}/${rid}`, {
         append_to_response: `credits,videos,images,${isTV ? 'content_ratings' : 'release_dates'}`,
+        include_image_language: 'en,null',
       }),
       // Ratings enrich the page but should not make a perfectly usable title
       // fail when TMDB's external-id endpoint is temporarily unavailable.

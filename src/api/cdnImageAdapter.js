@@ -35,6 +35,9 @@ export class CdnImageAdapter {
       // title. The encoded inner URL still carries "image.tmdb.org" as
       // literal text, so this test runs BEFORE the TMDB check below.
       if (this.USE_PROXY && path.includes("wsrv.nl/?url=")) {
+        if (size && size !== "original" && path.includes("/t/p/original/")) {
+          return path.replace("/t/p/original/", `/t/p/${size}/`);
+        }
         return path;
       }
       // API adapters may already return w500. Resize any TMDB rendition (not

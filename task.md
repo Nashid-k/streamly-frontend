@@ -7,6 +7,22 @@
 
  ## Done (in order)
 
+- [x] **Accelerate Title Details Page title logo image resolution and rendering (user: "in the title details page takes too much time to appear the title logo image, find and improve") — 2026-11-05.**
+  - **Root causes of slow title logo display:**
+    1. In `detail.js`, `getMovieDetails` invoked `tmdb` with `append_to_response: '...,images,...'`, but did not pass `include_image_language: 'en,null'`. Because TMDB default filtering strictly matches `language=en`, logos without an explicit language code (`iso_639_1: null` or untagged) were completely stripped by TMDB from `detail.images.logos`. Consequently, `movie.logoUrl` came back `null`, forcing `TitleDetailsPage` to wait for a subsequent secondary request to `/images`.
+    2. In `featured.js`, `getTitleLogo` requested size `'original'`. TMDB original wordmarks are uncompressed 4000x2000 PNGs (often 3MB-8MB). Fetching and transcoding multi-megabyte originals through the CDN proxy caused multi-second network and decoding delays.
+    3. In `cdnImageAdapter.js`, proxy URLs already containing `wsrv.nl/?url=` bypassed downsizing, keeping `'original'` trapped at full multi-megabyte weight even when downstream components requested `w500`.
+    4. In `TitleDetailsPage.jsx`, `useTitleLogo` was passed `movie || { id }` instead of using the `earlyId` parameter, preventing the logo lookup from running in parallel with `getMovieDetails` on cold mounts.
+    5. The `<img>` in `TitleDetailsPage.jsx` lacked `loading="eager"`, and the browser had no `<link rel="preload">` hint for the logo URL.
+  - **Fixes applied:**
+    - Added `include_image_language: 'en,null'` to `getMovieDetails` in `detail.js` so English and language-neutral logos are delivered in the primary movie details response with zero secondary round-trips.
+    - Updated `getTitleLogo` in `featured.js` to request `w500` (~30KB WebP, 100x smaller, retina 2x sharp) and added `include_image_language: 'en,null'`.
+    - Updated `cdnImageAdapter.js` to downsize any nested `/t/p/original/` URLs to the requested size (e.g., `w500`).
+    - Passed `earlyId = id` to `useTitleLogo(movie, "TitleDetails", id)` in `TitleDetailsPage.jsx` for parallel resolution from frame 1.
+    - Added high-priority browser image preload via `<link rel="preload" as="image" href={titleLogoUrl} fetchpriority="high">` and `loading="eager"` on the `details-hero__logo` element.
+    - Carried navigation state `{ state: { movie } }` in `useDetailView.jsx` so title context transitions without blank flashes.
+  - **Gates passed:** `npm run lint` (0 errors), `npx vitest run src/__tests__/TitleDetailsPage.test.jsx src/__tests__/useTitleLogo.test.jsx src/__tests__/cdnImageAdapter.test.js src/__tests__/useDetailView.test.jsx` (34/34 green), `npm run build` (clean production build).
+
 - [x] **Compact navbar width and deep app-wide smoothness fixes (user: "dig more and deeper, reduce the navbar width and fix everything") — 2026-11-05.**
   - **Navbar width reduction & proportion refinements:**
     - Reduced `--nav-item-h` from 40px to 36px and `--nav-pad` from 6px to 4px in `tokens.css`.
