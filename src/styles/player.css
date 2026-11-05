@@ -2246,20 +2246,22 @@
   position: relative;
   display: flex;
   align-items: center;
+  pointer-events: auto;
+  margin-left: auto;
 }
 .np-mode-dropdown {
   position: absolute;
   right: 0;
   top: 100%;
-  margin-top: 8px;
-  min-width: 160px;
+  margin-top: 4px;
+  min-width: 150px;
   background: #1a232e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   z-index: 100;
-  animation: dropdownIn 150ms var(--ease) backwards;
+  animation: dropdownIn var(--duration-instant) var(--ease) backwards;
 }
 @keyframes dropdownIn {
   from {
