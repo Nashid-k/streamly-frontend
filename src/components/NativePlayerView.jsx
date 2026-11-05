@@ -203,15 +203,14 @@ export default function NativePlayerView({
   // Local state for player mode (used when NativePlayerView owns the mode)
   const [localPlayerMode, setLocalPlayerMode] = useState(playerMode);
   /* Build CineSrc embed URL per docs: /embed/movie/{tmdb_id} or /embed/tv/{tmdb_id}?s=&e= */
-  const actualPlayerMode = playerMode !== undefined ? playerMode : localPlayerMode;
   const embedUrl = useMemo(() => {
-    if (actualPlayerMode !== "embed") return null;
+    if (localPlayerMode !== "embed") return null;
     const base = "https://cinesrc.st/embed";
     if (type === "tv") {
       return `${base}/tv/${id}?s=${season}&e=${episode}`;
     }
     return `${base}/movie/${id}`;
-  }, [playerMode, type, id, season, episode]);
+  }, [localPlayerMode, type, id, season, episode]);
   /* Viewer preferences. Read here, at the top of the component, because the
      skip amount below is needed by handlers declared further down (and a
      `const` declared later would be a TDZ error at those call sites).
@@ -2443,7 +2442,7 @@ const showSkipOutro = shouldShowSkipOutro({
       volume={volume}
       watchedEpisodes={watchedEpisodes}
       // Mode selector props
-      playerMode={actualPlayerMode}
+      playerMode={localPlayerMode}
       onToggleMode={setLocalPlayerMode}
     />
   );
