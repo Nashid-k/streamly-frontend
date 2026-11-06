@@ -2189,6 +2189,16 @@ function rivoAudioLabel(quality) {
   return match ? match[1].trim() : "";
 }
 
+/* RIVO lists subtitle variants in the same roster as the audio masters
+   ("1080p (Arabic sub)", "720p (Russian sub)"). They are the SAME audio with a
+   different subtitle track, not a dub: treating them as audioTracks put
+   "Arabic sub" in the Audio menu, and picking it switched to a subtitle-only
+   row that read as "Server 1 has no audio". They stay in the subtitle roster
+   the handler already passes through. */
+function rivoIsSubtitleVariant(quality) {
+  return /\bsub(s|titles?)?\b/i.test(String(quality || ""));
+}
+
 /* RIVO names each master's language in its quality label ("1080p (Malayalam)"),
    and its roster is NOT ordered with the film's original first: Premalu
    (tmdb 1149791) lists Hindi first and Malayalam second. Treating sources[0] as
@@ -2368,13 +2378,16 @@ async function handleResolveRivo(body, res) {
      `sources[0]` is only the last resort — it is a provider ordering, not a
      language claim, which is exactly how Premalu played Hindi as Malayalam. */
   const requestedLang = rivoLangKey(String(body.originalLanguage || "").slice(0, 40));
-  const untaggedMaster = sources.find(
-    (s) => s && s.kind === "hls" && !String(s.quality || "").includes("("),
+  // Only real audio masters are candidates for the entry: a subtitle variant
+  // must never become the stream (it would play the video with no dubbed audio).
+  const audioMasters = sources.filter(
+    (s) => s && s.kind === "hls" && !rivoIsSubtitleVariant(s.quality),
   );
+  const untaggedMaster = audioMasters.find((s) => !String(s.quality || "").includes("("));
   const languageMaster = requestedLang
-    ? sources.find((s) => s && s.kind === "hls" && rivoMatchesLanguage(s, requestedLang))
+    ? audioMasters.find((s) => rivoMatchesLanguage(s, requestedLang))
     : null;
-  const entry = untaggedMaster || languageMaster || sources[0];
+  const entry = untaggedMaster || languageMaster || audioMasters[0] || sources[0];
   const entryLabel = rivoAudioLabel(entry.quality);
   if (entry.kind && entry.kind !== "hls") {
     json(res, 200, { ok: false, error: `RIVO ${serverName} served a non-HLS source`, code: "unsupported-kind" });
@@ -2407,6 +2420,8 @@ async function handleResolveRivo(body, res) {
     if (source.url === entry.url) continue;
     const label = rivoAudioLabel(source.quality);
     if (!label || source.kind !== "hls") continue;
+    // Subtitle variants are not dubs — they belong in the subtitle roster.
+    if (rivoIsSubtitleVariant(source.quality)) continue;
     // A sibling in the ENTRY's own language (Premalu also lists 480p Malayalam)
     // is the same audio at another rung, not a second track.
     if (entryLabel && label.toLowerCase() === entryLabel.toLowerCase()) continue;

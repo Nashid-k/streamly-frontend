@@ -572,6 +572,50 @@ describe("resolveRivo", () => {
     expect(body.audioTracks).toEqual([{ label: "Telugu", uri: onlyHiTe.sources[1].url }]);
   });
 
+  it("keeps RIVO subtitle variants out of the Audio menu and the entry", async () => {
+    // Live Server 1 rosters mix audio masters with "(Arabic sub)" / "(Russian
+    // sub)" rows. Those are the same audio with a subtitle track, not dubs:
+    // exposing them put "Arabic sub" in the Audio menu, and picking one played
+    // a subtitle-only row that read as "Server 1 has no audio".
+    const mixed = {
+      provider: "rivo",
+      server: "Server 1",
+      sources: [
+        { url: "https://cdn.example/en/master.m3u8", kind: "hls", quality: "1080p (English)" },
+        { url: "https://cdn.example/fr/master.m3u8", kind: "hls", quality: "1080p (French)" },
+        { url: "https://cdn.example/ar-sub/master.m3u8", kind: "hls", quality: "1080p (Arabic sub)" },
+        { url: "https://cdn.example/ru-sub/master.m3u8", kind: "hls", quality: "720p (Russian sub)" },
+        { url: "https://cdn.example/ru.mp4", kind: "mp4", quality: "1080p (Russian)" },
+      ],
+      subtitles: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const target = String(url);
+        if (target.startsWith("https://f.rivo.st/api/source/")) {
+          return new Response(JSON.stringify(mixed), { status: 200 });
+        }
+        if (target === mixed.sources[0].url) {
+          return new Response(MASTER, { status: 200 });
+        }
+        return new Response("nope", { status: 404 });
+      }),
+    );
+
+    const res = await call({
+      action: "resolveRivo",
+      type: "movie",
+      id: "1101383",
+      server: "1",
+      originalLanguage: "en",
+    });
+    const body = JSON.parse(res.body);
+    expect(body.source.url).toBe(mixed.sources[0].url);
+    expect(body.audioTracks).toEqual([{ label: "French", uri: mixed.sources[1].url }]);
+    expect(body.audioOriginalLang).toBe("en");
+  });
+
   it("rejects a malformed id with a 400, not a 500", async () => {
     const res = await call({ action: "resolveRivo", type: "movie", id: "not-a-number", server: "1" });
     expect(res.statusCode).toBe(400);
