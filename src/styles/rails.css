@@ -56,11 +56,17 @@ textarea:focus-visible {
 .fade-in-section {
   opacity: 0;
   transform: translateY(12px);
-  will-change: opacity, transform;
   backface-visibility: hidden;
   transition:
     opacity 0.42s var(--ease-tv),
     transform 0.42s var(--ease-tv);
+}
+/* Compositor hint only while the reveal is pending: a page carries a dozen
+   revealed sections whose layers sat promoted forever once .is-visible
+   landed. Revealed sections drop the hint (the compositor keeps driving the
+   active transition regardless). */
+.fade-in-section:not(.is-visible) {
+  will-change: opacity, transform;
 }
 .fade-in-section.is-visible {
   opacity: 1;

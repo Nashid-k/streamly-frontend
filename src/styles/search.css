@@ -52,6 +52,7 @@
   mask-image: none;
 }
 .cast-rail__avatar {
+  position: relative;
   width: 96px;
   height: 96px;
   border-radius: 50%;
@@ -65,7 +66,20 @@
   font-size: 1.6rem;
   font-weight: 700;
   color: rgba(var(--white-rgb), 0.85);
-  transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+  transition: transform var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+/* Hover glow rides the compositor: the ring's shadow is pre-painted on an
+   overlay and toggled by opacity — interpolating box-shadow re-rasterised
+   every cast avatar's paint per hover frame. */
+.cast-rail__avatar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 24px rgba(var(--white-rgb), 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 @media (min-width: 768px) {
   .cast-rail__avatar {
@@ -80,7 +94,9 @@
 .cast-card:hover .cast-rail__avatar {
   transform: scale(1.1);
   border-color: rgba(var(--white-rgb), 0.3);
-  box-shadow: 0 0 24px rgba(var(--white-rgb), 0.2);
+}
+.cast-card:hover .cast-rail__avatar::after {
+  opacity: 1;
 }
 .cast-card:hover > *:last-child {
   transform: translateY(4px);

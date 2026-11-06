@@ -6,6 +6,12 @@
    loose 6-rem row gap that gives the hover-encoded cards breathing room. */
 .discovery-grid {
   display: grid;
+  /* Same containment recipe as .movie-grid: offscreen pages of the endless
+     grid skip rendering, and paint is clipped to the grid box (hover lift
+     shadows stay inside the grid's own padding, so nothing visibly clips). */
+  contain: layout paint;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3rem 1.5rem;
   padding: 0 0.15rem 2rem;

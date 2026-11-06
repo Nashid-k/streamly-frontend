@@ -347,7 +347,7 @@
   cursor: pointer;
   text-decoration: none;
   mix-blend-mode: difference;
-  transition: background-color var(--duration-fast) var(--ease-out), box-shadow var(--anim-hover-time) var(--anim-hover-ease);
+  transition: background-color var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {
