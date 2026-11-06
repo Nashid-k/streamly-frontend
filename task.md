@@ -7,6 +7,17 @@
 
  ## Done (in order)
 
+- [x] **Player bug-fix batch 2 (user: "find other bugs in the player mainly and report me") — 2026-11-06 (commit `236febe`).**
+  - **pendingSeekRef never passed (useMediaElementEvents.js / NativePlayerView.jsx):** `onSeeked` referenced `pendingSeekRef.current` but the ref was never destructured or passed → every seeked event threw, so queued deltas never flushed. Fixed: added the param + pass-through.
+  - **HOLD_SPEED not imported (useMediaElementEvents.js):** `onRateChange` referenced an undefined constant → ReferenceError whenever a hold was live and the rate changed externally. Fixed: import from playerUi.
+  - **frameTimer never resolved (useQualitySwitch.js):** the 4s fallback only detached listeners and never called `resolve()`, hanging the switch on the art stage. Fixed: resolve in the timeout.
+  - **pause null guard (useAudioSwitch.js):** `videoRef.current.pause()` → optional chain.
+  - **auto-advance streak (usePlayerChrome.js):** `recordAutoAdvance` re-offered the still-watching prompt every subsequent advance; now resets the streak on offer.
+  - **UpNextCard NaN (UpNextCard.jsx):** `Math.round(upNextMs / 1000)` → NaN when upNextMs missing; coerced with Number().
+  - **N/Shift+P null-guards (usePlayerKeyboard.js):** `keyboardEpNextRef/PrevRef.current()` → optional call.
+  - **PiP listener attachment (usePlaybackExtras.js)** reviewed; left as-is (video is present by the time the effect runs in practice).
+  - Gates green: lint 0 errors; 8 targeted suites 96/96; build exit 0. Net +14/−7 over 7 files.
+
 - [x] **Player bug-fix batch (user: "find other bugs in the player mainly and report me") — 2026-11-06 (commit `6d05f7c`).**
   - **revealStageWhenReady (useSourceResolve.js):** the 2.5s fallback timer no longer steals the new run's cleanup — each invocation now owns its own listener removal (run-token guarded), preventing a stuck branded stage / dropped frame on server switch.
   - **Progress sink (NativePlayerView.jsx):** `onProgressChange` moved into a ref and the effect now keys only on `playing`, so an unstable callback identity can't tear down the 5s save interval every render.
