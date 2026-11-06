@@ -7,6 +7,14 @@
 
  ## Done (in order)
 
+- [x] **Player bug-fix batch 3 (user: "find other bugs in the player mainly and fix") — 2026-11-06 (commit `4342473`).**
+  - **scrubDragging dropped (PlayerTransport.jsx):** PlayerShell passed `scrubDragging` but PlayerTransport neither destructured nor forwarded it, so BottomChrome's `pressed` class never activated. Fixed both.
+  - **Subtitle search unhandled rejection (useSubtitles.js):** `searchAvailableSubtitles(...).then(...)` had no `.catch`, so a failed search rejected unhandled and `isFetchingSubtitles` could stick. Added `.catch` setting `subtitleError` + `logWarn`, kept `.finally`.
+  - **Fullscreen initial state (usePlaybackExtras.js):** the fullscreen effect never read the initial state, so `isFullscreen` stayed false on a mount that was already fullscreen. Added an initial `onFull()` call.
+  - **HUD null-metrics (Netflix*HUD.jsx):** reviewed; HUDs are test-only/exported, not rendered in production, so left as-is (low priority).
+  - **useMediaElementEvents effect capture (medium):** reviewed; video is present by the time the effect runs, left as-is.
+  - Gates green: lint 0 errors; playerSubtitles 3/3 + playerHud; build exit 0. Net +9 over 3 files.
+
 - [x] **Player bug-fix batch 2 (user: "find other bugs in the player mainly and report me") — 2026-11-06 (commit `236febe`).**
   - **pendingSeekRef never passed (useMediaElementEvents.js / NativePlayerView.jsx):** `onSeeked` referenced `pendingSeekRef.current` but the ref was never destructured or passed → every seeked event threw, so queued deltas never flushed. Fixed: added the param + pass-through.
   - **HOLD_SPEED not imported (useMediaElementEvents.js):** `onRateChange` referenced an undefined constant → ReferenceError whenever a hold was live and the rate changed externally. Fixed: import from playerUi.
