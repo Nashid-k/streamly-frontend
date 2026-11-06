@@ -22,6 +22,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { SubtitleFetcher } from "../../../api/subtitleFetcher";
 import { SubtitleEngine } from "../../../utils/subtitleEngine";
 import { readStoredNumber } from "../../../utils/storedNumber";
+import { logWarn } from "../../../utils/debugLogger";
 import { findSubtitleTrack } from "../../../constants/settings";
 
 const SUB_SIZE_STORAGE_KEY = "streamly-native-sub-size";
@@ -180,6 +181,11 @@ export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs 
           const preferred = findSubtitleTrack(list, prefs?.defaultLanguage);
           if (preferred) selectSubtitle(preferred);
         }
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setSubtitleError("Subtitle search failed — try again later.");
+        logWarn("player", "subtitle search failed", { message: error?.message || String(error) });
       })
       .finally(() => {
         if (!cancelled) setIsFetchingSubtitles(false);

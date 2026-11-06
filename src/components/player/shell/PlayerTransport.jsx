@@ -14,6 +14,7 @@ export default function PlayerTransport({
   effectiveRatio,
   bufferedRatio,
   hoverRatio,
+  scrubDragging,
   previewUrl,
   previewBox,
   fmtTime,
@@ -58,6 +59,7 @@ export default function PlayerTransport({
       effectiveRatio={effectiveRatio}
       bufferedRatio={bufferedRatio}
       hoverRatio={hoverRatio}
+      scrubDragging={scrubDragging}
       previewUrl={previewUrl}
       previewBox={previewBox}
       fmtTime={fmtTime}

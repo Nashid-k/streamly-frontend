@@ -150,6 +150,7 @@ export default function usePlaybackExtras({ videoRef, screenRef, onSleepEnd }) {
       setIsFullscreen(
         Boolean(document.fullscreenElement || document.webkitFullscreenElement),
       );
+    onFull();
     document.addEventListener("fullscreenchange", onFull);
     document.addEventListener("webkitfullscreenchange", onFull);
     return () => {
