@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Route transitions audit + snappiness (user: "audit the app, interactions, page transitions ... improve smoothness and performances add animations, smooth, snappy animations") — 2026-11-06 (commit `568a79e`).**
+  - **Durations:** all route transitions (enter + exit) moved from MED (0.28s) to FAST (0.2s) — snappier forward/back/between routes while staying on the published duration scale (motion.test green).
+  - **Travel:** reduced enter/exit travel (y 12/10→8/6, x 28→20) so pages land closer to their final position.
+  - **Compositor-only:** dropped `scale` from the route variants? No — kept scale (contract pin in motion.test) but removed the extra travel; transform stays compositor-thread (translateZ(0) + willChange).
+  - **Existing strengths retained:** popLayout mode (exiting page out of flow so scroll reset lands invisibly), query-string changes don't remount (caret-safe), reduced-motion collapses to 0, directional slides on PUSH/POP, scroll restoration with settle polling.
+  - Gates green: lint 0 errors; motion 52/52 + scrollRestoration; build exit 0. Net +14/−14 in routeMotion.js.
+
 - [x] **Player bug-fix batch 3 (user: "find other bugs in the player mainly and fix") — 2026-11-06 (commit `4342473`).**
   - **scrubDragging dropped (PlayerTransport.jsx):** PlayerShell passed `scrubDragging` but PlayerTransport neither destructured nor forwarded it, so BottomChrome's `pressed` class never activated. Fixed both.
   - **Subtitle search unhandled rejection (useSubtitles.js):** `searchAvailableSubtitles(...).then(...)` had no `.catch`, so a failed search rejected unhandled and `isFetchingSubtitles` could stick. Added `.catch` setting `subtitleError` + `logWarn`, kept `.finally`.
