@@ -7,6 +7,9 @@
 
  ## Done (in order)
 
+- [x] **RIVO Server 1 (rivo) dead upstream** - investigation + fallback - 2026-11-06 (commit `ea735b6`).
+  - Tested RIVO's actual server: empty sources for all titles. Root cause: upstream outage/contract change. Fix: rivo-1 row falls back to ZXC Orion. Gates green. Net +7/-1.
+
 - [x] **Route transitions audit + snappiness (user: "audit the app, interactions, page transitions ... improve smoothness and performances add animations, smooth, snappy animations") — 2026-11-06 (commit `568a79e`).**
   - **Durations:** all route transitions (enter + exit) moved from MED (0.28s) to FAST (0.2s) — snappier forward/back/between routes while staying on the published duration scale (motion.test green).
   - **Travel:** reduced enter/exit travel (y 12/10→8/6, x 28→20) so pages land closer to their final position.
