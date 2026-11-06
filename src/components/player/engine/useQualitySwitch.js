@@ -272,7 +272,10 @@ const pickQuality = async (uri, height, opts = {}) => {
         // The timeout must ALSO detach: previously cleanup() ran only on the
         // frame event, so every audio/quality switch where the frame missed the
         // 4s window left a dead canplay/loadeddata pair (and its timer) behind.
-        frameTimer = setTimeout(cleanup, 4000);
+        frameTimer = setTimeout(() => {
+          cleanup();
+          resolve();
+        }, 4000);
       });
     }
     if (!isCurrent()) return false;

@@ -9,7 +9,7 @@ import { useMotionTokens } from "../../../constants/motion";
 
 export default function UpNextCard({ upNext, upNextMs, onPlayNow, onCancel }) {
   const M = useMotionTokens(useReducedMotion());
-  const seconds = Math.max(1, Math.round(upNextMs / 1000));
+  const seconds = Math.max(1, Math.round((Number(upNextMs) || 0) / 1000));
   const epLabel = upNext?.title
     ? `E${upNext.number} · ${upNext.title}`
     : `Episode ${upNext?.number}`;

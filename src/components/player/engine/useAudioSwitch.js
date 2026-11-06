@@ -265,7 +265,7 @@ const pickDub = async (index) => {
   // the switch's whole life and take playback up again when it settles (or
   // when the swap turns out to be impossible and the old track stays).
   const wasPlayingAtPick = Boolean(videoRef.current && !videoRef.current.paused);
-  if (wasPlayingAtPick) videoRef.current.pause();
+  if (wasPlayingAtPick) videoRef.current?.pause();
   const resumePausedPlayback = () => {
     if (!wasPlayingAtPick) return;
     const video = videoRef.current;

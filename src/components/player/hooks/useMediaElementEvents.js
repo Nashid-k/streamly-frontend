@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { HOLD_SPEED } from "../../../constants/playerUi";
 
 // The video element is the honest stall detector and the single source of truth
 // for the HUD's state. All of it lives here now: the event -> state mirror.
@@ -15,6 +16,7 @@ export default function useMediaElementEvents({
   setActiveSubtitle,
   hasStartedRef,
   pendingResumeRef,
+  pendingSeekRef,
   hold2xRef,
   subtitleEngineRef,
   subtitleEnabledRef,

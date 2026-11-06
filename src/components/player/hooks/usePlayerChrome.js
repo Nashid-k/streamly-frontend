@@ -142,10 +142,11 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
   /* One auto-advance happened: count it, and offer the prompt once the binge
      threshold is reached. Returns nothing — the caller's flow is unchanged. */
   const recordAutoAdvance = useCallback(() => {
-    if (swAutoAdvRef.current + 1 >= STILL_WATCHING_EPISODES) {
-      offerStillWatching("binge");
-    }
     swAutoAdvRef.current += 1;
+    if (swAutoAdvRef.current >= STILL_WATCHING_EPISODES) {
+      offerStillWatching("binge");
+      swAutoAdvRef.current = 0;
+    }
   }, [offerStillWatching]);
 
   // Rolling 2h idle timer while playing, armed once and re-poked by `poke`.

@@ -1386,6 +1386,7 @@ export default function NativePlayerView({
     setActiveSubtitle,
     hasStartedRef,
     pendingResumeRef,
+    pendingSeekRef,
     hold2xRef,
     subtitleEngineRef,
     subtitleEnabledRef,

@@ -132,10 +132,10 @@ export default function usePlayerKeyboard({
           goFullscreen();
           break;
         case "episode-next":
-          keyboardEpNextRef.current();
+          keyboardEpNextRef.current?.();
           break;
         case "episode-prev":
-          keyboardEpPrevRef.current();
+          keyboardEpPrevRef.current?.();
           break;
         case "speed-up":
           cyclePlaybackRateRef.current?.(1);
