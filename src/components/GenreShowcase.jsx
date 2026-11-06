@@ -1,7 +1,6 @@
 import { useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { DURATION, EASE_OUT } from "../constants/motion";
+import FadeInSection from "./rails/FadeInSection";
 import { movieService } from "../api/movieService";
 import { DiscoveryRail } from "./DiscoveryRails";
 import SkeletonRail from "./SkeletonRail";
@@ -122,16 +121,11 @@ function GenreRail({ rail, mediaTypes, limit }) {
     <div ref={sentinelRef}>
       {isLoading && <SkeletonRail />}
       {movies.length > 0 && (
-        <motion.section
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: DURATION.MED, ease: EASE_OUT }}
-        >
+        <FadeInSection>
           <ErrorBoundary>
             <DiscoveryRail section={section} />
           </ErrorBoundary>
-        </motion.section>
+        </FadeInSection>
       )}
     </div>
   );

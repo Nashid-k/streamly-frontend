@@ -554,11 +554,15 @@
     bottom: 1rem !important;
   }
 }
+/* Fixed-track markers (Phase C A/B): every dot is one permanent 52x7 slot, so a
+   featured rotation only swaps background colors instead of transitioning
+   `width` (which reflowed the pills row each cycle). Idle slots read wider and
+   airier than the old 18px pills - deliberate look change, cheap to revert. */
 .hero-dot {
-  width: 18px;
+  width: 52px;
   height: 7px;
   border-radius: var(--radius-full);
-  background: rgba(var(--white-rgb), 0.35);
+  background: rgba(var(--white-rgb), 0.28);
   border: none;
   outline: none;
   appearance: none;
@@ -569,7 +573,7 @@
   overflow: hidden;
   padding: 0;
   margin: 0;
-  transition: width var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
+  transition: background var(--duration-fast) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
 .hero-dot:hover {
@@ -577,7 +581,6 @@
 }
 }
 .hero-dot--active {
-  width: 52px;
   background: rgba(var(--white-rgb), 0.18);
   box-shadow: none;
 }

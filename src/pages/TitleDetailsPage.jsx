@@ -47,6 +47,7 @@ import {
 import {
   motion,
   AnimatePresence,
+  useReducedMotion,
 } from "framer-motion";
 import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
@@ -290,6 +291,7 @@ export default function TitleDetails() {
 
   const directorRailRef = useRef(null);
   const pageRef = useRef(null);
+  const reduceMotion = useReducedMotion();
   const { canScrollLeft, canScrollRight, refresh } = useRailArrows(directorRailRef);
 
   const scrollDirector = (dir) => {
@@ -1726,7 +1728,7 @@ export default function TitleDetails() {
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 12 }}
                         transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
-                        whileHover={{ background: 'rgba(255,255,255,0.04)' }}
+                        whileHover={reduceMotion ? undefined : { background: 'rgba(255,255,255,0.04)' }}
                         whileTap={playable ? { scale: PRESS_SCALE.ROW } : undefined}
                         role={playable ? "button" : undefined}
                         tabIndex={playable ? 0 : undefined}
@@ -1809,7 +1811,7 @@ export default function TitleDetails() {
                       }}
                     >
                       <motion.button
-                        whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
+                        whileHover={reduceMotion ? undefined : { scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
                         whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => setVisibleEpisodeCount((prev) => Math.min(episodes.length, prev + EPISODES_CHUNK_SIZE))}
                         style={{
@@ -1850,7 +1852,7 @@ export default function TitleDetails() {
                       }}
                     >
                       <motion.button
-                        whileHover={{ scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
+                        whileHover={reduceMotion ? undefined : { scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
                         whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => setVisibleEpisodeCount(EPISODES_CHUNK_SIZE)}
                         style={{
@@ -2148,7 +2150,7 @@ export default function TitleDetails() {
                       borderRadius: "4px",
                       flexShrink: 0,
                     }}
-                    whileHover={{ background: "rgba(255,255,255,0.1)" }}
+                    whileHover={reduceMotion ? undefined : { background: "rgba(255,255,255,0.1)" }}
                     whileTap={{ opacity: 0.6 }}
                   >
                     <ChevronLeft size={22} strokeWidth={2.2} />
@@ -2191,7 +2193,7 @@ export default function TitleDetails() {
                       cursor: "pointer",
                       marginLeft: "0.25rem",
                     }}
-                    whileHover={{
+                    whileHover={reduceMotion ? undefined : {
                       background: "rgba(255,255,255,0.18)",
                       scale: 1.1,
                     }}

@@ -38,8 +38,6 @@
   color: #fff;
   cursor: pointer;
   opacity: 0;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.36);
   transition: opacity var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
@@ -73,8 +71,6 @@
   border-radius: 50%;
   background: rgba(8, 8, 10, 0.72);
   color: var(--accent-primary, var(--accent-color));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.36);
   pointer-events: none;
 }
@@ -116,8 +112,6 @@
   color: var(--accent-primary, var(--accent-color));
   cursor: pointer;
   opacity: 0;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.36);
   transition: opacity var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }

@@ -1,6 +1,5 @@
 import { useMemo, useRef, useEffect, useCallback, memo } from "react";
-import { motion } from "framer-motion";
-import { DURATION, EASE_OUT } from "../constants/motion";
+import FadeInSection from "./rails/FadeInSection";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { movieService } from "../api/movieService";
@@ -243,17 +242,11 @@ const DiscoveryRails = memo(function DiscoveryRails({ limit = 20 } = {}) {
       {loading
         ? [1, 2, 3].map((rail) => <SkeletonRail key={rail} />)
         : sections.map((section) => (
-            <motion.section
-              key={section.id}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{ duration: DURATION.MED, ease: EASE_OUT }}
-            >
+            <FadeInSection key={section.id}>
               <ErrorBoundary>
                 <DiscoveryRail section={section} />
               </ErrorBoundary>
-            </motion.section>
+            </FadeInSection>
           ))}
     </div>
   );

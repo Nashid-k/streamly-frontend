@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { PRESS_SCALE } from "../constants/motion";
 import { AlertTriangle, Clock } from "lucide-react";
 import useDetailView from "../hooks/useDetailView";
@@ -17,6 +17,7 @@ import { useI18n } from "../i18n/index.jsx";
 export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
   const { t } = useI18n();
   const { openDetails, modalHost } = useDetailView();
+  const reduceMotion = useReducedMotion();
   if (!items || items.length === 0) return null;
 
   const displayed = items.slice(0, maxDisplay);
@@ -59,7 +60,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
           <motion.button
             type="button"
             key={item.id || idx}
-            whileHover={{ background: "rgba(255,255,255,0.06)" }}
+            whileHover={reduceMotion ? undefined : { background: "rgba(255,255,255,0.06)" }}
             whileTap={{ scale: PRESS_SCALE.ROW, background: "rgba(255,255,255,0.08)" }}
             onClick={() => openDetails(item)}
             style={{

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { DURATION, EASE_IN, EASE_OUT, PRESS_SCALE } from "../../constants/motion";
 import { ChevronDown } from "lucide-react";
 
@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const reduceMotion = useReducedMotion();
   const seasonOptions = seasons.length > 0
     ? seasons
     : [{ seasonNumber: selectedSeason, name: `Season ${selectedSeason}` }];
@@ -30,7 +31,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
     <div ref={ref} style={{ position: "relative", zIndex: 20 }}>
       <motion.button
         onClick={() => setOpen((o) => !o)}
-        whileHover={{ borderColor: "rgba(255,255,255,0.35)" }}
+        whileHover={reduceMotion ? undefined : { borderColor: "rgba(255,255,255,0.35)" }}
         whileTap={{ scale: PRESS_SCALE.CONTROL }}
         style={{
           display: "flex",
@@ -126,7 +127,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                       setOpen(false);
                       onSelect(seasonNumber);
                     }}
-                    whileHover={{ background: "rgba(255,255,255,0.08)" }}
+                    whileHover={reduceMotion ? undefined : { background: "rgba(255,255,255,0.08)" }}
                     style={{
                       width: "100%",
                       display: "flex",
