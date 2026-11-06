@@ -49,7 +49,7 @@ import { rateLimit, tooManyRequests, clientIp } from "../server/rateLimit.js";
 import { countUsage } from "../server/usage.js";
 import { assertPublicDestination } from "../server/ssrf.js";
 import { applyCors } from "../server/cors.js";
-import { logWarn, logError } from "../src/utils/debugLogger.js";
+import { logInfo, logWarn, logError } from "../src/utils/debugLogger.js";
 import {
   json,
   fetchUpstream,
@@ -2282,6 +2282,7 @@ async function handleResolveRivo(body, res) {
   let subtitles;
   let serverName = server;
   let providerName = "rivo";
+  const startedAt = Date.now();
   try {
     /* 30s of the 60s maxDuration — RIVO resolves JSON; hanging on it starves
        every other leg of the playback pipeline. */
@@ -2298,15 +2299,58 @@ async function handleResolveRivo(body, res) {
         "sec-fetch-dest": "empty",
       },
     });
-    const data = await upstream.json();
+    const raw = await upstream.text();
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      // The body is HTML/empty/truncated rather than the JSON contract: surface
+      // a bounded preview so a WAF/challenge page is distinguishable from an
+      // empty roster. No source URLs can leak here because there are none.
+      logWarn("rivo", "RIVO response was not JSON", {
+        status: upstream.status,
+        body: raw.slice(0, 300),
+      });
+      throw error;
+    }
+    const elapsedMs = Date.now() - startedAt;
     if (!upstream.ok) {
+      logWarn("rivo", "RIVO source resolve returned non-2xx", {
+        status: upstream.status,
+        server,
+        elapsedMs,
+        body: raw.slice(0, 300),
+      });
       json(res, 200, { ok: false, error: `Could not resolve source on RIVO ${serverName}`, code: "upstream" });
       return;
     }
     serverName = String(data?.server || server);
     providerName = String(data?.provider || "rivo");
-    sources = Array.isArray(data?.sources) ? data.sources.filter((s) => s && s.url) : [];
+    const allSources = Array.isArray(data?.sources) ? data.sources : [];
+    sources = allSources.filter((s) => s && s.url);
     subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
+    if (!sources.length) {
+      // The roster came back empty — the case that took Server 1 down. Log the
+      // provider/server echo and raw body so an upstream outage is not confused
+      // with a shape change or an auth failure. Empty body means no URL leak.
+      logWarn("rivo", "RIVO returned no usable sources", {
+        status: upstream.status,
+        provider: providerName,
+        server: serverName,
+        rawSources: allSources.length,
+        elapsedMs,
+        body: raw.slice(0, 300),
+      });
+    } else {
+      logInfo("rivo", "RIVO source resolved", {
+        status: upstream.status,
+        provider: providerName,
+        server: serverName,
+        sources: sources.length,
+        subtitles: subtitles?.length || 0,
+        elapsedMs,
+      });
+    }
   } catch (error) {
     logWarn("stream", "RIVO source resolve failed", { message: error?.message });
     json(res, 200, { ok: false, error: "RIVO source host unreachable", code: "upstream" });
