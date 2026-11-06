@@ -510,9 +510,9 @@ export default function PlayerMenus({
     return (
       <div className="np-pbody">
         <div className="np-lbl first">Control icon size</div>
-        {/* `.np-vol-slider` was on this input, so it inherited the volume
-            control's collapsed state (width 0, opacity 0) and the slider was
-            invisible and unusable. A plain v4 `.range` is what the pane wants. */}
+        {/* A former `.np-vol-slider` here inherited the volume control's
+            collapsed state (width 0, opacity 0) and was unusable. A plain v4
+            `.range` is what the pane wants. */}
         <input
           type="range"
           className="range"

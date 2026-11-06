@@ -144,15 +144,12 @@ export default function BottomChrome({
             <div className="trk" id="trk" aria-hidden="true">
               <i className="buf" id="buf" style={{ transform: `scaleX(${bufRatio})` }} />
               <i className="played" id="played" style={{ transform: `scaleX(${ratio})` }} />
-              <i className="knob" id="knob" style={{ left: `${ratio * 100}%` }} />
+              <i className="knob" id="knob" style={{ "--p": ratio }} />
               {hoverRatio != null && durNum > 0 ? (
                 <span
                   className={["tip", previewUrl ? "has-th" : ""].filter(Boolean).join(" ")}
                   id="tip"
-                  style={{
-                    left: `${hoverPct}%`,
-                    "--x": `${hoverPct}%`,
-                  }}
+                  style={{ "--hp": hoverPct }}
                 >
                   <span className="tp" id="tp" style={previewUrl ? { width: thumbW, height: thumbH } : undefined}>
                     {previewUrl ? (

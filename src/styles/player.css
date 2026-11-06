@@ -200,7 +200,7 @@
   to   { transform: scaleX(0); }
 }
 
-/* Volume slider styles live with the deck chips below (.np-vol-range). */
+/* Volume slider styles live with the deck chips (.vs) below. */
 
 /* Transport icon buttons — subtle scale on active */
 .np-icon-btn {
@@ -256,7 +256,6 @@
 /* Keyboard focus must be visible: every player control is reachable by Tab, and
    a player that hides focus is a player blind keyboard users cannot use. */
 .np-icon-btn:focus-visible,
-.np-scrub:focus-visible,
 .np-dialog-row:focus-visible,
 .np-skip-intro:focus-visible,
 .np-resume-btn:focus-visible,
@@ -274,46 +273,10 @@
    carry an elevation shadow keep just the ring so the halo does not flatten
    them. */
 .np-icon-btn:focus-visible,
-.np-scrub:focus-visible,
 .np-skip-intro:focus-visible,
 .np-dialog-row:focus-visible,
 .np-episode-card:focus-visible {
   box-shadow: 0 0 0 4px rgba(var(--black-rgb), 0.55);
-}
-
-/* Scrubber: the bar grows a hair (inline height) and the accent glow blooms on
-   hover/focus/drag. No transform here — the whole hit area (and the floating
-   preview above it) must not scale with the line. */
-.np-scrub {
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  touch-action: none;
-}
-.np-scrub-line {
-  transition: height var(--zxc-t-fast) var(--zxc-ease),
-    box-shadow var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-scrub:hover .np-scrub-line,
-.np-scrub:focus-visible .np-scrub-line,
-.np-scrub.scrub-active .np-scrub-line {
-  box-shadow: 0 0 0 1px rgba(var(--np-accent-rgb), 0.4),
-    0 0 24px rgba(var(--np-accent-rgb), 0.25);
-}
-.np-scrub-dot {
-  transition: width var(--zxc-t-fast) var(--zxc-ease),
-    height var(--zxc-t-fast) var(--zxc-ease),
-    box-shadow var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-scrub:hover .np-scrub-dot,
-.np-scrub:focus-visible .np-scrub-dot,
-.np-scrub.scrub-active .np-scrub-dot {
-  box-shadow: 0 0 0 6px rgba(var(--np-accent-rgb), 0.25),
-    0 2px 12px rgba(0, 0, 0, 0.6);
-}
-.np-scrub:hover .np-scrub-dot,
-.np-scrub:focus-visible .np-scrub-dot {
-  box-shadow: 0 0 0 6px rgba(var(--np-accent-rgb), 0.2),
-    0 2px 10px rgba(0, 0, 0, 0.55);
 }
 
 /* Skip Intro pill hover */
@@ -429,14 +392,12 @@
   .np-icon-btn,
   .np-icon-btn::before,
   .np-icon-btn > svg,
-  .np-scrub,
   .np-skip-intro,
   .np-resume-btn,
   .np-restart-btn,
   .np-dialog-row,
   .np-episode-card,
   .player .np-subtitle,
-  .np-volume-slider,
   .np-panel-surface {
     transition: none !important;
     -webkit-transition: none !important;
@@ -445,13 +406,11 @@
   }
   .np-icon-btn:hover:not(:disabled),
   .np-icon-btn:hover:not(:disabled) > svg,
-  .np-scrub:hover,
   .np-skip-intro:hover,
   .np-episode-card:hover,
   .np-resume-btn:hover,
   .np-restart-btn:hover,
-  .np-dialog-row:hover,
-  .np-volume-slider:hover {
+  .np-dialog-row:hover {
     transform: none !important;
   }
   .np-icon-btn:hover:not(:disabled)::before {
@@ -576,7 +535,6 @@
      without it every tap on a row was a one-frame jolt. */
   transition: background var(--zxc-t-fast) var(--zxc-ease),
     color var(--zxc-t-fast) var(--zxc-ease),
-    padding-left var(--zxc-t-med) var(--zxc-ease),
     transform var(--zxc-t-instant) var(--zxc-ease),
     box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
@@ -584,7 +542,6 @@
    CURRENT choice look like an idle row just by moving the pointer over it. */
 .np-dialog-row:hover:not(:disabled):not([aria-pressed="true"]) {
   background: var(--zxc-surface-2) !important;
-  padding-left: 6px;
 }
 /* The current choice has to be readable at a glance — a brand-red rail, a
    brighter plate and full-white label — instead of being inferred from which
@@ -594,7 +551,18 @@
   background: rgba(255, 255, 255, 0.16) !important;
   box-shadow: inset 3px 0 0 var(--np-accent), inset 0 0 0 1px rgba(var(--np-accent-rgb), 0.22);
   color: #fff !important;
-  padding-left: 8px;
+}
+/* Indent rides the compositor: the only materialized case (sheet + menu) is a
+   pressed row nudging its leading content on hover (was `padding-left: .9em`,
+   ≈ +.15em at the row's 24px font). Trailing check/val stay put, as with the
+   old padding. */
+.np-dialog-row .np-opt-ico,
+.np-dialog-row .np-opt-name {
+  transition: translate var(--zxc-t-med) var(--zxc-ease);
+}
+.np-dialog-row[aria-pressed="true"]:hover:not(:disabled) .np-opt-ico,
+.np-dialog-row[aria-pressed="true"]:hover:not(:disabled) .np-opt-name {
+  translate: .15em 0;
 }
 .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.22) !important;
@@ -660,7 +628,10 @@
   .np-dialog-row:hover:not(:disabled),
   .np-skip-intro:hover {
     transform: none !important;
-    padding-left: 0 !important;
+  }
+  .np-dialog-row:hover:not(:disabled) .np-opt-ico,
+  .np-dialog-row:hover:not(:disabled) .np-opt-name {
+    translate: none !important;
   }
 }
 
@@ -672,12 +643,6 @@
    above; this block is intentionally empty of a second `box-shadow` so the two
    rules cannot overwrite each other (they did — the later one dropped the
    rail). */
-/* Volume slider: zinc track, brand thumb */
-.np-volume-slider::-webkit-slider-runnable-track {
-  background: var(--zxc-line-strong);
-}
-
-
 /* == Sweep polish: episode-card hover lift (their card language) ========= */
 .np-episode-card {
   transition: transform var(--zxc-t-med) var(--zxc-ease);
@@ -755,91 +720,6 @@
 .np-time-pill:hover {
   background: rgba(12, 16, 13, 0.36);
   border-color: rgba(255, 255, 255, 0.06);
-}
-
-/* Volume chip: widens on hover to reveal the slider. */
-.np-vol-pill {
-  width: 54px;
-  overflow: hidden;
-  justify-content: flex-start !important;
-  transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
-    background var(--zxc-t-fast) var(--zxc-ease),
-    border-color var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-vol-pill:hover,
-.np-vol-pill:focus-within,
-.np-vol-pill.expanded {
-  width: 200px;
-}
-.np-vol-pill .np-tip-wrap {
-  flex-shrink: 0;
-}
-
-/* Slider inside the chip: accent fill to the current volume (--vol), expanding
-   smoothly when the chip widens. */
-.np-vol-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 0;
-  opacity: 0;
-  height: 28px;
-  margin: 0;
-  pointer-events: none;
-  background: transparent;
-  cursor: pointer;
-  transition: width var(--zxc-t-fast) cubic-bezier(0.4, 0, 0.2, 1),
-    opacity var(--zxc-t-fast) var(--zxc-ease),
-    margin var(--zxc-t-fast) var(--zxc-ease);
-}
-.np-vol-pill:hover .np-vol-range,
-.np-vol-pill:focus-within .np-vol-range,
-.np-vol-pill.expanded .np-vol-range {
-  width: 130px;
-  opacity: 1;
-  margin-left: 6px;
-  pointer-events: auto;
-}
-.np-vol-range::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: linear-gradient(
-    90deg,
-    var(--np-accent) 0 var(--vol, 0%),
-    rgba(255, 255, 255, 0.22) var(--vol, 0%) 100%
-  );
-}
-.np-vol-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--np-accent);
-  margin-top: -4px;
-  box-shadow: 0 0 10px rgba(var(--np-accent-rgb), 0.45);
-  transition: transform var(--zxc-t-instant) var(--zxc-ease);
-}
-.np-vol-range:hover::-webkit-slider-thumb {
-  transform: scale(1.2);
-}
-.np-vol-range::-moz-range-track {
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.22);
-}
-.np-vol-range::-moz-range-progress {
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--np-accent);
-}
-.np-vol-range::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--np-accent);
-  box-shadow: 0 0 10px rgba(var(--np-accent-rgb), 0.45);
 }
 
 /* Fullscreen button wrapper (kept so the tooltip can anchor to it). */
@@ -993,13 +873,9 @@
 @media (prefers-reduced-motion: reduce) {
   .np-deck,
   .np-pill,
-  .np-vol-pill,
-  .np-vol-range,
   .np-dialog-row,
   .np-dialog-row::before,
-  .np-dialog-row-icon,
-  .np-scrub-line,
-  .np-scrub-dot {
+  .np-dialog-row-icon {
     transition: none !important;
     -webkit-transition: none !important;
     animation: none !important;
@@ -1111,77 +987,6 @@
   }
 }
 
-/* ── Progress hairline ─────────────────────────────────────────────────── */
-.np-progress {
-  position: absolute;
-  left: 44px;
-  right: 33px;
-  bottom: 94px;
-  height: 5px;
-  background: var(--np-track);
-  border-radius: 3px;
-  z-index: 6;
-  cursor: pointer;
-  touch-action: none;
-  transition: height var(--duration-fast) var(--np-ease), opacity var(--duration-slow) var(--np-ease), transform var(--duration-slow) var(--np-ease);
-}
-.np-progress::before {
-  content: "";
-  position: absolute;
-  inset: -16px 0;
-}
-.np-progress:hover,
-.np-progress:focus-visible,
-.np-progress.hover {
-  height: 9px;
-}
-.np-progress-played {
-  position: relative;
-  height: 100%;
-  background: var(--np-accent);
-  border-radius: 3px;
-  transition: width var(--duration-normal) var(--np-ease);
-}
-.np-progress-played::after {
-  content: "";
-  position: absolute;
-  right: -9px;
-  top: 50%;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 4px rgba(var(--np-accent-rgb), 0.45);
-  transform: translateY(-50%) scale(0);
-  transition: transform var(--duration-fast) var(--np-ease);
-}
-.np-progress:hover .np-progress-played::after,
-.np-progress:focus-visible .np-progress-played::after,
-.np-progress.hover .np-progress-played::after {
-  transform: translateY(-50%) scale(1);
-}
-.np-progress-tip {
-  position: absolute;
-  bottom: 26px;
-  left: 0;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(10, 14, 18, 0.9);
-  font-size: 18px;
-  font-weight: 500;
-  color: #fff;
-  transform: translateX(-50%) translateY(6px);
-  opacity: 0;
-  pointer-events: none;
-  white-space: nowrap;
-  transition: opacity var(--duration-fast) var(--np-ease), transform var(--duration-fast) var(--np-ease);
-}
-.np-progress-tip.show,
-.np-progress:hover .np-progress-tip {
-  opacity: 1;
-  transform: translateX(-50%);
-}
-
 /* ── Control row ───────────────────────────────────────────────────────── */
 .np-controls {
   position: absolute;
@@ -1239,51 +1044,6 @@
 .np-skip-r {
   margin-left: 26px;
 }
-.np-vol-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-left: 34px;
-  flex: none;
-}
-.np-vol-slider {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 0;
-  height: 6px;
-  margin-left: 0;
-  opacity: 0;
-  border-radius: 3px;
-  outline: 0;
-  cursor: pointer;
-  background: linear-gradient(to right, var(--np-accent) var(--vol, 50%), #3a4044 var(--vol, 50%));
-  transition: width var(--duration-normal) var(--np-ease), opacity var(--duration-fast) var(--np-ease), margin-left var(--duration-normal) var(--np-ease);
-}
-.np-vol-wrap.expanded .np-vol-slider {
-  width: 110px;
-  margin-left: 8px;
-  opacity: 1;
-}
-.np-vol-slider::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 0;
-}
-.np-vol-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 0;
-}
-.np-vol-slider:focus-visible {
-  outline: 2px solid var(--np-accent);
-  outline-offset: 3px;
-}
 .np-ctl-time {
   margin-left: 20px;
   font-size: 24px;
@@ -1313,8 +1073,7 @@
 /* Auto-hide the chrome without unmounting it (the controls stay in the tab
    order only while visible: `inert` is set in the component). */
 .np-topbar,
-.np-controls,
-.np-progress {
+.np-controls {
   transition: height var(--duration-fast) var(--np-ease), opacity var(--duration-slow) var(--np-ease), transform var(--duration-slow) var(--np-ease);
 }
 .np-chrome-hidden {
@@ -1324,8 +1083,7 @@
 .np-topbar.np-chrome-hidden {
   transform: translateY(-10px);
 }
-.np-controls.np-chrome-hidden,
-.np-progress.np-chrome-hidden {
+.np-controls.np-chrome-hidden {
   transform: translateY(10px);
 }
 
@@ -1710,13 +1468,11 @@
 }
 .np-menu .np-dialog-row:hover:not(:disabled):not([aria-pressed="true"]) {
   background: #14202b !important;
-  padding-left: 18px !important;
 }
 .np-menu .np-dialog-row[aria-pressed="true"] {
   background: none !important;
   box-shadow: none !important;
   color: #fff !important;
-  padding-left: 18px !important;
 }
 .np-menu .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
   background: #14202b !important;
@@ -2044,11 +1800,6 @@
     font-size: 20px;
     max-width: calc(100vw - 120px);
   }
-  .np-progress {
-    left: 20px;
-    right: 20px;
-    bottom: 78px;
-  }
   .np-controls {
     height: 76px;
     padding: 0 16px;
@@ -2071,9 +1822,6 @@
   .np-skip-r {
     margin-left: 8px;
   }
-  .np-vol-wrap {
-    margin-left: 10px;
-  }
   .np-ctl-time {
     font-size: 16px;
     margin-left: 12px;
@@ -2085,9 +1833,6 @@
 
 @media (max-width: 560px) {
   .np-ctl-time {
-    display: none;
-  }
-  .np-vol-wrap .np-vol-slider {
     display: none;
   }
   .np-ctl-right {
@@ -2109,9 +1854,6 @@
 @media (prefers-reduced-motion: reduce) {
   .np-topbar,
   .np-controls,
-  .np-progress,
-  .np-progress-played,
-  .np-progress-played::after,
   .np-ctl-btn,
   .np-back svg,
   .np-title,
@@ -2409,25 +2151,25 @@
   display: flex;
   align-items: center;
 }
+/* Reserved slider space: the margins are static, so the reveal animates
+   width+opacity only — no margin layout per hover. */
 .np-root .vs {
   -webkit-appearance: none;
   appearance: none;
   width: 0;
   opacity: 0;
   height: .4em;
-  margin: 0;
+  margin: 0 .7em 0 .2em;
   border-radius: 1em;
   cursor: pointer;
   outline: 0;
   background: linear-gradient(90deg, #fff var(--p, 100%), #ffffff33 0);
-  transition: width 300ms var(--ease), opacity 200ms var(--ease), margin 300ms var(--ease);
+  transition: width 300ms var(--ease), opacity 200ms var(--ease);
 }
 .volg:hover .vs,
-.volg:focus-within .vs,
-.np-vol-wrap.expanded .vs {
+.volg:focus-within .vs {
   width: 5em;
   opacity: 1;
-  margin: 0 .7em 0 .2em;
 }
 .np-root .vs::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -2524,7 +2266,10 @@
 /* Seek thumbnails */
 .np-root .tip {
   --hw: 1.6em;
-  left: clamp(var(--hw), var(--x, 0px), calc(100% - var(--hw)));
+  left: 0;
+  /* --hp carries the hover percent as a bare number; 1cqw = 1% of track.
+     Edge clamping matches the old left-clamp exactly. */
+  translate: clamp(var(--hw), calc(var(--hp, 0) * 1cqw), calc(100cqw - var(--hw))) 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2839,6 +2584,9 @@
   position: relative;
   flex: 1;
   height: .3em;
+  /* Query container for the knob/tip: cqw tracks its inline size so the
+     playhead/preview ride a compositor translate, not a left layout. */
+  container-type: inline-size;
   border-radius: 1em;
   background: #ffffff33;
   transition: height 200ms var(--ease);
@@ -2868,9 +2616,11 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 0 .25em color-mix(in srgb, var(--accent) 45%, transparent);
-  translate: 0 0;
+  /* Position by --p (0..1) against the track's inline size (container .trk):
+     a translate that transitions on the compositor instead of a `left`. */
+  translate: calc(var(--p, 0) * 100cqw) 0;
   scale: 0;
-  transition: scale 200ms var(--ease), left 250ms linear;
+  transition: scale 200ms var(--ease), translate 250ms linear;
 }
 .seek:hover .knob,
 .seek.drag .knob,
@@ -3133,8 +2883,9 @@
 .np-root .ld .a1 {
   stroke: url(#lg);
   stroke-width: 5;
+  /* Static dash — every frame of an animated dasharray re-rasterizes the arc. */
   stroke-dasharray: 22 78;
-  animation: ldSpin 1150ms linear infinite, ldDash 2200ms ease-in-out infinite;
+  animation: ldSpin 1150ms linear infinite;
 }
 .np-root .ld .a2 {
   stroke: #fffc;
@@ -3147,10 +2898,6 @@
 }
 @keyframes ldSpinR {
   to { transform: rotate(-360deg); }
-}
-@keyframes ldDash {
-  0%, 100% { stroke-dasharray: 12 88; }
-  50% { stroke-dasharray: 48 52; }
 }
 
 .np-root .ld.np-v4-loader,
@@ -3235,15 +2982,17 @@
 }
 .np-root .hd .bk {
   width: 44px;
+  min-width: 0;
+  padding: .5em 0;
   margin-left: -.4em;
   overflow: hidden;
-  transition: min-width 400ms var(--ease), width 400ms var(--ease), padding 400ms var(--ease), margin 400ms var(--ease), opacity 250ms var(--ease), transform 200ms var(--ease), background 200ms var(--ease);
+  /* Single-axis collapse: width + fade only. The btn floor (min-width:44px)
+     is zeroed and side padding kept so the title slides on width alone
+     instead of a 4-axis min-width/padding/margin layout scramble. */
+  transition: width 400ms var(--ease), opacity 250ms var(--ease), transform 200ms var(--ease), background 200ms var(--ease);
 }
 .hd .bk.hide {
-  min-width: 0;
   width: 0;
-  padding: .5em 0;
-  margin: 0 -.2em 0 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -4052,7 +3801,6 @@
 
 .sheet .np-dialog-row:hover:not(:disabled),
 .sheet .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
-  padding-left: .9em !important;
   background: #ffffff14 !important;
 }
 
@@ -4154,5 +3902,4 @@
 .np-resume-card .np-restart-btn:active {
   transform: scale(var(--press-scale));
 }
-
 
