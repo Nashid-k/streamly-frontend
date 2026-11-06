@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **RIVO diagnostic logging pass (user: `dig rivo.st then and find the cause`) - 2026-11-06 (commit `7ecd868`).**
+  - `handleResolveRivo` now logs `[Streamly][rivo]` status, provider/server echo, raw source count, elapsed ms, and a 300-char body preview on: non-JSON body, non-2xx, and empty roster. Success logs counts only (no URLs).
+  - Switched `upstream.json()` -> `upstream.text()` + `JSON.parse` so the raw body is available for the preview; parse failures still throw into the existing `host unreachable` path, so behaviour is unchanged.
+  - Why: live `f.rivo.st/api/source/...` returns `sources: []` for every title probed; these logs distinguish upstream outage vs. shape change vs. WAF/challenge without touching rivo's secrets.
+  - Gates green: lint 0 errors; full suite 120 files / 1465 tests; build exit 0. Net +47/-3.
+
 - [x] **RIVO Server 1 (rivo) dead upstream** - investigation + fallback - 2026-11-06 (commit `ea735b6`).
   - Tested RIVO's actual server: empty sources for all titles. Root cause: upstream outage/contract change. Fix: rivo-1 row falls back to ZXC Orion. Gates green. Net +7/-1.
 
