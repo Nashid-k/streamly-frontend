@@ -137,6 +137,12 @@ export default function useHold2x({ videoRef, playbackRate, playbackRateRef, med
      arming 2x. */
   useEffect(() => {
     if (hold2xRef.current || holdTimerRef.current) releaseHold2x();
+    return () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaKey]);
 

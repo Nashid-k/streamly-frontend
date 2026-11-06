@@ -346,6 +346,8 @@ export default function NativePlayerView({
      `mergeBoundaries` is declared (its state lives further down). The ref is
      assigned on every render; the hook reads it when cue tags arrive. */
   const mergeBoundariesRef = useRef(null);
+  const onProgressChangeRef = useRef(onProgressChange);
+  onProgressChangeRef.current = onProgressChange;
   // Rapid quality switches stamp a token and re-check it after every await.
   const switchTokenRef = useRef(0);
   // User-initiated in-manifest audio switches (hls.audioTrack) — gate events so
@@ -1012,7 +1014,9 @@ export default function NativePlayerView({
 
   // Progress sink: report every ~5s while playing (>10s in, so a 3s peek never writes).
   useEffect(() => {
-    if (!playing || !onProgressChange) return undefined;
+    if (!playing) return undefined;
+    const onProgressChange = onProgressChangeRef.current;
+    if (!onProgressChange) return undefined;
     const save = () => {
       const video = videoRef.current;
       if (!video) return;
@@ -1026,7 +1030,7 @@ export default function NativePlayerView({
     save();
     const iv = setInterval(save, 1000);
     return () => clearInterval(iv);
-  }, [playing, onProgressChange]);
+  }, [playing]);
 
 
   /* Settings-sheet focus management. Two real problems: focus was never moved

@@ -308,15 +308,35 @@ export default function useSourceResolve({
     let revealCleanup = () => {};
     const revealStageWhenReady = () => {
       const video = videoRef.current;
+      let cleaned = false;
+      let finished = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        if (video) {
+          video.removeEventListener("loadeddata", onReady);
+          video.removeEventListener("canplay", onReady);
+          video.removeEventListener("seeked", onReady);
+        }
+        clearTimeout(timer);
+      };
       const finish = () => {
-        revealCleanup();
-        if (runRef.current !== run) return;
+        if (finished) return;
+        if (runRef.current !== run) {
+          cleanup();
+          return;
+        }
         /* A user audio pick that armed after this reveal started owns the
            stage now. The reveal's 2.5s fallback exists only for "no frame ever
            decoded"; letting it fire mid-switch blanked the loader while the
            new track was still loading (the switch's own confirmation or its
            timeout clears the stage). */
-        if (audioSwitchRef.current) return;
+        if (audioSwitchRef.current) {
+          cleanup();
+          return;
+        }
+        finished = true;
+        cleanup();
         setStageWhileLoading(false);
         setServerSwitchStage(false);
         setSwitchingNote(null);
@@ -337,13 +357,14 @@ export default function useSourceResolve({
       video.addEventListener("loadeddata", onReady);
       video.addEventListener("canplay", onReady);
       video.addEventListener("seeked", onReady);
-      const timer = setTimeout(finish, 2500);
-      revealCleanup = () => {
-        video.removeEventListener("loadeddata", onReady);
-        video.removeEventListener("canplay", onReady);
-        video.removeEventListener("seeked", onReady);
-        clearTimeout(timer);
-      };
+      const timer = setTimeout(() => {
+        if (runRef.current !== run) {
+          cleanup();
+          return;
+        }
+        finish();
+      }, 2500);
+      revealCleanup = cleanup;
     };
 
     (async () => {
@@ -592,7 +613,7 @@ export default function useSourceResolve({
                 setTransportRelay(false);
               },
               // Manifest cue tags, when present, replace the guessed skip windows.
-              onCueBoundaries: (bounds) => mergeBoundariesRef.current(bounds, "cues"),
+              onCueBoundaries: (bounds) => mergeBoundariesRef.current?.(bounds, "cues"),
             }),
             // ABR + progressive MSE appends: chunks hit the screen while the segment is
             // still arriving. The back buffer stays small so device RAM stays bounded.

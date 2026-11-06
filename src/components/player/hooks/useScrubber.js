@@ -235,8 +235,10 @@ export default function useScrubber({
   };
 
   const onScrubLeave = () => {
-    if (!scrubDragging) clearScrubHover();
-    setPreviewUrl(null);
+    if (!scrubDragging) {
+      clearScrubHover();
+      setPreviewUrl(null);
+    }
   };
 
   /* Keyboard seeking. The bar advertises role="slider" + tabIndex, so it has to

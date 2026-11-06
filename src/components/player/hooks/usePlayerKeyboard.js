@@ -172,6 +172,10 @@ export default function usePlayerKeyboard({
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
     };
     // togglePlay/seekRelative/changeVolume/toggleMute/goFullscreen only touch
     // refs + functional setState, so binding once per panel flip is safe.
