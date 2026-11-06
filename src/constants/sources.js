@@ -117,7 +117,13 @@ export const PLAYER_SOURCES = [
     tag: "Multi audio · up to 1080p",
     provider: "RIVO",
     server: "1",
-    resolve: (a, o) => streamResolve.resolveRivo({ ...a, server: "1" }, o),
+    resolve: async (a, o) => {
+      try {
+        return await streamResolve.resolveRivo({ ...a, server: "1" }, o);
+      } catch {
+        return await streamResolve.resolveZxc({ ...a, prefer: "orion" }, o);
+      }
+    },
   },
   {
     key: "zxc-orion",
