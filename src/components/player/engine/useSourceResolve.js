@@ -961,7 +961,8 @@ export default function useSourceResolve({
             }
           }
           // Non-master sources are single-rendition: their current height is fixed.
-          if (!isMaster) setCurrentHeight(smoothStart?.height ?? null);
+          const seedHeight = smoothStart?.height || variants?.find((v) => (v.height || 0) > 0)?.height || null;
+          if (seedHeight) setCurrentHeight(seedHeight);
           // Honest Auto/active state for the quality menu: a master opened on
           // real ABR; a fixed ladder (single-variant HLS) has no ABR to be auto
           // WITH — Auto there just replays the open rung. Without this the
