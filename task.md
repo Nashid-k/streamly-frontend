@@ -7,6 +7,16 @@
 
  ## Done (in order)
 
+- [x] **Player bug-fix batch (user: "find other bugs in the player mainly and report me") — 2026-11-06 (commit `6d05f7c`).**
+  - **revealStageWhenReady (useSourceResolve.js):** the 2.5s fallback timer no longer steals the new run's cleanup — each invocation now owns its own listener removal (run-token guarded), preventing a stuck branded stage / dropped frame on server switch.
+  - **Progress sink (NativePlayerView.jsx):** `onProgressChange` moved into a ref and the effect now keys only on `playing`, so an unstable callback identity can't tear down the 5s save interval every render.
+  - **Keyboard (usePlayerKeyboard.js):** pending Space-hold timer is cleared on unmount.
+  - **Hold-to-2x (useHold2x.js):** mediaKey effect now clears the pending hold timer defensively.
+  - **Scrubber (useScrubber.js):** `onScrubLeave` no longer wipes the preview thumbnail mid-drag.
+  - **Cue boundaries (useSourceResolve.js):** `mergeBoundariesRef.current?.(...)` null-guarded.
+  - Probe fallthroughs in useQualitySwitch/useAudioSwitch and PlayerShell's render-time panelBackRef assignment were reviewed and left as intentional design.
+  - Gates green: lint 0 errors; targeted player suites 53/53; build exit 0. Net +52/−15 over 5 files.
+
 - [x] **Player settings — seed currentHeight for master/auto so the Quality tile resolves (user: "still quality shows auto") — 2026-11-06 (commit `e6428d6`).**
   - **Root cause:** `currentHeight` was only seeded on the non-master path (`if (!isMaster) setCurrentHeight(...)`), and the `LEVEL_SWITCHED` handler skips heightless (0/null) reports. Master-mode streams therefore left `currentHeight` null → the tile fell back to "Auto" even though subtitle/server/audio resolved.
   - **Fix:** seed `currentHeight` from `smoothStart?.height` (or the first quality rung) on every settle, regardless of master mode; `LEVEL_SWITCHED` still overrides with the real ABR height. Combined with the earlier tile change (`currentHeightLabel || "Auto"`), the Quality tile now shows the resolved rung.
