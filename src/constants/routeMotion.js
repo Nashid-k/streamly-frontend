@@ -4,20 +4,20 @@ const ROUTE_EASE = EASE_OUT;
 
 export const ROUTE_TRANSITIONS = {
   "fade-up-subtle": { duration: DURATION.FAST, ease: ROUTE_EASE },
-  "fade-up": { duration: DURATION.MED, ease: ROUTE_EASE },
+  "fade-up": { duration: DURATION.FAST, ease: ROUTE_EASE },
   "fade-only": { duration: DURATION.FAST, ease: ROUTE_EASE },
   crossfade: { duration: DURATION.FAST, ease: ROUTE_EASE },
-  "slide-right": { duration: DURATION.MED, ease: ROUTE_EASE },
-  "slide-left": { duration: DURATION.MED, ease: ROUTE_EASE },
+  "slide-right": { duration: DURATION.FAST, ease: ROUTE_EASE },
+  "slide-left": { duration: DURATION.FAST, ease: ROUTE_EASE },
 };
 
 export const ROUTE_EXIT_TRANSITIONS = {
   "fade-up-subtle": { duration: DURATION.FAST, ease: EASE_IN },
-  "fade-up": { duration: DURATION.MED, ease: EASE_IN },
+  "fade-up": { duration: DURATION.FAST, ease: EASE_IN },
   "fade-only": { duration: DURATION.FAST, ease: EASE_IN },
   crossfade: { duration: DURATION.FAST, ease: EASE_IN },
-  "slide-right": { duration: DURATION.MED, ease: EASE_IN },
-  "slide-left": { duration: DURATION.MED, ease: EASE_IN },
+  "slide-right": { duration: DURATION.FAST, ease: EASE_IN },
+  "slide-left": { duration: DURATION.FAST, ease: EASE_IN },
 };
 
 export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
@@ -28,14 +28,14 @@ export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
    swallowing the click the viewer just made while the new page is invisible. */
 export const ROUTE_VARIANTS = {
   "fade-up-subtle": {
-    initial: { opacity: 0, y: 10, scale: 0.995, translateZ: 0, willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 6, scale: 0.995, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -6, scale: 0.998, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
+    exit: { opacity: 0, y: -4, scale: 0.998, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
   "fade-up": {
-    initial: { opacity: 0, y: 12, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    initial: { opacity: 0, y: 8, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, y: -8, scale: 0.997, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
+    exit: { opacity: 0, y: -5, scale: 0.997, pointerEvents: "none", translateZ: 0, willChange: "transform, opacity" },
   },
   "fade-only": {
     initial: { opacity: 0, translateZ: 0, willChange: "opacity" },
@@ -48,14 +48,14 @@ export const ROUTE_VARIANTS = {
     exit: { opacity: 0.15, pointerEvents: "none", willChange: "opacity" },
   },
   "slide-right": {
-    initial: { opacity: 0, x: -28, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    initial: { opacity: 0, x: -20, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, x: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, x: 28, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
+    exit: { opacity: 0, x: 20, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
   },
   "slide-left": {
-    initial: { opacity: 0, x: 28, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
+    initial: { opacity: 0, x: 20, scale: 0.994, translateZ: 0, willChange: "transform, opacity" },
     animate: { opacity: 1, x: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: { opacity: 0, x: -28, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
+    exit: { opacity: 0, x: -20, scale: 0.997, pointerEvents: "none", willChange: "transform, opacity" },
   },
 };
 
