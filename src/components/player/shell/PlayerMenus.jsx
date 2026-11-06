@@ -156,7 +156,7 @@ export default function PlayerMenus({
   const qualityValue =
     autoLevel === false
       ? manualQualityObj?.label || currentHeightLabel || (manualHeight ? `${manualHeight}p` : "Manual")
-      : currentHeightLabel || "Auto";
+      : currentHeightLabel || (qualities.length && qualities[0]?.height ? `${qualities[0].height}p` : "Auto");
 
   const subtitlesValue = !subtitleEnabled ? "Off" : currentSubtitle?.language || "On";
   const audioValue = currentAudioLabel || "Original";
@@ -296,8 +296,8 @@ export default function PlayerMenus({
                 ? manualHeight != null
                   ? q.height === manualHeight
                   : q.uri === activeUri
-                : currentHeight != null
-                  ? q.height === currentHeight
+                : (currentHeight || qualities[0]?.height) != null
+                  ? q.height === (currentHeight || qualities[0]?.height)
                   : false;
             return (
               <Pick
