@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **RIVO Server 1 root-cause (git archaeology + live chain test) + subtitle-variant fix (user: "before 4 commits everything was working ... test rivo server1 in there") - 2026-11-07 (commit `c0b80f8`).**
+  - **Git archaeology:** the RIVO request contract (URL `f.rivo.st/api/source/{kind}/{id}?server=1`, headers, body) is byte-identical across `0b3eb99` (introduction), `b2be68e`, and HEAD. The only changes since `568a79e` are the `ea735b6` fallback and `7ecd868` logging; neither alters the upstream request. So the last 4-8 commits did not regress RIVO.
+  - **Live re-test:** `f.rivo.st/api/source/...` now returns full rosters again for 1101383 (6), 27205 (6), 1339713 (8), tv 1399 S1E1 (21), 1263337 (5). The earlier empty responses were a transient upstream outage/rate-limit, not our code.
+  - **Full chain verified:** ran the actual `handleResolveRivo` against the live API — movie + TV both `ok:true`, 3 variants, audio tracks, subtitles. Master (3350 B), variant playlist (721 KB), and an fMP4 segment (3.6 MB) all 200; segment/init hosts send `Access-Control-Allow-Origin: *`.
+  - **Real bug fixed:** RIVO mixes subtitle variants ("1080p (Arabic sub)", "720p (Russian sub)") into the same roster. We exposed them as `audioTracks` and could pick one as the entry — selecting "Arabic sub" played a subtitle-only row and read as "Server 1 has no audio". `rivoIsSubtitleVariant()` now excludes them from both the Audio menu and entry selection (they stay in the subtitle roster).
+  - Regression test added (streamHandler 35/35). Gates: lint 0; full suite 1465/1466 (ssrfGuard DNS-timeout flake, 83/83 on rerun); build 0. Net +63/-4.
+
 - [x] **RIVO diagnostic logging pass (user: `dig rivo.st then and find the cause`) - 2026-11-06 (commit `7ecd868`).**
   - `handleResolveRivo` now logs `[Streamly][rivo]` status, provider/server echo, raw source count, elapsed ms, and a 300-char body preview on: non-JSON body, non-2xx, and empty roster. Success logs counts only (no URLs).
   - Switched `upstream.json()` -> `upstream.text()` + `JSON.parse` so the raw body is available for the preview; parse failures still throw into the existing `host unreachable` path, so behaviour is unchanged.
