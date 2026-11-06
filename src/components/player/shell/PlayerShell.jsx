@@ -189,8 +189,6 @@ export default function PlayerShell({
 }) {
   // Local state for mode dropdown (PlayerShell owns this)
   const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
-  const localEmbedRef = useRef(null);
-  const activeEmbedRef = embedRef || localEmbedRef;
   const v4Appearance = usePlayerV4Appearance({
     subtitleSize,
     setSubtitleSize,
@@ -399,7 +397,7 @@ export default function PlayerShell({
           {playerMode === "embed" ? (
             embedUrl ? (
               <iframe
-                ref={activeEmbedRef}
+                ref={embedRef}
                 src={embedUrl}
                 title="CineSrc embed player"
                 style={{
