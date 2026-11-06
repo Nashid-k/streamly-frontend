@@ -20,6 +20,7 @@ import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
 import useDetailView from "../hooks/useDetailView";
+import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 import { DURATION, EASE_OUT } from "../constants/motion";
@@ -169,29 +170,9 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
 function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
   const reduceMotion = useReducedMotion();
   const railRef = useRef(null);
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
-
-  useEffect(() => {
-    const el = railRef.current;
-    const update = () => {
-      if (!el) return;
-      const max = el.scrollWidth - el.clientWidth;
-      setCanLeft(el.scrollLeft > 4);
-      setCanRight(max > 0 && el.scrollLeft < max - 4);
-    };
-    if (!el) return undefined;
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    if (observer) observer.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      if (observer) observer.disconnect();
-    };
-  }, [itemCount]);
+  // House arrow hook: same 4px threshold, rAF-coalesced and no-op-guarded
+  // instead of two raw setState-per-scroll-event booleans.
+  const { canScrollLeft: canLeft, canScrollRight: canRight } = useRailArrows(railRef, { threshold: 4 });
 
   const scrollRail = (dir) => {
     railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });
@@ -531,28 +512,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
   };
 
   // ── Rail scrolling (fade-in arrows) ─────────────────────────────────────
-  const [canLeft, setCanLeft] = useState(false);
-  const [canRight, setCanRight] = useState(false);
-  useEffect(() => {
-    const el = railRef.current;
-    const update = () => {
-      if (!el) return;
-      const max = el.scrollWidth - el.clientWidth;
-      setCanLeft(el.scrollLeft > 4);
-      setCanRight(max > 0 && el.scrollLeft < max - 4);
-    };
-    if (!el) return undefined;
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
-    if (observer) observer.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-      if (observer) observer.disconnect();
-    };
-  }, [railItems.length]);
+  const { canScrollLeft: canLeft, canScrollRight: canRight } = useRailArrows(railRef, { threshold: 4 });
 
   const scrollRail = (dir) => {
     railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });

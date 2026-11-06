@@ -28,6 +28,7 @@ const HomeRails = React.memo(function HomeRails({
   upcomingReleases,
   upcomingTitle,
   railsSentinelRef,
+  catEndRef,
   sectionTitle,
   categories,
   visibleCatCount,
@@ -206,6 +207,9 @@ const HomeRails = React.memo(function HomeRails({
                 </ErrorBoundary>
               </FadeInSection>
             ))}
+            {/* End sentinel: HomePage's useFeedSentinel grows this feed when
+                it sits inside the viewport margin. */}
+            <div ref={catEndRef} className="h-px" aria-hidden="true" />
           </>
         )}
       </section>

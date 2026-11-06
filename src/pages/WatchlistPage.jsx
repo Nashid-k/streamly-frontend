@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { useNavigate, Link } from "react-router-dom";
 import {
@@ -362,25 +363,15 @@ export default function WatchlistPage() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [filterType, sortBy, searchQuery, activeCollectionId]);
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 20, filteredAndSortedList.length),
-          );
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const listEndRef = useRef(null);
+  const growWatchlist = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 20, filteredAndSortedList.length));
   }, [filteredAndSortedList.length]);
+  useFeedSentinel({
+    endRef: listEndRef,
+    hasMore: visibleCount < filteredAndSortedList.length,
+    grow: growWatchlist,
+  });
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
@@ -955,6 +946,7 @@ export default function WatchlistPage() {
                     )}
                   </div>
                 )}
+                <div ref={listEndRef} className="h-px" aria-hidden="true" />
               </>
             )}
           </ErrorBoundary>

@@ -10,13 +10,14 @@ import RatingsTable from "../components/RatingsTable";
 import useRailArrows from "../hooks/useRailArrows";
 import useDialogA11y from "../hooks/useDialogA11y";
 import { useTitleLogo } from "../hooks/useTitleLogo";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { warmResolve } from "../api/warmResolve";
 import { useQuery } from "@tanstack/react-query";
 import { movieService, classifyTrailer } from "../api/movieService";
 import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
-import { useState, useEffect, useRef, useMemo, useLayoutEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback, lazy, Suspense } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
@@ -394,25 +395,15 @@ export default function TitleDetails() {
   useEffect(() => {
     setVisibleCount(12);
   }, [id]);
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 12, similar ? similar.length : 0),
-          );
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const similarEndRef = useRef(null);
+  const growSimilar = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 12, similar ? similar.length : 0));
   }, [similar]);
+  useFeedSentinel({
+    endRef: similarEndRef,
+    hasMore: visibleCount < (similar ? similar.length : 0),
+    grow: growSimilar,
+  });
 
     // Reset season/episode when navigating to a different movie
   useEffect(() => {
@@ -1991,6 +1982,7 @@ export default function TitleDetails() {
                 </motion.div>
               ))}
             </motion.div>
+            <div ref={similarEndRef} className="h-px" aria-hidden="true" />
             </ErrorBoundary>
           )}
         </motion.section>

@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -92,25 +93,15 @@ export default function GenrePage() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [genre, filterType, sortBy]);
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 20, filteredAndSortedList.length),
-          );
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const genreEndRef = useRef(null);
+  const growGenreResults = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 20, filteredAndSortedList.length));
   }, [filteredAndSortedList.length]);
+  useFeedSentinel({
+    endRef: genreEndRef,
+    hasMore: visibleCount < filteredAndSortedList.length,
+    grow: growGenreResults,
+  });
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
@@ -214,22 +205,25 @@ export default function GenrePage() {
               description="We couldn't find any titles in this genre."
             />
           ) : (
-            <div className="movie-grid" style={{ marginTop: "1rem" }}>
-              {visibleResults.map((movie, idx) => (
-                <motion.div
-                  key={movie.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: DURATION.MED,
-                    delay: (idx % 20) * 0.05,
-                    ease: EASE_OUT,
-                  }}
-                >
-                  <MovieCard movie={movie} />
-                </motion.div>
-              ))}
-            </div>
+            <>
+              <div className="movie-grid" style={{ marginTop: "1rem" }}>
+                {visibleResults.map((movie, idx) => (
+                  <motion.div
+                    key={movie.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      duration: DURATION.MED,
+                      delay: (idx % 20) * 0.05,
+                      ease: EASE_OUT,
+                    }}
+                  >
+                    <MovieCard movie={movie} />
+                  </motion.div>
+                ))}
+              </div>
+              <div ref={genreEndRef} className="h-px" aria-hidden="true" />
+            </>
           )}
           </ErrorBoundary>
         </div>

@@ -76,8 +76,10 @@ function Header() {
     };
   }, [navigate, location.search]);
 
+  // Scrolled is a boolean, so this effect only re-renders on the 50px — the
+  // RIVO progress rail is a CSS scroll timeline (header.css) and React no
+  // longer tracks the scroll fraction per frame.
   const [isScrolled, setIsScrolled] = useState(false);
-  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     let frameId = 0;
@@ -86,12 +88,6 @@ function Header() {
       frameId = window.requestAnimationFrame(() => {
         const nextIsScrolled = window.scrollY > 50;
         setIsScrolled((current) => (current === nextIsScrolled ? current : nextIsScrolled));
-        // RIVO's top scroll-progress rail: one white line with a soft glow,
-        // width driven by the document scroll fraction. Reads the same rAF
-        // tick as the scrolled flag so both update together.
-        const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-        const nextProgress = window.scrollY / max;
-        setProgress((current) => (Math.abs(current - nextProgress) < 0.0005 ? current : nextProgress));
         frameId = 0;
       });
     };
@@ -186,13 +182,10 @@ function Header() {
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
       {/* RIVO scroll-progress rail: fixed top hairline with a white glow,
-          scaled by the scroll fraction. Decorative; the scrolled header
-          scrim below keeps it readable over bright backdrops. */}
-      <div
-        className="rivo-scroll-progress"
-        style={{ transform: `scaleX(${progress})` }}
-        aria-hidden="true"
-      />
+          width = scroll fraction via a CSS scroll timeline (header.css).
+          Decorative; the scrolled header scrim below keeps it readable over
+          bright backdrops. */}
+      <div className="rivo-scroll-progress" aria-hidden="true" />
       <div className="header-brand-cluster">
       {/* Cinejoy-style back arrow — sits right before the brand logo on
           every non-home page; prefers history, falls back to home. */}

@@ -21,9 +21,17 @@
 
 /* ── RIVO scroll-progress rail (rivo.st) ─────────────────────────────────
    Fixed top hairline, 3px, white with a soft glow, width = scroll fraction.
-   The transform is driven from React state (scaleX) so the bar eases via the
-   shared token curve instead of layout reads. z-index sits under the nav pill
-   (--z-sticky) so the pill keeps painting above the rail, like the reference. */
+   Scroll-driven instead of JS-driven: the root scroller's own position is the
+   animation timeline, so the rail tracks every pixel with zero scroll
+   listeners (React state used to re-render the whole header every frame).
+   Engines without scroll timelines keep the scaleX(0) rail — a decorative
+   loss only. z-index sits under the nav pill (--z-sticky) so the pill keeps
+   painting above the rail, like the reference. */
+@keyframes rivoScrollProgress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 .rivo-scroll-progress {
   position: absolute;
   top: 0;
@@ -34,8 +42,14 @@
   box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
   transform: scaleX(0);
   transform-origin: 0 50%;
-  transition: transform var(--duration-normal) var(--ease-tv);
   z-index: 60;
+}
+
+@supports (animation-timeline: scroll()) {
+  .rivo-scroll-progress {
+    animation: rivoScrollProgress linear both;
+    animation-timeline: scroll(root block);
+  }
 }
 
 /* Brand — standalone floating logo at the left end (Cinejoy .brand-mark) */

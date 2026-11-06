@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { DURATION, EASE_IN, EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import { useNavigate } from "react-router-dom";
 import { Clock, X, Search, Check, Trash2 } from "lucide-react";
@@ -80,25 +81,15 @@ export default function HistoryPage() {
     setVisibleCount((c) => Math.min(c, filteredHistory.length));
   }, [filteredHistory.length]);
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 20, filteredHistory.length),
-          );
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const historyEndRef = useRef(null);
+  const growHistory = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 20, filteredHistory.length));
   }, [filteredHistory.length]);
+  useFeedSentinel({
+    endRef: historyEndRef,
+    hasMore: visibleCount < filteredHistory.length,
+    grow: growHistory,
+  });
 
   const visibleResults = filteredHistory.slice(0, visibleCount);
 
@@ -410,6 +401,7 @@ export default function HistoryPage() {
               );
             })}
           </div>
+          <div ref={historyEndRef} className="h-px" aria-hidden="true" />
           </ErrorBoundary>
         )}
 

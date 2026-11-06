@@ -19,6 +19,7 @@ import HeroTitleLogo from "../components/HeroTitleLogo";
 import useDetailView from "../hooks/useDetailView";
 import useIsTouch from "../hooks/useIsTouch";
 import { useNearViewport } from "../hooks/useNearViewport";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
@@ -228,27 +229,19 @@ export default function Home({
     [featuredData],
   );
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCatCount((prev) => {
-            // Don't load more than we have
-            const maxCategories = (rawCategories?.length || 0) + 4; // +4 for dynamic rails
-            return Math.min(prev + 3, maxCategories);
-          });
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [rawCategories?.length]);
+  // Category reveal feed: one IO sentinel (useFeedSentinel) grows the slice
+  // instead of a throttled scroll handler re-firing every 200ms. +4 for the
+  // dynamic rails that are not part of rawCategories.
+  const catEndRef = useRef(null);
+  const maxCategories = (rawCategories?.length || 0) + 4;
+  const growCategories = useCallback(() => {
+    setVisibleCatCount((prev) => Math.min(prev + 3, maxCategories));
+  }, [maxCategories]);
+  useFeedSentinel({
+    endRef: catEndRef,
+    hasMore: visibleCatCount < maxCategories,
+    grow: growCategories,
+  });
 
   const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
@@ -1208,6 +1201,7 @@ export default function Home({
         upcomingReleases={upcomingReleases}
         upcomingTitle={upcomingTitle}
         railsSentinelRef={railsSentinelRef}
+        catEndRef={catEndRef}
         sectionTitle={sectionTitle}
         categories={categories}
         visibleCatCount={visibleCatCount}

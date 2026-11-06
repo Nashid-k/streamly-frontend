@@ -3,6 +3,7 @@ import { DURATION, EASE_OUT } from "../constants/motion";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo, useRef, useCallback, useId } from "react";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import slugify from "slugify";
@@ -271,25 +272,15 @@ export default function SearchPage() {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [query, filterType, sortBy]);
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) =>
-            Math.min(prev + 20, filteredAndSortedList.length),
-          );
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const searchEndRef = useRef(null);
+  const growSearchResults = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 20, filteredAndSortedList.length));
   }, [filteredAndSortedList.length]);
+  useFeedSentinel({
+    endRef: searchEndRef,
+    hasMore: visibleCount < filteredAndSortedList.length,
+    grow: growSearchResults,
+  });
 
   const visibleResults = filteredAndSortedList.slice(0, visibleCount);
 
@@ -841,6 +832,7 @@ export default function SearchPage() {
                 </motion.div>
               ))}
             </div>
+            <div ref={searchEndRef} className="h-px" aria-hidden="true" />
           </section>
         )}
         </ErrorBoundary>

@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import useFeedSentinel from "../hooks/useFeedSentinel";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { useParams, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -103,23 +104,15 @@ export default function CategoryPage() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [categoryName]);
 
-  useEffect(() => {
-    let inThrottle;
-    const handleScroll = () => {
-      if (!inThrottle) {
-        if (
-          window.innerHeight + window.scrollY >=
-          document.body.offsetHeight - 800
-        ) {
-          setVisibleCount((prev) => Math.min(prev + 20, allMovies.length));
-        }
-        inThrottle = true;
-        setTimeout(() => (inThrottle = false), 200);
-      }
-    };
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => window.removeEventListener("scroll", handleScroll);
+  const categoryEndRef = useRef(null);
+  const growCategory = useCallback(() => {
+    setVisibleCount((prev) => Math.min(prev + 20, allMovies.length));
   }, [allMovies.length]);
+  useFeedSentinel({
+    endRef: categoryEndRef,
+    hasMore: visibleCount < allMovies.length,
+    grow: growCategory,
+  });
 
   if (isLoading || isFallbackLoading)
     return (
@@ -216,6 +209,7 @@ export default function CategoryPage() {
             </motion.div>
           ))}
         </div>
+        <div ref={categoryEndRef} className="h-px" aria-hidden="true" />
         </ErrorBoundary>
       )}
       </div>
