@@ -7,6 +7,11 @@
 
  ## Done (in order)
 
+- [x] **Player settings — seed currentHeight for master/auto so the Quality tile resolves (user: "still quality shows auto") — 2026-11-06 (commit `e6428d6`).**
+  - **Root cause:** `currentHeight` was only seeded on the non-master path (`if (!isMaster) setCurrentHeight(...)`), and the `LEVEL_SWITCHED` handler skips heightless (0/null) reports. Master-mode streams therefore left `currentHeight` null → the tile fell back to "Auto" even though subtitle/server/audio resolved.
+  - **Fix:** seed `currentHeight` from `smoothStart?.height` (or the first quality rung) on every settle, regardless of master mode; `LEVEL_SWITCHED` still overrides with the real ABR height. Combined with the earlier tile change (`currentHeightLabel || "Auto"`), the Quality tile now shows the resolved rung.
+  - Gates green: lint 0 errors; `qualitySwitchDisplay`/`playerA11y`/`playerAutoServer` 76/76; build exit 0. Net +2/−1.
+
 - [x] **Player settings modal — show resolved quality (and highlight current rung) even in Auto mode (user: "show corresponding quality in quality even if auto is selected instead auto, same goes with subtitle, server, audio") — 2026-11-06 (commit `5587bb6`).**
   - **Quality tile (`PlayerMenus.jsx`):** `qualityValue` no longer renders "Auto → 1080p"/"Auto"; it now shows the resolved rung (`currentHeightLabel`, e.g. "1080p") and falls back to "Auto" only when no height has settled. Subtitle/Server/Audio tiles already resolve to their concrete values (`currentSubtitle?.language` / resolved server label / `currentAudioLabel`) and were left as-is.
   - **Quality panel list:** when Auto is on, the rung matching `currentHeight` is now highlighted (`aria-pressed`) instead of leaving every row unlit, so the auto-settled quality is visible. Manual mode is unchanged.
