@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **Embed-mode native-state leak audit (user: "find other similar issues and fix") - 2026-11-07 (commit `940ad61`).**
+  - **Cause:** only the fatal banner was gated. Switching to Embed left native-only chrome/state behind the iframe: native subtitle text, Skip Intro/Credits pills, the tap-to-unmute pill, the Up Next card (and its auto-advance timer), the "Still watching?" prompt, the OSD/seek ripples from the key map, and an already-open settings sheet.
+  - **Fix:** `PlayerShell` now gates every native overlay to `playerMode !== "embed"`; entering embed closes the panel and clears Up Next. `useSourceResolve` takes `playerMode` as a dependency, so entering embed runs the previous run's cleanup (abort + HLS destroy + detach) and the hidden native element can no longer resolve/play audio behind the iframe; switching back re-runs the resolve. `usePlayerKeyboard` ignores playback keys in embed (Escape and Tab stay live). The playhead is captured in a `useLayoutEffect` before the passive cleanup resets `currentTime`, so the switch-back resume card still has the real position.
+  - **Also fixed:** `ProviderEmbedPlayer`'s "Streamly" dropdown option was a no-op (the page chose the engine from `zxcNative`, not `playerMode`); the dead selector is removed.
+  - Regression tests: nativePlayerView adds an embed-switch overlay test; playerSpaceKey adds embed key-guard tests. Gates: lint 0; full suite 1470/1470; build 0.
+
 - [x] **Embed-mode retry: keep the Streamly fatal banner out of the CineSrc iframe, add an embed load-timeout retry (user: "even if on embed it shows the popup of try again of the streamly ... what about showing it in embed?") - 2026-11-07 (commit `480199c`).**
   - **Cause:** the native `fatal` banner rendered regardless of `playerMode`, and the mode-switch effect never cleared it. A native resolve failure ("No native source resolved this title") therefore stayed on top of the CineSrc iframe after switching to Embed, and its "Try again" re-ran the *native* resolve, not the embed.
   - **Fix:** (1) entering Embed now clears `fatal`; (2) the fatal banner is gated to Streamly mode; (3) Embed gets its own watchdog - a cross-origin iframe can only signal "never loaded", so a 20s timeout shows "The embed player didn't load..." with "Try again" that re-keys the iframe (`embedNonce`) and "Back". A missing id now reads "This title has no playable embed." instead of a permanent "Loading...".
