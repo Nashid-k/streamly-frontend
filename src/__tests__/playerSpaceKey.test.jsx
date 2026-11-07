@@ -196,3 +196,42 @@ describe("Space: tap plays/pauses, hold runs 2x", () => {
     expect(v.playbackRate).toBe(1);
   });
 });
+
+/* Embed mode hands playback to the iframe: the hidden native element is still
+   in the DOM, so the key map must not seek/pause/2x it behind the embed. Escape
+   stays live so the player can still be closed from the keyboard. */
+describe("Space and playback keys in embed mode", () => {
+  const mountEmbed = (onClose = () => {}) =>
+    render(
+      <NativePlayerView
+        type="movie"
+        id="550"
+        title="Fight Club"
+        playerMode="embed"
+        onClose={onClose}
+      />,
+    );
+
+  it("does not play/pause or 2x the hidden native element", () => {
+    vi.useFakeTimers();
+    const { container } = mountEmbed();
+    const v = stubPlaying(container);
+
+    fireEvent.keyDown(window, { code: "Space", key: " " });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    fireEvent.keyUp(window, { code: "Space", key: " " });
+    fireEvent.keyDown(window, { code: "KeyK", key: "k" });
+
+    expect(v.pause).not.toHaveBeenCalled();
+    expect(v.playbackRate).toBe(1);
+  });
+
+  it("still closes the player on Escape", () => {
+    const onClose = vi.fn();
+    mountEmbed(onClose);
+    fireEvent.keyDown(window, { code: "Escape", key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+});

@@ -6,7 +6,7 @@
 // Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { buildAudioTrackList, languageNameFromCode } from "../utils/audioLabels";
 import { prefetchSources, warmResolve } from "../api/warmResolve";
 import { fetchSkipBoundaries } from "../api/skipBoundarySource";
@@ -448,12 +448,25 @@ export default function NativePlayerView({
   const prevPlayerModeRef = useRef(localPlayerMode);
   const savedPositionRef = useRef(0);
 
+  /* Capture the native playhead in the LAYOUT phase. Entering embed re-runs the
+     resolve effect, and React runs that effect's passive cleanup (destroy HLS,
+     detach the media element) before the mode effect below reads currentTime —
+     the detach resets it to 0. Layout effects run before passive cleanups, so
+     this is the last honest read of the position. */
+  useLayoutEffect(() => {
+    if (localPlayerMode !== "embed" || prevPlayerModeRef.current === "embed") return;
+    const pos = videoRef.current ? Math.floor(videoRef.current.currentTime || 0) : 0;
+    if (pos > 0) savedPositionRef.current = pos;
+  }, [localPlayerMode]);
+
   useEffect(() => {
     const prevMode = prevPlayerModeRef.current;
     prevPlayerModeRef.current = localPlayerMode;
 
     if (localPlayerMode === "embed") {
-      // 1. Capture current playback position before tearing down
+      // The layout effect above already captured the position before the
+      // resolve teardown reset it; keep this read as a fallback for the
+      // initial embed mount (where there is nothing to save).
       const currentPos = videoRef.current ? Math.floor(videoRef.current.currentTime || 0) : 0;
       if (currentPos > 0) {
         savedPositionRef.current = currentPos;
@@ -463,6 +476,12 @@ export default function NativePlayerView({
       // is true of the embed. Clear it so a failure from the mode we just left
       // cannot sit on top of the iframe.
       setFatal(null);
+      // Native transient state must not survive the switch: an open settings
+      // sheet would paint over the iframe, and a queued "Up Next" countdown
+      // would auto-advance the episode behind it. (PlayerShell also gates the
+      // remaining native overlays by mode.)
+      setPanel(null);
+      setUpNext(null);
       // 2. Tear down playback instead of keeping it alive in the background
       try {
         if (videoRef.current && !videoRef.current.paused) {
@@ -500,8 +519,9 @@ export default function NativePlayerView({
         setResumeOffer({ at });
       }
 
-      // 4. Refetch stream from scratch
-      setReloadToken((t) => t + 1);
+      // 4. Refetch stream from scratch. The mode is a dependency of the
+      // resolve effect, so this switch-back already re-runs it; bumping the
+      // reload token here would start a second, duplicate resolve.
     }
   }, [localPlayerMode, resumePoint]);
   // `poke` is declared further down the component, so this callback cannot close
@@ -1572,7 +1592,7 @@ export default function NativePlayerView({
      countdown card that auto-plays it. Replaying/cancelling tears it down (a
      cancelled card's fired timer is a no-op thanks to the `prev` guard). */
   useEffect(() => {
-    if (type !== "tv" || !ended) {
+    if (localPlayerMode !== "streamly" || type !== "tv" || !ended) {
       setUpNext(null);
       return undefined;
     }
@@ -1604,13 +1624,14 @@ export default function NativePlayerView({
       });
     }, UP_NEXT_MS);
     return () => clearTimeout(timer);
-  }, [type, ended, airedEpisodes, episode, autoplayEnabled]);
+  }, [localPlayerMode, type, ended, airedEpisodes, episode, autoplayEnabled]);
 
   /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
      F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
      first, then the player. */
   usePlayerKeyboard({
     panel,
+    mode: localPlayerMode,
     poke,
     setControlsVisible,
     controlsVisibleRef,
@@ -1653,6 +1674,7 @@ export default function NativePlayerView({
     title,
     originalLanguage,
     reloadToken,
+    playerMode: localPlayerMode,
     videoRef,
     hlsRef,
     metaRef,

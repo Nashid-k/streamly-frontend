@@ -56,6 +56,10 @@ export default function useSourceResolve({
   title,
   originalLanguage,
   reloadToken,
+  // Playback mode. Embed mode must never resolve or attach the hidden native
+  // element: the iframe owns playback there, and a late attach would play
+  // audio/consume bandwidth behind it.
+  playerMode,
   // Engine refs the resolve owns or mirrors.
   videoRef,
   hlsRef,
@@ -138,6 +142,12 @@ export default function useSourceResolve({
   INITIAL_BW_BITS,
 }) {
   useEffect(() => {
+    /* Embed mode is a different player. Running the native resolve here would
+       load a hidden HLS stream behind the iframe (audio + bandwidth) and could
+       re-attach after the mode switch teardown. The mode is a dependency so
+       entering embed runs the previous run's cleanup (abort + detach) and
+       leaving it starts a fresh resolve. */
+    if (playerMode === "embed") return undefined;
     if (!Hls.isSupported()) {
       setFatal("This browser has no MediaSource support — native playback cannot run here.");
       // Nothing will ever load: clear every loader signal so the banner is not
@@ -1138,5 +1148,5 @@ export default function useSourceResolve({
         // element already detached
       }
     };
-  }, [type, id, season, episode, title, reloadToken, clearSleepTimer, cancelAudioSwitch]);
+  }, [type, id, season, episode, title, reloadToken, playerMode, clearSleepTimer, cancelAudioSwitch]);
 }

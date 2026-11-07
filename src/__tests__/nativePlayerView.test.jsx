@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeAll } from "vitest";
-import { render, fireEvent, screen } from "@testing-library/react";
+import { render, fireEvent, screen, waitFor } from "@testing-library/react";
 import NativePlayerView from "../components/NativePlayerView";
 import { LoadingStage } from "../components/player/chrome/primitives";
 
@@ -53,6 +53,57 @@ describe("NativePlayerView (smoke)", () => {
     expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/no MediaSource support/i)).not.toBeInTheDocument();
   });
+
+  it("drops native-only overlays when switching to the embed", async () => {
+    const { rerender } = render(
+      <NativePlayerView
+        type="tv"
+        id="1399"
+        season={1}
+        episode={1}
+        title="Game of Thrones"
+        onClose={() => {}}
+      />,
+    );
+    // Put the native playhead inside the Skip Intro window, then open the
+    // settings sheet — both are native-only chrome that must not survive the
+    // switch.
+    const video = document.querySelector("video");
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      writable: true,
+      value: 75,
+    });
+    fireEvent.timeUpdate(video);
+    expect(
+      screen.getByRole("button", { name: /skip the opening credits/i }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    rerender(
+      <NativePlayerView
+        type="tv"
+        id="1399"
+        season={1}
+        episode={1}
+        title="Game of Thrones"
+        playerMode="embed"
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByTitle("CineSrc embed player")).toBeInTheDocument();
+    // The sheet unmounts with the mode gate; the Skip pill leaves through its
+    // AnimatePresence exit.
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /skip the opening credits/i }),
+      ).toBeNull();
+    });
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+  }, 15000);
 });
 
 /* The loading stage the viewer stares at while a stream resolves: the title

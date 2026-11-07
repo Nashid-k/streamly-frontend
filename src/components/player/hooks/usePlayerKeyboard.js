@@ -15,6 +15,7 @@ import { keyboardAction } from "../nativePlayerKeys";
 
 export default function usePlayerKeyboard({
   panel,
+  mode,
   poke,
   setControlsVisible,
   controlsVisibleRef,
@@ -49,6 +50,15 @@ export default function usePlayerKeyboard({
        a keyup when 2x IS engaged just restores the rate and does nothing else. */
     const onKeyUp = (e) => {
       if (e.code !== "Space") return;
+      // Embed mode has no native media to resume; a keyup must not fire
+      // play/pause on the hidden element. Reset the tap-vs-hold refs so a
+      // hold started before the switch cannot leak into native on switch-back.
+      if (mode === "embed") {
+        spaceHoldRef.current = false;
+        spaceFiredRef.current = false;
+        disarmHold();
+        return;
+      }
       const release = resolveSpaceRelease({
         held: spaceHoldRef.current,
         engaged: spaceFiredRef.current,
@@ -87,6 +97,13 @@ export default function usePlayerKeyboard({
         playing: Boolean(playingRef?.current),
       });
       if (!action) return;
+      // Embed mode is the iframe's player: native playback keys must not drive
+      // the hidden element (Space would call play() on a src-less video). Keep
+      // Escape and the Tab reveal; swallow the rest so the page does not scroll.
+      if (mode === "embed" && action.type !== "close-panel" && action.type !== "close-player") {
+        if (action.preventDefault) e.preventDefault();
+        return;
+      }
       if (action.preventDefault) e.preventDefault();
       // Auto-repeat is swallowed above but never acts twice (see the module).
       if (action.repeated) return;
@@ -176,9 +193,15 @@ export default function usePlayerKeyboard({
         clearTimeout(holdTimerRef.current);
         holdTimerRef.current = null;
       }
+      // A mode flip tears down the hold timer, so the pending tap/hold state
+      // must reset with it or switch-back would resume a phantom 2x hold.
+      spaceHoldRef.current = false;
+      spaceFiredRef.current = false;
     };
     // togglePlay/seekRelative/changeVolume/toggleMute/goFullscreen only touch
     // refs + functional setState, so binding once per panel flip is safe.
+    // `mode` is included so the embed guard and the hold-timer reset take
+    // effect on the switch, not on the next panel flip.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel]);
+  }, [panel, mode]);
 }

@@ -2289,8 +2289,6 @@ export default function TitleDetails() {
                               : releaseYear(movie)
                           }
                           onClose={() => setIsPlaying(false)}
-                          playerMode={playerMode}
-                          onToggleMode={setPlayerMode}
                         />
                       ) : zxcNative === true ? (
                         <NativePlayerView

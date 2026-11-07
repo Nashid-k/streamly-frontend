@@ -531,20 +531,20 @@ export default function PlayerShell({
             className="dim"
             id="dim"
             aria-hidden="true"
-            onClick={panel ? () => { setPanel(null); poke(); } : undefined}
-            style={{ pointerEvents: panel ? "auto" : "none" }}
+            onClick={panel && playerMode !== "embed" ? () => { setPanel(null); poke(); } : undefined}
+            style={{ pointerEvents: panel && playerMode !== "embed" ? "auto" : "none" }}
           />
 
           {/* Double-tap radial edge flash ripples matching player-v4.html */}
           <div
             key={`dt-l-${hudSeq || 0}`}
-            className={["dt", "l", "dtl", hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "l", "dtl", playerMode !== "embed" && hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtl"
             aria-hidden="true"
           />
           <div
             key={`dt-r-${hudSeq || 0}`}
-            className={["dt", "r", "dtr", hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
+            className={["dt", "r", "dtr", playerMode !== "embed" && hud?.kind === "seek" && hud.value > 0 ? "show" : ""].filter(Boolean).join(" ")}
             id="dtr"
             aria-hidden="true"
           />
@@ -657,7 +657,7 @@ export default function PlayerShell({
               900ms run (the "fast clicks show no HUD" report). */}
           <div
             key={`osd-${hudSeq || 0}`}
-            className={["osd", (hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x ? "show" : "", hud?.kind === "seek" ? "osd-seek" : ""].filter(Boolean).join(" ")}
+            className={["osd", playerMode !== "embed" && ((hud && hud.kind !== "play" && hud.kind !== "pause") || hold2x) ? "show" : "", playerMode !== "embed" && hud?.kind === "seek" ? "osd-seek" : ""].filter(Boolean).join(" ")}
             id="osd"
             aria-live="polite"
             style={{ left: hud?.kind === "seek" ? (hud.value < 0 ? "22%" : "78%") : "50%" }}
@@ -689,17 +689,19 @@ export default function PlayerShell({
             )}
           </div>
 
-          {/* Subtitle overlay */}
-          <SubtitleOverlay
-            text={activeSubtitle}
-            controlsVisible={controlsVisible}
-            size={subtitleSize}
-            background={subtitleBg}
-            subBgStyle={v4Appearance.subBgStyle}
-            fontFamily={subtitleFontFamily(prefs?.subtitleFont)}
-            color={v4Appearance.subColor || prefs?.subtitleColor || "#fff"}
-            scale={prefs?.subtitleSize}
-          />
+          {/* Subtitle overlay (native only: the embed renders its own) */}
+          {playerMode !== "embed" && (
+            <SubtitleOverlay
+              text={activeSubtitle}
+              controlsVisible={controlsVisible}
+              size={subtitleSize}
+              background={subtitleBg}
+              subBgStyle={v4Appearance.subBgStyle}
+              fontFamily={subtitleFontFamily(prefs?.subtitleFont)}
+              color={v4Appearance.subColor || prefs?.subtitleColor || "#fff"}
+              scale={prefs?.subtitleSize}
+            />
+          )}
 
           {/* Top bar: back + title */}
           <ChromeTopBar
@@ -711,7 +713,7 @@ export default function PlayerShell({
 
           {/* Skip Intro & Skip Outro pills */}
           <AnimatePresence>
-            {showSkipIntro && !sheetOpen && (
+            {playerMode !== "embed" && showSkipIntro && !sheetOpen && (
               <SkipPill
                 key="np-skip"
                 label="Skip Intro"
@@ -723,7 +725,7 @@ export default function PlayerShell({
             )}
           </AnimatePresence>
           <AnimatePresence>
-            {showSkipOutro && !sheetOpen && !showSkipIntro && (
+            {playerMode !== "embed" && showSkipOutro && !sheetOpen && !showSkipIntro && (
               <SkipPill
                 key="np-skip-outro"
                 label="Skip Credits"
@@ -751,7 +753,7 @@ export default function PlayerShell({
           )}
 
           <TapToUnmutePill
-            visible={autoMuted && playing && !sheetOpen}
+            visible={playerMode !== "embed" && autoMuted && playing && !sheetOpen}
             onUnmute={() => {
               setAutoMuted(false);
               setMuted(false);
@@ -822,13 +824,14 @@ export default function PlayerShell({
 
           {/* Up Next card */}
           <UpNextCard
-            upNext={ended ? upNext : null}
+            upNext={ended && playerMode !== "embed" ? upNext : null}
             upNextMs={upNextMs}
             onPlayNow={(n) => chooseEpisode(n)}
             onCancel={() => setUpNext(null)}
           />
 
-          {/* Settings / audio / subs / servers / quality panel shell */}
+          {/* Settings / audio / subs / servers / quality panel shell (native only) */}
+          {playerMode !== "embed" && (
           <PlayerPanel
             panel={panel}
             panelOpener={panelOpener}
@@ -915,10 +918,11 @@ export default function PlayerShell({
               v4Appearance={v4Appearance}
             />
           </PlayerPanel>
+          )}
 
-          {/* Netflix Still Watching prompt */}
+          {/* Netflix Still Watching prompt (native only) */}
           <AnimatePresence>
-            {stillWatching && (
+            {playerMode !== "embed" && stillWatching && (
               <NetflixStillWatching
                 key="still-watching"
                 onContinue={onStillWatchingContinue}
@@ -931,7 +935,7 @@ export default function PlayerShell({
         {/* Fatal banner outside sheet. Embed mode gets its own message: the
             native banner names a native source and its "Try again" re-runs the
             native resolve, so it must never sit on top of the iframe. */}
-        {!panel && (
+        {(!panel || playerMode === "embed") && (
           <AnimatePresence>
             {playerMode === "embed" ? (
               embedTimedOut ? (
