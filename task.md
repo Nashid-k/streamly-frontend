@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **Embed-mode retry: keep the Streamly fatal banner out of the CineSrc iframe, add an embed load-timeout retry (user: "even if on embed it shows the popup of try again of the streamly ... what about showing it in embed?") - 2026-11-07 (commit `480199c`).**
+  - **Cause:** the native `fatal` banner rendered regardless of `playerMode`, and the mode-switch effect never cleared it. A native resolve failure ("No native source resolved this title") therefore stayed on top of the CineSrc iframe after switching to Embed, and its "Try again" re-ran the *native* resolve, not the embed.
+  - **Fix:** (1) entering Embed now clears `fatal`; (2) the fatal banner is gated to Streamly mode; (3) Embed gets its own watchdog - a cross-origin iframe can only signal "never loaded", so a 20s timeout shows "The embed player didn't load..." with "Try again" that re-keys the iframe (`embedNonce`) and "Back". A missing id now reads "This title has no playable embed." instead of a permanent "Loading...".
+  - **Not detectable:** CineSrc is cross-origin, so a stream failure *inside* the frame emits no event we can read; we deliberately do not fake a "no streams" popup there. The native "Try again" is unchanged in Streamly mode.
+  - Regression test added (nativePlayerView 7/7, incl. "does not paint the native retry banner over the embed"). Gates: lint 0; full suite 1467/1467; build 0.
+
 - [x] **RIVO Server 1 root-cause (git archaeology + live chain test) + subtitle-variant fix (user: "before 4 commits everything was working ... test rivo server1 in there") - 2026-11-07 (commit `c0b80f8`).**
   - **Git archaeology:** the RIVO request contract (URL `f.rivo.st/api/source/{kind}/{id}?server=1`, headers, body) is byte-identical across `0b3eb99` (introduction), `b2be68e`, and HEAD. The only changes since `568a79e` are the `ea735b6` fallback and `7ecd868` logging; neither alters the upstream request. So the last 4-8 commits did not regress RIVO.
   - **Live re-test:** `f.rivo.st/api/source/...` now returns full rosters again for 1101383 (6), 27205 (6), 1339713 (8), tv 1399 S1E1 (21), 1263337 (5). The earlier empty responses were a transient upstream outage/rate-limit, not our code.
