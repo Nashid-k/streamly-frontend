@@ -34,6 +34,25 @@ describe("NativePlayerView (smoke)", () => {
       screen.getByText(/no MediaSource support/i),
     ).toBeInTheDocument();
   });
+
+  it("does not paint the native retry banner over the embed", () => {
+    render(
+      <NativePlayerView
+        type="movie"
+        id="550"
+        title="Fight Club"
+        playerMode="embed"
+        onClose={() => {}}
+      />,
+    );
+    // The CineSrc frame is the surface in embed mode...
+    expect(screen.getByTitle("CineSrc embed player")).toBeInTheDocument();
+    // ...and the native fatal (jsdom has no MediaSource) must not sit on top of
+    // it: its message names a native source and its "Try again" re-runs the
+    // native resolve, neither of which is true of the embed.
+    expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/no MediaSource support/i)).not.toBeInTheDocument();
+  });
 });
 
 /* The loading stage the viewer stares at while a stream resolves: the title

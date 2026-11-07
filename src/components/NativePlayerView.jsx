@@ -458,6 +458,11 @@ export default function NativePlayerView({
       if (currentPos > 0) {
         savedPositionRef.current = currentPos;
       }
+      // The native fatal banner belongs to Streamly mode: it names a native
+      // source and its "Try again" re-runs the native resolve, neither of which
+      // is true of the embed. Clear it so a failure from the mode we just left
+      // cannot sit on top of the iframe.
+      setFatal(null);
       // 2. Tear down playback instead of keeping it alive in the background
       try {
         if (videoRef.current && !videoRef.current.paused) {

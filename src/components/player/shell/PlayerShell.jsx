@@ -30,6 +30,11 @@ import PlayerTransport from "./PlayerTransport";
 const CHROME_TARGET_GUARD =
   "button:not(.big), [role='button']:not(.big), input, [role='slider'], .sheet, .nxt, .top, .bot, .skip-pill, .np-resume-card, [role='dialog'], [role='menu'], [role='listbox'], [role='option'], .np-mode-dropdown-wrap, .np-mode-menu, .np-mode-selector";
 
+/* Embed mode is a cross-origin iframe (CineSrc): its DOM and playback state are
+   unreadable from here, so the one failure we can honestly detect is "the frame
+   never loaded". Each load attempt arms this timer; onLoad clears it. */
+const EMBED_LOAD_TIMEOUT_MS = 20_000;
+
 export default function PlayerShell({
   activeDub,
   activeSourceKey,
@@ -199,6 +204,31 @@ export default function PlayerShell({
 
   const [navDirection, setNavDirection] = useState(0);
   const panelStackRef = useRef([]);
+
+  /* Embed load watchdog. `embedNonce` is bumped by the embed retry to force the
+     iframe to reload even though its URL is unchanged; `embedTimedOut` is the
+     only failure signal a cross-origin frame can give us. */
+  const [embedNonce, setEmbedNonce] = useState(0);
+  const [embedTimedOut, setEmbedTimedOut] = useState(false);
+  const embedTimerRef = useRef(null);
+  useEffect(() => {
+    if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+    embedTimerRef.current = null;
+    if (playerMode !== "embed" || !embedUrl) {
+      setEmbedTimedOut(false);
+      return undefined;
+    }
+    setEmbedTimedOut(false);
+    embedTimerRef.current = setTimeout(() => setEmbedTimedOut(true), EMBED_LOAD_TIMEOUT_MS);
+    return () => {
+      if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+      embedTimerRef.current = null;
+    };
+  }, [playerMode, embedUrl, embedNonce]);
+  const retryEmbed = () => {
+    setEmbedTimedOut(false);
+    setEmbedNonce((n) => n + 1);
+  };
 
   useEffect(() => {
     if (!panel) {
@@ -397,9 +427,15 @@ export default function PlayerShell({
           {playerMode === "embed" ? (
             embedUrl ? (
               <iframe
+                key={`${embedUrl}#${embedNonce}`}
                 ref={embedRef}
                 src={embedUrl}
                 title="CineSrc embed player"
+                onLoad={() => {
+                  if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+                  embedTimerRef.current = null;
+                  setEmbedTimedOut(false);
+                }}
                 style={{
                   position: "absolute",
                   inset: 0,
@@ -424,7 +460,7 @@ export default function PlayerShell({
                   fontSize: 15,
                 }}
               >
-                Loading CineSrc embed player...
+                This title has no playable embed.
               </div>
             )
           ) : null}
@@ -892,10 +928,20 @@ export default function PlayerShell({
           </AnimatePresence>
         </div>
 
-        {/* Fatal error banner outside sheet */}
+        {/* Fatal banner outside sheet. Embed mode gets its own message: the
+            native banner names a native source and its "Try again" re-runs the
+            native resolve, so it must never sit on top of the iframe. */}
         {!panel && (
           <AnimatePresence>
-            {fatal ? (
+            {playerMode === "embed" ? (
+              embedTimedOut ? (
+                <FatalBanner
+                  message="The embed player didn't load. Check your connection, then try again."
+                  onRetry={retryEmbed}
+                  onBack={onExitPlayer}
+                />
+              ) : null
+            ) : fatal ? (
               <FatalBanner
                 message={fatal}
                 onRetry={retryLoad}
