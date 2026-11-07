@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **Embed-mode leak audit (round 2) — "find other similar issues and fix" — 2026-11-07.**
+  - **Scope:** the first round gated the visible native overlays; this pass closed the remaining native work that still ran behind the CineSrc/ZXC iframe.
+  - **Fixes:**
+    - `useSubtitles` now takes `mode` and skips the OpenSubtitles language search (and any auto-selection download) in embed; switching back re-runs it.
+    - The SkipDB (`fetchSkipBoundaries`) and ZXC intro (`fetchZxcIntroBounds`) lookups return early in embed.
+    - The Media Session effect unregisters native handlers and sets `playbackState = "none"` in embed, so hardware keys no longer drive a detached element.
+    - The sibling-server warm pump and next-episode prewarm effects are gated to Streamly mode; the low-buffer step-down effect is too.
+    - Entering embed now *dismisses* a pending "Still watching?" prompt instead of only render-gating it, so it cannot reappear unanswered on switch-back.
+    - `ProviderEmbedPlayer` (ZXC embed) now has the same 20s load-timeout watchdog as the CineSrc embed, with "Try again" (re-keys the iframe) and "Back", plus an honest "didn't load" message instead of an endless veil.
+    - CineSrc iframe gains `referrerPolicy="origin"` for parity with the ZXC embed.
+  - **Regression tests:** `nativePlayerEmbedLeaks.test.jsx` (7/7) — no subtitle/skip-boundary/media-session work in embed, still runs in Streamly mode. `providerEmbedPlayer.test.jsx` (7/7) — watchdog timeout + retry re-key + onLoad clears timer. `nativePlayerView.test.jsx` gains a Still-watching-dismissal test.
+  - **Gates:** lint 0 errors; full suite 1477/1477; build 0.
 - [x] **Embed-mode native-state leak audit (user: "find other similar issues and fix") - 2026-11-07 (commit `940ad61`).**
   - **Cause:** only the fatal banner was gated. Switching to Embed left native-only chrome/state behind the iframe: native subtitle text, Skip Intro/Credits pills, the tap-to-unmute pill, the Up Next card (and its auto-advance timer), the "Still watching?" prompt, the OSD/seek ripples from the key map, and an already-open settings sheet.
   - **Fix:** `PlayerShell` now gates every native overlay to `playerMode !== "embed"`; entering embed closes the panel and clears Up Next. `useSourceResolve` takes `playerMode` as a dependency, so entering embed runs the previous run's cleanup (abort + HLS destroy + detach) and the hidden native element can no longer resolve/play audio behind the iframe; switching back re-runs the resolve. `usePlayerKeyboard` ignores playback keys in embed (Escape and Tab stay live). The playhead is captured in a `useLayoutEffect` before the passive cleanup resets `currentTime`, so the switch-back resume card still has the real position.
