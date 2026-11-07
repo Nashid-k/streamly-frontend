@@ -1,7 +1,8 @@
 import { describe, expect, it, beforeAll } from "vitest";
-import { render, fireEvent, screen, waitFor } from "@testing-library/react";
+import { render, fireEvent, screen, waitFor, act } from "@testing-library/react";
 import NativePlayerView from "../components/NativePlayerView";
 import { LoadingStage } from "../components/player/chrome/primitives";
+import { STILL_WATCHING_IDLE_MS } from "../constants/playerUi";
 
 // jsdom has no ResizeObserver; the player measures its frame with it.
 beforeAll(() => {
@@ -103,6 +104,44 @@ describe("NativePlayerView (smoke)", () => {
       ).toBeNull();
     });
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+  }, 15000);
+
+  it("dismisses a pending Still watching prompt when entering the embed", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(
+        <NativePlayerView type="movie" id="550" title="Fight Club" onClose={() => {}} />,
+      );
+      const video = document.querySelector("video");
+      // jsdom never starts playback; a live (unpaused) element is what the
+      // still-watching offer requires.
+      Object.defineProperty(video, "paused", {
+        configurable: true,
+        get: () => false,
+      });
+      act(() => {
+        fireEvent.play(video);
+      });
+      // The 2h unattended-playback countdown.
+      act(() => {
+        vi.advanceTimersByTime(STILL_WATCHING_IDLE_MS);
+      });
+      expect(document.querySelector(".np-root").className).toContain("still-watching");
+
+      rerender(
+        <NativePlayerView type="movie" id="550" title="Fight Club" playerMode="embed" onClose={() => {}} />,
+      );
+      // Dismissed, not merely render-gated: the prompt must not be latched for
+      // the switch back to native.
+      expect(document.querySelector(".np-root").className).not.toContain("still-watching");
+
+      rerender(
+        <NativePlayerView type="movie" id="550" title="Fight Club" onClose={() => {}} />,
+      );
+      expect(document.querySelector(".np-root").className).not.toContain("still-watching");
+    } finally {
+      vi.useRealTimers();
+    }
   }, 15000);
 });
 

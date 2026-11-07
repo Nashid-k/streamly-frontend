@@ -31,6 +31,10 @@ export const PROVIDER_EMBED_ORIGIN = "https://zxcstream.cc";
 // How long the top bar lingers after the last pointer move before it fades, so
 // the provider's picture is not permanently covered by our chrome.
 const CHROME_IDLE_MS = 3000;
+// A cross-origin frame gives us exactly one failure signal: "it never loaded".
+// Each attempt arms this timer; onLoad clears it. Without it a refused embed
+// leaves our loading veil up forever.
+const EMBED_LOAD_TIMEOUT_MS = 20_000;
 
 /* Build the provider custom-player URL for a title. Movie →
    `/player/movie/{id}`; TV → `/player/tv/{id}?season=&episode=`. Returns ""
@@ -57,13 +61,14 @@ export default function ProviderEmbedPlayer({
   title,
   subtitle,
   onClose,
-  playerMode = "embed",
-  onToggleMode,
 }) {
-  const [modeDropdownOpen, setModeDropdownOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  // Bumped by "Try again" so the iframe reloads even though its URL is unchanged.
+  const [embedNonce, setEmbedNonce] = useState(0);
   const [chromeVisible, setChromeVisible] = useState(true);
   const idleTimerRef = useRef(null);
+  const embedTimerRef = useRef(null);
   // The page remounts this component per watch session, but onClose can change
   // identity between renders; read it through a ref so the Escape handler binds
   // once and still calls the latest close.
@@ -75,6 +80,29 @@ export default function ProviderEmbedPlayer({
   useEffect(() => {
     if (!url) logError("player", "provider embed: no tmdb id for the requested title", { type, id });
   }, [url, type, id]);
+
+  /* Load watchdog: every attempt re-arms it, a load clears it. A new URL or a
+     retry also resets `loaded`, because the iframe is re-keyed and the old
+     frame's onLoad must not cover the fresh attempt. */
+  useEffect(() => {
+    if (!url) {
+      setTimedOut(false);
+      return undefined;
+    }
+    setLoaded(false);
+    setTimedOut(false);
+    embedTimerRef.current = setTimeout(() => setTimedOut(true), EMBED_LOAD_TIMEOUT_MS);
+    return () => {
+      if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+      embedTimerRef.current = null;
+    };
+  }, [url, embedNonce]);
+
+  const retryEmbed = () => {
+    setTimedOut(false);
+    setLoaded(false);
+    setEmbedNonce((n) => n + 1);
+  };
 
   // Escape closes the player. It fires only while OUR document owns focus; once
   // the provider iframe takes the keyboard, its own chrome owns the keys — the
@@ -116,10 +144,15 @@ export default function ProviderEmbedPlayer({
     >
       {url ? (
         <iframe
-          key={url}
+          key={`${url}#${embedNonce}`}
           src={url}
           title={title ? `${title}${subtitle ? ` — ${subtitle}` : ""}` : "Stream player"}
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+            embedTimerRef.current = null;
+            setTimedOut(false);
+            setLoaded(true);
+          }}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
           referrerPolicy="origin"
@@ -153,7 +186,7 @@ export default function ProviderEmbedPlayer({
 
       {/* Loading veil: covers the provider's own black-until-ready frame so a
           slow embed reads as "loading", not "broken". */}
-      {url && !loaded && (
+      {url && !loaded && !timedOut && (
         <div
           style={{
             position: "absolute",
@@ -166,6 +199,67 @@ export default function ProviderEmbedPlayer({
           }}
         >
           <Loader variant="inline" size="40px" />
+        </div>
+      )}
+
+      {/* The only failure a cross-origin frame can report is "never loaded".
+          Say so honestly and offer the two exits instead of spinning forever. */}
+      {url && timedOut && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 14,
+            padding: "0 2rem",
+            textAlign: "center",
+            background: "rgba(5,5,5,0.94)",
+            zIndex: 4,
+          }}
+        >
+          <div style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>
+            The provider player didn’t load.
+          </div>
+          <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, maxWidth: 420 }}>
+            Check your connection, then try again.
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+            <button
+              type="button"
+              onClick={retryEmbed}
+              style={{
+                border: "none",
+                borderRadius: 999,
+                padding: "10px 22px",
+                background: "#fff",
+                color: "#000",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={close}
+              style={{
+                border: "1px solid rgba(255,255,255,0.3)",
+                borderRadius: 999,
+                padding: "10px 22px",
+                background: "transparent",
+                color: "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Back
+            </button>
+          </div>
         </div>
       )}
 
@@ -227,54 +321,6 @@ export default function ProviderEmbedPlayer({
             <div style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{subtitle}</div>
           ) : null}
         </div>
-        {onToggleMode && (
-          <div className="np-mode-dropdown-wrap" style={{ position: "relative", right: "auto", top: "auto" }}>
-            <button
-              type="button"
-              className="np-mode-select"
-              onClick={(e) => {
-                e.stopPropagation();
-                setModeDropdownOpen(!modeDropdownOpen);
-              }}
-              aria-label="Player mode"
-              aria-expanded={modeDropdownOpen}
-              aria-haspopup="listbox"
-            >
-              <span>Embed</span>
-              <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-            {modeDropdownOpen && (
-              <div className="np-mode-menu" role="listbox" aria-label="Player mode">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setModeDropdownOpen(false);
-                    onToggleMode("streamly");
-                  }}
-                >
-                  Streamly
-                </button>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={true}
-                  className="active"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setModeDropdownOpen(false);
-                  }}
-                >
-                  Embed
-                </button>
-              </div>
-            )}
-          </div>
-        )}
         {url && (
           <a
             href={url}

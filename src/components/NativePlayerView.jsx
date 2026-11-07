@@ -447,6 +447,10 @@ export default function NativePlayerView({
      refetch and offer restart/resume prompt based on progress when switching back */
   const prevPlayerModeRef = useRef(localPlayerMode);
   const savedPositionRef = useRef(0);
+  // `dismissStillWatching` comes from usePlayerChrome further down, after this
+  // effect's dependency array is evaluated; route through a ref like the other
+  // late-bound handlers.
+  const dismissStillWatchingRef = useRef(() => {});
 
   /* Capture the native playhead in the LAYOUT phase. Entering embed re-runs the
      resolve effect, and React runs that effect's passive cleanup (destroy HLS,
@@ -482,6 +486,10 @@ export default function NativePlayerView({
       // remaining native overlays by mode.)
       setPanel(null);
       setUpNext(null);
+      // A pending "Still watching?" prompt belongs to native playback. Dismiss
+      // it rather than only render-gating it: otherwise it is still latched
+      // when the viewer switches back and reappears unanswered.
+      dismissStillWatchingRef.current?.();
       // 2. Tear down playback instead of keeping it alive in the background
       try {
         if (videoRef.current && !videoRef.current.paused) {
@@ -721,7 +729,7 @@ export default function NativePlayerView({
     subtitleBg,
     setSubtitleBg,
     selectSubtitle,
-  } = useSubtitles({ videoRef, id, type, imdbId, title, prefs });
+  } = useSubtitles({ videoRef, id, type, imdbId, title, prefs, mode: localPlayerMode });
 
   /* Chrome autohide + "Still watching?" live together in one hook: `poke`
      interleaves the 3s hide timer with the 2h idle timer under one shared rate
@@ -740,6 +748,7 @@ export default function NativePlayerView({
     resetStreak,
     recordAutoAdvance,
   } = usePlayerChrome({ videoRef, playing, endedRef });
+  dismissStillWatchingRef.current = dismissStillWatching;
 
   // The global key handler binds once per panel flip, so it cannot read the
   // latest `controlsVisible` from its closure. A ref keeps the Tab-to-reveal
@@ -1501,6 +1510,17 @@ export default function NativePlayerView({
      once — the handlers call live refs so nothing goes stale. */
   useEffect(() => {
     if (!("mediaSession" in navigator)) return undefined;
+    /* The embed is a cross-origin player: its own media-session integration is
+       invisible to us, and keeping our handlers registered here would answer
+       hardware keys against a detached, src-less native element. */
+    if (localPlayerMode === "embed") {
+      try {
+        navigator.mediaSession.playbackState = "none";
+      } catch {
+        // session unavailable
+      }
+      return undefined;
+    }
     try {
       navigator.mediaSession.metadata = new window.MediaMetadata({
         title: displayTitle,
@@ -1540,7 +1560,7 @@ export default function NativePlayerView({
       // MediaMetadata/session unsupported — playback is unaffected
     }
     return undefined;
-  }, [displayTitle, displaySubtitle]);
+  }, [displayTitle, displaySubtitle, localPlayerMode]);
 
   /* Re-arm the autohide timer whenever play state flips. */
   useEffect(() => {
@@ -1916,6 +1936,7 @@ export default function NativePlayerView({
   // Re-armed by the menu effect below independently — both pumps coalesce onto
   // the same cached promises, so overlap never doubles a request.
   useEffect(() => {
+    if (localPlayerMode !== "streamly") return undefined;
     if (status !== "playing") return undefined;
     let cancelled = false;
     let stopPump = null;
@@ -1928,7 +1949,7 @@ export default function NativePlayerView({
       clearTimeout(timer);
       stopPump?.();
     };
-  }, [status, resolveArgs, requestedServer, activeSourceKey]);
+  }, [localPlayerMode, status, resolveArgs, requestedServer, activeSourceKey]);
 
   // YouTube's anti-stall rule: when the pipe can't refill faster than a segment
   // plays, drop one rung once the forward buffer sits under BUFFER_FLOOR_SECONDS
@@ -1941,7 +1962,7 @@ export default function NativePlayerView({
     // while the rung stayed pinned). While the element is still "playing", a
     // stall keeps the under-floor timer running. A PAUSED wait (seek in flight)
     // still resets — dropping a rung mid-seek would disturb it.
-    if (status !== "playing" || !playing) {
+    if (localPlayerMode !== "streamly" || status !== "playing" || !playing) {
       st.since = 0;
       st.prev = bufferedSecs;
       return;
@@ -1978,7 +1999,7 @@ export default function NativePlayerView({
     }
     st.since = 0;
     st.prev = bufferedSecs;
-  }, [bufferedSecs, status, playing, currentHeight, qualities, activeUri]);
+  }, [localPlayerMode, bufferedSecs, status, playing, currentHeight, qualities, activeUri]);
 
   /* While the player itself is fetching (seek/stall), park the preview decoder so
      it cannot compete for the same relay bytes the real fragment needs — the
@@ -2010,6 +2031,7 @@ export default function NativePlayerView({
      season-crossing next simply misses the warm key (season differs) and
      resolves normally — harmless. */
   useEffect(() => {
+    if (localPlayerMode !== "streamly") return undefined;
     if (type !== "tv" || status !== "playing" || navNextNumber == null) return undefined;
     const timer = setTimeout(() => {
       try {
@@ -2019,7 +2041,7 @@ export default function NativePlayerView({
       }
     }, 15000);
     return () => clearTimeout(timer);
-  }, [type, status, navNextNumber, resolveArgs]);
+  }, [localPlayerMode, type, status, navNextNumber, resolveArgs]);
 
   const goEpPrev = () => {
     if (prevDisabled) return;
@@ -2139,6 +2161,7 @@ export default function NativePlayerView({
      immediately, and this only refines the window once it lands. An absent imdbId
      simply means no lookup. */
   useEffect(() => {
+    if (localPlayerMode === "embed") return undefined;
     if (!imdbId) return undefined;
     const controller = new AbortController();
     let alive = true;
@@ -2154,7 +2177,7 @@ export default function NativePlayerView({
       alive = false;
       controller.abort();
     };
-  }, [imdbId, type, season, episode, mergeBoundaries]);
+  }, [imdbId, type, season, episode, mergeBoundaries, localPlayerMode]);
 
   /* Provider boundaries (ZXC/vidstuck `/backend/intro`, TV-only), fetched in
      parallel with SkipDB through our own function (the endpoint has no CORS
@@ -2163,6 +2186,7 @@ export default function NativePlayerView({
      tag embedded in the manifest itself. An absent imdbId simply means no
      lookup, exactly like SkipDB. */
   useEffect(() => {
+    if (localPlayerMode === "embed") return undefined;
     if (!imdbId || type !== "tv") return undefined;
     const controller = new AbortController();
     let alive = true;
@@ -2179,7 +2203,7 @@ export default function NativePlayerView({
       alive = false;
       controller.abort();
     };
-  }, [imdbId, id, type, season, episode, mergeBoundaries]);
+  }, [imdbId, id, type, season, episode, mergeBoundaries, localPlayerMode]);
 
   const skipIntroTarget = getSkipIntroTarget({
     type,

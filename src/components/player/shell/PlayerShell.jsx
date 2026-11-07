@@ -447,6 +447,7 @@ export default function PlayerShell({
                 }}
                 allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"
                 allowFullScreen
+                referrerPolicy="origin"
               />
             ) : (
               <div

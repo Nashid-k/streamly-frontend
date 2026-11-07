@@ -37,8 +37,10 @@ const rememberedKey = (id) => `streamly-native-subtitle-${id}`;
  * @param {string} [input.imdbId]
  * @param {string} [input.title]
  * @param {object|null} input.prefs optional preferences (auto subtitles).
+ * @param {"streamly"|"embed"} [input.mode] playback mode; the provider embed
+ *   renders its own subtitles, so our search/download must not run there.
  */
-export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs }) {
+export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs, mode = "streamly" }) {
   const [subtitleLanguages, setSubtitleLanguages] = useState([]); // [{language, languageId, downloadLink}]
   const [subtitleEnabled, setSubtitleEnabled] = useState(false);
   const [activeSubtitle, setActiveSubtitle] = useState(null); // current cue line or null
@@ -143,6 +145,14 @@ export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs 
      id, then fall back to the viewer's auto-subtitle preference. An explicit
      past pick always wins over the preference. */
   useEffect(() => {
+    /* Embed mode is the provider's own player: it renders its own captions, so
+       our language search (and any auto-selection download) would be a wasted
+       request running behind a cross-origin iframe. Switching back re-runs this
+       effect because `mode` is a dependency. */
+    if (mode === "embed") {
+      setIsFetchingSubtitles(false);
+      return undefined;
+    }
     let cancelled = false;
     subtitleTokenRef.current += 1;
     subtitleEnabledRef.current = false;
@@ -194,7 +204,7 @@ export default function useSubtitles({ videoRef, id, type, imdbId, title, prefs 
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, type, imdbId]);
+  }, [id, type, imdbId, mode]);
 
   /* Subtitle styling persists across visits. */
   useEffect(() => {
