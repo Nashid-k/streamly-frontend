@@ -223,6 +223,40 @@ export default function PlayerPanel({
     ripple.addEventListener("animationend", () => ripple.remove());
   };
 
+  // Mobile / tablet bottom drawer drag-to-dismiss gesture
+  const touchStartYRef = useRef(0);
+  const touchDeltaYRef = useRef(0);
+
+  const handleDragTouchStart = (e) => {
+    if (e.touches && e.touches[0]) {
+      touchStartYRef.current = e.touches[0].clientY;
+      touchDeltaYRef.current = 0;
+    }
+  };
+
+  const handleDragTouchMove = (e) => {
+    if (e.touches && e.touches[0]) {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - touchStartYRef.current;
+      if (deltaY > 0) {
+        touchDeltaYRef.current = deltaY;
+        if (panelRef?.current) {
+          panelRef.current.style.transform = `translateY(${Math.min(deltaY * 0.75, 140)}px)`;
+        }
+      }
+    }
+  };
+
+  const handleDragTouchEnd = () => {
+    if (panelRef?.current) {
+      panelRef.current.style.transform = "";
+    }
+    if (touchDeltaYRef.current > 50) {
+      onClose?.();
+    }
+    touchDeltaYRef.current = 0;
+  };
+
   return (
     <AnimatePresence>
       {panel ? (
@@ -234,7 +268,7 @@ export default function PlayerPanel({
             reduceMotion
               ? { duration: 0 }
               : {
-                  opacity: { duration: 0.25, ease: [0.22, 1, 0.36, 1] },
+                  opacity: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
                   y: SPRING.LIFT,
                   scale: SPRING.LIFT,
                 }
@@ -253,11 +287,23 @@ export default function PlayerPanel({
             .filter(Boolean)
             .join(" ")}
         >
-          {/* Mobile drawer drag handle */}
-          <div className="grab" id="grab" aria-hidden="true" />
+          {/* Mobile drawer drag handle with swipe down to dismiss */}
+          <div
+            className="grab"
+            id="grab"
+            aria-hidden="true"
+            onTouchStart={handleDragTouchStart}
+            onTouchMove={handleDragTouchMove}
+            onTouchEnd={handleDragTouchEnd}
+          />
 
           {/* Header */}
-          <div className={["hd", isSub ? "np-subhead" : ""].filter(Boolean).join(" ")}>
+          <div
+            className={["hd", isSub ? "np-subhead" : ""].filter(Boolean).join(" ")}
+            onTouchStart={handleDragTouchStart}
+            onTouchMove={handleDragTouchMove}
+            onTouchEnd={handleDragTouchEnd}
+          >
             <AnimatePresence initial={false}>
               {isSub ? (
                 <motion.button

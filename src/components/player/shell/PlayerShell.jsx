@@ -209,6 +209,7 @@ export default function PlayerShell({
      iframe to reload even though its URL is unchanged; `embedTimedOut` is the
      only failure signal a cross-origin frame can give us. */
   const [embedNonce, setEmbedNonce] = useState(0);
+  const [embedLoaded, setEmbedLoaded] = useState(false);
   const [embedTimedOut, setEmbedTimedOut] = useState(false);
   const embedTimerRef = useRef(null);
   useEffect(() => {
@@ -216,8 +217,10 @@ export default function PlayerShell({
     embedTimerRef.current = null;
     if (playerMode !== "embed" || !embedUrl) {
       setEmbedTimedOut(false);
+      setEmbedLoaded(false);
       return undefined;
     }
+    setEmbedLoaded(false);
     setEmbedTimedOut(false);
     embedTimerRef.current = setTimeout(() => setEmbedTimedOut(true), EMBED_LOAD_TIMEOUT_MS);
     return () => {
@@ -227,6 +230,7 @@ export default function PlayerShell({
   }, [playerMode, embedUrl, embedNonce]);
   const retryEmbed = () => {
     setEmbedTimedOut(false);
+    setEmbedLoaded(false);
     setEmbedNonce((n) => n + 1);
   };
 
@@ -243,7 +247,7 @@ export default function PlayerShell({
     }
   }, [panel]);
 
-  // Close mode dropdown on outside click
+  // Close mode dropdown on outside click/tap
   useEffect(() => {
     if (!modeDropdownOpen) return;
     const handleClickOutside = (e) => {
@@ -260,7 +264,11 @@ export default function PlayerShell({
       setModeDropdownOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, [modeDropdownOpen]);
 
   const handleSetPanel = (next) => {
@@ -426,29 +434,59 @@ export default function PlayerShell({
           />
           {playerMode === "embed" ? (
             embedUrl ? (
-              <iframe
-                key={`${embedUrl}#${embedNonce}`}
-                ref={embedRef}
-                src={embedUrl}
-                title="CineSrc embed player"
-                onLoad={() => {
-                  if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
-                  embedTimerRef.current = null;
-                  setEmbedTimedOut(false);
-                }}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  border: "none",
-                  display: "block",
-                  zIndex: 1,
-                }}
-                allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"
-                allowFullScreen
-                referrerPolicy="origin"
-              />
+              <>
+                <iframe
+                  key={`${embedUrl}#${embedNonce}`}
+                  ref={embedRef}
+                  src={embedUrl}
+                  title="CineSrc embed player"
+                  onLoad={() => {
+                    if (embedTimerRef.current) clearTimeout(embedTimerRef.current);
+                    embedTimerRef.current = null;
+                    setEmbedTimedOut(false);
+                    setEmbedLoaded(true);
+                  }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    border: "none",
+                    display: "block",
+                    zIndex: 1,
+                  }}
+                  allow="autoplay *; fullscreen *; picture-in-picture *; encrypted-media *"
+                  allowFullScreen
+                  referrerPolicy="origin"
+                />
+                {!embedLoaded && !embedTimedOut && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#070a08",
+                      zIndex: 2,
+                    }}
+                  >
+                    <div className="ld np-v4-loader" aria-hidden="true" style={{ width: 44, height: 44 }}>
+                      <svg viewBox="0 0 100 100">
+                        <defs>
+                          <linearGradient id="lg-embed" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" style={{ stopColor: "var(--accent, #8652bb)" }} />
+                            <stop offset="1" stopColor="#fff" />
+                          </linearGradient>
+                        </defs>
+                        <circle className="lt" cx="50" cy="50" r="40" />
+                        <circle className="arc a1" cx="50" cy="50" r="40" pathLength="100" style={{ stroke: "url(#lg-embed)" }} />
+                        <circle className="arc a2" cx="50" cy="50" r="28" pathLength="100" style={{ stroke: "url(#lg-embed)" }} />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div
                 style={{

@@ -2127,11 +2127,37 @@
   100% { opacity: 0; transform: translate(-50%, -50%) scale(1.15); }
 }
 
-/* Double-tap flash matching player-v4.html — no background circle */
+/* Double-tap seek edge wave/glow — clean radial edge pulse without dark plates */
 :is(.player, .np-root) .dt,
 .dt {
-  display: none !important;
-  background: none !important;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
+  will-change: opacity;
+}
+:is(.player, .np-root) .dt.l,
+.dt.l {
+  left: 0;
+  background: radial-gradient(ellipse at 0% 50%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 72%) !important;
+}
+:is(.player, .np-root) .dt.r,
+.dt.r {
+  right: 0;
+  background: radial-gradient(ellipse at 100% 50%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 72%) !important;
+}
+:is(.player, .np-root) .dt.show,
+.dt.show {
+  display: block !important;
+  animation: dtFlash 650ms var(--ease) forwards !important;
+}
+@keyframes dtFlash {
+  0% { opacity: 0; }
+  25% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Buffered */
@@ -2208,7 +2234,6 @@
   border: 1px solid #ffffff17;
   border-radius: 1.1em;
   box-shadow: 0 .5em 1.4em #0007;
-  animation: up 450ms var(--ease);
 }
 :is(.player, .np-root) .nxt small,
 .nxt small {
@@ -2312,6 +2337,9 @@
 .np-root .seek.drag .tip {
   opacity: 1;
   transform: translateX(-50%);
+}
+.np-root .seek.drag .tip {
+  transition: opacity var(--duration-fast) var(--ease) !important;
 }
 
 /* Captions layer */
@@ -2931,18 +2959,15 @@
   border: 1px solid #ffffff17;
   border-radius: 1.25em;
   box-shadow: 0 .5em 1.4em #0007;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(.8em) scale(.97);
   transform-origin: bottom right;
-  transition: opacity 250ms var(--ease), transform 550ms var(--ease-spring), visibility 0ms 550ms var(--ease);
+  will-change: transform, opacity;
 }
 .np-root .sheet.open {
   opacity: 1;
   visibility: visible;
-  transform: none;
-  
-  will-change: transform, opacity;
+}
+.np-root .np-page.pane.in {
+  animation: none !important;
 }
 .np-root .sheet > * {
   font-size: .86em;
