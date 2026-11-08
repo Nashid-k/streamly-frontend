@@ -41,7 +41,7 @@ const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, clearZxcReso
 
 /* The current mint path. If upstream renames it again, the failure is a 404 HTML
    page on every row; update this constant and ZXC_MINT_PATH together. */
-const MINT_PATH = "/backend/getthefuckoutniiguh";
+const MINT_PATH = "/backend/trace";
 /* The current sources endpoint. Retired name: `/backend/servers/{server}`. */
 const SOURCES_PATH = "/backend_/sources/";
 /* The current metadata endpoint. Retired name: `/backend/tmdb/details/{type}/{id}`. */
