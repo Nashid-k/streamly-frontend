@@ -1,84 +1,18 @@
 /**
- * notificationEngine.js — context-aware notification builders: episode
- * releases, upcoming airings, watchlist additions, watch milestones and
- * recommendations. Every notification carries a thumbnail, platform badge,
- * deep link and a category type for smart display.
+ * notificationEngine.js — notification builders for the in-app notification
+ * center. Only the families that actually ship in production live here:
+ * watchlist additions, watchlist milestones, and the welcome notification.
+ * (Episode/airing/recommendation builders were removed — no production emitter
+ * ever fired them; see the audit that preceded this cleanup.)
  */
-
-import { formatTMDBDate, getTMDBWeekday, getTimeUntil } from "./timezone";
 import { getPlatformName, normalizePlatformKey } from "./platforms";
 
-
 export const NOTIF_TYPES = {
-  EPISODE_RELEASED: "episode_released",
-  EPISODE_AIRING: "episode_airing",
   MOVIE_ADDED: "movie_added",
-  MOVIE_STREAMING: "movie_streaming",
   SERIES_ADDED: "series_added",
-  PLATFORM_AVAILABILITY: "platform_availability",
-  WEEKLY_DIGEST: "weekly_digest",
-  RECOMMENDATION: "recommendation",
   MILESTONE: "milestone",
   WELCOME: "welcome",
 };
-
-
-/** Newly released episode: "Season 2 Episode 5 of Stranger Things released on Netflix". */
-export function buildEpisodeReleasedNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
-  const platformKey = normalizePlatformKey(platform);
-  const platformName = getPlatformName(platform) || "streaming";
-  const formattedDate = releaseDate ? formatTMDBDate(releaseDate, { weekday: 'long', month: 'short', day: 'numeric' }, undefined, platformKey) : "today";
-
-  return {
-    id: `ep-released-${movieId}-s${season}e${episode }`,
-    type: NOTIF_TYPES.EPISODE_RELEASED,
-    title: `📺 New Episode Released`,
-    message: `Season ${season}, Episode ${episode}${episodeTitle ? `: "${episodeTitle}"` : ""} of ${title} is now streaming on ${platformName}.`,
-    detail: `${season}x${String(episode).padStart(2, "0")} · ${formattedDate}`,
-    link: `/watch/${movieId}`,
-    platform: platformName,
-    platformKey,
-    image: imageUrl || null,
-    season,
-    episode,
-    createdAt: Date.now(),
-    isRead: false,
-    priority: "high",
-    actionable: true,
-  };
-}
-
-/** Upcoming episode: "New episode of The Bear airs on Wednesday, Sep 10". */
-export function buildEpisodeAiringNotification({ title, season, episode, episodeTitle, platform, releaseDate, imageUrl, movieId }) {
-  const platformKey = normalizePlatformKey(platform);
-  const platformName = getPlatformName(platform) || "streaming";
-  const weekday = getTMDBWeekday(releaseDate, undefined, platformKey);
-  const timeUntil = getTimeUntil(releaseDate, undefined, platformKey);
-  const formattedDate = formatTMDBDate(releaseDate, { weekday: 'long', month: 'short', day: 'numeric' }, undefined, platformKey);
-
-  const timeContext = timeUntil === "today" ? "later today"
-    : timeUntil === "tomorrow" ? "tomorrow"
-    : `in ${timeUntil.replace('in ', '')}`;
-
-  return {
-    id: `ep-airing-${movieId}-s${season}e${episode }`,
-    type: NOTIF_TYPES.EPISODE_AIRING,
-    title: `🔴 Upcoming Episode`,
-    message: `Season ${season}, Episode ${episode}${episodeTitle ? `: "${episodeTitle}"` : ""} of ${title} will air ${timeContext} on ${platformName}.`,
-    detail: `${weekday} · ${formattedDate} · ${platformName}`,
-    link: `/watch/${movieId}`,
-    platform: platformName,
-    platformKey,
-    image: imageUrl || null,
-    season,
-    episode,
-    releaseDate,
-    createdAt: Date.now(),
-    isRead: false,
-    priority: "medium",
-    actionable: true,
-  };
-}
 
 /** Watchlist addition: "Inception added — Now streaming on Netflix". */
 export function buildMovieAddedNotification({ title, platform, year, duration, imageUrl, movieId, isSeries }) {
@@ -93,33 +27,11 @@ export function buildMovieAddedNotification({ title, platform, year, duration, i
   if (duration) parts.push(duration);
 
   return {
-    id: `added-${movieId }`,
+    id: `added-${movieId}`,
     type: isSeries ? NOTIF_TYPES.SERIES_ADDED : NOTIF_TYPES.MOVIE_ADDED,
     title: `${emoji} ${typeLabel} Added`,
     message: `${title} added to your list.${parts.length > 0 ? " " + parts.join(" · ") : ""}`,
     detail: parts.join(" · ") || null,
-    link: `/watch/${movieId}`,
-    platform: platformName,
-    platformKey,
-    image: imageUrl || null,
-    createdAt: Date.now(),
-    isRead: false,
-    priority: "low",
-    actionable: true,
-  };
-}
-
-/** Recommendation: "Because you watched Inception — Interstellar is now streaming". */
-export function buildRecommendationNotification({ title, reason, platform, imageUrl, movieId }) {
-  const platformKey = normalizePlatformKey(platform);
-  const platformName = getPlatformName(platform);
-
-  return {
-    id: `rec-${movieId }`,
-    type: NOTIF_TYPES.RECOMMENDATION,
-    title: `💡 Recommended for You`,
-    message: `Because you watched ${reason}${platformName ? `, "${title}" is now streaming on ${platformName}` : `, you might like "${title}"`}.`,
-    detail: platformName ? `Streaming on ${platformName}` : null,
     link: `/watch/${movieId}`,
     platform: platformName,
     platformKey,
@@ -141,7 +53,7 @@ export function buildMilestoneNotification({ type, count, title }) {
   };
 
   return {
-    id: `milestone-${type}-${count }`,
+    id: `milestone-${type}-${count}`,
     type: NOTIF_TYPES.MILESTONE,
     title: title || `🎉 Milestone Reached`,
     message: messages[type] || `You've reached a new milestone!`,
@@ -154,15 +66,10 @@ export function buildMilestoneNotification({ type, count, title }) {
   };
 }
 
-export function fireListMilestone(count, addNotification) {
-  if (typeof addNotification !== "function") return;
-  const thresholds = [10, 25, 50];
-  if (!thresholds.includes(count)) return;
-  addNotification(buildMilestoneNotification({ type: "list_milestone", count, title: "🎉 Watchlist milestone" }));
-}
+/** Welcome notification. */
 export function buildWelcomeNotification({ isSignedIn }) {
   return {
-    id: `welcome-${isSignedIn ? 'in' : 'out' }`,
+    id: `welcome-${isSignedIn ? "in" : "out"}`,
     type: NOTIF_TYPES.WELCOME,
     title: `👋 Welcome to Streamly!`,
     message: isSignedIn
@@ -177,40 +84,9 @@ export function buildWelcomeNotification({ isSignedIn }) {
   };
 }
 
-
-const DEFAULT_NOTIF_PREFS = {
-  episodeReleased: true,
-  episodeAiring: true,
-  movieAdded: false, // Don't notify for own actions
-  platformAvailability: true,
-  weeklyDigest: true,
-  recommendations: true,
-  milestones: true,
-  continueWatching: true,
-};
-
-function getNotificationPrefs() {
-  try {
-    const stored = localStorage.getItem("streamly_notif_prefs");
-    return stored ? { ...DEFAULT_NOTIF_PREFS, ...JSON.parse(stored) } : DEFAULT_NOTIF_PREFS;
-  } catch {
-    return DEFAULT_NOTIF_PREFS;
-  }
-}
-
-export function isNotificationTypeEnabled(type) {
-  const prefs = getNotificationPrefs();
-  const mapping = {
-    [NOTIF_TYPES.EPISODE_RELEASED]: "episodeReleased",
-    [NOTIF_TYPES.EPISODE_AIRING]: "episodeAiring",
-    [NOTIF_TYPES.MOVIE_ADDED]: "movieAdded",
-    [NOTIF_TYPES.SERIES_ADDED]: "movieAdded",
-    [NOTIF_TYPES.PLATFORM_AVAILABILITY]: "platformAvailability",
-    [NOTIF_TYPES.WEEKLY_DIGEST]: "weeklyDigest",
-    [NOTIF_TYPES.RECOMMENDATION]: "recommendations",
-    [NOTIF_TYPES.MILESTONE]: "milestones",
-    [NOTIF_TYPES.WELCOME]: "milestones",
-  };
-  const key = mapping[type];
-  return key ? prefs[key] !== false : true;
+export function fireListMilestone(count, addNotification) {
+  if (typeof addNotification !== "function") return;
+  const thresholds = [10, 25, 50];
+  if (!thresholds.includes(count)) return;
+  addNotification(buildMilestoneNotification({ type: "list_milestone", count, title: "🎉 Watchlist milestone" }));
 }
