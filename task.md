@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Nav-pill spring jitter on repeat navigation — root cause + fix — 2026-11-09 (branch `main`).**
+  - **Symptom:** first navigation's active-pill glide is smooth; every repeat/back navigation jitters.
+  - **Root cause:** the pill spring retargeted mid-flight. `measurePill` was wired to window `scroll` events, to the `isScrolled` flip, and (on POP) the scroll-restoration hook fires retried `scrollTo` for up to 1.6s. First-visits were slow (skeleton → data over network) so those re-measures landed *after* the spring finished and looked fine; repeat visits commit instantly (cached data + instant correct-height page), so the whole scroll cascade landed *inside* the spring window and every slightly-different measurement re-launched the spring. Jitter was noise-triggered re-measurement, not the spring itself.
+  - **Why scrolling is illegitimate as a trigger at all:** the header is `position: fixed` and every pill coordinate is a `getBoundingClientRect` diff against the track box, so scroll can never change track-relative geometry — the measure triggers were pure noise.
+  - **Fix (Header.jsx):** scroll removed from the measurement system entirely (`isScrolled` dropped from measure-effect deps, window scroll listener deleted; the `isScrolled` visual scrim stays); honest geometry signal is now a `ResizeObserver` on the navbar track (avatar swap, font swap, viewport compression; window-resize fallback for engines without RO) alongside the commit measure; one rAF-later settle measure catches first-paint shifts before the viewer can see them; epsilon guard (0.5px) turns sub-pixel drift into a no-op instead of a mid-flight retarget. Temporary `[Streamly][nav-pill]` debug trace (dev/`?debug=1`) to watch measures go quiet per navigation. `MobileBottomNav` already clean (never had a scroll-wired measurement).
+  - **Gates:** lint 0 errors; full suite 118/118 files · 1436/1436 tests; build 0.
+
 - [x] **Brand-name scrub + proper rename — 2026-11-09 (branch `main`).**
   - **Goal:** no third-party clone-branding anywhere — our own names only. Rewriting done inside the same release, verified by full gates.
   - **Renames:** `NetflixStillWatching.jsx` → `StillWatching.jsx` (component + PlayerShell import/JSX); `data-player-skin="netflix"` → `"streamly"` (PlayerPreview + test); subtitle font id/name `netflix/Netflix` → `classic/Classic` with a read-migration in `readPreference` (`"netflix"` → `"classic"`) so stored prefs survive; search-term haystacks updated (`classic`, modal wording); i18n `detailViewDesc` de-branded; SEO description de-branded.

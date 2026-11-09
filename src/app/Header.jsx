@@ -8,6 +8,7 @@ import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
 import AccountMenu from "./AccountMenu";
 import NotificationCenter from "../components/NotificationCenter";
+import { logDebug } from "../utils/debugLogger";
 
 /* ── Primary navigation ────────────────────────────────────────────────────
    Two independent floating islands (Cinejoy .header-row): the brand mark hangs
@@ -112,6 +113,16 @@ function Header() {
   const [pillAnimated, setPillAnimated] = useState(false);
   const measureTick = useRef(0);
 
+  /** Epsilon-guarded placement: sub-pixel drift (fractional rects, mid-transition
+      reflows) must never retarget the spring — only real geometry moves it. */
+  const placePill = useCallback((x, w) => {
+    setPill((prev) =>
+      prev.ready && Math.abs(prev.x - x) <= 0.5 && Math.abs(prev.w - w) <= 0.5
+        ? prev
+        : { x, w, ready: true },
+    );
+  }, []);
+
   const measurePill = useCallback(() => {
     const nav = navRef.current;
     if (!nav) return;
@@ -132,11 +143,12 @@ function Header() {
     const x = active.getBoundingClientRect().left - trackRect.left;
     const w = active.getBoundingClientRect().width;
     if (w <= 0) return;
-    setPill((prev) => (prev.x === x && prev.w === w && prev.ready ? prev : { x, w, ready: true }));
-  }, []);
+    logDebug("nav-pill", "measure", { x: Math.round(x * 10) / 10, w: Math.round(w * 10) / 10 });
+    placePill(x, w);
+  }, [placePill]);
 
-  // rAF-throttled wrapper for frequent scroll/resize events — the pill track
-  // only needs one measurement per frame, not one per event.
+  // rAF-throttled wrapper for ResizeObserver bursts — the pill track only needs
+  // one measurement per frame, not one per observation entry.
   const scheduleMeasure = useCallback(() => {
     if (measureTick.current) return;
     measureTick.current = window.requestAnimationFrame(() => {
@@ -145,11 +157,22 @@ function Header() {
     });
   }, [measurePill]);
 
-    // Measure when the nav could actually change: route change, scrolled state
-    // (the header grows/shrinks) or async icon mounts. Never on every render.
+    /* Measure ONLY on events that can actually change track-relative geometry:
+       route change (active item) and real size changes of the track (avatar
+       swap, font swap, viewport compression). Scrolling is deliberately NOT a
+       trigger — the header is position:fixed and every x is measured relative
+       to the track box, so scroll can never legitimately move the pill; wiring
+       scroll here used to re-measure mid-spring and jitter every repeat
+       navigation (the up-to-1.6s scroll-restoration retries on Back made it
+       fire over and over). */
   useLayoutEffect(() => {
     measurePill();
-  }, [measurePill, location.pathname, isScrolled]);
+    /* One settled-frame correction right after commit catches a first paint
+       that shifted geometry (route-exit lift, late image accent) BEFORE the
+       viewer can perceive it, instead of a correction arriving mid-flight. */
+    const settled = window.requestAnimationFrame(measurePill);
+    return () => window.cancelAnimationFrame(settled);
+  }, [measurePill, location.pathname]);
 
   // Once the first measured frame is on screen, every later pill movement is a
   // spring. Keeping this separate from the measurement effect means a fast
@@ -160,13 +183,29 @@ function Header() {
     return () => window.cancelAnimationFrame(frame);
   }, [pillAnimated]);
 
+  /* Track size is the single honest "geometry changed" signal: it moves when
+     the avatar swaps in, a font finishes loading, the viewport truly resizes,
+     or flex pressure rescales the track. Scroll state is not in this list. */
   useEffect(() => {
-    window.addEventListener("resize", scheduleMeasure);
-    window.addEventListener("scroll", scheduleMeasure, { passive: true });
+    const nav = navRef.current;
+    if (!nav) return undefined;
+    if (typeof ResizeObserver === "undefined") {
+      // Ancient-engine fallback: the viewport resize event is the closest signal.
+      window.addEventListener("resize", scheduleMeasure);
+      return () => window.removeEventListener("resize", scheduleMeasure);
+    }
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          scheduleMeasure();
+          return;
+        }
+      }
+    });
+    observer.observe(nav);
     if (document.fonts?.ready) document.fonts.ready.then(measurePill);
     return () => {
-      window.removeEventListener("resize", scheduleMeasure);
-      window.removeEventListener("scroll", scheduleMeasure);
+      observer.disconnect();
       if (measureTick.current) window.cancelAnimationFrame(measureTick.current);
     };
   }, [scheduleMeasure, measurePill]);
