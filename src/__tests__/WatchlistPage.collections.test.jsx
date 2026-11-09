@@ -49,7 +49,6 @@ function renderPage() {
       clearSearchHistory: vi.fn(),
       isInList: () => false,
       toggleMyList: vi.fn(),
-      addNotification: vi.fn(),
       removeBatchFromMyList: vi.fn(),
       createCollection: vi.fn(),
       createCollectionWithItems: vi.fn(),

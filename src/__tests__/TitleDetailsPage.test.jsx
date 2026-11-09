@@ -186,7 +186,6 @@ function baseAuth({ updateProgress, continueWatching }) {
     continueWatching,
     updateProgress,
     removeFromContinueWatching: vi.fn(),
-    addNotification: vi.fn(),
     requireAuth: () => true,
   };
 }
