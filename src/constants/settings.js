@@ -16,8 +16,8 @@ export const THEMES = [
   {
     id: "emerald",
     name: "Cinejoy Emerald",
-    primary: "#95ff50",
-    secondary: "#43861e",
+    primary: "#34d399",
+    secondary: "#059669",
   },
   {
     id: "amethyst",
@@ -147,6 +147,8 @@ export const SECTION_SEARCH_TERMS = {
     "my watchlist saved movies television series view list",
     "watch history recently watched movies shows progress view history",
     "keyboard touch shortcuts player gestures swipes hotkeys quick actions open guide",
+    "export device data backup download import restore",
+    "clear device data wipe local storage reset guest",
   ].join(" "),
   appearance: [
     "appearance look theme color palette interface default streamly",
@@ -181,6 +183,9 @@ export const SECTION_SEARCH_TERMS = {
   notifications: [
     "notifications in-app status updates scrobble confirmations activity",
     "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner",
+    "library list adds alerts when movie series added to list",
+    "milestones streaks achievements watchlist growth",
+    "center bell inbox unread mark read clear",
   ].join(" "),
   reset: [
     "reset all preferences factory reset restore theme playback preferences",

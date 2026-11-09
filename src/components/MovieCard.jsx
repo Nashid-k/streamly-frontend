@@ -8,6 +8,7 @@ import ContentTag from "./ContentTag";
 import { getContentTags } from "../utils/contentTags";
 import useDetailView from "../hooks/useDetailView";
 import { useAppAuth } from "../context/auth";
+import { useOptionalNotifications } from "../context/notifications";
 import { useToast } from "./Toast";
 
 /* ─────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ import { PrefetchAdapter } from "../api/prefetchAdapter";
 import { useVirtualRenderAdapter } from "../hooks/useVirtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
+import { pickImageWidth } from "../utils/artwork";
 import { logWarn } from "../utils/debugLogger";
 
 // Device capability is static per session — computed once at module scope so it
@@ -49,7 +51,8 @@ const MovieCard = memo(function MovieCard({
   // never navigates away mid-selection. Undefined everywhere else.
   onToggleSelect,
 }) {
-  const { isInList, toggleMyList, addNotification } = useAppAuth();
+  const { isInList, toggleMyList } = useAppAuth();
+  const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
   const preferences = useOptionalPreferences();
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
@@ -130,7 +133,7 @@ const MovieCard = memo(function MovieCard({
   const posterPath = movie.posterUrl || movie.backdropUrl;
   const posterSrc = CdnImageAdapter.getUrl(
     posterPath,
-    preferences?.hdThumbs === false ? "w342" : "w500",
+    pickImageWidth("card", preferences),
   );
 
   useEffect(() => {

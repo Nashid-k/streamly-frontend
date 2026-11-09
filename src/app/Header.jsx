@@ -7,6 +7,7 @@ import { SPRING, DURATION, EASE_OUT } from "../constants/motion";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
 import AccountMenu from "./AccountMenu";
+import NotificationCenter from "../components/NotificationCenter";
 
 /* ── Primary navigation ────────────────────────────────────────────────────
    Two independent floating islands (Cinejoy .header-row): the brand mark hangs
@@ -295,6 +296,9 @@ function Header() {
             >
               <Search size={18} strokeWidth={2} />
             </Link>
+
+            {/* Notifications */}
+            <NotificationCenter />
 
             {/* Settings / Account → dropdown */}
             <button

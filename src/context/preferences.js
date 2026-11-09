@@ -58,7 +58,13 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   hdThumbs: true,
   reduceMotion: false,
   notifications: true,
-  // Appearance
+  // Notifications v2 (Settings 2.0) — per-type gates. Defaults on so the
+  // notification center has something to show; master `notifications` above
+  // still wins.
+  notificationsListAdds: true,
+  notificationsMilestones: true,
+  // Appearance v2
+  hoverPreviews: true,
   theme: "default",
   accentSeed: null,
   episodeViewStyle: "carousel",
