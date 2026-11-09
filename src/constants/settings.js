@@ -16,8 +16,8 @@ export const THEMES = [
   {
     id: "emerald",
     name: "Cinejoy Emerald",
-    primary: "#95ff50",
-    secondary: "#43861e",
+    primary: "#34d399",
+    secondary: "#059669",
   },
   {
     id: "amethyst",
