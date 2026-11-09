@@ -7,6 +7,18 @@
 
  ## Done (in order)
 
+- [x] **Ultimate cleanup (behavior-preserving) — 2026-11-09 (branch `cleanup`).**
+  - **Scope:** Dead code, test-only surfaces, duplicate logic, deps/config — no functional change. 7 phases, each a separate commit, all gates green.
+  - **Phase 1** — Dead notification legacy: removed 3 builders + orphan pref chain + trimmed NOTIF_TYPES; notificationEngine.test.js rewritten.
+  - **Phase 2** — Test truth: createAppProviderWrapper mounts NotificationsProvider; stripped stale authValue.addNotification mocks in 5 test files.
+  - **Phase 3** — Dead barrels/hooks/wrapper: removed components/context/hooks/api barrels + barrels.test.js, dead hooks useDebounce/useMediaQuery (+tests), useWatchlist alias, api/virtualRenderAdapter.js.
+  - **Phase 4** — Archived Netflix HUD family: deleted 5 HUD components + player/index.js barrel + AR_GLYPH + playerUi SPRING re-export + CHECK_POP + their tests.
+  - **Phase 5** — vite.config.js: removed unused __VERSION__ define + pkg read + readFileSync import.
+  - **Phase 6** — Consolidation: src/utils/color.js (hexToRgbTriplet + deriveSecondary) replacing two copies; removed brightness stub + phantom key; ALLOWED_THEMES derived from THEMES; preferences.js uses DEFAULT_SERVER_ORDER; src/utils/safeJson.js shared safeParse; stale motion.js comment fixed.
+  - **Phase 7** — Removed unused postcss devDep; moved vite to devDependencies.
+  - **Gates:** lint 0 errors; full suite 118/118 files, 1436/1436 tests; build 0.
+  - **Not touched (deliberate):** streamly_autoNext/streamly_subtitle_bg migration shims, all setting-*/aios_* contracts, test-hook exports, player raw setting-autoplay dual-read, FilterPill/SeasonDropdown/PlayerShell dropdowns, player-v4.html, i18n.
+
 - [x] **Settings 2.0 — full settings upgrade — 2026-11-09 (branch `settings-2.0`).**
   - **Scope:** Replaced the dead/partial settings surface with a real one. New in-app notification center (revives the dead `addNotification` path), new preference keys (`hoverPreviews`, `notificationsListAdds`, `notificationsMilestones`), hover-previews gate on the scrubber decoder, HD-artwork width helper, spoiler-free v2 (synopsis + episodes), de-duplicated Emerald theme, "Clear device data" action, grouped notifications rows, and honest copy for partial options.
   - **Phase 1 — Notifications foundation:** `src/context/notifications.js` + `NotificationsContext.jsx` (persisted `aios_notifications_v1`, cap 20, 14-day expiry, per-type gating by prefs), `src/components/NotificationCenter.jsx` bell+popover in Header, rewired MovieCard.jsx + TitleDetailsPage.jsx off the non-existent `useAppAuth().addNotification` → `useOptionalNotifications().addNotification`. CSS in settings-ui.css.
