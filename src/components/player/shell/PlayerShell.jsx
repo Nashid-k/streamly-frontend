@@ -429,7 +429,6 @@ export default function PlayerShell({
               ...aspectVideoStyle(aspectRatioIndex),
               touchAction: "manipulation",
               WebkitUserSelect: "none",
-              filter: v4Appearance.brightness !== 1 ? `brightness(${v4Appearance.brightness})` : undefined,
             }}
           />
           {playerMode === "embed" ? (

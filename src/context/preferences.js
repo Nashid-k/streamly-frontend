@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 
+import { DEFAULT_SERVER_ORDER } from "../constants/settings";
 import { PLAYER_SOURCE_LABELS } from "../constants/sources";
 
 /* ── Server naming migration ──────────────────────────────────────────
@@ -83,7 +84,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
     // or "Server N (suffix)" names are migrated on boot, and a saved order naming
     // a retired row (a number the live catalogue no longer offers) is filtered out
     // at render time rather than silently offering a dead server.
-  serverOrder: [...PLAYER_SOURCE_LABELS],
+  serverOrder: [...DEFAULT_SERVER_ORDER],
   // Subtitles
   subtitleFont: "cinejoy",
   subtitleSize: 100,

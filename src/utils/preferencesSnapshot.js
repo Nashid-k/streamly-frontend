@@ -9,13 +9,7 @@ import { logDebug } from './debugLogger';
 
 const SETTING_PREFIX = 'setting-';
 
-function safeParse(raw, fallback) {
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
+import { safeParse } from "../utils/safeJson";
 
 /** Every known preference + its locally stored value (or the default). */
 export function readPreferencesSnapshot() {

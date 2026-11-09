@@ -1,25 +1,11 @@
 import { useCallback, useState } from "react";
 import { DEFAULT_V4_ACCENT } from "../chrome/theme";
+import { hexToRgbTriplet } from "../../../utils/color";
 
 const STORAGE_ACCENT = "streamly_player_v4_accent";
 const STORAGE_IS = "streamly_player_v4_is";
 const STORAGE_CC = "streamly_player_v4_cc";
 const STORAGE_CB = "streamly_player_v4_cb";
-
-function hexToRgb(hex) {
-  if (!hex || typeof hex !== "string") return "134, 82, 187";
-  let clean = hex.replace("#", "").trim();
-  if (clean.length === 3) {
-    clean = clean.split("").map((c) => c + c).join("");
-  }
-  if (clean.length !== 6) return "134, 82, 187";
-  const num = parseInt(clean, 16);
-  if (Number.isNaN(num)) return "134, 82, 187";
-  const r = (num >> 16) & 255;
-  const g = (num >> 8) & 255;
-  const b = num & 255;
-  return `${r}, ${g}, ${b}`;
-}
 
 export default function usePlayerV4Appearance({
   subtitleSize,
@@ -65,8 +51,6 @@ export default function usePlayerV4Appearance({
       return "shadow";
     }
   });
-
-  const [brightness, setBrightness] = useState(1);
 
   const setAccent = useCallback((val) => {
     setAccentState(val);
@@ -117,7 +101,7 @@ export default function usePlayerV4Appearance({
       ? subtitleSize
       : (czValues[subtitleSize] ?? 1);
 
-  const accentRgb = hexToRgb(accent);
+  const accentRgb = hexToRgbTriplet(accent) || hexToRgbTriplet(DEFAULT_V4_ACCENT);
 
   return {
     accent,
@@ -129,8 +113,6 @@ export default function usePlayerV4Appearance({
     setSubColor,
     subBgStyle,
     setSubBgStyle,
-    brightness,
-    setBrightness,
     cz,
   };
 }

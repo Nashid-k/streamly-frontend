@@ -160,11 +160,9 @@ export function motionSafe(reduced, transition) {
 /**
  * The whole vocabulary, pre-checked against the viewer's motion preference.
  *
- * `motionSafe` was written for exactly this and then never called, so the
- * reduced-motion contract in the comment above it was aspirational. Wrapping each
- * token here means a call site writes `M.SHEET` instead of `SPRING.SHEET` and
- * cannot forget the check: the preference is resolved once, at the top of the
- * component, rather than at every transition.
+ * `motionSafe` resolves the preference once at the top of the component, so a
+ * call site writes `M.SHEET` instead of `SPRING.SHEET` and cannot forget the
+ * reduced-motion check.
  *
  * The shared shapes (HUD_POP, PILL_IN) are spread as whole objects
  * `{...PILL_IN}`, so they need the same treatment — hence returning them
