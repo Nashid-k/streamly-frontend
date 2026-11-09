@@ -7,6 +7,15 @@
 
  ## Done (in order)
 
+- [x] **Settings 2.0 — full settings upgrade — 2026-11-09 (branch `settings-2.0`).**
+  - **Scope:** Replaced the dead/partial settings surface with a real one. New in-app notification center (revives the dead `addNotification` path), new preference keys (`hoverPreviews`, `notificationsListAdds`, `notificationsMilestones`), hover-previews gate on the scrubber decoder, HD-artwork width helper, spoiler-free v2 (synopsis + episodes), de-duplicated Emerald theme, "Clear device data" action, grouped notifications rows, and honest copy for partial options.
+  - **Phase 1 — Notifications foundation:** `src/context/notifications.js` + `NotificationsContext.jsx` (persisted `aios_notifications_v1`, cap 20, 14-day expiry, per-type gating by prefs), `src/components/NotificationCenter.jsx` bell+popover in Header, rewired MovieCard.jsx + TitleDetailsPage.jsx off the non-existent `useAppAuth().addNotification` → `useOptionalNotifications().addNotification`. CSS in settings-ui.css.
+  - **Phase 2 — Engine + primitive:** 3 new pref keys in DEFAULT_PREFERENCES, Emerald palette differentiated (#34d399/#059669), reusable `src/components/settings/SettingsDropdown.jsx`.
+  - **Phase 3 — Page additions:** hoverPreviews toggle, notificationsListAdds/milestones toggles, Clear device data row, SECTION_SEARCH_TERMS haystacks updated, i18n keys.
+  - **Phase 4 — Completeness wiring:** `src/utils/artwork.js` (`pickImageWidth`/`artworkWidth`), MovieCard uses it; hoverPreviews gates scrubber decode in useScrubber; spoiler-free v2 gates TitleDetailsPage hero synopsis; copy honesty (spoilerFreeMode, defaultLanguage).
+  - **Phase 5 — Docs + gates:** architecture.md settings contract updated; task.md entry.
+  - **Gates:** lint 0 errors; targeted settings/notification tests green; build 0.
+
 - [x] **Player flaw audit, embed mode loading & cross-device animation/smoothness overhaul — 2026-11-08.**
   - **Scope:** Full audit of native player and embed modes; fixed duplicate controls, mobile touch dismissals, embed switch blank frames, and CSS/Framer-Motion animation fighting.
   - **Fixes:**

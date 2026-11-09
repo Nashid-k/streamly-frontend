@@ -55,7 +55,7 @@ Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 `aios_continue_watching` (each item stamped `updatedAt` — see merge policy
 below), `aios_my_collections` (named folders referencing saved title ids),
 `aios_search_history`, `streamly:realRatings:<id>`
-(24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications`,
+(24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications|hoverPreviews|notificationsListAdds|notificationsMilestones`,
 `streamly_volume|muted|aspectRatio`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
 `/api/sync`, issued only to a verified email identity by `/api/verifyEmail` or
