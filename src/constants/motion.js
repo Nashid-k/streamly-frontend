@@ -109,13 +109,6 @@ export const PILL_IN = {
   transition: SPRING.LIFT,
 };
 
-/** A discrete confirmation (the settings checkmark). Overshoot is the point. */
-export const CHECK_POP = {
-  initial: { scale: 0.4, opacity: 0 },
-  animate: { scale: 1, opacity: 1 },
-  transition: SPRING.POP,
-};
-
 /** Opacity-only fade, for things that must not move (scrims, veils). */
 export const FADE = {
   initial: { opacity: 0 },
@@ -167,13 +160,11 @@ export function motionSafe(reduced, transition) {
 /**
  * The whole vocabulary, pre-checked against the viewer's motion preference.
  *
- * `motionSafe` was written for exactly this and then never called, so the
- * reduced-motion contract in the comment above it was aspirational. Wrapping each
- * token here means a call site writes `M.SHEET` instead of `SPRING.SHEET` and
- * cannot forget the check: the preference is resolved once, at the top of the
- * component, rather than at every transition.
+ * `motionSafe` resolves the preference once at the top of the component, so a
+ * call site writes `M.SHEET` instead of `SPRING.SHEET` and cannot forget the
+ * reduced-motion check.
  *
- * The shared shapes (HUD_POP, PILL_IN, CHECK_POP) are spread as whole objects
+ * The shared shapes (HUD_POP, PILL_IN) are spread as whole objects
  * `{...PILL_IN}`, so they need the same treatment — hence returning them
  * rebuilt rather than as constants.
  */
@@ -188,7 +179,6 @@ export function useMotionTokens(reduced) {
         ),
         HUD_POP: withTransition(HUD_POP),
         PILL_IN: withTransition(PILL_IN),
-        CHECK_POP: withTransition(CHECK_POP),
         FADE: withTransition(FADE),
         MODAL_PANEL: withTransition(MODAL_PANEL),
         REVEAL: withTransition(REVEAL),

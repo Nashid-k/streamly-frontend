@@ -54,21 +54,11 @@ export const aspectVideoStyle = (aspectRatioIndex) => {
     : { objectFit: style.objectFit, transform: `scale(${style.scale})` };
 };
 
-export const AR_GLYPH = [
-  [44, 25],
-  [52, 23],
-  [48, 25],
-  [50, 21],
-  [42, 25],
-  [46, 25],
-];
-
 // Motion tokens live in ./motion.js. The player had seven hand-typed springs
 // scattered across ~70 motion call sites and the wider app had five more, so
 // they are now one named scale. SPRING is re-exported here for the callers
 // that already import from this module; the old SPRING_SNAPPY const is gone,
 // so nothing can keep inventing a local copy of it.
-export { SPRING } from "./motion";
 
 const clamp = (lo, value, hi) => (value < lo ? lo : value > hi ? hi : value);
 

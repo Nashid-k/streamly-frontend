@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { AuthProvider } from "../context/AuthContext.jsx";
 import { AppContext } from "../context/auth";
 import { PreferencesProvider } from "../context/PreferencesContext";
+import { NotificationsProvider } from "../context/NotificationsContext";
 import { ToastProvider } from "../components/Toast.jsx";
 
 /* Page Object-style test harness for this suite.
@@ -56,7 +57,9 @@ export function createAppProviderWrapper({ route = "/", authValue } = {}) {
         <QueryClientProvider client={queryClient}>
           <AuthLayer>
             <PreferencesProvider>
-              <ToastProvider>{children}</ToastProvider>
+              <NotificationsProvider>
+                <ToastProvider>{children}</ToastProvider>
+              </NotificationsProvider>
             </PreferencesProvider>
           </AuthLayer>
         </QueryClientProvider>

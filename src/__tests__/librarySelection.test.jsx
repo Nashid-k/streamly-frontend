@@ -45,7 +45,6 @@ function authValue(overrides = {}) {
     clearSearchHistory: vi.fn(),
     isInList: () => false,
     toggleMyList: vi.fn(),
-    addNotification: vi.fn(),
     removeBatchFromMyList: vi.fn(),
     removeBatchFromCollection: vi.fn(),
     createCollection: vi.fn(),

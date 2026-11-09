@@ -7,7 +7,9 @@ import {
   PreferencesContext,
 } from "./preferences";
 import { logDebug, logInfo } from "../utils/debugLogger";
+import { hexToRgbTriplet, deriveSecondary } from "../utils/color";
 import { PLAYER_SOURCE_LABELS } from "../constants/sources";
+import { THEMES } from "../constants/settings";
 import { queryClient } from "../queryClient";
 import { LANGUAGE_SENSITIVE_QUERY_PREFIXES } from "./preferencesConstants";
 const SETTING_PREFIX = "setting-";
@@ -19,38 +21,9 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/* Convert "#rrggbb" → "r, g, b" triplet for rgba() surfaces, or null. */
-function hexToRgbTriplet(hex) {
-  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
-  if (!match) return null;
-  const n = parseInt(match[1], 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
-}
-
-/* Darken a hex accent for the secondary "--accent-secondary" tone used by
-   gradients / translucent surfaces; malformed input falls back to the default. */
-function deriveSecondary(hex) {
-  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
-  if (!match) return "#3f8a1d";
-  const n = parseInt(match[1], 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  const d = (v) => Math.round(v * 0.6);
-  return `#${[d(r), d(g), d(b)].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
-}
-
 /* Allowed theme ids come from src/constants/settings.js THEMES plus the
    "custom" seed-driven mode; anything else is corrupt input and falls back. */
-const ALLOWED_THEMES = new Set([
-  "default",
-  "emerald",
-  "amethyst",
-  "ocean",
-  "crimson",
-  "solar",
-  "custom",
-]);
+const ALLOWED_THEMES = new Set([...THEMES.map((t) => t.id), "custom"]);
 
 const ACCENT_HEX_RE = /^#?[0-9a-f]{6}$/i;
 const SERVER_LABEL_RE = /^Server [1-8]$/;

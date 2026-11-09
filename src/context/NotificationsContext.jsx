@@ -8,13 +8,11 @@ const STORAGE_KEY = "aios_notifications_v1";
 const MAX_ITEMS = 20;
 const EXPIRY_MS = 14 * 24 * 60 * 60 * 1000;
 
+import { safeParse as safeParseJson } from "../utils/safeJson";
+
 function safeParse(raw) {
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+  const v = safeParseJson(raw, []);
+  return Array.isArray(v) ? v : [];
 }
 
 function pruneExpired(items, now = Date.now()) {

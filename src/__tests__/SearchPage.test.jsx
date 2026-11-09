@@ -303,7 +303,6 @@ describe("SearchPage search history", () => {
         publicCollections: [],
         isInList: () => false,
         toggleMyList: vi.fn(),
-        addNotification: vi.fn(),
         removeBatchFromMyList: vi.fn(),
       },
     });

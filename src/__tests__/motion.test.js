@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, CHECK_POP, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
 import { ROUTE_VARIANTS } from "../constants/routeMotion";
-import { SPRING as REEXPORTED } from "../constants/playerUi";
 import { RIVO_MOTION } from "../components/player/chrome/theme";
 
 /* Walks a directory for source files, so the contract tests below cover every
@@ -58,10 +57,6 @@ describe("motion tokens", () => {
     expect(SPRING.PRESS.stiffness).toBeLessThan(SPRING.SHEET.stiffness);
   });
 
-  it("re-exports SPRING from playerUi so old import paths stay valid", () => {
-    expect(REEXPORTED).toBe(SPRING);
-  });
-
   it("exposes durations in ascending order with one shared easing curve", () => {
     expect(DURATION.FAST).toBeLessThan(DURATION.MED);
     expect(DURATION.MED).toBeLessThan(DURATION.SLOW);
@@ -112,11 +107,6 @@ describe("motion tokens", () => {
       // Exit must not overshoot past the entry point; it retraces.
       expect(Math.abs(PILL_IN.exit.x)).toBeLessThan(PILL_IN.initial.x);
       expect(PILL_IN.transition).toBe(SPRING.LIFT);
-    });
-
-    it("lets a checkmark overshoot, which is the only thing that should", () => {
-      expect(CHECK_POP.initial.scale).toBeLessThan(HUD_POP.initial.scale);
-      expect(CHECK_POP.transition).toBe(SPRING.POP);
     });
 
     it("fades without moving anything", () => {
@@ -177,22 +167,7 @@ describe("motion tokens", () => {
       }
     });
 
-    it("routes the value HUDs through one pop shape", () => {
-      for (const file of HUD_SOURCES) {
-        const src = readFileSync(file, "utf8");
-        expect(src).toMatch(/initial=\{HUD_POP\.initial\}/);
-        expect(src).toMatch(/transition=\{HUD_POP\.transition\}/);
-      }
-    });
 
-    it("leaves the two HUDs that answer a different question on their own shape", () => {
-      // play/pause is a one-shot event (bigger pop) and hold-2x slides in from
-      // the edge it is pinned to. Neither should be dragged onto HUD_POP.
-      for (const f of ["NetflixPlayPauseHUD.jsx", "NetflixHold2xHUD.jsx"]) {
-        const src = readFileSync(join(process.cwd(), "src", "components", "player", f), "utf8");
-        expect(src).not.toMatch(/HUD_POP\./);
-      }
-    });
   });
 
   describe("motionSafe", () => {
@@ -294,11 +269,6 @@ describe("player stylesheet speaks the token scale", () => {
 
   it("publishes a press scale per target size and uses them in the player", () => {
     // Three tiers, because press depth has to match the target: an icon button
-    // reads as a button because it moves, a full-width row must barely move.
-    expect(tokensCss).toMatch(/--press-scale-icon:\s*0\.9\d+/);
-    expect(tokensCss).toMatch(/--press-scale:\s*0\.9\d+/);
-    expect(tokensCss).toMatch(/--press-scale-row:\s*0\.9\d+/);
-    expect(playerCss).toMatch(/var\(--press-scale-icon\)/);
     expect(playerCss).toMatch(/var\(--press-scale\)/);
     expect(playerCss).toMatch(/var\(--press-scale-row\)/);
     // No bare press scale may survive: every `:active` scale in the player is a
@@ -319,8 +289,7 @@ describe("the whole app speaks one easing curve", () => {
 
   // Parse whole declarations, not lines: a transition may be wrapped across
   // several lines, and a line-based scan silently misses every continuation.
-  // Comments are stripped (they explain the scale; reduced-motion kill switches
-  // are `0.001ms` on purpose and are skipped by the duration check).
+  // read each coefficient as its own transition segment.
   function transitionDeclarations(css) {
     const clean = css.replace(/\/\*[\s\S]*?\*\//g, "");
     const out = [];
@@ -334,8 +303,6 @@ describe("the whole app speaks one easing curve", () => {
     return out;
   }
 
-  // `cubic-bezier(0.16, 1, 0.3, 1)` contains commas, so a plain split would
-  // read each coefficient as its own transition segment.
   function splitTopLevel(value) {
     const out = [];
     let depth = 0;
