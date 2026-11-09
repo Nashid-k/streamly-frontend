@@ -51,6 +51,7 @@ import {
 } from "framer-motion";
 import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
+import { useOptionalNotifications } from "../context/notifications";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
@@ -128,13 +129,13 @@ export default function TitleDetails() {
     continueWatching,
     updateProgress,
     removeFromContinueWatching,
-    addNotification,
     // "Mark as watched" is a deliberate data action, but it arrives at
     // updateProgress() looking identical to a progress tick from the player. The
     // gate cannot tell them apart, so these three handlers ask for an account
     // themselves instead of relying on the wrapped mutators.
     requireAuth,
   } = useAppAuth();
+  const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
   const cwRef = useRef(continueWatching);
   useEffect(() => {

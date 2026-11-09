@@ -22,6 +22,7 @@ import "./styles/discovery.css";
 import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";
+import { NotificationsProvider } from "./context/NotificationsContext.jsx";
 import { I18nProvider } from "./i18n/index.jsx";
 
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
@@ -71,15 +72,17 @@ ReactDOM.createRoot(document.getElementById("root")).render(
       <PersistQueryClientProvider client={queryClient} persistOptions={persistQueryCacheOptions}>
         <AuthProvider>
           <PreferencesProvider>
-            <I18nProvider>
-              <ToastProvider>
-                <App />
-              </ToastProvider>
-              <Analytics />
-              {/* LCP/INP/CLS real-user timings; injects a same-origin
-                  /_vercel/ script, so the CSP needs no extra origin. */}
-              <SpeedInsights />
-            </I18nProvider>
+            <NotificationsProvider>
+              <I18nProvider>
+                <ToastProvider>
+                  <App />
+                </ToastProvider>
+                <Analytics />
+                {/* LCP/INP/CLS real-user timings; injects a same-origin
+                    /_vercel/ script, so the CSP needs no extra origin. */}
+                <SpeedInsights />
+              </I18nProvider>
+            </NotificationsProvider>
           </PreferencesProvider>
         </AuthProvider>
       </PersistQueryClientProvider>

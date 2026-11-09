@@ -8,6 +8,7 @@ import ContentTag from "./ContentTag";
 import { getContentTags } from "../utils/contentTags";
 import useDetailView from "../hooks/useDetailView";
 import { useAppAuth } from "../context/auth";
+import { useOptionalNotifications } from "../context/notifications";
 import { useToast } from "./Toast";
 
 /* ─────────────────────────────────────────────────────────────
@@ -49,7 +50,8 @@ const MovieCard = memo(function MovieCard({
   // never navigates away mid-selection. Undefined everywhere else.
   onToggleSelect,
 }) {
-  const { isInList, toggleMyList, addNotification } = useAppAuth();
+  const { isInList, toggleMyList } = useAppAuth();
+  const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
   const preferences = useOptionalPreferences();
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
