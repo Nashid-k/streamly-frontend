@@ -208,7 +208,7 @@ ref-touching handler is a callback defined in the player.
 13. **Reference-design rebuild — “Pitch”** ✅ done. The view layer now follows
     the supplied `player-new-design.html` (minus loop and sleep timer).
     Presentation only, across `player/chrome/*`, `player/shell/*`, the HUD
-    leaves, `NetflixStillWatching.jsx`, `theme.js` and `styles/player.css`. The
+    leaves, `StillWatching.jsx`, `theme.js` and `styles/player.css`. The
     engine, timers, listeners, log lines, roles and accessible names are
     unchanged; the old bottom `EpisodesRail` was removed because Seasons is now
     a menu page.

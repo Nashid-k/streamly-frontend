@@ -29,10 +29,10 @@ describe("PlayerPreview", () => {
     expect(video.getAttribute("src")).toBe("/demo/player-preview.mp4");
   });
 
-  it("renders the fixed Netflix chrome: red progress bar, time row, subtitle", () => {
-    renderPreview({ label: "Netflix" });
+  it("renders the fixed Streamly chrome: red progress bar, time row, subtitle", () => {
+    renderPreview({ label: "Classic" });
     const preview = screen.getByTestId("player-preview");
-    expect(preview).toHaveAttribute("data-player-skin", "netflix");
+    expect(preview).toHaveAttribute("data-player-skin", "streamly");
     // Red progress scrubber
     expect(preview.querySelector(".player-preview-progress")).not.toBeNull();
     // Transport controls
@@ -44,7 +44,7 @@ describe("PlayerPreview", () => {
     // subtitle line
     expect(within(preview).getByText(/Here is what your subtitles will look like/)).toBeInTheDocument();
     // caption chip
-    expect(within(preview).getByText("Netflix")).toBeInTheDocument();
+    expect(within(preview).getByText("Classic")).toBeInTheDocument();
   });
 
   it("renders a subtitle line everywhere (bare mode keeps it)", () => {

@@ -14,7 +14,7 @@ import { useToast } from "./Toast";
 import { buildMetaFacts } from "../utils/metaFacts";
 import useDialogA11y from "../hooks/useDialogA11y";
 
-/* ── TitleInfoModal — Netflix-style quick info ──────────────────────
+/* ── TitleInfoModal — Streamly-style quick info ──────────────────────
    One shared modal for every "more info" affordance: the hero banner Info button
    (always) and MovieCard / banner-card clicks when Detail View Type = "modal".
    Anatomy: gradient-faded backdrop header → title → match % · year ·
@@ -111,7 +111,7 @@ export default function TitleInfoModal({ movie, onClose, onSelectMovie }) {
 
   const pickSimilar = (sim) => {
     if (!sim) return;
-    // Swap the modal in place (Netflix hops) when the parent supports it.
+    // Swap the modal in place (Streamly hops) when the parent supports it.
     if (onSelectMovie) {
       onSelectMovie(sim);
       return;

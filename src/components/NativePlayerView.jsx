@@ -3,7 +3,7 @@
 // audio) via streamResolve, with a Servers menu to switch the active server,
 // and plays through hls.js (manifest relay + direct-segment loader). Custom
 // transport only: no native <video controls>.
-// Quality lives in the Audio & Subtitles dialog (Netflix has no quality menu), and
+// Quality lives in the Audio & Subtitles dialog (Streamly has no quality menu), and
 // touch devices get a stacked settings sheet instead of the desktop chrome.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -76,7 +76,7 @@ const THROTTLE_BACKOFF_MS = 6000;
 // constant used to be the only value, so the Settings dropdown changed
 // nothing and every skip jumped 10s.
 const SKIP_SECONDS = 10;
-// Netflix "Up Next" auto-play countdown for a TV episode's next installment.
+// Streamly "Up Next" auto-play countdown for a TV episode's next installment.
 const UP_NEXT_MS = 10000; // 10s countdown — shorter than the 15s default for snappier auto-advance
 // Forward-buffer policy (YouTube-style). The byte cap is scaled to the top
 // rendition's bitrate: a FIXED 60MB cap idled the pipe before 4K could get
@@ -93,7 +93,7 @@ const MAX_BUFFER_SIZE = 500 * 1000 * 1000; // hard ceiling: ~2min of 4K@16Mbps, 
 const BUFFER_FLOOR_SECONDS = 18;
 const BUFFER_UNDERFLOOR_MS = 8000;
 // Cap the WATCHED back buffer (hls.js defaults to Infinity — a 2h movie would
-// pin ~7GB of browser RAM). hls.js trims the rest, like Netflix.
+// pin ~7GB of browser RAM). hls.js trims the rest, like Streamly.
 const BACK_BUFFER_SECONDS = 60;
 // Background sibling-server warm: long enough that the current stream's own
 // ramp-up (resolve, probe, first fragments, ABR climb) owns the pipe first,
@@ -171,7 +171,7 @@ export default function NativePlayerView({
   posterUrl = "",
   episodes = [],
   onSelectEpisode,
-  // Netflix-style prev/next episode paging. The parent owns navigation (it can
+  // Streamly-style prev/next episode paging. The parent owns navigation (it can
   // cross season boundaries), so without its canGo*/onGo* we walk `episodes`.
   canGoPrev,
   canGoNext,
@@ -588,7 +588,7 @@ export default function NativePlayerView({
   }, []);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
-  // Netflix "Up Next" card: { number, title } for the next TV episode, or null.
+  // Streamly "Up Next" card: { number, title } for the next TV episode, or null.
   const [upNext, setUpNext] = useState(null);
   // YouTube-style autoplay switch in the bottom-right. A real preference: the
   // Settings page already wrote `autoplay`, and the player never read it — off
@@ -613,7 +613,7 @@ export default function NativePlayerView({
   const [buffering, setBuffering] = useState(true);
   // UI mirror of `buffering` that only turns on after ~700ms of stalled media
   // flow. `buffering` stays honest and immediate for logic (failover, seek,
-  // step-down); the SPINNER is what a viewer reads, and Netflix never flashes one
+  // step-down); the SPINNER is what a viewer reads, and Streamly never flashes one
   // on the 200ms hole between ABR level switches.
   const [spinner, setSpinner] = useState(true);
   // Cold open (no frame has EVER rendered) shows the glyph immediately; a
@@ -708,7 +708,7 @@ export default function NativePlayerView({
   // The rendition ABR currently settled on (LEVEL_SWITCHED) — shows the real
   // "now playing" resolution in the quality dialog even while on Auto.
   const [currentHeight, setCurrentHeight] = useState(null);
-  // Netflix resume card: { at, left } where `at` is the saved position in s.
+  // Streamly resume card: { at, left } where `at` is the saved position in s.
   const [resumeOffer, setResumeOffer] = useState(null);
   /* Subtitles: the track list, the picked track, the cues, the overlay line and
      the styling knobs live in `useSubtitles` — a failed pick has to keep
@@ -775,7 +775,7 @@ export default function NativePlayerView({
     }
   });
   const [volHover, setVolHover] = useState(false);
-  // Netflix-style HUD pill (volume / aspect) that pops then self-fades.
+  // Streamly-style HUD pill (volume / aspect) that pops then self-fades.
   const [autoMuted, setAutoMuted] = useState(false); // autoplay-block → muted play + hint
   const [aspectRatioIndex, setAspectRatioIndex] = useState(() => {
     // Clamp to the shared catalog length — the mode list lives in
@@ -803,7 +803,7 @@ export default function NativePlayerView({
   // { kind: "volume"|"aspect"|"seek"|"play"|"pause"|"hold2x", value } — owned by
   // the hook so the engine has no timer of its own.
   const { hud, hudSeq, showHud, showHudRef } = usePlayerHud();
-  // Netflix "Still watching?" — after enough unattended playback or auto-advanced
+  // Streamly "Still watching?" — after enough unattended playback or auto-advanced
   // episodes, pause and ask. The offer expires if ignored.
   // Mirror refs: the keyboard + gesture handlers bind once, so they must read current values.
   const volumeRef = useRef(volume);
@@ -836,7 +836,7 @@ export default function NativePlayerView({
   const nudgeFrameRef = useRef(() => {});
   const seekToPercentRef = useRef(() => {});
   const cycleCaptionsRef = useRef(() => {});
-  /* Hold-to-2x (Netflix mobile): press-and-hold on the right half of the screen
+  /* Hold-to-2x (Streamly mobile): press-and-hold on the right half of the screen
      plays at 2x; release restores the previous rate. Desktop holds the forward
      transport button. Called here because it needs both `poke` and the rate
      mirror above; the input layer still owns the timers that ARM a hold. */
@@ -872,7 +872,7 @@ export default function NativePlayerView({
   activeDubRef.current = activeDub;
   requestedServerRef.current = requestedServer;
   sourceHeightRef.current = sourceHeight;
-  // Touch gesture state for Netflix's vertical drags on the video surface.
+  // Touch gesture state for Streamly's vertical drags on the video surface.
   const gestureRef = useRef(null);
   // Fragments flowing via the Vercel relay (0 = all direct). A streak past a
   // couple means the CDN throttled us mid-session — surfaced in the attempt log.
@@ -918,12 +918,12 @@ export default function NativePlayerView({
     setEnded(false);
     try {
       if (video.paused) {
-        // Netflix behavior: play with a pending resume card resumes that point.
+        // Streamly behavior: play with a pending resume card resumes that point.
         if (resumeOffer) {
           commitResumeRef.current?.(resumeOffer.at);
           return;
         }
-        // Netflix behavior: play at the end restarts from the top instead of re-ending.
+        // Streamly behavior: play at the end restarts from the top instead of re-ending.
         if (video.ended) video.currentTime = 0;
         await video.play();
       } else {
@@ -1168,7 +1168,7 @@ export default function NativePlayerView({
     [resetStreak],
   );
 
-  // ---- Hold-to-2x (Netflix mobile): hold the right half of the screen ----
+  // ---- Hold-to-2x (Streamly mobile): hold the right half of the screen ----
   /* engageHold2x / releaseHold2x / the safety net live in `useHold2x` (called
      above). What stays here is the INPUT layer: the timers that decide a press
      is long enough to be a hold. */
@@ -1395,7 +1395,7 @@ export default function NativePlayerView({
     if (hold2xRef.current && g.side === "volume") {
       releaseHold2x();
     }
-    // Netflix sign: drag UP → louder (clientY falls, so -dy is positive).
+    // Streamly sign: drag UP → louder (clientY falls, so -dy is positive).
     const nv = Math.min(1, Math.max(0, volumeRef.current - dy * 0.008));
     setMuted(false);
     setAutoMuted(false);
@@ -1463,7 +1463,7 @@ export default function NativePlayerView({
   }, []);
 
   /* Volume applies to the element and persists across visits. autoMuted is the
-     transient autoplay-policy mute (Netflix autoplays muted + hints) — it
+     transient autoplay-policy mute (Streamly autoplays muted + hints) — it
      overrides until the user taps the "unmute" affordance. */
   useEffect(() => {
     const video = videoRef.current;
@@ -1608,7 +1608,7 @@ export default function NativePlayerView({
     [episodes],
   );
 
-  /* Netflix "Up Next": when a TV episode ends and a next one exists, offer a
+  /* Streamly "Up Next": when a TV episode ends and a next one exists, offer a
      countdown card that auto-plays it. Replaying/cancelling tears it down (a
      cancelled card's fired timer is a no-op thanks to the `prev` guard). */
   useEffect(() => {
@@ -1646,7 +1646,7 @@ export default function NativePlayerView({
     return () => clearTimeout(timer);
   }, [localPlayerMode, type, ended, airedEpisodes, episode, autoplayEnabled]);
 
-  /* Netflix keyboard map. Space/K play-pause, arrows seek/volume, M mute,
+  /* Streamly keyboard map. Space/K play-pause, arrows seek/volume, M mute,
      F fullscreen, N/Shift+P next/previous episode, Esc closes the dialog
      first, then the player. */
   usePlayerKeyboard({
@@ -2070,7 +2070,7 @@ export default function NativePlayerView({
     if (navNextNumber != null) chooseEpisode(navNextNumber);
   };
   // Keyboard episode paging reuses the same guards as the rail buttons. Shift+P
-  // mirrors Netflix's Shift+P (previous episode); N mirrors Netflix's N (next).
+  // mirrors Streamly's Shift+P (previous episode); N mirrors Streamly's N (next).
   const keyboardPrevEpisode = () => {
     if (prevDisabled) return;
     goEpPrev();
@@ -2303,8 +2303,8 @@ const showSkipOutro = shouldShowSkipOutro({
     suppressClickRef.current = false;
     poke();
     handleGestureStart(e);
-    // Right-half press-and-hold arms 2x (Netflix mobile); a left-half touch
-    // never arms it (brightness drag + double-tap seek live there).
+    // Right-half press-and-hold arms 2x (Streamly mobile); a left-half touch
+    // never arms it (double-tap seek lives there).
     handleHoldStart(e);
   };
   const onRewindSkip = () => {

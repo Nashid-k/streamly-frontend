@@ -232,7 +232,7 @@
   pointer-events: none;
 }
 
-/* ── TitleInfoModal — Netflix-style shared info modal ────────────────── */
+/* ── TitleInfoModal — Streamly-style shared info modal ────────────────── */
 .title-info-backdrop {
   position: fixed;
   inset: 0;
@@ -671,7 +671,7 @@
 .title-info-list:focus-visible,
 .title-info-details:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; }
 
-/* ≤640px: Netflix mobile bottom sheet — full width, rounded top, safe area */
+/* ≤640px: Streamly mobile bottom sheet — full width, rounded top, safe area */
 @media (max-width: 640px) {
   .title-info-backdrop {
     align-items: flex-end;

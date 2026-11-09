@@ -7,7 +7,7 @@ import TitleInfoModal from "../components/TitleInfoModal";
 /* ── useDetailView — one gateway for every "open details" affordance ──
    Honors the Detail View Type preference everywhere:
      · "page"  → navigate to /watch/:id/:slug
-     · "modal" → open the shared Netflix-style TitleInfoModal
+     · "modal" → open the shared Streamly-style TitleInfoModal
 
    Returns openDetails(movie, { forceModal }) plus a `modalHost` node to
    render once at the call-site root (the modal portals itself to

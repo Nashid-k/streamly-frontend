@@ -87,7 +87,7 @@ const PlayerPreview = ({
     <div
       className={`player-preview${showChrome ? "" : " player-preview--bare"}`}
       data-testid="player-preview"
-      data-player-skin="netflix"
+      data-player-skin="streamly"
       data-preset={label || undefined}
     >
       <div className="player-preview-screen">

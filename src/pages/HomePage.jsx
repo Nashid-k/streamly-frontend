@@ -1215,7 +1215,7 @@ export default function Home({
         nowPlaying={nowPlaying}
       />
 
-      {/* Netflix-style info modal — Detail View Type governs whether the
+      {/* Streamly-style info modal — Detail View Type governs whether the
           hero (banner click / Info button) opens this or navigates. */}
       {modalHost}
     </div>

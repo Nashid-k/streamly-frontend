@@ -74,8 +74,8 @@ describe("previewMetrics", () => {
   });
 });
 
-describe("netflix behavior constants", () => {
-  it("hold-to-2x is Netflix's rate", () => {
+describe("Streamly behavior constants", () => {
+  it("hold-to-2x is Streamly's rate", () => {
     expect(HOLD_SPEED).toBe(2);
   });
 

@@ -1,6 +1,6 @@
 // src/api/previewThumbs.js — scrubber thumbnail decoder for the native player.
 //
-// Netflix/YouTube show a frame preview while you hover or drag the scrubber.
+// Streamly/YouTube show a frame preview while you hover or drag the scrubber.
 // Our sources are plain HLS without sprite sheets, so we generate previews by
 // decoding off-screen: a hidden hls.js instance (same transport as the main
 // player — createStreamlyLoader, so relayed bytes flow identically) is seeked

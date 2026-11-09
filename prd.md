@@ -6,7 +6,7 @@
 
 ## 1. What this is
 
-**Streamly** is a Netflix-style browse-and-watch product: the **web SPA**
+**Streamly** is a browse-and-watch streaming hub: the **web SPA**
 (React + Vite, deployed to Vercel).
 
 - **Catalog:** TMDB (same-origin `/api/tmdb` proxy, direct fallback),
@@ -87,7 +87,7 @@ audio picker) are superseded by PLAYER V2, which is web-only.
 ## 6. PLAYER V2 scope — what changes for the viewer
 
 `src/components/NativePlayerView.jsx` is 5,279 lines and grew by accretion: a
-Netflix-HUD vocabulary, spring animations, and decorative arcs layered onto a
+a transient-HUD vocabulary, spring animations, and decorative arcs layered onto a
 player whose control surface never got a clean design. The rewrite replaces the
 **UI**, not the capability set. Non-negotiable: **no feature regression.** Every
 current capability is carried over deliberately; the rewrite earns the right to
@@ -119,7 +119,7 @@ ignored by playback; `Back-to-top` and `Shift+?` were permanently broken during
 playback because they detected the player via iframes.
 
 **Deliberately dropped:** fun-fact rotator, the fake "Original" audio badge,
-hand-rolled "Netflix" arcs, and spring/scroll-jacking motion.
+hand-rolled decorative arcs, and spring/scroll-jacking motion.
 
 **Rollout:** new player is the default; `VITE_PLAYER_LEGACY` +
 `localStorage["streamly-player-legacy"]` can only force the *old* player back,

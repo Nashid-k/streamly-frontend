@@ -195,9 +195,12 @@ src/
 │   ├── ratingService.js             ← ratings aggregation with 24h cache
 │   ├── subtitleFetcher.js           ← OpenSubtitles-style SRT/VTT lookup
 │   ├── cdnImageAdapter.js           ← TMDB image URL building + sizes
+│   ├── streamResolve.js             ← streaming server resolver + manifest relay
+│   ├── nativeHlsLoader.js           ← custom hls.js loader (relay + streak logic)
+│   ├── previewThumbs.js             ← scrubber thumbnail decoder (off-screen HLS)
+│   ├── skipProviderSource.js        ← provider-measured intro/outro windows
 │   ├── videoSourceAdapter.js        ← iframe server registry + server ordering
-│   ├── prefetchAdapter.js           ← QueryClient cache prefetching
-│   └── virtualRenderAdapter.js      ← Virtual-list rendering helper
+│   └── prefetchAdapter.js           ← QueryClient cache prefetching
 ├── constants/                       ← App-level single sources: navigation,
 │                                       settings (themes/languages/seek times),
 │                                       playerUi (PLAYER_SPEEDS, aspect ratios)
@@ -207,17 +210,22 @@ src/
 │   └── PreferencesContext.jsx       ← settings engine (localStorage `setting-*`)
 ├── hooks/
 │   ├── useUserData.js               ← useMyList, useContinueWatching (localStorage)
-│   ├── useDebounce.js               ← Search input debounce
-│   ├── useMediaQuery.js             ← Responsive breakpoint matching
+│   ├── useDetailView.jsx            ← one gateway for "open details" (page vs modal)
 │   ├── useRailArrows.js             ← Rail scroll-arrow enable/disable
 │   ├── useScrollRestoration.js      ← Scroll position restore across navigation
+│   ├── useNearViewport.js           ← Shared "near viewport?" gate for lazy work
+│   ├── useVirtualRenderAdapter.js   ← IntersectionObserver virtual-list rendering
+│   ├── useFeedSentinel.js           ← Sentinel-driven pagination for feeds
+│   ├── collectionMorph.js           ← storage v2 morph for collections (frozen)
+│   ├── useTitleLogo.js              ← Title logo image fetch + fallback
+│   ├── useDialogA11y.js             ← Focus trap + Esc + focus restore for dialogs
 │   ├── useIsTouch.js                ← Touch-device detection (player gestures)
 │   └── useContainerSize.js          ← Player container size observation
 ├── components/
-│   ├── CustomVideoPlayer.jsx        ← Fixed Netflix-style player (black + #E50914),
-│   │                                  CineSrc command API, subtitles, gestures
-│   ├── player/                      ← Player chrome leaves: ArcRing, LoadingArc,
-│   │                                  Netflix Volume/Brightness/Aspect HUDs
+│   ├── player/                      ← Native streaming player: shell/ + chrome/ +
+│   │                                  engine/ + hooks/ layers (PlayerShell,
+│   │                                  chrome leaves: ResumeCard, SkipPill,
+│   │                                  UpNextCard, SubtitleOverlay)
 │   ├── browse/                      ← FilterPill, MenuItem, SearchField, PillAction
 │   ├── detail/                      ← SeasonDropdown, ProductionCompaniesBlock
 │   ├── rails/                       ← FadeInSection, MovieRail, Top10Rail,
@@ -278,16 +286,19 @@ src/
 
 ## 🧩 Components
 
-### `CustomVideoPlayer`
-- Single fixed Netflix-style chrome (black + `#E50914` red); play/pause,
-  volume (hover-reveal slider), subtitles, audio, aspect ratio, brightness,
-  playback speed, screen lock, fullscreen
-- CineSrc postMessage command API for play/seek/volume/quality
-- Touch gestures: swipe seek, brightness/volume, double-tap seek, screen lock
+### `NativePlayerView`
+- Single fixed player chrome (obsidian slate + `#8652bb` accent); play/pause,
+  volume (hover-reveal slider), subtitles, audio, quality, aspect ratio,
+  playback speed, fullscreen
+- HLS streaming through hls.js with the manifest relay + warm sibling servers
+- Touch gestures: vertical volume drag, double-tap seek, hold-to-2x
+- Skip intro/outro pills, resume card, Up Next countdown, Still Watching check
+- Keyboard: Space/K play-pause, arrows seek/volume, M mute, F fullscreen,
+  N/Shift+P next/previous episode
 - Custom subtitle engine with per-viewer font, size, color, and blur
 
 ### `PlayerPreview`
-- Truthful mini player mirroring the fixed Netflix chrome (demo video +
+- Truthful mini player mirroring the fixed player chrome (demo video +
   live subtitle styles); shown in the Subtitles settings as `showChrome={false}`
 
 ### `MovieCard`

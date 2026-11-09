@@ -999,7 +999,7 @@ export default function useSourceResolve({
           // WITH — Auto there just replays the open rung. Without this the
           // menu showed no active row on NHD/ZXC until the viewer picked one.
           setAutoLevel(isMaster);
-          // Netflix resume gate: first real playback for this title/episode.
+          // Streamly resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // A fatal error AFTER playback started either refreshes tokens in place (same
           // source/quality, resume position) or moves on — never a dead "playing" screen.

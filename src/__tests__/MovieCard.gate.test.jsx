@@ -43,7 +43,7 @@ describe("MovieCard list toggle", () => {
   });
 
   it("shows nothing saved when the gate refuses, and no success toast", async () => {
-    const utils = renderCard();
+    renderCard();
     fireEvent.click(await screen.findByRole("button", { name: /my list/i }));
 
     // toggleMyList returned false => the gate opened sign-in instead.

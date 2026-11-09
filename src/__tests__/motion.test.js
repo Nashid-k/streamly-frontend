@@ -142,11 +142,6 @@ describe("motion tokens", () => {
       join(process.cwd(), "src", "pages", "TitleDetailsPage.jsx"),
       join(process.cwd(), "src", "components", "auth", "SignInDialog.jsx"),
     ];
-    const HUD_SOURCES = [
-      "NetflixSeekHUD.jsx",
-      "NetflixVolumeHUD.jsx",
-      "NetflixAspectHUD.jsx",
-    ].map((f) => join(process.cwd(), "src", "components", "player", f));
 
     it("keeps hand-rolled scrim and panel timings out of the dialogs", () => {
       for (const file of SMALL_DIALOGS) {
@@ -233,7 +228,6 @@ describe("motion contract is actually enforced", () => {
 
 describe("player stylesheet speaks the token scale", () => {
   const playerCss = readFileSync(join(process.cwd(), "src", "styles", "player.css"), "utf8");
-  const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
   // Declarations only: a duration mentioned inside a comment is documentation,
   // not a fourth scale, and flagging those would just teach people to stop
   // writing explanatory comments.

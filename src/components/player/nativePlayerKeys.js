@@ -79,7 +79,7 @@ export function keyboardAction({
     case "KeyN":
       return { type: "episode-next", preventDefault: true };
     case "KeyP":
-      // Netflix web: Shift+P = previous episode (plain P toggles play there).
+      // Streamly web: Shift+P = previous episode (plain P toggles play there).
       return shiftKey ? { type: "episode-prev", preventDefault: true } : null;
     case "Escape":
       // In fullscreen the browser consumes Esc to exit it — don't also close the

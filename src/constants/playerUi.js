@@ -6,7 +6,7 @@
 
 export const PLAYER_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-/* Netflix's press-and-hold trick: holding the right side of the screen (or the
+/* Streamly's press-and-hold trick: holding the right side of the screen (or the
    forward button) plays at 2x, release snaps back to the previous rate. */
 export const HOLD_SPEED = 2;
 

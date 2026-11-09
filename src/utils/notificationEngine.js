@@ -14,7 +14,7 @@ export const NOTIF_TYPES = {
   WELCOME: "welcome",
 };
 
-/** Watchlist addition: "Inception added — Now streaming on Netflix". */
+/** Watchlist addition: "Inception added — Now streaming on Streamly". */
 export function buildMovieAddedNotification({ title, platform, year, duration, imageUrl, movieId, isSeries }) {
   const platformKey = normalizePlatformKey(platform);
   const platformName = getPlatformName(platform);

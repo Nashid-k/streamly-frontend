@@ -588,7 +588,7 @@ const MovieCard = memo(function MovieCard({
         </div>
       )}
 
-      {/* Netflix-style info modal host — shown when Detail View Type = "modal".
+      {/* Streamly-style info modal host — shown when Detail View Type = "modal".
           One shared modal for cards and the hero banner (TitleInfoModal). */}
       {modalHost}
     </div>

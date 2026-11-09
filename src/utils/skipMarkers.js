@@ -3,7 +3,7 @@
    being computed inline in a render body.
 
     ── The honest caveat, stated once here because it governs everything ───────
-    Netflix knows where an intro ends and where credits start because studios
+    Streamly knows where an intro ends and where credits start because studios
     supply that metadata. Of our providers, only ZXC does: its
     `/backend/intro` endpoint publishes measured per-encode intro/outro
     windows (fetched as the "provider" source below). Everything else here —

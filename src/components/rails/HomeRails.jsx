@@ -194,7 +194,7 @@ const HomeRails = React.memo(function HomeRails({
               </FadeInSection>
             )}
 
-            {/* 11. Genre showcase — Netflix/Prime-style rows (tab-aware) */}
+            {/* 11. Genre showcase — Streamly/Prime-style rows (tab-aware) */}
             <ErrorBoundary>
               <GenreShowcase filter={filter} activeGenre={activeGenre} />
             </ErrorBoundary>

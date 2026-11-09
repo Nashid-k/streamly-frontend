@@ -1,7 +1,7 @@
 /**
  * searchRanking.js — search relevance scoring.
  *
- * Tiers (Netflix/Prime/Disney+ style): exact title (100), word boundary (98),
+ * Tiers (Streamly/Prime/Disney+ style): exact title (100), word boundary (98),
  * prefix (95), word match (70-85), substring (40-65), weak (0-25), then
  * bonuses: genre (+8), popularity (+5), recency (+3).
  *

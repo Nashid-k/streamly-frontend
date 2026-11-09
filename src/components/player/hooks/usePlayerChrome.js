@@ -43,9 +43,9 @@ const STILL_WATCHING_OFFER_MS = 90 * 1000;
  * @param {{ current: boolean }} input.endedRef live "media finished" mirror.
  */
 export default function usePlayerChrome({ videoRef, playing, endedRef }) {
-  // Netflix chrome state.
+  // Streamly chrome state.
   const [controlsVisible, setControlsVisible] = useState(true);
-  // Netflix "Still watching?" — after enough unattended playback or
+  // Streamly "Still watching?" — after enough unattended playback or
   // auto-advanced episodes, pause and ask.
   const [stillWatching, setStillWatching] = useState(false);
 

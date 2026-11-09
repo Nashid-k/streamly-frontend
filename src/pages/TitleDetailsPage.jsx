@@ -2116,7 +2116,7 @@ export default function TitleDetails() {
 
             {/* Player header — TRAILER ONLY. Native playback is full-bleed with
                 its own in-player chrome (back, title, prev/next episode in the
-                bottom rail), matching the Netflix web player. */}
+                bottom rail), matching the Streamly web player. */}
             {playMode === "trailer" && (
               <motion.div
                 initial={{ opacity: 0, y: -20 }}

@@ -1,7 +1,7 @@
 /**
  * Platform-aware timezone utilities.
  *
- * Streaming platforms (Netflix, Prime, Hotstar, JioCinema, …) release at
+ * Streaming platforms (Prime, Hotstar, JioCinema, …) release at
  * midnight local time, so the TMDB date IS the viewer's local date. US
  * broadcast networks air at 8PM Eastern, which shifts the local date for viewers
  * outside ET. The platform's release rule picks the conversion.

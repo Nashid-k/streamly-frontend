@@ -4,7 +4,7 @@
 Finish the player motion system that is already ~80% built: remove CSS
 duration/easing drift, give the four motionless surfaces real motion, and close
 the reduced-motion blind spots in the inline SVG arcs. No visual redesign — the
-Netflix chrome, layout and springs stay exactly as they are.
+the player chrome, layout and springs stay exactly as they are.
 
 ## Why this and not a redesign
 `src/constants/motion.js` already publishes 7 named spring roles, a duration

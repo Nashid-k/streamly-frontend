@@ -73,7 +73,7 @@ export const SEEK_TIMES = [
 
 export const SUBTITLE_FONTS = [
   { id: "cinejoy", name: "Cinejoy", family: "'Inter', sans-serif" },
-  { id: "netflix", name: "Netflix", family: "'Arial', sans-serif" },
+  { id: "classic", name: "Classic", family: "'Arial', sans-serif" },
   { id: "montserrat", name: "Montserrat", family: "'Montserrat', sans-serif" },
 ];
 
@@ -155,7 +155,7 @@ export const SECTION_SEARCH_TERMS = {
     "cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
-    "detail view type full info page netflix-style quick modal page modal",
+    "detail view type full info page quick modal page modal",
     "use image logos movie series titles image logos",
     "trailers play trailers automatically detail pages hover previews",
     "spoiler-free mode hide information episodes",
@@ -175,7 +175,7 @@ export const SECTION_SEARCH_TERMS = {
     "reset server 1 orion server 2 andromeda server 3 centaurus server 4 atlas server 5 ursa",
   ].join(" "),
   subtitles: [
-    "subtitles readability customization font cinejoy netflix montserrat",
+    "subtitles readability customization font cinejoy classic montserrat",
     "text size adjust subtitle size display",
     "text color high-contrast subtitle color white yellow cyan magenta emerald",
     "background blur legibility soft glow preview",

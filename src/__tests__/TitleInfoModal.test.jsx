@@ -98,7 +98,7 @@ function signIn() {
 }
 
 describe("TitleInfoModal", () => {
-  it("renders the Netflix-style anatomy: title, meta facts, overview, actions", async () => {
+  it("renders the Streamly-style anatomy: title, meta facts, overview, actions", async () => {
     renderModal();
 
     expect(screen.getByRole("dialog", { name: /fight club info/i })).toBeInTheDocument();

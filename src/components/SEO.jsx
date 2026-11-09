@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 
 const DEFAULT_DESCRIPTION =
-  "Streamly — Discover and stream movies & TV shows from Netflix, Prime Video, Hotstar, Apple TV+, Zee5, Sony LIV and JioCinema.";
+  "Streamly — Discover and stream movies & TV shows from Prime Video, Hotstar, Apple TV+, Zee5, Sony LIV and JioCinema.";
 const SITE_URL = import.meta.env.VITE_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
 const DEFAULT_IMAGE = `${SITE_URL}/og-image.png`;
 const SITE_NAME = "Streamly";

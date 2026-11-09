@@ -1,4 +1,4 @@
-/* Shared meta-fact helpers for the Netflix-style info surfaces
+/* Shared meta-fact helpers for the Streamly-style info surfaces
    (TitleInfoModal). Kept outside the component file so both the component
    and its tests can import them without tripping fast-refresh rules. */
 
@@ -10,7 +10,7 @@ function formatRuntime(mins) {
   return h > 0 ? `${h}h ${r}m` : `${r}m`;
 }
 
-/* Build the meta facts Netflix shows under the title:
+/* Build the meta facts Streamly shows under the title:
    "97% Match · 2021 · 2 Seasons · 58m". Missing parts drop out.
    Each fact is { text, accent } — accent facts get the green "Match" tint. */
 export function buildMetaFacts(detail, fallback) {

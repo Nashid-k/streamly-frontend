@@ -258,7 +258,7 @@ export const en = {
       episodeGrid: "Grid",
       episodeList: "List",
       detailViewType: "Detail View Type",
-      detailViewDesc: "Full info page, or a Netflix-style quick modal.",
+      detailViewDesc: "Full info page, or a quick modal preview.",
       detailPage: "Details Page",
       detailModal: "Modal",
       useImageLogos: "Use Image Logos",

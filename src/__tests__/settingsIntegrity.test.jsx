@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { PreferencesProvider } from "../context/PreferencesContext";
 import { usePreferences } from "../context/preferences";
@@ -80,7 +80,7 @@ describe("SegmentControl keeps a tab stop when no option matches", () => {
         label="Font"
         options={[
           { id: "cinejoy", name: "Cinejoy" },
-          { id: "netflix", name: "Netflix" },
+          { id: "classic", name: "Classic" },
         ]}
         // A value that matches nothing: the stale/migrated case.
         value="deleted-font"

@@ -50,7 +50,7 @@ describe("player scrubber keyboard support", () => {
     const ev = new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true });
     fireEvent(bar, ev);
     // stopPropagation + preventDefault is the contract: without it one press
-    // seeks 10s here AND 10s from the window-level Netflix key map.
+    // seeks 10s here AND 10s from the window-level Streamly key map.
     expect(ev.defaultPrevented).toBe(true);
   });
 

@@ -8,7 +8,7 @@ import { useNearViewport } from "../hooks/useNearViewport";
 import ErrorBoundary from "./ErrorBoundary";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 
-// Netflix/Prime-style genre showcase rows. Each rail maps TMDB genre ids for
+// Streamly/Prime-style genre showcase rows. Each rail maps TMDB genre ids for
 // movie vs TV so the same row works on every home tab, mixing media types on
 // the "All" view. Queries are cached 10min and skip when a genre chip is active.
 const GENRE_RAILS = [

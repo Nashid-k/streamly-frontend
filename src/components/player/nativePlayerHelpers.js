@@ -5,7 +5,7 @@ export function fmtTime(s) {
   const h = Math.floor(v / 3600);
   const m = Math.floor((v % 3600) / 60);
   const r = v % 60;
-  // Netflix style: m:ss under an hour, h:mm:ss above (156:22 -> 2:36:22).
+  // Streamly style: m:ss under an hour, h:mm:ss above (156:22 -> 2:36:22).
   return (h > 0 ? `${h}:` : "") + (h > 0 ? String(m).padStart(2, "0") : `${m}`) + `:${String(r).padStart(2, "0")}`;
 }
 

@@ -17,7 +17,7 @@ const FONT = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans
    unattended (2h idle or 3 auto-advanced episodes). Pausing + asking is the
    honest behavior: it stops data burn when nobody is behind the screen.
    "Continue Watching" resumes; "Exit" closes the player. */
-const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, onExit }) {
+const StillWatching = memo(function StillWatching({ onContinue, onExit }) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -96,4 +96,4 @@ const NetflixStillWatching = memo(function NetflixStillWatching({ onContinue, on
   );
 });
 
-export default NetflixStillWatching;
+export default StillWatching;

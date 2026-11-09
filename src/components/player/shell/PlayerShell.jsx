@@ -19,7 +19,7 @@ import {
   SAFE_BOTTOM,
 } from "../chrome";
 import PlayerSvgSprite from "../chrome/PlayerSvgSprite";
-import NetflixStillWatching from "../../NetflixStillWatching";
+import StillWatching from "../../StillWatching";
 import { aspectVideoStyle } from "../../../constants/playerUi";
 import { subtitleFontFamily } from "../../../constants/settings";
 import { fmtTime } from "../nativePlayerHelpers";
@@ -958,10 +958,10 @@ export default function PlayerShell({
           </PlayerPanel>
           )}
 
-          {/* Netflix Still Watching prompt (native only) */}
+          {/* Streamly Still Watching prompt (native only) */}
           <AnimatePresence>
             {playerMode !== "embed" && stillWatching && (
-              <NetflixStillWatching
+              <StillWatching
                 key="still-watching"
                 onContinue={onStillWatchingContinue}
                 onExit={onStillWatchingExit}

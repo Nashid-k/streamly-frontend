@@ -143,6 +143,8 @@ function readPreference(key) {
          it verbatim let an out-of-range size, an unknown theme id or a garbage
          colour drive the UI — and the player's seek amount, which is why a
          restored backup could make every skip jump 9e15 seconds. */
+      /* Legacy font id written before the "Netflix"/"classic" rename — remap. */
+      if (key === "subtitleFont" && value === "netflix") value = "classic";
       return sanitizePreference(key, value);
     }
 

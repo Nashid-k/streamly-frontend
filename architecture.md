@@ -624,7 +624,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   hold arm, the volume drag and the 2x latch have had their say, including the
   rate to restore;
   `nativePlayerKeys.js`: the keyboard action map), the extracted chrome under
-  `player/chrome/`, and the transient HUDs (`Netflix*HUD`, `index.js`)),
+  `player/chrome/`, and the transient HUDs (`*HUD`, `index.js`)),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
   `PillAction`; `detail/` — `SeasonDropdown`,
   `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
@@ -634,22 +634,22 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   primitives (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`,
   `SEO`, `ErrorBoundary`).
 
-  The transient player HUDs (`player/Netflix*HUD`) are positioned **from the measured
+  The transient player HUDs (`player/*HUD`) are positioned **from the measured
   frame, never from the viewport or a magic percentage**: `hudMetrics(width, height)`
   in `src/constants/playerUi.js` turns the box measured by `useContainerSize(screenRef)`
   into every offset, icon size and font size, and each leaf reads those numbers. The
   player is frequently a phone-width box on a desktop viewport, so `vw` units and a
   fixed `top` percentage both misplace the overlay. Volume/brightness/aspect sit in a
-  top-anchored band; `NetflixSeekHUD` anchors the rewind badge to the left edge and the
-  forward badge to the right, vertically above centre, and `seekRelative` raises it for
-  every seek path (keys, the transport buttons, double-tap on that side).
-- `src/hooks/` — custom React hooks (`@/hooks`). `index.js` barrel. `useUserData.js` (localStorage lists,
-  logs corrupt/quota failures), `useDebounce`, `useDetailView`, `useMediaQuery`, `useRailArrows`,
+  top-anchored band; the seek-pill HUD (`usePlayerHud` seek paths) anchors the rewind
+  badge to the left edge and the forward badge to the right, vertically above centre,
+  and `seekRelative` raises it for every seek path (keys, the transport buttons,
+- `src/hooks/` - custom React hooks (`@/hooks`). `useUserData.js` (localStorage lists, logs corrupt/quota
+  failures), `useDetailView` (page-vs-modal gateway), `useRailArrows`,
   `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
-  `useNearViewport` (one shared "am I within N px of the viewport?" gate — returns `[ref, inView]`,
+  `useNearViewport` (one shared "am I within N px of the viewport?" gate - returns `[ref, inView]`,
   treats a browser without `IntersectionObserver` as visible so a missing API can never silently
   suppress a query), `useIsTouch`, `useContainerSize`.
-- `src/context/` — React contexts (`@/context`). `index.js` barrel. `AuthContext.jsx` + `auth.js`
+- `src/context/` - React contexts (`@/context`). `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
 - `src/constants/` — app-level constant single sources (`@/constants`): `navigation`,
   `playerUi`, `settings`, `playback` (`PROVIDER_EMBED_PLAYBACK` — the provider-embed
