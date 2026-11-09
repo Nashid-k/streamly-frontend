@@ -99,9 +99,11 @@ export default function SettingsPage() {
     autoplay,
     muteTrailers,
     hdThumbs,
+    hoverPreviews = true,
     reduceMotion,
     notifications,
-    // Appearance
+    notificationsListAdds = true,
+    notificationsMilestones = true,
     theme = "default",
     accentSeed = null,
     episodeViewStyle = "carousel",
@@ -810,6 +812,42 @@ export default function SettingsPage() {
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </button>
                     </SettingRow>
+                    <SettingRow
+                      title={t("settings.account.clearDeviceData")}
+                      description={t("settings.account.clearDeviceDataDesc")}
+                    >
+                      <button
+                        type="button"
+                        className="settings-hit px-3.5 py-1.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                        onClick={async () => {
+                          const confirmed = await confirmDialog({
+                            title: t("settings.account.clearDeviceDataConfirmTitle"),
+                            message: t("settings.account.clearDeviceDataConfirmMsg"),
+                            confirmLabel: t("settings.account.clearDeviceDataConfirmLabel"),
+                            cancelLabel: t("settings.reset.cancelLabel"),
+                          });
+                          if (!confirmed) return;
+                          try {
+                            const keys = [];
+                            for (let i = 0; i < localStorage.length; i += 1) {
+                              const k = localStorage.key(i);
+                              if (k && (k.startsWith("aios_") || k.startsWith("setting-"))) keys.push(k);
+                            }
+                            keys.forEach((k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+                            logDebug("export", "Device data cleared.", { count: keys.length });
+                            toast({ type: "success", title: t("settings.account.clearDeviceDataDoneTitle"), message: t("settings.account.clearDeviceDataDoneMsg", { count: keys.length }) });
+                            setTimeout(() => window.location.reload(), 600);
+                          } catch (error) {
+                            logWarn("export", "Device data clear failed.", { message: error?.message });
+                            toast({ type: "error", title: t("settings.account.clearDeviceDataFailTitle"), message: String(error?.message || error) });
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {t("settings.account.clearDeviceDataAction")}
+                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+                      </button>
+                    </SettingRow>
                     {/* Capacity dashboard (PLAN.md P1.4): free-tier usage at a
                         glance — fetched on demand, never polled. */}
                     <SystemStatusRow />
@@ -1065,6 +1103,18 @@ export default function SettingsPage() {
                       label={t("settings.appearance.hdThumbs")}
                       checked={hdThumbs}
                       onChange={(val) => setPreference("hdThumbs", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Hover Previews */}
+                  <SettingRow
+                    title={t("settings.appearance.hoverPreviews")}
+                    description={t("settings.appearance.hoverPreviewsDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.hoverPreviews")}
+                      checked={hoverPreviews}
+                      onChange={(val) => setPreference("hoverPreviews", val)}
                     />
                   </SettingRow>
                 </div>
@@ -1419,6 +1469,28 @@ export default function SettingsPage() {
                       label={t("settings.notifications.show")}
                       checked={notifications}
                       onChange={(val) => setPreference("notifications", val)}
+                    />
+                  </SettingRow>
+
+                  <SettingRow
+                    title={t("settings.notifications.listAdds")}
+                    description={t("settings.notifications.listAddsDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.notifications.listAdds")}
+                      checked={notificationsListAdds}
+                      onChange={(val) => setPreference("notificationsListAdds", val)}
+                    />
+                  </SettingRow>
+
+                  <SettingRow
+                    title={t("settings.notifications.milestones")}
+                    description={t("settings.notifications.milestonesDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.notifications.milestones")}
+                      checked={notificationsMilestones}
+                      onChange={(val) => setPreference("notificationsMilestones", val)}
                     />
                   </SettingRow>
                 </div>

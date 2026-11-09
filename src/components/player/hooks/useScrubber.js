@@ -30,6 +30,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { previewMetrics } from "../../../constants/playerUi";
 import { getPreviewThumb } from "../../../api/previewThumbs";
+import { useOptionalPreferences } from "../../../context/preferences";
 
 /**
  * @param {object} input
@@ -61,6 +62,7 @@ export default function useScrubber({
   playerH,
 }) {
   const scrubRef = useRef(null);
+  const prefs = useOptionalPreferences();
   const [scrubHover, setScrubHover] = useState(null); // 0..1 ratio or null
   const [scrubDragging, setScrubDragging] = useState(false);
   // Latest hover position, applied once per animation frame (see the header).
@@ -306,6 +308,7 @@ export default function useScrubber({
     }
     const meta = metaRef.current;
     if (!meta?.sourceKey || !meta?.refUrl) return undefined;
+    if (prefs?.hoverPreviews === false) return undefined;
     // The preview pipeline mounts per source entry URL: master playlists get
     // the master (the decoder picks its own rendition), per-quality sources
     // get the smooth-start rendition that playback actually uses.

@@ -26,6 +26,7 @@ import { PrefetchAdapter } from "../api/prefetchAdapter";
 import { useVirtualRenderAdapter } from "../hooks/useVirtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
+import { pickImageWidth } from "../utils/artwork";
 import { logWarn } from "../utils/debugLogger";
 
 // Device capability is static per session — computed once at module scope so it
@@ -132,7 +133,7 @@ const MovieCard = memo(function MovieCard({
   const posterPath = movie.posterUrl || movie.backdropUrl;
   const posterSrc = CdnImageAdapter.getUrl(
     posterPath,
-    preferences?.hdThumbs === false ? "w342" : "w500",
+    pickImageWidth("card", preferences),
   );
 
   useEffect(() => {
