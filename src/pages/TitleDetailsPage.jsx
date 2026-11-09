@@ -52,13 +52,14 @@ import {
 import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
 import { useOptionalNotifications } from "../context/notifications";
+import { pickImageWidth } from "../utils/artwork";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import SeasonDropdown from "../components/detail/SeasonDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 
-import { buildMovieAddedNotification } from "../utils/notificationEngine";
+import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday, LOCAL_RELEASE } from "../utils/timezone";
 import { formatRuntimeLabel, isUnreleased, voteSplitPct } from "../utils/titleDetails";
 import { buildEpisodeOrder, episodeNumberLabel, isEpAired, formatAirsDate } from "../utils/titleDetails";
@@ -115,6 +116,7 @@ export default function TitleDetails() {
     muteTrailers,
     episodeViewStyle = "carousel",
     spoilerFreeMode = false,
+    hdThumbs = true,
     trailers = true,
   } = usePreferences();
 
@@ -129,6 +131,7 @@ export default function TitleDetails() {
     continueWatching,
     updateProgress,
     removeFromContinueWatching,
+    myList,
     // "Mark as watched" is a deliberate data action, but it arrives at
     // updateProgress() looking identical to a progress tick from the player. The
     // gate cannot tell them apart, so these three handlers ask for an account
@@ -177,6 +180,7 @@ export default function TitleDetails() {
             isSeries: Boolean(movieObj.isSeries || movieObj.type === 'tv' || String(movieObj.id || '').startsWith('tmdb-tv-')),
           });
           addNotification(notif);
+          fireListMilestone((myList?.length || 0) + 1, addNotification);
         }
         // If collection folders exist, ask which one to file this under — the
         // picker also allows creating a folder and adding the title in one go.
@@ -1749,7 +1753,7 @@ export default function TitleDetails() {
                         {/* Thumbnail */}
                         <div style={{ position: 'relative', width: 'clamp(96px, 26vw, 140px)', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
                           {epThumb ? (
-                            <img src={CdnImageAdapter.getUrl(epThumb, 'w500')} alt={ep.title} loading={thumbLoading} fetchPriority={thumbLoadPriority} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
+                            <img src={CdnImageAdapter.getUrl(epThumb, pickImageWidth("episode", { hdThumbs }))} alt={ep.title} loading={thumbLoading} fetchPriority={thumbLoadPriority} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
                           ) : (
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
                               <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>

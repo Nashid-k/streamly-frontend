@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, Trash2, X } from "lucide-react";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { useOptionalNotifications } from "../context/notifications";
+import { useAppAuth } from "../context/auth";
+import { buildWelcomeNotification } from "../utils/notificationEngine";
 
 function timeAgo(ts) {
   if (!ts) return "";
@@ -26,6 +28,25 @@ export default function NotificationCenter() {
 
   const items = ctx?.notifications || [];
   const unread = ctx?.unreadCount || 0;
+  const auth = useAppAuth();
+
+  // Fire a one-time welcome notification when the center is empty.
+  useEffect(() => {
+    if (!ctx) return;
+    if (items.length > 0) return;
+    try {
+      if (localStorage.getItem("aios_welcome_shown_v1") === "1") return;
+    } catch {
+      return;
+    }
+    ctx.addNotification(buildWelcomeNotification({ isSignedIn: Boolean(auth?.user) }));
+    try {
+      localStorage.setItem("aios_welcome_shown_v1", "1");
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctx]);
 
   useEffect(() => {
     if (!open) return undefined;

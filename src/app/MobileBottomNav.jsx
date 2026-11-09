@@ -5,6 +5,7 @@ import { Search, Settings } from "lucide-react";
 import { NAV_ITEMS } from "../constants/navigation";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
+import { useOptionalNotifications } from "../context/notifications";
 import { SPRING } from "../constants/motion";
 
 /* Mobile Bottom Navigation — Cinejoy-style floating icon pill with a sliding
@@ -13,6 +14,8 @@ function MobileBottomNav() {
   const location = useLocation();
   const { t } = useI18n();
   const { user } = useAppAuth();
+  const notifCtx = useOptionalNotifications();
+  const unread = notifCtx?.unreadCount || 0;
 
   const items = [
     ...NAV_ITEMS.map((item) => ({
@@ -110,6 +113,30 @@ function MobileBottomNav() {
               />
             ) : (
               <item.icon size={22} strokeWidth={2} />
+            )}
+            {item.id === "settings" && unread > 0 && (
+              <span
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 2,
+                  minWidth: 14,
+                  height: 14,
+                  padding: "0 3px",
+                  borderRadius: 999,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  background: "#ff5050",
+                  color: "#fff",
+                  lineHeight: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {unread > 9 ? "9+" : unread}
+              </span>
             )}
           </Link>
         );

@@ -272,7 +272,7 @@ export const en = {
       hdThumbs: "High-Quality Thumbnails",
       hdThumbsDesc: "Stream higher resolution artwork.",
       hoverPreviews: "Hover Previews",
-      hoverPreviewsDesc: "Animate cards and play hover previews when available.",
+      hoverPreviewsDesc: "Show frame previews when scrubbing the player seek bar.",
       openDetails: "Open details page",
       openOverlay: "Show quick overview",
     },

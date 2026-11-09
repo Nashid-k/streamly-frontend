@@ -20,6 +20,8 @@ import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
 import useDetailView from "../hooks/useDetailView";
+import { useOptionalPreferences } from "../context/preferences";
+import { pickImageWidth } from "../utils/artwork";
 import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
@@ -103,7 +105,8 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
 // badge, hover veil, encoded overlay (title + "Ep X · Mon DD") and below-card
 // meta for non-hover devices.
 function LandscapeCard({ item, badgeLabel, onOpen }) {
-  const imgUrl = CdnImageAdapter.getUrl(item.backdropUrl || item.posterUrl, "w780");
+  const preferences = useOptionalPreferences();
+  const imgUrl = CdnImageAdapter.getUrl(item.backdropUrl || item.posterUrl, pickImageWidth("rail", preferences));
   const nextEpisode = item.nextEpisode || {};
   const episodeLabel =
     nextEpisode.episode != null ? `Ep ${nextEpisode.episode}` : null;
@@ -221,6 +224,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const reduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openDetails, modalHost } = useDetailView();
+  const preferences = useOptionalPreferences();
   const railRef = useRef(null);
 
   const genreParam = searchParams.get("genre") || null;

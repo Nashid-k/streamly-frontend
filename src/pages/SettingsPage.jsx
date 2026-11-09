@@ -50,6 +50,7 @@ import LanguageFlag from "../components/settings/LanguageFlag";
 import Toggle from "../components/settings/Toggle";
 import SegmentControl from "../components/settings/SegmentControl";
 import SettingRow from "../components/settings/SettingRow";
+import SettingsDropdown from "../components/settings/SettingsDropdown";
 import ServerOrderList from "../components/settings/ServerOrderList";
 
 // jsdom and some older browsers expose no scrollIntoView; never crash on it.
@@ -72,6 +73,7 @@ export default function SettingsPage() {
   const [query, setQuery] = useState("");
   // Only one menu may be open at a time: null | "theme" | "seek" | "lang".
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [seekOpen, setSeekOpen] = useState(false);
   // True while a language change's catalogue refetch is in flight. Drives
   // LanguageSwitchOverlay so the viewer gets an explicit branded wait instead of
   // being dropped onto a Home page still showing the old language's titles.
@@ -152,22 +154,22 @@ export default function SettingsPage() {
     // only that menu, and the shared state is a single name, not three booleans.
   const sectionsTopRef = useRef(null);
   const themeWrapRef = useRef(null);
-  const seekWrapRef = useRef(null);
   const langWrapRef = useRef(null);
   // Hidden file input behind Settings → Account → Restore device data.
   const importInputRef = useRef(null);
   const themeTriggerRef = useRef(null);
-  const seekTriggerRef = useRef(null);
   const langTriggerRef = useRef(null);
-  const dropdownWrapRefs = { theme: themeWrapRef, seek: seekWrapRef, lang: langWrapRef };
+  const dropdownWrapRefs = { theme: themeWrapRef, lang: langWrapRef };
   const dropdownTriggerRefs = {
     theme: themeTriggerRef,
-    seek: seekTriggerRef,
     lang: langTriggerRef,
   };
 
   const toggleDropdown = (name) =>
-    setOpenDropdown((current) => (current === name ? null : name));
+    setOpenDropdown((current) => {
+      setSeekOpen(false);
+      return current === name ? null : name;
+    });
 
   const selectFromDropdown = (name) => {
     setOpenDropdown(null);
@@ -1165,62 +1167,19 @@ export default function SettingsPage() {
                       </span>
                     </div>
                     <div className="setting-control">
-                      <div className="relative seek-dropdown-wrap" ref={seekWrapRef}>
-                        <button
-                          type="button"
-                          ref={seekTriggerRef}
-                          aria-expanded={openDropdown === "seek"}
-                          aria-haspopup="listbox"
-                          aria-controls="seek-menu"
-                          aria-label={t("settings.playback.seekCurrent", { n: seekTime })}
-                          onClick={() => toggleDropdown("seek")}
-                          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
-                        >
-                          <span className="min-w-0 text-sm font-medium text-white/90 truncate">
-                            {t("settings.playback.seconds", { n: seekTime })}
-                          </span>
-                          <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${openDropdown === "seek" ? "rotate-180" : ""}`} />
-                        </button>
-
-                        <AnimatePresence>
-                          {openDropdown === "seek" && (
-                            <motion.div
-                              id="seek-menu"
-                              role="listbox"
-                              aria-label={t("settings.playback.seekAria")}
-                              onKeyDown={handleMenuKeyDown}
-                              initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                              transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
-                              className="absolute right-0 top-full mt-2 w-44 rounded-2xl p-2 shadow-2xl z-50 flex flex-col gap-1 discovery-menu settings-dropdown"
-                            >
-                              {SEEK_TIMES.map((st) => {
-                                const selected = Number(seekTime) === st.value;
-                                return (
-                                  <button
-                                    key={st.value}
-                                    type="button"
-                                    role="option"
-                                    aria-selected={selected}
-                                    tabIndex={selected ? 0 : -1}
-                                    onClick={() => {
-                                      setPreference("seekTime", st.value);
-                                      selectFromDropdown("seek");
-                                    }}
-                                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                                      selected ? "settings-dropdown-item is-selected" : "settings-dropdown-item text-white/70 hover:text-white"
-                                    }`}
-                                  >
-                                    <span>{t("settings.playback.seconds", { n: st.value })}</span>
-                                    {selected && <Check className="w-3.5 h-3.5 text-white" />}
-                                  </button>
-                                );
-                              })}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
+                      <SettingsDropdown
+                        label={t("settings.playback.seekTime")}
+                        ariaLabel={t("settings.playback.seekCurrent", { n: seekTime })}
+                        value={seekTime}
+                        options={SEEK_TIMES.map((st) => ({ value: st.value, label: t("settings.playback.seconds", { n: st.value }) }))}
+                        onChange={(val) => setPreference("seekTime", val)}
+                        renderTriggerValue={(opt) => (opt ? t("settings.playback.seconds", { n: opt.value }) : "")}
+                        open={seekOpen}
+                        onOpenChange={(v) => {
+                          setSeekOpen(v);
+                          if (v) setOpenDropdown(null);
+                        }}
+                      />
                     </div>
                   </div>
 

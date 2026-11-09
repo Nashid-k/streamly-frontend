@@ -154,7 +154,12 @@ export function buildMilestoneNotification({ type, count, title }) {
   };
 }
 
-/** Welcome notification. */
+export function fireListMilestone(count, addNotification) {
+  if (typeof addNotification !== "function") return;
+  const thresholds = [10, 25, 50];
+  if (!thresholds.includes(count)) return;
+  addNotification(buildMilestoneNotification({ type: "list_milestone", count, title: "🎉 Watchlist milestone" }));
+}
 export function buildWelcomeNotification({ isSignedIn }) {
   return {
     id: `welcome-${isSignedIn ? 'in' : 'out' }`,

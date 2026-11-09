@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, memo } from "react";
 import { Plus, Check, Star } from "lucide-react";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { highlightSegments } from "../utils/highlightMatch";
-import { buildMovieAddedNotification } from "../utils/notificationEngine";
+import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
 import ContentTag from "./ContentTag";
 import { getContentTags } from "../utils/contentTags";
@@ -51,7 +51,7 @@ const MovieCard = memo(function MovieCard({
   // never navigates away mid-selection. Undefined everywhere else.
   onToggleSelect,
 }) {
-  const { isInList, toggleMyList } = useAppAuth();
+  const { isInList, toggleMyList, myList } = useAppAuth();
   const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
   const preferences = useOptionalPreferences();
@@ -119,6 +119,7 @@ const MovieCard = memo(function MovieCard({
           isSeries: isTvContent,
         });
         addNotification(notif);
+        fireListMilestone((myList?.length || 0) + 1, addNotification);
       }
     },
     [movie, isInList, toggleMyList, toast, addNotification, isTvContent],

@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Check } from "lucide-react";
-import { DURATION, EASE_OUT } from "../constants/motion";
+import { DURATION, EASE_OUT } from "../../constants/motion";
 
 /**
  * Reusable settings dropdown (listbox). Replaces the three hand-rolled copies
@@ -18,8 +18,17 @@ export default function SettingsDropdown({
   menuWidth = "w-44",
   ariaLabel,
   renderTriggerValue,
+  open: controlledOpen,
+  onOpenChange,
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = useCallback((v) => {
+    if (isControlled) onOpenChange?.(v);
+    else setInternalOpen(v);
+  }, [isControlled, onOpenChange]);
+
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);
   const menuRef = useRef(null);
