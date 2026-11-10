@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, Settings, ChevronLeft } from "lucide-react";
@@ -9,32 +9,6 @@ import { useAppAuth } from "../context/auth";
 import { useOptionalPreferences } from "../context/preferences";
 import AccountMenu from "./AccountMenu";
 import NotificationCenter from "../components/NotificationCenter";
-import { logDebug } from "../utils/debugLogger";
-
-/* Solve the mass-spring ODE that framer's spring type integrates
-   (x'' = (-stiffness·x − damping·x') / mass) and emit the sampled curve as a
-   CSS linear() easing whose length equals the settle time. The pill then plays
-   the exact SPRING token curve on the browser's own animation clock — no rAF
-   loop of ours to starve, no framer projection to fight. Cached at module
-   scope: the token is a constant. */
-function buildSpringFlight({ stiffness, damping, mass = 1 }) {
-  const dt = 1000 / 240;
-  let x = 0;
-  let v = 0;
-  const samples = [0];
-  for (let t = dt; t <= 2000; t += dt) {
-    v += ((-stiffness * x - damping * v) / mass) * (dt / 1000);
-    x += v * (dt / 1000);
-    samples.push(Math.min(1.5, Math.max(-0.5, x)));
-    if (t > 120 && Math.abs(x - 1) < 0.002 && Math.abs(v) < 0.002) break;
-  }
-  samples[samples.length - 1] = 1;
-  return {
-    duration: Math.round(samples.length * dt),
-    easing: `linear(${samples.map((p) => p.toFixed(4)).join(", ")})`,
-  };
-}
-const LIFT_FLIGHT = buildSpringFlight(SPRING.LIFT);
 
 /* ── Primary navigation ────────────────────────────────────────────────────
    Two independent floating islands (Cinejoy .header-row): the brand mark hangs
@@ -131,113 +105,27 @@ function Header() {
     };
   }, []);
 
-    /* ── Sliding active pill (Cinejoy .nav-pill) ─────────────────────────────
-       One shared highlight glides between whatever nav item is active — brand
-       links AND icon buttons on the same track. The pill used to be framer
-       `animate` + React state, and every unrelated header re-render (scrolled
-       flip, account-menu reset on pathname, badge counts) re-evaluated an
-       in-flight spring and jittered the glide on repeat navigations. The
-       element is now owned exclusively by one imperative flight per geometry
-       change: measure → single WAAPI keyframe pair (translateX + width on the
-       SPRING.LIFT curve solved into a linear() easing), commit styles on
-       finish, cancel-and-relaunch from the live rendered position on retarget.
-       No state, so no render can ever touch a running glide. */
+    /* ── Active-tab highlight (Cinejoy .nav-pill) ─────────────────────────
+       Positioning is now native CSS Anchor Positioning: the active link
+       declares `anchor-name: --active-tab` and the pill anchors to it with
+       `position-anchor` + `anchor()`. No JS measurement, no ResizeObserver for
+       the pill, no WAAPI flight: the browser tracks the anchor natively (late
+       avatar/font settles included) and the pill's left/width change is a pure
+       GPU compositor transition — that is what removes the 2-3s post-load
+       slide. Reduced motion is honoured via CSS. Engines without anchor
+       positioning fall back to a single instant measure (no glide). */
   const navRef = useRef(null);
-  const pillRef = useRef(null);
-  // The very first placement is a cut: a hard load must not sweep the pill in
-  // from x=0 before it has ever been measured.
-  const pillPlaced = useRef(false);
-  // The element that was active on the last measurement. Geometry changes to the
-  // SAME active item (avatar swap 2-3s after load, font load, ResizeObserver
-  // settling) must reposition INSTANTLY instead of gliding — only a real tab
-  // switch glides. This is what kills the "pill slides 2-3s after page load".
-  const lastActiveRef = useRef(null);
-  // Last committed destination — the continuity fallback when no animation is
-  // running (the live computed style is authoritative mid-flight).
-  const pillPos = useRef({ x: 0, w: 0 });
-  const measureTick = useRef(0);
+  const supportsAnchor =
+    typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("anchor-name", "--active-tab");
 
-  const runPillFlight = useCallback(
-    (destX, destW) => {
-      const pillItem = pillRef.current;
-      if (!pillItem) return;
-      /* Compare against the in-flight TARGET, not the live rendering. The
-         settle/ResizeObserver re-measures land right behind a launch with an
-         unchanged destination; comparing against the live rendering read
-         mid-flight progress as a new target and restarted the curve on every
-         navigation (the repeat-navigation hiccup). Only a genuinely different
-         destination relaunches; a running flight simply carries on. */
-      const sameTarget =
-        Math.abs(destX - pillPos.current.x) < 0.5 && Math.abs(destW - pillPos.current.w) < 0.5;
-      if (sameTarget) {
-        // Covers the re-show path too: a tab route revisited after a no-tab
-        // (genre) route cut the pill away relights it in its committed spot.
-        pillItem.style.opacity = "1";
-        return;
-      }
-      pillItem.style.opacity = "1";
-      const commit = () => {
-        pillItem.style.transform = `translateX(${destX}px)`;
-        pillItem.style.width = `${destW}px`;
-      };
-      /* getAnimations (and WAAPI generally) is missing on old engines and in
-         jsdom — a direct style cut is the correct degenerate flight there. */
-      if (reduceMotion || typeof pillItem.getAnimations !== "function") {
-        commit();
-        pillPos.current = { x: destX, w: destW };
-        return;
-      }
-      /* Start from the LIVE rendered position, not the last commit: a flight
-         interrupted by a DIFFERENT destination continues from its current
-         frame, so chained navigations glide instead of restarting the curve. */
-      const running = pillItem.getAnimations();
-      let startX = pillPos.current.x;
-      let startW = pillPos.current.w;
-      if (running.length > 0) {
-        const computed = window.getComputedStyle(pillItem);
-        const matrix = computed.transform.match(/matrix\(([^)]+)\)/);
-        if (matrix) {
-          const tx = parseFloat(matrix[1].split(",")[4]);
-          if (Number.isFinite(tx)) startX = tx;
-        }
-        const liveW = parseFloat(computed.width);
-        if (Number.isFinite(liveW)) startW = liveW;
-      }
-      running.forEach((anim) => anim.cancel());
-      const flight = pillItem.animate(
-        [
-          { transform: `translateX(${startX}px)`, width: `${startW}px` },
-          { transform: `translateX(${destX}px)`, width: `${destW}px` },
-        ],
-        { duration: LIFT_FLIGHT.duration, easing: LIFT_FLIGHT.easing },
-      );
-      pillPos.current = { x: destX, w: destW };
-      // Commit the destination into inline styles, then drop the animation —
-      // cancelling after committing leaves no lingering fill to clean up.
-      flight.onfinish = () => {
-        commit();
-        flight.cancel();
-      };
-    },
-    [reduceMotion],
-  );
-
-  const measurePill = useCallback(() => {
+  const fallbackPlace = useCallback(() => {
     const nav = navRef.current;
-    const pillItem = pillRef.current;
-    if (!nav || !pillItem) return;
-        /* Measure against the navbar track with getBoundingClientRect — NOT
-           offsetLeft. offsetLeft is relative to each item's nearest positioned
-           ancestor, and the icon items (Search/Settings) sit in a different
-           positioned cluster than the text links, so their pills would measure from
-           another origin and land slid off-track. A rect diff off the shared navbar
-           box stays correct for any nested container. */
+    if (!nav) return;
+    const pillItem = nav.querySelector(".nav-active-pill");
+    if (!pillItem) return;
     const active = nav.querySelector('[data-nav-active="true"]');
     if (!active) {
-      // Routes with no active tab (genre/category/person) hide the pill instead
-      // of collapsing it to a 0px sliver at the far left of the track.
-      if (pillItem.style.opacity !== "0") pillItem.style.opacity = "0";
-      lastActiveRef.current = null;
+      pillItem.style.opacity = "0";
       return;
     }
     const trackRect = nav.getBoundingClientRect();
@@ -245,83 +133,41 @@ function Header() {
     const x = activeRect.left - trackRect.left;
     const w = activeRect.width;
     if (w <= 0) return;
-    logDebug("nav-pill", "measure", { x: Math.round(x * 10) / 10, w: Math.round(w * 10) / 10 });
-    if (!pillPlaced.current) {
-      pillPlaced.current = true;
-      pillItem.style.transform = `translateX(${x}px)`;
-      pillItem.style.width = `${w}px`;
-      pillItem.style.opacity = "1";
-      pillPos.current = { x, w };
-      lastActiveRef.current = active;
-      return;
-    }
-    /* Geometry-only change to the SAME active item (avatar swap after auth
-       resolves, font load, ResizeObserver settling): reposition instantly.
-       Only a real tab switch glides — this kills the 2-3s post-load slide. */
-    if (lastActiveRef.current === active) {
-      pillItem.style.transform = `translateX(${x}px)`;
-      pillItem.style.width = `${w}px`;
-      pillItem.style.opacity = "1";
-      pillPos.current = { x, w };
-      return;
-    }
-    lastActiveRef.current = active;
-    runPillFlight(x, w);
-  }, [runPillFlight]);
+    pillItem.style.transform = `translateX(${x}px)`;
+    pillItem.style.width = `${w}px`;
+    pillItem.style.opacity = "1";
+  }, []);
 
-  // rAF-throttled wrapper for ResizeObserver bursts — the pill track only needs
-  // one measurement per frame, not one per observation entry.
-  const scheduleMeasure = useCallback(() => {
-    if (measureTick.current) return;
-    measureTick.current = window.requestAnimationFrame(() => {
-      measureTick.current = 0;
-      measurePill();
-    });
-  }, [measurePill]);
-
-    /* Measure ONLY on events that can actually change track-relative geometry:
-       route change (active item) and real size changes of the track (avatar
-       swap, font swap, viewport compression). Scrolling is deliberately NOT a
-       trigger — the header is position:fixed and every x is measured relative
-       to the track box, so scroll can never legitimately move the pill; wiring
-       scroll here used to re-measure mid-spring and jitter every repeat
-       navigation (the up-to-1.6s scroll-restoration retries on Back made it
-       fire over and over). */
-  useLayoutEffect(() => {
-    measurePill();
-    /* One settled-frame correction right after commit catches a first paint
-       that shifted geometry (route-exit lift, late image accent) BEFORE the
-       viewer can perceive it, instead of a correction arriving mid-flight. */
-    const settled = window.requestAnimationFrame(measurePill);
-    return () => window.cancelAnimationFrame(settled);
-  }, [measurePill, location.pathname]);
-
-  /* Track size is the single honest "geometry changed" signal: it moves when
-     the avatar swaps in, a font finishes loading, the viewport truly resizes,
-     or flex pressure rescales the track. Scroll state is not in this list. */
+  // Keep the CSS (and the fallback path) in sync with the active state.
   useEffect(() => {
     const nav = navRef.current;
-    if (!nav) return undefined;
-    if (typeof ResizeObserver === "undefined") {
-      // Ancient-engine fallback: the viewport resize event is the closest signal.
-      window.addEventListener("resize", scheduleMeasure);
-      return () => window.removeEventListener("resize", scheduleMeasure);
-    }
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.contentRect.width > 0) {
-          scheduleMeasure();
-          return;
-        }
-      }
-    });
-    observer.observe(nav);
-    if (document.fonts?.ready) document.fonts.ready.then(measurePill);
-    return () => {
-      observer.disconnect();
-      if (measureTick.current) window.cancelAnimationFrame(measureTick.current);
+    if (!nav) return;
+    const sync = () => {
+      const has = !!nav.querySelector('[data-nav-active="true"]');
+      nav.toggleAttribute("data-has-active", has);
     };
-  }, [scheduleMeasure, measurePill]);
+    sync();
+    if (!supportsAnchor) {
+      fallbackPlace();
+      const settled = window.requestAnimationFrame(fallbackPlace);
+      return () => window.cancelAnimationFrame(settled);
+    }
+  }, [location.pathname, supportsAnchor, fallbackPlace]);
+
+  // Fallback engines: real size changes (avatar swap, fonts) re-place instantly.
+  useEffect(() => {
+    if (supportsAnchor) return;
+    const nav = navRef.current;
+    if (!nav) return;
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", fallbackPlace);
+      return () => window.removeEventListener("resize", fallbackPlace);
+    }
+    const observer = new ResizeObserver(() => fallbackPlace());
+    observer.observe(nav);
+    if (document.fonts?.ready) document.fonts.ready.then(fallbackPlace);
+    return () => observer.disconnect();
+  }, [supportsAnchor, fallbackPlace]);
 
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
@@ -391,15 +237,11 @@ function Header() {
       </div>
 
       <nav ref={navRef} className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
-        {/* Shared sliding highlight (Cinejoy .nav-pill) — owned by the WAAPI
-            flight engine above; these inline values are only the
-            pre-measurement defaults, replaced by the first cut placement. */}
-        <span
-          ref={pillRef}
-          className="nav-active-pill"
-          style={{ opacity: 0, transform: "translateX(0px)", width: "0px" }}
-          aria-hidden="true"
-        />
+        {/* Shared sliding highlight (Cinejoy .nav-pill) — positioned natively
+            by CSS Anchor Positioning (see header.css). No JS measurement; the
+            browser tracks the active link, including late avatar/font settles,
+            and the left/width change is a GPU compositor transition. */}
+        <span className="nav-active-pill" aria-hidden="true" />
         <div className="nav-cluster">
           <div className="nav-links">
             {NAV_ITEMS.map((item) => {

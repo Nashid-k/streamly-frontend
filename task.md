@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **Nav pill rewritten as native CSS Anchor Positioning (no JS measurement) — 2026-11-10 (branch `main`).**
+  - **Why the previous fixes didn't land:** the pill was still a JS-measured element. Every late geometry change (avatar swap ~2-3s after load, font load, ResizeObserver settle) re-measured it; even with "same active → instant commit" the instant reposition read as "the pill changed 2-3s after load", and any genuine active flip glided 450ms. Patching the glide was whack-a-mole.
+  - **New approach (no moving via JS):** the active element declares `anchor-name: --active-tab` and `.nav-active-pill` anchors to it with `position-anchor: --active-tab` + `left: anchor(left)` / `width: anchor-size(width)`. The browser tracks the anchor natively — including late settles — and the left/width change is a pure GPU compositor `transition` (200ms, `--ease-out`). No `measurePill`, no `ResizeObserver` for the pill, no WAAPI flight, no `pillRef`. Engines without anchor positioning fall back to a single instant measure (no glide). Reduced motion disables the transition via CSS (`prefers-reduced-motion` + `html[data-reduce-motion]`).
+  - **Contract test updated:** `motion.test.js` "anchors the pill to the active tab natively..." now asserts `anchor-name`/`position-anchor`/`anchor()`/`transition:` and the absence of `measurePill`/`pillItem.animate`/`LIFT_FLIGHT.easing`.
+  - **Gates:** lint 0 errors / no new warnings; full suite 118 files · 1437 tests green; build 1.6s.
+
 - [x] **Nav pill no longer slides 2-3s after page load (instant settle) — 2026-11-10 (branch `main`).**
   - **Root cause:** the active tab is decided synchronously from `location.pathname` (so the *which* never lagged), but the pill's *geometry* was re-measured by the late-firing `ResizeObserver`/`document.fonts.ready` (avatar swap ~2-3s after load, font load) and those measures always called `runPillFlight` — a 450ms glide — even when the active item was unchanged. So a 2-3s-after-load width change swept the pill across the bar.
   - **Fix:** `measurePill` now tracks the last active element (`lastActiveRef`). First placement + genuine tab switches still glide (LIFT flight); a geometry-only change to the *same* active item (avatar swap, font load, ResizeObserver settle) commits `transform`/`width`/`opacity` instantly. Hiding on no-active routes also resets the ref so re-entering a tab still glides.

@@ -809,16 +809,21 @@ describe("navigation moves one pill, never the dock", () => {
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/color:\s*#000/);
   });
 
-  it("drives the pill imperatively so unrelated re-renders can never retarget it", () => {
-    expect(headerJsx).toMatch(/<span[\s\S]{0,80}ref=\{pillRef\}[\s\S]{0,80}className="nav-active-pill"/);
-    // The old pill was framer `animate` + React state: every unrelated header
-    // re-render (scrolled flip, account-menu reset, badge counts) re-evaluated
-    // an in-flight spring and jittered repeat navigations. The element is now
-    // owned by one imperative WAAPI flight per geometry change.
-    expect(headerJsx).not.toMatch(/motion\.span/);
-    expect(headerJsx).toMatch(/pillItem\.animate\(/);
-    expect(headerJsx).toMatch(/LIFT_FLIGHT\.easing/);
-    expect(block(headerCss, ".nav-active-pill")).not.toMatch(/transition:/);
+  it("anchors the pill to the active tab natively so no JS measurement can move it late", () => {
+    // The pill used to be a JS-measured WAAPI flight: late avatar/font settles
+    // re-measured it 2-3s after load and swept it across the bar. It is now
+    // positioned by CSS Anchor Positioning — the active element declares
+    // `anchor-name: --active-tab` and the pill anchors to it, so the browser
+    // tracks geometry (including late settles) and the left/width change is a
+    // GPU compositor transition. No measurement, no flight, no retargeting.
+    expect(headerJsx).not.toMatch(/pillItem\.animate\(/);
+    expect(headerJsx).not.toMatch(/LIFT_FLIGHT\.easing/);
+    expect(headerJsx).not.toMatch(/measurePill/);
+    expect(headerCss).toMatch(/anchor-name:\s*--active-tab/);
+    expect(block(headerCss, ".nav-active-pill")).toMatch(/position-anchor:\s*--active-tab/);
+    expect(block(headerCss, ".nav-active-pill")).toMatch(/anchor\(left\)/);
+    expect(block(headerCss, ".nav-active-pill")).toMatch(/anchor-size\(width\)/);
+    expect(block(headerCss, ".nav-active-pill")).toMatch(/transition:/);
     expect(tokensCss).not.toMatch(/--nav-transition/);
   });
 
