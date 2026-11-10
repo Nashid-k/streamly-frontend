@@ -825,6 +825,22 @@ describe("navigation moves one pill, never the dock", () => {
     expect(headerCss).toMatch(/data-pill-moving/);
     expect(headerCss).toMatch(/transition:/);
     expect(tokensCss).not.toMatch(/--nav-transition/);
+
+    // The gate is an attribute selector on the literal "true".
+    // toggleAttribute(name, true) writes an EMPTY value, so the glide rule
+    // never matched and the pill teleported on every navigation.
+    expect(headerJsx).toMatch(/setAttribute\("data-pill-moving", "true"\)/);
+    expect(headerJsx).not.toMatch(/toggleAttribute\("data-pill-moving"/);
+    // Width is a layout property: transitioning it pinned the pill to the main
+    // thread, so the glide inherited the page-mount jank and stuttered on
+    // revisits. Only transform (compositor-owned) may animate.
+    const glideRule = block(headerCss, '.navbar[data-pill-moving="true"] .nav-active-pill');
+    expect(glideRule).toMatch(/transform/);
+    expect(glideRule).not.toMatch(/width/);
+    // The duration token must exist in tokens.css (--duration-med never did,
+    // which made the shorthand invalid and computed the transition to 0s).
+    expect(glideRule).toMatch(/--duration-normal/);
+    expect(tokensCss).toMatch(/--duration-normal:/);
   });
 
   it("slides the brand mark when the back button claims its space", () => {

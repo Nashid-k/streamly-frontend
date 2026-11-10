@@ -273,7 +273,7 @@
   z-index: 0;
   pointer-events: none;
   opacity: 0;
-  will-change: transform, width, opacity;
+  will-change: transform, opacity;
 }
 
 /* Reveal once an active tab exists (set synchronously in useLayoutEffect). */
@@ -281,9 +281,15 @@
   opacity: 1;
 }
 
-/* Smooth glide only when the active tab actually changes. */
+/* Smooth glide only when the active tab actually changes.
+   TRANSFORM ONLY: a compositor-owned animation keeps gliding at 60fps even
+   while the incoming page mounts (cached pages do all their heaviest work in
+   the same 300ms as this move). Transitioning width forced a style + layout
+   pass on the main thread every frame, so the glide inherited the page's
+   jank and visibly stuttered on revisits. Width now snaps to the new tab
+   (≤10px between tabs) and the left edge glides. */
 .navbar[data-pill-moving="true"] .nav-active-pill {
-  transition: transform var(--duration-med) var(--ease-out), width var(--duration-med) var(--ease-out);
+  transition: transform var(--duration-normal) var(--ease-out);
 }
 
 /* Geometry-only updates (same active): snap, no glide. */

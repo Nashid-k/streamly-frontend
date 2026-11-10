@@ -7,6 +7,24 @@
 
  ## Done (in order)
 
+- [x] **Nav pill jitter: the glide rule had never matched (three stacked bugs) — 2026-11-10 (branch `main`).**
+  - **Hard evidence:** a Puppeteer probe sampled the navbar every frame across cold and warm home<->movies navigations. `data-pill-moving` was set and removed 11-16ms later, before one frame painted, and the pill showed exactly two positions (old, new) with `transitionDuration: 0s` — it teleported on every navigation, cold or warm.
+  - **Cause 1 - the gate never matched:** `nav.toggleAttribute("data-pill-moving", true)` writes an EMPTY attribute (`data-pill-moving=""`), while the CSS gate is `[data-pill-moving="true"]`. The transition rule was dead CSS.
+  - **Cause 2 - undefined duration token:** the rule used `var(--duration-med)`, which tokens.css never defines (it publishes `--duration-fast/normal/slow`, `--duration-normal` = 280ms). The invalid shorthand computes to 0s, so even a matching gate would snap.
+  - **Cause 3 - the gate was aborted:** the settle `requestAnimationFrame(measurePill)` re-measured with `activeChanged` false and immediately removed the gate, cutting any transition after a single frame.
+  - **Fix:** the gate is written as `"true"` and stays live for the whole glide (`transitionend` + a 360ms fallback); a forced style flush starts the transition from the old position; geometry re-measures retarget the live transition instead of dropping the gate; end-of-glide settles snap instantly as before.
+  - **Compositor path:** the pill now animates `transform` only and `--pill-w` snaps. Transitioning `width` forced style+layout on the main thread every frame, so the glide inherited the incoming page's mount jank — which is why cached/repeat visits looked worse (all the page work lands inside the 280ms move, while a cold skeleton loads after it).
+  - **Measured after:** warm home -> movies produced 15 distinct interpolated pill positions across the 280ms move (median frame gap 17ms, p90 33ms); width snaps by 6.3px; navbar left/top stayed fixed except the intended 3px scroll-condense.
+  - **Regression guards:** motion contract test now pins `setAttribute("data-pill-moving", "true")` (and forbids `toggleAttribute` for it), transform-only glide (no `width` in the transition), and `--duration-normal` existing in tokens.css.
+  - **Gates:** targeted motion suite 48/48 green; full suite 118 files / 1437 tests green on the final run (an earlier run had 1 unidentified failure that did not reproduce); build 2.5s; lint 0 errors (134 pre-existing warnings unchanged).
+- [x] **All four seasons covered + winter runs past New Year — 2026-11-10 (branch `main`).**
+  - **Winter no longer stops on Dec 31:** `Snowfall.jsx` now activates Nov 1 -> Feb 28/29 (`month === 10 | 11 | 0 | 1`) or when the Christmas / Winter theme is selected, so January 1 onwards still snows.
+  - **New Summer Glow overlay:** `SummerGlow.jsx` (mounted once in `Layout.jsx`) reuses the installed `falling-snow` soft flake renderer in a warm gold palette as drifting sun motes, active Jun 1 -> Aug 31 or whenever the Summer Sun theme is selected; gated by the new `summerGlow` preference (default on) and reduced motion.
+  - **Settings:** Appearance gains a "Seasonal summer glow" toggle; `summerGlow` is covered by the generic boolean sanitizer, so `PreferencesContext` needed no change.
+  - **Every month has exactly one effect, no overlaps:** winter snow Nov-Feb, spring blossoms Mar-May, summer glow Jun-Aug, autumn leaves Sep-Oct.
+  - **Seasonal theme presets complete:** `THEMES` carries Spring Bloom, Summer Sun, Autumn Harvest, Winter Frost and Christmas, each with an `html[data-theme="…"]` accent block in `settings-ui.css` (Winter Frost was missing and is now defined).
+  - **Copy made truthful:** snowfall / leaves / blossoms descriptions and code comments state their real windows, and the Appearance search haystack lists the seasonal words.
+  - **Gates:** lint 0 errors (134 pre-existing warnings unchanged); full suite 118 files / 1437 tests green; build 1.9s.
 - [x] **Seasonal theming: Christmas theme + global snowfall overlay — 2026-11-10 (branch `main`).**
   - **Christmas theme:** added to `THEMES` (id `christmas`, red/green palette, name "Christmas") with CSS overrides in `settings-ui.css` (`html[data-theme="christmas"]`). Selectable from Settings -> Appearance like any other theme.
   - **Global snowfall:** new `Snowfall.jsx` component mounted once in `Layout.jsx`, so it covers every route. Active in December (`new Date().getMonth() === 11`) or when the Christmas theme is selected; gated by the new `snowfall` preference (default on) and by reduced motion (OS + in-app). 48 flakes, transform+opacity only (GPU), `will-change`, infinite CSS keyframe animation.

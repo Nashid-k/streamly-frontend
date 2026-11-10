@@ -106,6 +106,19 @@ html[data-theme="autumn"] {
   --theme-global-accentB: #b45309;
 }
 
+html[data-theme="winter"] {
+  --accent-gradient: linear-gradient(135deg, #38bdf8, #e2e8f0) !important;
+  --accent-color: #38bdf8 !important;
+  --accent-primary: #38bdf8 !important;
+  --accent-secondary: #e2e8f0 !important;
+  --accent-primary-rgb: 56, 189, 248 !important;
+  --accent-secondary-rgb: 226, 232, 240 !important;
+  --accent-glow: rgba(56, 189, 248, 0.4) !important;
+  --on-accent: #0f172a !important;
+  --theme-global-accentA: #38bdf8;
+  --theme-global-accentB: #e2e8f0;
+}
+
 html[data-theme="christmas"] {
   --accent-gradient: linear-gradient(135deg, #dc2626, #16a34a) !important;
   --accent-color: #dc2626 !important;

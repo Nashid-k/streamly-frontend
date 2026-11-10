@@ -108,37 +108,85 @@ function Header() {
     /* Active-tab highlight: JS-measured CSS custom properties, transition gated. */
   const navRef = useRef(null);
   const lastActiveRef = useRef(null);
+  const pillTimerRef = useRef(0);
 
-  const measurePill = useCallback(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const pillItem = nav.querySelector(".nav-active-pill");
-    if (!pillItem) return;
-    const active = nav.querySelector('[data-nav-active="true"]');
-    const hasActive = !!active;
-    nav.toggleAttribute("data-has-active", hasActive);
-    if (!active) {
-      lastActiveRef.current = null;
-      nav.toggleAttribute("data-pill-moving", false);
-      return;
+  /* Ends the glide and puts the pill back into snap mode for geometry-only
+     settles (font load, avatar swap, resize). `transitionend` normally calls
+     this; the timer in `measurePill` is the fallback for an event that never
+     arrives (hidden tab, interrupted transition, reduced motion). */
+  const endPillGlide = useCallback(() => {
+    if (pillTimerRef.current) {
+      window.clearTimeout(pillTimerRef.current);
+      pillTimerRef.current = 0;
     }
-    const trackRect = nav.getBoundingClientRect();
-    const activeRect = active.getBoundingClientRect();
-    const x = activeRect.left - trackRect.left;
-    const w = activeRect.width;
-    if (w <= 0) return;
-    const activeChanged = lastActiveRef.current !== null && lastActiveRef.current !== active;
-    lastActiveRef.current = active;
-    nav.toggleAttribute("data-pill-moving", activeChanged);
-    nav.style.setProperty("--pill-x", x + "px");
-    nav.style.setProperty("--pill-w", w + "px");
+    navRef.current?.removeAttribute("data-pill-moving");
   }, []);
 
+  const measurePill = useCallback(
+    (animate = false) => {
+      const nav = navRef.current;
+      if (!nav) return;
+      const pillItem = nav.querySelector(".nav-active-pill");
+      if (!pillItem) return;
+      const active = nav.querySelector('[data-nav-active="true"]');
+      const hasActive = !!active;
+      nav.toggleAttribute("data-has-active", hasActive);
+      if (!active) {
+        lastActiveRef.current = null;
+        endPillGlide();
+        return;
+      }
+      const trackRect = nav.getBoundingClientRect();
+      const activeRect = active.getBoundingClientRect();
+      const x = activeRect.left - trackRect.left;
+      const w = activeRect.width;
+      if (w <= 0) return;
+      const activeChanged = lastActiveRef.current !== null && lastActiveRef.current !== active;
+      lastActiveRef.current = active;
+
+      if (activeChanged && animate) {
+        // The gate has to be live for a style pass BEFORE the custom properties
+        // move, and it has to stay live until the glide finishes. The old code
+        // cleared it in the rAF settle 11-16ms later — before a single frame
+        // painted with a transition — so the pill teleported every time.
+        nav.setAttribute("data-pill-moving", "true");
+        // Force a style flush that sees the transition enabled; the property
+        // updates below then start a real transition instead of a jump.
+        void getComputedStyle(pillItem).transform;
+        if (pillTimerRef.current) window.clearTimeout(pillTimerRef.current);
+        pillTimerRef.current = window.setTimeout(endPillGlide, 360);
+      }
+      // Any re-measure while moving retargets the live transition (CSS
+      // interpolates from the current position); it must NOT drop the gate.
+      nav.style.setProperty("--pill-x", x + "px");
+      nav.style.setProperty("--pill-w", w + "px");
+    },
+    [endPillGlide],
+  );
+
   useLayoutEffect(() => {
-    measurePill();
-    const settled = window.requestAnimationFrame(measurePill);
+    // Only a real active-tab change glides; the settle rAF re-measures after
+    // late geometry changes and must snap (or retarget, never restart).
+    measurePill(true);
+    const settled = window.requestAnimationFrame(() => measurePill());
     return () => window.cancelAnimationFrame(settled);
   }, [measurePill, location.pathname]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const onPillTransitionEnd = (event) => {
+      if (event.target === nav.querySelector(".nav-active-pill")) endPillGlide();
+    };
+    nav.addEventListener("transitionend", onPillTransitionEnd);
+    return () => {
+      nav.removeEventListener("transitionend", onPillTransitionEnd);
+      if (pillTimerRef.current) {
+        window.clearTimeout(pillTimerRef.current);
+        pillTimerRef.current = 0;
+      }
+    };
+  }, [endPillGlide]);
 
   useEffect(() => {
     const nav = navRef.current;
@@ -222,10 +270,10 @@ function Header() {
       </div>
 
       <nav ref={navRef} className={`navbar${isScrolled ? " scrolled" : ""}`} aria-label="Primary navigation">
-        {/* Shared sliding highlight (Cinejoy .nav-pill) — positioned natively
-            by CSS Anchor Positioning (see header.css). No JS measurement; the
-            browser tracks the active link, including late avatar/font settles,
-            and the left/width change is a GPU compositor transition. */}
+        {/* Shared sliding highlight (Cinejoy .nav-pill) — positioned by the
+            JS-measured --pill-x/--pill-w custom properties (see header.css and
+            measurePill). Only a genuine active-tab change enables the glide;
+            late geometry settles snap or retarget instead of restarting it. */}
         <span className="nav-active-pill" aria-hidden="true" />
         <div className="nav-cluster">
           <div className="nav-links">

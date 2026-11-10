@@ -67,6 +67,12 @@ export const THEMES = [
     primary: "#f59e0b",
     secondary: "#ef4444",
   },
+  {
+    id: "winter",
+    name: "Winter Frost",
+    primary: "#38bdf8",
+    secondary: "#e2e8f0",
+  },
 ];
 
 export const LANGUAGES = [
@@ -180,7 +186,7 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   appearance: [
     "appearance look theme color palette interface",
-    "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber christmas autumn spring summer",
+    "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber christmas autumn spring summer winter",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
     "detail view type full info page quick modal page modal",
@@ -189,8 +195,9 @@ export const SECTION_SEARCH_TERMS = {
     "spoiler-free mode hide information episodes",
     "reduce motion reduce effects",
     "ambient liquid backdrop drifting color blobs behind pages",
-    "seasonal snowfall falling snow december christmas overlay",
-    "seasonal falling leaves autumn september october november overlay",
+    "seasonal snowfall falling snow winter november december january february christmas winter frost overlay",
+    "seasonal falling leaves blossoms spring autumn september october march april may overlay",
+    "seasonal summer glow sun motes pollen june july august summer sun overlay",
     "high-quality thumbnails stream higher resolution artwork",
     "hover previews show frame previews scrubbing player seek bar seek previews",
   ].join(" "),

@@ -110,6 +110,7 @@ export default function SettingsPage() {
     ambientBackground = true,
     snowfall = true,
     fallingLeaves = true,
+    summerGlow = true,
     notifications,
     notificationsListAdds = true,
     notificationsMilestones = true,
@@ -1063,6 +1064,18 @@ export default function SettingsPage() {
                       label={t("settings.appearance.fallingLeaves")}
                       checked={fallingLeaves}
                       onChange={(val) => setPreference("fallingLeaves", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Seasonal summer overlay (global, Layout reads it) */}
+                  <SettingRow
+                    title={t("settings.appearance.summerGlow")}
+                    description={t("settings.appearance.summerGlowDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.summerGlow")}
+                      checked={summerGlow}
+                      onChange={(val) => setPreference("summerGlow", val)}
                     />
                   </SettingRow>
 

@@ -6,9 +6,10 @@ import { useReducedMotion } from "framer-motion";
    zero deps, React-ready). Hand-drawn flake styles (classic stellar, dendrite,
    plate, soft bokeh) with real depth-of-field, retina sharpness, reduced-motion
    support (still frame), and pause-on-hidden-tab. Mounted once in Layout so it
-   covers every route. Active Nov 1 -> Dec 31 or when the Christmas theme is
-   selected; gated by the `snowfall` preference. Intensity reduced for
-   performance: lower count, gentler speed/wind/sway, lighter depth. */
+   covers every route. Active Nov 1 -> Feb 28/29 (winter) or when the
+   Christmas / Winter theme is selected; gated by the `snowfall` preference.
+   Intensity reduced for performance: lower count, gentler speed/wind/sway,
+   lighter depth. */
 export default function Snowfall() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
@@ -16,7 +17,10 @@ export default function Snowfall() {
   const theme = prefs?.theme;
   const now = new Date();
   const month = now.getMonth();
-  const seasonal = month === 10 || month === 11 || theme === "christmas";
+  // Winter window: November (10) -> February (1), so the season carries across
+  // New Year's Day instead of stopping on Dec 31.
+  const seasonal =
+    month === 10 || month === 11 || month === 0 || month === 1 || theme === "christmas" || theme === "winter";
   const enabled = seasonal && prefs?.snowfall !== false && !reduceMotion;
 
   if (!enabled) return null;
