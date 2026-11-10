@@ -7,6 +7,7 @@ import EmptyState from "../components/EmptyState";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
 import RatingsTable from "../components/RatingsTable";
+import RatingsCluster from "../components/RatingsCluster";
 import useRailArrows from "../hooks/useRailArrows";
 import useDialogA11y from "../hooks/useDialogA11y";
 import { useTitleLogo } from "../hooks/useTitleLogo";
@@ -21,7 +22,6 @@ import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback, laz
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   Play,
-  Star,
   Plus,
   Check,
   X,
@@ -1089,13 +1089,17 @@ export default function TitleDetails() {
                     }),
                   );
                 }}
-                className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
+                className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
                 }`}
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, #000000)", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
               </button>
+
+              {/* Real ratings (IMDb + Rotten Tomatoes + TMDB) — surfaced next to
+                  the play action instead of buried in the bottom social-proof bar. */}
+              <RatingsCluster movie={movie} size="md" itemClassName="title-rating-badge" />
 
               {/* Cinejoy-style circular actions: Add to List | Mark watched */}
               <div className="flex items-center gap-2.5 shrink-0">
@@ -2049,14 +2053,6 @@ export default function TitleDetails() {
           borderBottom: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {movie.imdbRating > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Star size={16} fill="#fbbf24" color="#fbbf24" />
-            <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
-              <strong style={{ color: '#fbbf24' }}>{movie.imdbRating}</strong> TMDB Score
-            </span>
-          </div>
-        )}
         {movie.matchScore && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ThumbsUp size={16} color="#4ade80" />

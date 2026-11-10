@@ -7,6 +7,12 @@
 
  ## Done (in order)
 
+- [x] **TitleDetailsPage: ratings (IMDb + RT + TMDB) moved next to Play; mobile play button full-width — 2026-11-10 (branch `main`).**
+  - **Ratings placement:** the page used to surface only a "TMDB Score" line in the bottom social-proof bar while the real IMDb + Rotten Tomatoes scores lived behind `RatingsCluster` (used only on the Home hero). Imported `RatingsCluster` and rendered it in the actions row right after the Play/Resume button (`size="md"`), so IMDb + RT + TMDB badges sit beside Play. Removed the now-redundant "TMDB Score" block from the social-proof bar (match score + seasons remain); dropped the now-unused `Star` import.
+  - **Mobile:** the Play button is now full-width below `sm` (`w-full sm:w-auto`) so it's a proper thumb target on phones; the ratings cluster wraps naturally in the existing `flex-wrap` actions row.
+  - **Honest note:** a full mobile pass of the details page (hero sizing, bg image crop, episode rails, overflow) is a bigger audit; this commit covers the ratings relocation + the play-button thumb target. `AmbientBackground`/hero already scale via the responsive CSS and container queries.
+  - **Gates:** lint 0 new errors (pre-existing warnings unchanged); targeted TitleDetailsPage 7/7 green; build 10.6s.
+
 - [x] **Nav pill: JS-measured CSS custom properties, transition-gated (replaces anchor positioning) — 2026-11-10 (branch `main`).**
   - **Why anchor positioning jittered on revisit:** when the active tab changed, the old anchor lost `anchor-name` mid-transition and the browser had no starting point — the pill jumped instead of gliding. Every revisit reproduced it because the anchor identity swap is inherent to route changes.
   - **New method:** measure synchronously in `useLayoutEffect` (before paint) and write `--pill-x` / `--pill-w` CSS custom properties on the navbar; the pill reads them via `transform: translateX(var(--pill-x))` + `width: var(--pill-w)`. The `transition` is GATED by `data-pill-moving`: enabled only when the active tab genuinely changes (smooth glide), disabled for geometry-only updates (avatar swap, font load, ResizeObserver) so late settles reposition INSTANTLY with no jitter. Opacity is an instant toggle (no transition) to avoid flicker.
