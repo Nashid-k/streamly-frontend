@@ -129,7 +129,9 @@
     margin-left: auto !important;
     margin-right: auto !important;
     width: min(calc(100vw - 1.25rem), 430px);
-    height: 62px;
+    /* 70px instead of 62px: the dock now carries a label under each icon
+       (Cinejoy's six-icon strip made Search and Settings guesswork). */
+    height: 70px;
     background: rgba(14, 14, 18, 0.82) !important;
     backdrop-filter: blur(10px) saturate(140%) !important;
     -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
@@ -148,7 +150,9 @@
     justify-content: center;
     flex: 1 1 0;
     max-width: 58px;
-    height: 44px;
+    height: 56px;
+    flex-direction: column;
+    gap: 2px;
     border-radius: var(--radius-full);
     padding: 0;
     color: #9ca3af;
@@ -173,11 +177,28 @@
     background: transparent;
     box-shadow: none;
   }
+  .bottom-nav-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    opacity: 0.9;
+  }
+  .bottom-nav-item.active .bottom-nav-label {
+    opacity: 1;
+  }
   .bottom-nav-item--avatar {
     mix-blend-mode: normal;
   }
   body {
-    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    /* Dock height (70px) + its 1rem gap + a 10px breath so the last content
+       row never touches the glass. */
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     letter-spacing: -0.01em;
   }
 
@@ -438,7 +459,6 @@
     padding: 8px !important;
     margin: 8px 4px !important;
     border: none !important;
-    outline: none !important;
     box-shadow: none !important;
   }
 

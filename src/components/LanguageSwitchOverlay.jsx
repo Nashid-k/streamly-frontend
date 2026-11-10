@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useIsFetching } from "@tanstack/react-query";
 import { LANGUAGE_SENSITIVE_QUERY_PREFIXES } from "../context/preferencesConstants";
 import Loader from "./Loader";
+import BrandWordmark from "./BrandWordmark";
 
 /* ── LanguageSwitchOverlay ────────────────────────────────────────────────
    Switching the subtitle/catalog language invalidates every TMDB-backed query
@@ -98,13 +99,7 @@ export default function LanguageSwitchOverlay({ active, onDone }) {
       animate={{ opacity: 1 }}
       transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
     >
-      <img
-        src="/brand/cinejoy-logo.svg"
-        alt=""
-        aria-hidden="true"
-        className="language-switch-overlay__logo logo-legible"
-        draggable={false}
-      />
+      <BrandWordmark className="language-switch-overlay__wordmark logo-legible" />
       <Loader variant="inline" size="52px" />
       <p className="language-switch-overlay__label">Switching language…</p>
       <p className="language-switch-overlay__hint">

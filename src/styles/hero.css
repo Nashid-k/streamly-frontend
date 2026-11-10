@@ -564,7 +564,6 @@
   border-radius: var(--radius-full);
   background: rgba(var(--white-rgb), 0.28);
   border: none;
-  outline: none;
   appearance: none;
   -webkit-appearance: none;
   box-shadow: none;

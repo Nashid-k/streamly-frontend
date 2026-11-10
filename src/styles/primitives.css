@@ -53,11 +53,18 @@
   cursor: pointer;
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
-.head-menu-item:hover,
+.head-menu-item:hover {
+  background: rgba(var(--white-rgb), 0.08);
+  color: #ffffff;
+}
+/* Kept separate from :hover: the old shared block suppressed the outline for
+   both, so keyboard focus was signalled only by a 6%-white background change.
+   The inset offset keeps the ring inside the rounded popover row. */
 .head-menu-item:focus-visible {
   background: rgba(var(--white-rgb), 0.08);
   color: #ffffff;
-  outline: none;
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: -2px;
 }
 .head-menu-item-icon {
   color: rgba(var(--white-rgb), 0.6);
@@ -139,12 +146,20 @@
   box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.06);
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
-.chip:hover,
+.chip:hover {
+  background: rgba(var(--white-rgb), 0.12);
+  color: var(--text-primary);
+  border-color: rgba(var(--white-rgb), 0.18);
+}
+/* Split from :hover so focus keeps a real ring. The old shared rule set
+   `outline: none`, leaving a 6%-white background as the only focus cue on the
+   primary filter controls. */
 .chip:focus-visible {
   background: rgba(var(--white-rgb), 0.12);
   color: var(--text-primary);
   border-color: rgba(var(--white-rgb), 0.18);
-  outline: none;
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 /* Denser size for sort/pagination pills */
 .chip--sm {
@@ -183,11 +198,15 @@
 }
 
 /* Ratings refresh — ghost icon button beside the badges */
-.ratings-refresh:hover,
+.ratings-refresh:hover {
+  background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.55), rgba(var(--accent-secondary-rgb), 0.55)) !important;
+  color: #fff !important;
+}
 .ratings-refresh:focus-visible {
   background: linear-gradient(135deg, rgba(var(--accent-primary-rgb), 0.55), rgba(var(--accent-secondary-rgb), 0.55)) !important;
   color: #fff !important;
-  outline: none;
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 /* Small uppercase meta label used in dropdown headers. */

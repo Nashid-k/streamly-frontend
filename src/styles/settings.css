@@ -39,11 +39,12 @@
     #050505;
 }
 
-.language-switch-overlay__logo {
-  width: clamp(120px, 22vw, 190px);
-  height: auto;
+/* The curtain used to render the upstream Cinejoy logo; it now uses the same
+   Streamly wordmark as the header. Sized larger here because the curtain has no
+   surrounding chrome to carry the brand. */
+.language-switch-overlay__wordmark {
+  font-size: clamp(2rem, 6vw, 2.75rem);
   margin-bottom: 0.4rem;
-  /* Brand SVG is a light mark on dark; keep it from blowing out. */
   filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
 }
 

@@ -9,6 +9,17 @@ import { useAppAuth } from "../context/auth";
 import { useOptionalPreferences } from "../context/preferences";
 import AccountMenu from "./AccountMenu";
 import NotificationCenter from "../components/NotificationCenter";
+import BrandWordmark from "../components/BrandWordmark";
+
+/* The search control advertises its shortcut, and the shortcut differs by
+   platform: the handler below listens for metaKey OR ctrlKey, so the hint has
+   to name the key the viewer actually owns. Resolved once at module scope —
+   navigator doesn't change mid-session. */
+const SEARCH_HINT =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent || navigator.platform || "")
+    ? "\u2318K"
+    : "Ctrl K";
 
 /* ── Primary navigation ────────────────────────────────────────────────────
    Two independent floating islands (Cinejoy .header-row): the brand mark hangs
@@ -256,15 +267,8 @@ function Header() {
         transition={reduceMotion ? { duration: 0 } : SPRING.LIFT}
         className="app-brand-link-wrap"
       >
-        <Link to="/" className="app-brand-link" aria-label="Cinejoy home">
-          <img
-            src="/brand/cinejoy-logo.svg"
-            alt="Cinejoy"
-            className="brand-mark logo-legible"
-            width={512}
-            height={543}
-            draggable={false}
-          />
+        <Link to="/" className="app-brand-link" aria-label="Streamly home">
+          <BrandWordmark className="logo-legible" />
         </Link>
       </motion.div>
       </div>
@@ -309,11 +313,14 @@ function Header() {
             <Link
               to={{ pathname: "/search", search: location.search }}
               data-nav-active={location.pathname === "/search" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
-              aria-label={t("nav.search")}
-              title={`${t("nav.search")} (Ctrl+K)`}
+              className={`nav-icon-btn nav-icon-btn--search${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
+              aria-label={`${t("nav.search")} (${SEARCH_HINT})`}
+              title={`${t("nav.search")} (${SEARCH_HINT})`}
             >
               <Search size={18} strokeWidth={2} />
+              <kbd className="nav-search-hint" aria-hidden="true">
+                {SEARCH_HINT}
+              </kbd>
             </Link>
 
             {/* Notifications */}
@@ -324,12 +331,12 @@ function Header() {
               ref={settingsBtnRef}
               type="button"
               data-nav-active={location.pathname === "/settings" ? "true" : undefined}
-              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}${user?.picture ? " nav-icon-btn--avatar" : ""}`}
+              className={`nav-icon-btn${location.pathname === "/settings" ? " nav-icon-btn--active" : ""}${user ? " nav-icon-btn--avatar" : ""}`}
               aria-label={user ? `${t("settings.tabs.account")} (${user.name || user.email})` : t("nav.settings")}
               aria-haspopup="menu"
               aria-expanded={accountMenuOpen}
               title={user ? `${t("settings.tabs.account")} (${user.name || user.email})` : t("nav.settings")}
-              style={user?.picture ? { padding: 3 } : undefined}
+              style={user ? { padding: 3 } : undefined}
               onClick={toggleAccountMenu}
             >
               {user?.picture ? (
@@ -339,6 +346,13 @@ function Header() {
                   className="w-[26px] h-[26px] rounded-full object-cover border border-white/30"
                   referrerPolicy="no-referrer"
                 />
+              ) : user ? (
+                /* Signed in without a photo (email sign-up): show the account
+                   initial instead of a settings gear, so the utility slot
+                   reads as "who you are", not "where the gear lives". */
+                <span className="nav-avatar-initial" aria-hidden="true">
+                  {(user.email || user.name || "?").trim().charAt(0).toUpperCase()}
+                </span>
               ) : (
                 <Settings size={18} strokeWidth={2} />
               )}

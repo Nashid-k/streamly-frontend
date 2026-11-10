@@ -160,13 +160,20 @@
   margin-top: auto;
   padding: 2rem 1.5rem;
   padding-bottom: 7rem;
-}
-@media (min-width: 1024px) {
+}@media (min-width: 1024px) {
   .site-footer {
     padding: 2rem 4rem;
     padding-bottom: 2rem;
   }
 }
+
+
+.footer-brand {
+  /* The footer already uses the header wordmark; this class only sets the rest
+     position so the rest of the page inherits the mark's own sizing/tracking. */
+  white-space: nowrap;
+}
+
 
 /* ── Cinejoy parity: landscape phone nav (official scale rule) ─────────── */
 @media (orientation: landscape) and (max-height: 500px) {

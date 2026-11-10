@@ -73,6 +73,39 @@
   border-radius: var(--radius-full);
   line-height: 0;
 }
+/* Streamly wordmark — live text, not an image. The header used to render
+   cinejoy-logo.svg with an aria-label reading "Cinejoy home"; there is no
+   Streamly mark in the repo yet, so the brand is set as type (no critical-path
+   image request) and swaps to a designed symbol in one component when one
+   exists. Type, weight and tracking are deliberately fixed: this is a mark, not
+   body copy, so it does not follow the UI type scale. */
+.brand-wordmark {
+  display: inline-block;
+  color: #ffffff;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+  transform-origin: top left;
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+}
+.brand-wordmark__accent {
+  color: var(--accent-color);
+}
+.header-row.scrolled .brand-wordmark {
+  transform: scale(0.9);
+}
+@media (max-width: 768px) {
+  .brand-wordmark {
+    font-size: 1.15rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-wordmark {
+    transition: none;
+  }
+}
 .brand-mark {
   display: block;
   height: var(--brand-h, 44px);
@@ -398,7 +431,53 @@ html[data-reduce-motion="true"] .nav-active-pill {
   mix-blend-mode: normal;
 }
 
-/* Avatar initial circle */
+/* Search is the one icon control that names its shortcut in the chrome. The
+   handler accepts metaKey or ctrlKey; the hint names the platform's key. */
+.nav-icon-btn--search {
+  width: auto;
+  min-width: var(--nav-item-h);
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+}
+.nav-search-hint {
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: rgba(var(--white-rgb), 0.55);
+  border: 1px solid rgba(var(--white-rgb), 0.14);
+  border-radius: 5px;
+  padding: 3px 5px;
+}
+/* The pill is already condensed here (labels collapse at 880px); the shortcut
+   is the first thing to go, because the icon alone still works. */
+@media (max-width: 1120px) {
+  .nav-search-hint {
+    display: none;
+  }
+  .nav-icon-btn--search {
+    width: var(--nav-item-h);
+    padding: 0;
+  }
+}
+
+/* Signed-in, no photo: the account's initial in the utility slot. */
+.nav-avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  color: #000000;
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+}
 
 /* Account header inside the merged settings menu */
 

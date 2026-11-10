@@ -148,6 +148,14 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
+  /* ── Poster/card geometry (Phase 0) ──────────────────────
+     ONE radius for the poster artwork and the card shell that wraps it. These
+     disagreed before (shell 16px via --radius-xl, artwork 0.95rem = 15.2px,
+     skeleton 0.95rem), so a card's inner corner and outer corner were computed
+     from different values. Cards read sharper than the 16px panel scale on
+     purpose: 12px keeps the gallery feel while still separating a poster from
+     its neighbours. */
+  --radius-card: 0.75rem;   /* 12px — poster, card shell, card skeleton */
 
   /* ── Focus ─────────────────────────────────────────────── */
   /* One focus recipe for the whole app. Previously the outline colour was
@@ -166,9 +174,17 @@
   --glass-blur: blur(14px) saturate(140%);
 
   /* ── Typography ────────────────────────────────────────── */
+  /* The scale's floor is 11px (--text-2xs). Nothing informational may render
+     below it: the poster badge chips were authored at 0.5rem/0.55rem (8-8.8px),
+     which is effectively unreadable on a poster and was the smallest text in
+     the app. Decorative marquees and glyph tints are exempt. */
+  --text-2xs: 0.6875rem;    /* 11px — badge/metadata floor */
   --text-xs: 0.75rem;
   --text-sm: 0.85rem;
+  --text-lg: 1.125rem;
   --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.5rem;
   --leading-relaxed: 1.85;
 
   /* ── Transitions ───────────────────────────────────────── */
@@ -459,6 +475,20 @@ textarea {
   border: none;
   background: transparent;
   color: inherit;
+}
+
+/* ── Global keyboard focus floor ───────────────────────────────────────────
+   Components were each expected to declare their own focus affordance, and the
+   ones that did not either showed the UA default or — worse — suppressed it
+   (`outline: none` on the chip and menu-row shared hover blocks). This is the
+   floor: any focusable control without its own recipe gets the app's ring.
+   `:where()` keeps specificity at zero, so every component rule that already
+   paints its own ring or halo (.np-icon-btn, .title-info-play, the player
+   transport) continues to win. Keyboard-only: `:focus-visible` never fires on
+   a mouse click. */
+:where(a, button, [role="button"], [role="tab"], [role="option"], summary, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
 }
 
 ::selection {
