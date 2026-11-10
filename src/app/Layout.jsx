@@ -7,6 +7,8 @@ import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
 import Snowfall from "../components/Snowfall";
+import FallingLeaves from "../components/FallingLeaves";
+import SpringBlossoms from "../components/SpringBlossoms";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useOptionalPreferences } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
@@ -107,6 +109,8 @@ function Layout({ children }) {
       </a>
       <Header />
       <Snowfall />
+      <FallingLeaves />
+      <SpringBlossoms />
       <OfflineBanner />
 
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>

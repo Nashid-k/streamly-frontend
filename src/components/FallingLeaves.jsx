@@ -14,8 +14,10 @@ export default function FallingLeaves() {
   const theme = prefs?.theme;
   const now = new Date();
   const month = now.getMonth();
-  // Autumn window: September (8), October (9), November (10).
-  const seasonal = month === 8 || month === 9 || month === 10 || theme === "autumn";
+  // Autumn window: September (8) and October (9) only — kept separate from
+  // the winter snowfall window (Nov-Dec) so the two seasonal effects never
+  // collide on screen.
+  const seasonal = month === 8 || month === 9 || theme === "autumn";
   const enabled = seasonal && prefs?.fallingLeaves !== false && !reduceMotion;
 
   if (!enabled) return null;

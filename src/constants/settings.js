@@ -55,6 +55,18 @@ export const THEMES = [
     primary: "#f97316",
     secondary: "#b45309",
   },
+  {
+    id: "spring",
+    name: "Spring Bloom",
+    primary: "#ec4899",
+    secondary: "#a855f7",
+  },
+  {
+    id: "summer",
+    name: "Summer Sun",
+    primary: "#f59e0b",
+    secondary: "#ef4444",
+  },
 ];
 
 export const LANGUAGES = [
@@ -168,7 +180,7 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   appearance: [
     "appearance look theme color palette interface",
-    "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
+    "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber christmas autumn spring summer",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
     "detail view type full info page quick modal page modal",
