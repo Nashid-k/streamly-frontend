@@ -7,6 +7,10 @@
 
  ## Done (in order)
 
+- [x] **TitleDetailsPage mobile: hero cover on phones — 2026-11-10 (branch `main`).**
+  - **Mobile hero:** below 640px the fit-mode backdrop switches from `object-fit: contain` (whole 16:9 frame, ~219px tall on a 390px phone) to `object-fit: cover` with a 24-34rem height clamp, so the hero fills the screen like the home banner instead of letterboxing into a short strip. Title/actions still sit over it via the existing shade.
+  - **Gates:** lint clean; TitleDetailsPage 7/7 green; build 1.6s.
+
 - [x] **TitleDetailsPage: ratings (IMDb + RT + TMDB) moved next to Play; mobile play button full-width — 2026-11-10 (branch `main`).**
   - **Ratings placement:** the page used to surface only a "TMDB Score" line in the bottom social-proof bar while the real IMDb + Rotten Tomatoes scores lived behind `RatingsCluster` (used only on the Home hero). Imported `RatingsCluster` and rendered it in the actions row right after the Play/Resume button (`size="md"`), so IMDb + RT + TMDB badges sit beside Play. Removed the now-redundant "TMDB Score" block from the social-proof bar (match score + seasons remain); dropped the now-unused `Star` import.
   - **Mobile:** the Play button is now full-width below `sm` (`w-full sm:w-auto`) so it's a proper thumb target on phones; the ratings cluster wraps naturally in the existing `flex-wrap` actions row.

@@ -350,13 +350,16 @@
      fade is the home banner's `.hero-bg` mask — deliberately NOT restated here. */
 }
 
-/* Fit mode sizes the box from the artwork's own shape (see --details-hero-h), so
-   home's `object-fit: cover` is an exact fit: full device width, whole frame,
-   nothing cropped and nothing zoomed. The plain `contain` fallback below only
-   bites if a backdrop ever arrives with a different aspect than 16:9. */
-.details-hero--fit .details-hero__art img {
-  object-fit: contain;
-  object-position: center 20%;
+/* Fit mode on phones: cover (not contain) so the hero fills the screen like the
+   home banner instead of letterboxing into a short 16:9 strip. */
+@media (max-width: 640px) {
+  .details-hero--fit .details-hero__art img {
+    object-fit: cover;
+    object-position: center 25%;
+  }
+  .details-hero--fit {
+    --details-hero-h: clamp(24rem, 62vh, 34rem);
+  }
 }
 
 /* Watch-only shading over the banner art (the home banner keeps its own single
