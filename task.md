@@ -7,6 +7,11 @@
 
  ## Done (in order)
 
+- [x] **Nav pill no longer slides 2-3s after page load (instant settle) — 2026-11-10 (branch `main`).**
+  - **Root cause:** the active tab is decided synchronously from `location.pathname` (so the *which* never lagged), but the pill's *geometry* was re-measured by the late-firing `ResizeObserver`/`document.fonts.ready` (avatar swap ~2-3s after load, font load) and those measures always called `runPillFlight` — a 450ms glide — even when the active item was unchanged. So a 2-3s-after-load width change swept the pill across the bar.
+  - **Fix:** `measurePill` now tracks the last active element (`lastActiveRef`). First placement + genuine tab switches still glide (LIFT flight); a geometry-only change to the *same* active item (avatar swap, font load, ResizeObserver settle) commits `transform`/`width`/`opacity` instantly. Hiding on no-active routes also resets the ref so re-entering a tab still glides.
+  - **Gates:** lint 0 errors / no new warnings; full suite 118 files · 1437 tests green; build 2.1s.
+
 - [x] **Settings profile row + cleanup pass — 2026-11-10 (branch `main`).**
   - **Bug fix (profile div misplacement):** the Account identity row wrapped the avatar + name in `setting-meta flex items-center gap-3`. `setting-meta` is `flex-direction: column`, so Tailwind's `flex` only flipped display to flex without overriding direction — the avatar stacked above the text instead of sitting beside it. Split into an outer `flex items-center gap-3 flex-1 min-w-0` row holding the avatar + an inner `setting-meta min-w-0` (column) for the title/desc. The guest fallback avatar (the lucide User icon) now sits correctly beside "Not signed in / browsing in local mode".
   - **Removed dead promises:** `tintedLandscape` ("Ambient Clouds") and `digest` ("Progress Digest") were defined in `en.js` (and all 9 latin/script catalogs) but never rendered in SettingsPage — deleted from every catalog. Notifications copy no longer promises scrobble confirmations (Trakt/Simkl were retired) or "servers change / progress saved" toasts (no such notification family exists); it now says status updates + library alerts. Milestones row kept — it IS alive (`fireListMilestone` at 10/25/50 watchlist titles).

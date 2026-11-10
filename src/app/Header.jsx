@@ -147,6 +147,11 @@ function Header() {
   // The very first placement is a cut: a hard load must not sweep the pill in
   // from x=0 before it has ever been measured.
   const pillPlaced = useRef(false);
+  // The element that was active on the last measurement. Geometry changes to the
+  // SAME active item (avatar swap 2-3s after load, font load, ResizeObserver
+  // settling) must reposition INSTANTLY instead of gliding — only a real tab
+  // switch glides. This is what kills the "pill slides 2-3s after page load".
+  const lastActiveRef = useRef(null);
   // Last committed destination — the continuity fallback when no animation is
   // running (the live computed style is authoritative mid-flight).
   const pillPos = useRef({ x: 0, w: 0 });
@@ -232,6 +237,7 @@ function Header() {
       // Routes with no active tab (genre/category/person) hide the pill instead
       // of collapsing it to a 0px sliver at the far left of the track.
       if (pillItem.style.opacity !== "0") pillItem.style.opacity = "0";
+      lastActiveRef.current = null;
       return;
     }
     const trackRect = nav.getBoundingClientRect();
@@ -246,8 +252,20 @@ function Header() {
       pillItem.style.width = `${w}px`;
       pillItem.style.opacity = "1";
       pillPos.current = { x, w };
+      lastActiveRef.current = active;
       return;
     }
+    /* Geometry-only change to the SAME active item (avatar swap after auth
+       resolves, font load, ResizeObserver settling): reposition instantly.
+       Only a real tab switch glides — this kills the 2-3s post-load slide. */
+    if (lastActiveRef.current === active) {
+      pillItem.style.transform = `translateX(${x}px)`;
+      pillItem.style.width = `${w}px`;
+      pillItem.style.opacity = "1";
+      pillPos.current = { x, w };
+      return;
+    }
+    lastActiveRef.current = active;
     runPillFlight(x, w);
   }, [runPillFlight]);
 
