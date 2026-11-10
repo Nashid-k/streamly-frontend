@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import SnowfallLib from "react-snowfall";
 import { useOptionalPreferences } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
