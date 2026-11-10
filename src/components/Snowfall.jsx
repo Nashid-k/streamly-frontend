@@ -176,16 +176,15 @@ export default function Snowfall() {
 
     // ── Obstacle collection ──
     const SELECTORS = [
-      ".glass-card", ".settings-section", ".movie-card", ".hero-circle-btn",
-      "button", ".nav-link", ".order-item", ".setting-row", ".glassy-button",
-      ".bottom-nav-item", "[class*='card']", ".hero-meta-item",
-      ".ambient-liquid__blob",
+      ".glass-card", ".movie-card", "button",
+      ".bottom-nav-item", ".hero-circle-btn",
     ];
     let obstacles = [];
     let lastCollect = 0;
     const collectObstacles = () => {
+      if (isMobile) { obstacles = []; return; }
       const now = performance.now();
-      if (now - lastCollect < 300) return;
+      if (now - lastCollect < 1000) return;
       lastCollect = now;
       const rects = [];
       const seen = new Set();
@@ -193,6 +192,7 @@ export default function Snowfall() {
         let nodes;
         try { nodes = document.querySelectorAll(sel); } catch { continue; }
         nodes.forEach((n) => {
+          if (rects.length >= 30) return;
           const r = n.getBoundingClientRect();
           if (r.width < 16 || r.height < 6) return;
           if (r.top > window.innerHeight || r.bottom < 0) return;
@@ -213,7 +213,7 @@ export default function Snowfall() {
     const piles = new Map();
 
     // ── Particles ──
-    const COUNT = isMobile ? 120 : 260;
+    const COUNT = isMobile ? 40 : 80;
     const particles = [];
     for (let i = 0; i < COUNT; i++) {
       const depth = Math.random();
@@ -386,73 +386,17 @@ export default function Snowfall() {
           }
         }
 
-        // ── Draw ──
-        const twinkleAlpha = 0.7 + twinkleBoost * 0.3;
-        const alpha = p.opacity * twinkleAlpha * (p.depth > 0.7 ? 1 : 0.85);
+        // Draw (simplified: no save/restore, no rotation, no sparkle/caps)
+        ctx.globalAlpha = Math.max(0, p.opacity * (p.depth > 0.7 ? 1 : 0.85));
         const drawSize = p.size * (p.depth > 0.6 ? 1.3 : 1) * (p.melt > 0 ? Math.max(0.1, 1 - p.melt) : 1);
-
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.globalAlpha = Math.max(0, alpha);
-        if (p.depth < 0.3) {
-          ctx.filter = "blur(0.6px)";
-        }
         const src = p.sprite;
         const drawW = drawSize * 4;
-        ctx.drawImage(src, -drawW / 2, -drawW / 2, drawW, drawW);
+        ctx.drawImage(src, p.x - drawW / 2, p.y - drawW / 2, drawW, drawW);
 
-        // Occasional sparkle
-        if (p.sparkleTimer <= 0 && p.depth > 0.5) {
-          ctx.globalAlpha = 0.9;
-          ctx.filter = "none";
-          const sw = drawSize * 2.5;
-          ctx.drawImage(sparkleSprite, -sw / 2, -sw / 2, sw, sw);
-          p.sparkleTimer = 150 + Math.random() * 300;
-        } else {
-          p.sparkleTimer -= dt;
-        }
-
-        ctx.restore();
       }
 
-      // ── Surface accumulation (snow caps on top of elements) ──
-      // Render a thin snow layer on top of each obstacle that has settled flakes.
-      // We approximate: count stuck flakes per obstacle top-band and draw a cap.
-      const capCounts = new Map();
-      for (const p of particles) {
-        if (p.stuck > 0) {
-          for (const o of obstacles) {
-            if (p.x >= o.left && p.x <= o.right && Math.abs(p.y + p.size * 2 - o.top) < 4) {
-              capCounts.set(o, (capCounts.get(o) || 0) + 1);
-              break;
-            }
-          }
-        }
-      }
-      for (const [o, count] of capCounts) {
-        if (count < 2) continue;
-        const capH = Math.min(8, 2 + count * 0.4);
-        ctx.save();
-        ctx.globalAlpha = 0.7;
-        const grad = ctx.createLinearGradient(0, o.top - capH, 0, o.top);
-        grad.addColorStop(0, "rgba(255,255,255,0)");
-        grad.addColorStop(0.5, "rgba(255,255,255,0.6)");
-        grad.addColorStop(1, "rgba(255,255,255,0.85)");
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.moveTo(o.left, o.top);
-        ctx.lineTo(o.right, o.top);
-        ctx.lineTo(o.right, o.top - capH);
-        // wavy top edge
-        for (let x = o.right; x >= o.left; x -= 8) {
-          const wave = Math.sin(x * 0.1 + performance.now() * 0.001) * 1.5;
-          ctx.lineTo(x, o.top - capH + wave);
-        }
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-      }
+      collectObstacles();
+      raf = requestAnimationFrame(step);
 
       collectObstacles();
       raf = requestAnimationFrame(step);

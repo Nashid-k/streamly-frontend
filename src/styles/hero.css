@@ -248,8 +248,8 @@
   height: 116%;
   object-fit: cover;
   transform: translate3d(0, 0, 0);
-  filter: blur(28px) saturate(115%);
-  -webkit-filter: blur(28px) saturate(115%);
+  filter: blur(18px) saturate(115%);
+  -webkit-filter: blur(18px) saturate(115%);
   opacity: 0.45;
   backface-visibility: hidden;
   will-change: transform;

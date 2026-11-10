@@ -292,8 +292,8 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   border: 1px solid rgba(var(--white-rgb), 0.08);
   border-radius: 20px;
   padding: clamp(1.25rem, 2.5vw, 1.75rem);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   scroll-margin-top: 100px;
 }
 

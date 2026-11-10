@@ -115,8 +115,8 @@
    Mirrors Cinejoy FilterDropdown `.custom-scrollbar`: 4px, no buttons. */
 .discovery-menu {
   background: rgba(18, 18, 24, 0.88);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  backdrop-filter: blur(8px) saturate(140%);
   transform: translateZ(0);
   box-shadow: 0 18px 48px rgba(var(--black-rgb), 0.45), inset 0 1px 0 rgba(var(--white-rgb), 0.08);
   scrollbar-width: thin;
@@ -253,8 +253,8 @@
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
   box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.35), 0 6px 18px rgba(var(--black-rgb), 0.35);
   transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) var(--ease-out);

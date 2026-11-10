@@ -433,8 +433,8 @@
      for any background. This unmasked overlay is the right place for a stronger
      blur — it melts the seam without the compositor-boundary artifact that
      backdrop-filter causes on the masked hero-bg/hero-overlay elements. */
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
 }
