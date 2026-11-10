@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Settings profile row + cleanup pass — 2026-11-10 (branch `main`).**
+  - **Bug fix (profile div misplacement):** the Account identity row wrapped the avatar + name in `setting-meta flex items-center gap-3`. `setting-meta` is `flex-direction: column`, so Tailwind's `flex` only flipped display to flex without overriding direction — the avatar stacked above the text instead of sitting beside it. Split into an outer `flex items-center gap-3 flex-1 min-w-0` row holding the avatar + an inner `setting-meta min-w-0` (column) for the title/desc. The guest fallback avatar (the lucide User icon) now sits correctly beside "Not signed in / browsing in local mode".
+  - **Removed dead promises:** `tintedLandscape` ("Ambient Clouds") and `digest` ("Progress Digest") were defined in `en.js` (and all 9 latin/script catalogs) but never rendered in SettingsPage — deleted from every catalog. Notifications copy no longer promises scrobble confirmations (Trakt/Simkl were retired) or "servers change / progress saved" toasts (no such notification family exists); it now says status updates + library alerts. Milestones row kept — it IS alive (`fireListMilestone` at 10/25/50 watchlist titles).
+  - **Haystack trimmed** to match visible copy (notifications: status updates, library alerts, list adds, milestones, bell inbox).
+  - **Audit outcome:** every preference key the app has (stillWatching, ambientBackground, hoverPreviews, etc.) is now surfaced; every previously-surfaced control still maps to real behavior. The remaining no-pref behaviors (per-playback quality/dub, keyboard map, gestures, volume persistence, resume) are automatic by design, not toggle-worthy.
+  - **Gates:** lint 0 errors / no new warnings; full suite 118 files · 1437 tests green; build 8.0s.
+
 - [x] **Settings page redesigned end-to-end — UI/UX + contents — 2026-11-10 (branch `main`).**
   - **New IA (split shell):** the section pills moved out of the header into a sticky, grouped rail on desktop (`settings-body` grid + `settings-rail`, zones **Watching / Your space / Personalize** rendered from the new `zone` field on `TABS`); below 1024px the same `<nav>` collapses back to one horizontal pill row (CSS-only, no duplicate navs). "All" stays the default so the global search filter keeps spanning every section.
   - **New tab — Data & privacy (`?tab=data`):** the device-data tools (Backup / Restore / Clear device data), the SystemStatus capacity row and the factory-reset block all moved OUT of Account into the data card (identity/cloud-sync/library links stay in Account). Guests now reach device-data tools from the rail, one click, no scroll-past account chrome. The reset block keeps its own visible "Reset all preferences" heading inside the card.

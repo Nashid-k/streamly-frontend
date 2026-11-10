@@ -570,7 +570,7 @@ export default function SettingsPage() {
                 <div className="settings-list">
                   {/* User Status */}
                   <div className="setting-row">
-                    <div className="setting-meta flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       {hasAccount ? (
                         <img
                           src={user.picture}
@@ -583,7 +583,7 @@ export default function SettingsPage() {
                           {user?.name ? user.name.charAt(0).toUpperCase() : <User className="w-5 h-5" />}
                         </div>
                       )}
-                      <div>
+                      <div className="setting-meta min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="setting-title">
                             {hasAccount ? user.name || user.email : t("settings.account.signedOut")}

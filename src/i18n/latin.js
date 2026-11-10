@@ -100,7 +100,6 @@ export const es = {
       subtitleColor: "Color de Texto", subtitleColorDesc: "Elige un color de subtítulo de alto contraste.",
       muteTrailerAudio: "Silenciar Tráilers", muteTrailerAudioDesc: "Mantener los tráilers en silencio al navegar.",
       autoPlay: "Reproducción Automática", autoPlayDesc: "Reproducir el siguiente episodio automáticamente.",
-      tintedLandscape: "Nubes Ambientales", tintedLandscapeDesc: "Nubes de gradiente en movimiento tras el reproductor.",
     },
     servers: {
       serverOrder: "Orden de Servidores", serverOrderDesc: "Arrastra los servidores para fijar la prioridad.",
@@ -109,7 +108,6 @@ export const es = {
     },
     notifications: {
       notifications: "Notificaciones en la App", notificationsDesc: "Mostrar avisos breves de estado.",
-      digest: "Resumen de Progreso", digestDesc: "Resumir la actividad reciente periódicamente.",
     },
     reset: {
       title: "Restablecer Todas las Preferencias",
@@ -234,7 +232,6 @@ export const fr = {
       subtitleColor: "Couleur du Texte", subtitleColorDesc: "Choisissez une couleur de sous-titres contrastée.",
       muteTrailerAudio: "Couper le Son des Bandeaux", muteTrailerAudioDesc: "Garder les bandes-annonces silencieuses.",
       autoPlay: "Lecture Automatique", autoPlayDesc: "Lire automatiquement l'épisode suivant.",
-      tintedLandscape: "Nuages d'Ambiance", tintedLandscapeDesc: "Nuages dégradés mouvants derrière le lecteur.",
     },
     servers: {
       serverOrder: "Ordre des Serveurs", serverOrderDesc: "Faites glisser les serveurs pour définir la priorité.",
@@ -243,7 +240,6 @@ export const fr = {
     },
     notifications: {
       notifications: "Notifications dans l'App", notificationsDesc: "Afficher de brefs messages d'état.",
-      digest: "Récapitulatif de Progression", digestDesc: "Résumer périodiquement l'activité récente.",
     },
     reset: {
       title: "Réinitialiser Toutes les Préférences",
@@ -370,7 +366,6 @@ export const de = {
       subtitleColor: "Textfarbe", subtitleColorDesc: "Wähle eine kontrastreiche Untertitelfarbe.",
       muteTrailerAudio: "Trailer stummschalten", muteTrailerAudioDesc: "Trailer beim Stöbern stumm halten.",
       autoPlay: "Automatische Wiedergabe", autoPlayDesc: "Nächste Episode automatisch abspielen.",
-      tintedLandscape: "Ambient-Wolken", tintedLandscapeDesc: "Bewegte Verlaufswolken hinter dem Player.",
     },
     servers: {
       serverOrder: "Serverreihenfolge", serverOrderDesc: "Server ziehen, um die Priorität festzulegen.",
@@ -379,7 +374,6 @@ export const de = {
     },
     notifications: {
       notifications: "In-App-Benachrichtigungen", notificationsDesc: "Kurze Statusmeldungen anzeigen.",
-      digest: "Fortschrittsübersicht", digestDesc: "Aktuelle Aktivität regelmäßig zusammenfassen.",
     },
     reset: {
       title: "Alle Einstellungen zurücksetzen",
@@ -505,7 +499,6 @@ export const it = {
       subtitleColor: "Colore Testo", subtitleColorDesc: "Scegli un colore ad alto contrasto per i sottotitoli.",
       muteTrailerAudio: "Silenzia Audio Trailer", muteTrailerAudioDesc: "Tieni i trailer in silenzio durante la navigazione.",
       autoPlay: "Riproduzione Automatica", autoPlayDesc: "Riproduci automaticamente il prossimo episodio.",
-      tintedLandscape: "Nuvole Ambientali", tintedLandscapeDesc: "Nuvole sfumate in movimento dietro il player.",
     },
     servers: {
       serverOrder: "Ordine dei Server", serverOrderDesc: "Trascina i server per impostare la priorità.",
@@ -514,7 +507,6 @@ export const it = {
     },
     notifications: {
       notifications: "Notifiche in App", notificationsDesc: "Mostra brevi notifiche di stato.",
-      digest: "Riepilogo Progressione", digestDesc: "Riepiloga periodicamente l'attività recente.",
     },
     reset: {
       title: "Reimposta Tutte le Preferenze",
@@ -640,7 +632,6 @@ export const pt = {
       subtitleColor: "Cor do Texto", subtitleColorDesc: "Escolha uma cor de legenda de alto contraste.",
       muteTrailerAudio: "Silenciar Trailers", muteTrailerAudioDesc: "Mantenha os trailers em silêncio ao navegar.",
       autoPlay: "Reprodução Automática", autoPlayDesc: "Reproduza o próximo episódio automaticamente.",
-      tintedLandscape: "Nuvens de Ambiente", tintedLandscapeDesc: "Nuvens de gradiente em movimento atrás do player.",
     },
     servers: {
       serverOrder: "Ordem dos Servidores", serverOrderDesc: "Arraste os servidores para definir a prioridade.",
@@ -649,7 +640,6 @@ export const pt = {
     },
     notifications: {
       notifications: "Notificações no App", notificationsDesc: "Mostrar avisos breves de status.",
-      digest: "Resumo de Progresso", digestDesc: "Resuma a atividade recente periodicamente.",
     },
     reset: {
       title: "Redefinir Todas as Preferências",

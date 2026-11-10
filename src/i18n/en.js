@@ -318,8 +318,6 @@ export const en = {
       subtitleColorDesc: "Pick a high-contrast subtitle color. The player's color control wins once you use it in there.",
       muteTrailerAudio: "Mute Trailer Audio",
       muteTrailerAudioDesc: "Open trailers with sound off by default.",
-      tintedLandscape: "Ambient Clouds",
-      tintedLandscapeDesc: "Drifting gradient clouds behind the player.",
     },
     servers: {
       serverOrder: "Server Order",
@@ -343,8 +341,6 @@ export const en = {
       listAddsDesc: "Notify when a title is added to your list.",
       milestones: "Milestones & streaks",
       milestonesDesc: "Notify when your watchlist or viewing reaches a milestone.",
-      digest: "Progress Digest",
-      digestDesc: "Summarize recent activity periodically.",
     },
     reset: {
       title: "Reset All Preferences",

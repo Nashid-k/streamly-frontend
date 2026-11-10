@@ -188,10 +188,10 @@ export const SECTION_SEARCH_TERMS = {
     "background blur legibility soft glow preview",
   ].join(" "),
   notifications: [
-    "notifications in-app status updates scrobble confirmations activity",
-    "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner hide",
+    "notifications in-app status updates library alerts activity",
+    "show in-app notifications brief status toasts items added list hide",
     "library list adds alerts when movie series added to list",
-    "milestones streaks achievements watchlist growth",
+    "milestones watchlist reaches milestone",
     "center bell inbox unread mark read clear",
   ].join(" "),
   data: [

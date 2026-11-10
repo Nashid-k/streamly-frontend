@@ -101,7 +101,6 @@ export const ja = {
       subtitleColor: "文字色", subtitleColorDesc: "コントラストの高い字幕色を選びます。",
       muteTrailerAudio: "予告編をミュート", muteTrailerAudioDesc: "閲覧中は予告編を無音にします。",
       autoPlay: "自動再生", autoPlayDesc: "次のエピソードを自動的に再生します。",
-      tintedLandscape: "アンビエントクラウド", tintedLandscapeDesc: "プレイヤー背景に流れるグラデーション雲。",
     },
     servers: {
       serverOrder: "サーバー順序", serverOrderDesc: "サーバーをドラッグして再生優先度を設定します。",
@@ -110,7 +109,6 @@ export const ja = {
     },
     notifications: {
       notifications: "アプリ内通知", notificationsDesc: "変更時に簡単なステータス通知を表示します。",
-      digest: "進捗サマリー", digestDesc: "最近のアクティビティを定期的にまとめます。",
     },
     reset: {
       title: "すべての設定をリセット",
@@ -236,7 +234,6 @@ export const ko = {
       subtitleColor: "글자 색상", subtitleColorDesc: "대비가 높은 자막 색상을 고릅니다.",
       muteTrailerAudio: "예고편 음소거", muteTrailerAudioDesc: "둘러보는 동안 예고편을 무음으로 유지합니다.",
       autoPlay: "자동 재생", autoPlayDesc: "다음 에피소드를 자동으로 재생합니다.",
-      tintedLandscape: "앰비언트 클라우드", tintedLandscapeDesc: "플레이어 뒤에 흐르는 그라데이션 구름.",
     },
     servers: {
       serverOrder: "서버 순서", serverOrderDesc: "서버를 드래그해 재생 우선순위를 정합니다.",
@@ -245,7 +242,6 @@ export const ko = {
     },
     notifications: {
       notifications: "앱 내 알림", notificationsDesc: "변경 사항이 있을 때 간단한 상태 알림을 표시합니다.",
-      digest: "진행 요약", digestDesc: "최근 활동을 주기적으로 요약합니다.",
     },
     reset: {
       title: "모든 설정 초기화",
@@ -371,7 +367,6 @@ export const hi = {
       subtitleColor: "पाठ का रंग", subtitleColorDesc: "उच्च कंट्रास्ट सबटाइटल रंग चुनें।",
       muteTrailerAudio: "ट्रेलर म्यूट करें", muteTrailerAudioDesc: "ब्राउज़ करते समय ट्रेलर मौन रखें।",
       autoPlay: "ऑटोप्ले", autoPlayDesc: "अगला एपिसोड स्वतः चलाएं।",
-      tintedLandscape: "एम्बिएंट क्लाउड्स", tintedLandscapeDesc: "प्लेयर के पीछे बहते ग्रेडिएंट बादल।",
     },
     servers: {
       serverOrder: "सर्वर क्रम", serverOrderDesc: "प्लेबैक प्राथमिकता तय करने हेतु सर्वर खींचें।",
@@ -380,7 +375,6 @@ export const hi = {
     },
     notifications: {
       notifications: "ऐप में सूचनाएँ", notificationsDesc: "परिवर्तन होने पर संक्षिप्त स्थिति सूचनाएँ दिखाएं।",
-      digest: "प्रगति सारांश", digestDesc: "हाल की गतिविधि का समय-समय पर सारांश दें।",
     },
     reset: {
       title: "सभी प्राथमिकताएँ रीसेट करें",
@@ -506,7 +500,6 @@ export const ar = {
       subtitleColor: "لون النص", subtitleColorDesc: "اختر لون ترجمة عالي التباين.",
       muteTrailerAudio: "كتم صوت الإعلانات", muteTrailerAudioDesc: "إبقاء الإعلانات صامتة أثناء التصفح.",
       autoPlay: "التشغيل التلقائي", autoPlayDesc: "تشغيل الحلقة التالية تلقائيًا.",
-      tintedLandscape: "غيوم الأجواء", tintedLandscapeDesc: "غيوم متدرجة متحركة خلف المشغّل.",
     },
     servers: {
       serverOrder: "ترتيب الخوادم", serverOrderDesc: "اسحب الخوادم لضبط أولوية التشغيل.",
@@ -515,7 +508,6 @@ export const ar = {
     },
     notifications: {
       notifications: "الإشعارات داخل التطبيق", notificationsDesc: "إظهار تنبيهات حالة مختصرة عند حدوث تغييرات.",
-      digest: "ملخص التقدم", digestDesc: "تلخيص النشاط الأخير دوريًا.",
     },
     reset: {
       title: "إعادة تعيين كل التفضيلات",
