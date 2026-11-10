@@ -19,13 +19,14 @@ describe("SettingsPage", () => {
   it("renders all Cinejoy settings sections simultaneously", () => {
     renderPage();
 
-    // All 6 sections are present in the DOM
+    // All 7 sections are present in the DOM — data & privacy is its own card.
     expect(screen.getByRole("heading", { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^appearance$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^playback$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^server order$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^subtitles$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^notifications$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^data & privacy$/i })).toBeInTheDocument();
     // Removed integrations stay gone.
     expect(screen.queryByRole("heading", { name: /^advertisements$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^febbox integration/i })).not.toBeInTheDocument();
@@ -39,6 +40,11 @@ describe("SettingsPage", () => {
     expect(screen.getByText(/^use image logos$/i)).toBeInTheDocument();
     expect(screen.getByText(/^auto skip intro$/i)).toBeInTheDocument();
     expect(screen.getByText(/^app & content language$/i)).toBeInTheDocument();
+    // Controls the app earned: the player's Still Watching hangout and the
+    // site-wide ambient blobs are real switches now.
+    expect(screen.getByText(/^still watching prompt$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^ambient liquid backdrop$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^seek previews$/i)).toBeInTheDocument();
     // Player UI Studio is removed from settings entirely.
     expect(screen.queryByText(/player ui studio/i)).not.toBeInTheDocument();
   }, 15000);
@@ -139,6 +145,21 @@ describe("SettingsPage", () => {
 
     expect(screen.getByRole("heading", { name: /^account$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^server order$/i })).toBeInTheDocument();
+  });
+
+  it("isolates the data card with the device tools and factory reset", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Data" }));
+
+    expect(screen.getByRole("heading", { name: /^data & privacy$/i })).toBeInTheDocument();
+    // Device tools live with the data they act on, not under Account.
+    expect(screen.getByRole("button", { name: /export/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /import/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^account$/i })).not.toBeInTheDocument();
+    // The factory reset rides along in the data card.
+    expect(screen.getByRole("heading", { name: /reset all preferences/i })).toBeInTheDocument();
   });
 
   it("reorders servers from the keyboard and persists the new priority", () => {

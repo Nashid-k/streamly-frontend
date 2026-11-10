@@ -78,7 +78,14 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   seekTime: 10,
   autoSubtitles: true,
   defaultLanguage: "en",
-    // Servers — plain labels, DERIVED from the live catalogue so a roster change
+  // Gates the "Still watching?" hangout prompt (usePlayerChrome): after a long
+  // unattended stretch or a binge of auto-advanced episodes the player pauses
+  // and asks before continuing. On by default; off = never interrupt.
+  stillWatching: true,
+  // Gates the drifting liquid-blob backdrop on every page (AmbientBackground).
+  // On by default; off keeps the plain gradient wash for focus/perf.
+  ambientBackground: true,
+  // Servers — plain labels, DERIVED from the live catalogue so a roster change
     // can never leave the default missing a row (it did: Server 5 stayed absent
     // after Orion came back live). Orders saved under the interim Lisbon/Nebula/…
     // or "Server N (suffix)" names are migrated on boot, and a saved order naming

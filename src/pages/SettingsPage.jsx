@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useRef, lazy, Suspense, Fragment } from "react";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -60,6 +60,10 @@ function scrollIntoViewIfSupported(element, options) {
   }
 }
 
+/* Sidebar rail order (constants/settings.js TABS carry the matching `zone`):
+   WATCHING = how things play, YOUR SPACE = identity + data, PERSONALIZE = looks. */
+const SETTINGS_ZONES = ["watching", "space", "personalize"];
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -103,6 +107,7 @@ export default function SettingsPage() {
     hdThumbs,
     hoverPreviews = true,
     reduceMotion,
+    ambientBackground = true,
     notifications,
     notificationsListAdds = true,
     notificationsMilestones = true,
@@ -115,6 +120,7 @@ export default function SettingsPage() {
     spoilerFreeMode = false,
     // Playback
     autoSkipIntro = false,
+    stillWatching = true,
     seekTime = 10,
     autoSubtitles = true,
     defaultLanguage = "en",
@@ -287,6 +293,25 @@ export default function SettingsPage() {
     });
   };
 
+  // One shared renderer for every rail button ("All" + the zoned tabs).
+  const railButton = (tab) => {
+    const Icon = tab.icon;
+    const isActive = activeTab === tab.id;
+    return (
+      <button
+        key={tab.id}
+        type="button"
+        aria-pressed={isActive}
+        aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
+        className={`settings-tab${isActive ? " is-active" : ""}`}
+        onClick={() => handleTabClick(tab.id)}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {t(`settings.tabs.${tab.id}`)}
+      </button>
+    );
+  };
+
   // Keep the tab in sync when the user navigates back/forward through the URL.
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -359,8 +384,8 @@ export default function SettingsPage() {
   };
 
     // A section shows when the active tab selects it ("All" shows everything) AND
-    // the search query matches its data-driven index. The Reset card keeps its
-    // Account/All placement but joins search and the empty state.
+    // the search query matches its data-driven index. The Data & privacy card
+    // owns the device-data tools and the factory-reset block.
   const matchesSearch = (id) => {
     if (!q) return true;
     const haystack = (SECTION_SEARCH_TERMS[id] || "").toLowerCase();
@@ -370,16 +395,16 @@ export default function SettingsPage() {
       .every((token) => haystack.includes(token));
   };
 
-  const inAccountScope = activeTab === "all" || activeTab === "account";
+  const inDataScope = activeTab === "all" || activeTab === "data";
 
   const sectionVisible = {
-    account: inAccountScope && matchesSearch("account"),
+    account: (activeTab === "all" || activeTab === "account") && matchesSearch("account"),
     appearance: (activeTab === "all" || activeTab === "appearance") && matchesSearch("appearance"),
     playback: (activeTab === "all" || activeTab === "playback") && matchesSearch("playback"),
     servers: (activeTab === "all" || activeTab === "servers") && matchesSearch("servers"),
     subtitles: (activeTab === "all" || activeTab === "subtitles") && matchesSearch("subtitles"),
     notifications: (activeTab === "all" || activeTab === "notifications") && matchesSearch("notifications"),
-    reset: inAccountScope && matchesSearch("reset"),
+    data: inDataScope && matchesSearch("data"),
   };
   const visibleCount = Object.values(sectionVisible).filter(Boolean).length;
   const nothingVisible = visibleCount === 0;
@@ -450,8 +475,9 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              {/* Toolbar — frosted search capsule + section pills, the same
-                  controls as the movies/series/my-list pages */}
+              {/* Toolbar — frosted search capsule, the same control as the
+                  movies/series/my-list pages. The section pills live in the
+                  sticky rail below (single horizontal row on mobile). */}
               <div className="flex flex-col items-stretch gap-3 w-full xl:w-auto">
                 <div className="flex items-center gap-2 w-full md:w-72 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[rgba(var(--accent-primary-rgb),0.4)] min-w-0">
                   <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
@@ -474,33 +500,28 @@ export default function SettingsPage() {
                     </button>
                   )}
                 </div>
-
-                <nav aria-label={t("settings.navSections")} className="settings-nav">
-                  {TABS.map((tab) => {
-                    const Icon = tab.icon;
-                    const isActive = activeTab === tab.id;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        aria-pressed={isActive}
-                        aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
-                        className={`settings-tab${isActive ? " is-active" : ""}`}
-                        onClick={() => handleTabClick(tab.id)}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" />
-                        {t(`settings.tabs.${tab.id}`)}
-                      </button>
-                    );
-                  })}
-                </nav>
               </div>
             </div>
           </div>
         </header>
 
-          {/* Sections Stack — filtered by the active tab ("All" shows everything) */}
-          <div className="mx-auto max-w-[1600px] px-4 md:px-10 lg:px-14 pb-20">
+          {/* Split shell — sticky section rail (Watching / Your space /
+              Personalize groups) on desktop, one horizontal pill row on mobile
+              (settings-ui.css). "All" stays the default so search spans everything. */}
+          <div className="settings-body mx-auto max-w-[1600px] px-4 md:px-10 lg:px-14 pb-20">
+          <aside className="settings-rail">
+            <nav aria-label={t("settings.navSections")} className="settings-nav">
+              {railButton(TABS[0])}
+              {SETTINGS_ZONES.map((zone) => (
+                <Fragment key={zone}>
+                  <div className="settings-rail__zone" role="presentation">
+                    {t(`settings.zones.${zone}`)}
+                  </div>
+                  {TABS.filter((tab) => tab.zone === zone).map(railButton)}
+                </Fragment>
+              ))}
+            </nav>
+          </aside>
           <div id="settings-sections" className="space-y-6 settings-sections" ref={sectionsTopRef}>
             {nothingVisible && (
               <div className="glass-card text-center py-10 px-6" role="status">
@@ -764,95 +785,6 @@ export default function SettingsPage() {
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </button>
                     </SettingRow>
-                    {/* Device-data backup (PLAN.md P0.1): a guest's My List /
-                        history / preferences live ONLY in localStorage — one
-                        "Clear site data" erases them. Export gives every
-                        viewer a one-file backup; import restores it here or
-                        on any other device. `streamly_*` (the Google session)
-                        never travels: importing a session would sign the
-                        importer into someone else's account. */}
-                    <SettingRow
-                      title={t("settings.account.exportData")}
-                      description={t("settings.account.exportDataDesc", { count: countDeviceData() })}
-                    >
-                      <button
-                        type="button"
-                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
-                        onClick={async () => {
-                          try {
-                            const result = await downloadDeviceData();
-                            if (result) {
-                              logDebug("export", "Device data exported.", { count: result.count });
-                              toast({
-                                type: "success",
-                                title: t("settings.account.exportDoneTitle"),
-                                message: `${result.filename} (${result.count} keys)`,
-                              });
-                            }
-                          } catch (error) {
-                            logWarn("export", "Device data export failed.", { message: error?.message });
-                            toast({ type: "error", title: t("settings.account.exportFailTitle"), message: String(error?.message || error) });
-                          }
-                        }}
-                      >
-                        <Bookmark className="w-3.5 h-3.5" />
-                        {t("settings.account.exportAction")}
-                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
-                      </button>
-                    </SettingRow>
-                    <SettingRow
-                      title={t("settings.account.importData")}
-                      description={t("settings.account.importDataDesc")}
-                    >
-                      <button
-                        type="button"
-                        className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
-                        onClick={() => importInputRef.current?.click()}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        {t("settings.account.importAction")}
-                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
-                      </button>
-                    </SettingRow>
-                    <SettingRow
-                      title={t("settings.account.clearDeviceData")}
-                      description={t("settings.account.clearDeviceDataDesc")}
-                    >
-                      <button
-                        type="button"
-                        className="settings-hit px-3.5 py-1.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium flex items-center gap-1 transition-colors border-none"
-                        onClick={async () => {
-                          const confirmed = await confirmDialog({
-                            title: t("settings.account.clearDeviceDataConfirmTitle"),
-                            message: t("settings.account.clearDeviceDataConfirmMsg"),
-                            confirmLabel: t("settings.account.clearDeviceDataConfirmLabel"),
-                            cancelLabel: t("settings.reset.cancelLabel"),
-                          });
-                          if (!confirmed) return;
-                          try {
-                            const keys = [];
-                            for (let i = 0; i < localStorage.length; i += 1) {
-                              const k = localStorage.key(i);
-                              if (k && (k.startsWith("aios_") || k.startsWith("setting-"))) keys.push(k);
-                            }
-                            keys.forEach((k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
-                            logDebug("export", "Device data cleared.", { count: keys.length });
-                            toast({ type: "success", title: t("settings.account.clearDeviceDataDoneTitle"), message: t("settings.account.clearDeviceDataDoneMsg", { count: keys.length }) });
-                            setTimeout(() => window.location.reload(), 600);
-                          } catch (error) {
-                            logWarn("export", "Device data clear failed.", { message: error?.message });
-                            toast({ type: "error", title: t("settings.account.clearDeviceDataFailTitle"), message: String(error?.message || error) });
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {t("settings.account.clearDeviceDataAction")}
-                        <ChevronRight className="w-3.5 h-3.5 text-white/40" />
-                      </button>
-                    </SettingRow>
-                    {/* Capacity dashboard (PLAN.md P1.4): free-tier usage at a
-                        glance — fetched on demand, never polled. */}
-                    <SystemStatusRow />
                   </div>
                 </div>
               </section>
@@ -1096,6 +1028,18 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
+                  {/* Ambient liquid backdrop (AmbientBackground reads it) */}
+                  <SettingRow
+                    title={t("settings.appearance.ambientBackground")}
+                    description={t("settings.appearance.ambientBackgroundDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.ambientBackground")}
+                      checked={ambientBackground}
+                      onChange={(val) => setPreference("ambientBackground", val)}
+                    />
+                  </SettingRow>
+
                   {/* High-Quality Thumbnails */}
                   <SettingRow
                     title={t("settings.appearance.hdThumbs")}
@@ -1155,6 +1099,18 @@ export default function SettingsPage() {
                       label={t("settings.playback.autoSkipIntro")}
                       checked={autoSkipIntro}
                       onChange={(val) => setPreference("autoSkipIntro", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Still Watching prompt (usePlayerChrome gates it) */}
+                  <SettingRow
+                    title={t("settings.playback.stillWatching")}
+                    description={t("settings.playback.stillWatchingDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.playback.stillWatching")}
+                      checked={stillWatching}
+                      onChange={(val) => setPreference("stillWatching", val)}
                     />
                   </SettingRow>
 
@@ -1456,29 +1412,128 @@ export default function SettingsPage() {
               </section>
             )}
 
-            {/* ── 7. FACTORY RESET PREFERENCES ── */}
-            {sectionVisible.reset && (
-              <section id="reset-preferences" className="glass-card settings-section">
+            {/* ── 7. DATA & PRIVACY — device data, system usage, factory reset ── */}
+            {sectionVisible.data && (
+              <section id="data" className="glass-card settings-section">
                 <div className="section-header">
-                  <h2 className="section-title">{t("settings.reset.title")}</h2>
+                  <h2 className="section-title">{t("settings.data.heading")}</h2>
                   <p className="section-subtitle">
-                    {t("settings.reset.desc")}
+                    {t("settings.data.dataDesc")}
                   </p>
                 </div>
 
                 <div className="settings-list">
+                  {/* Device-data backup (PLAN.md P0.1): a guest's My List /
+                      history / preferences live ONLY in localStorage — one
+                      "Clear site data" erases them. Export gives every
+                      viewer a one-file backup; import restores it here or
+                      on any other device. `streamly_*` (the Google session)
+                      never travels: importing a session would sign the
+                      importer into someone else's account. */}
                   <SettingRow
-                    title={t("settings.reset.rowTitle")}
-                    description={t("settings.reset.rowDesc")}
+                    title={t("settings.account.exportData")}
+                    description={t("settings.account.exportDataDesc", { count: countDeviceData() })}
                   >
                     <button
                       type="button"
-                      onClick={handleResetAllPreferences}
-                      className="reset-preferences-button"
+                      className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                      onClick={async () => {
+                        try {
+                          const result = await downloadDeviceData();
+                          if (result) {
+                            logDebug("export", "Device data exported.", { count: result.count });
+                            toast({
+                              type: "success",
+                              title: t("settings.account.exportDoneTitle"),
+                              message: `${result.filename} (${result.count} keys)`,
+                            });
+                          }
+                        } catch (error) {
+                          logWarn("export", "Device data export failed.", { message: error?.message });
+                          toast({ type: "error", title: t("settings.account.exportFailTitle"), message: String(error?.message || error) });
+                        }
+                      }}
                     >
-                      <RotateCcw size={14} /> {t("settings.reset.resetBtn")}
+                      <Bookmark className="w-3.5 h-3.5" />
+                      {t("settings.account.exportAction")}
+                      <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                     </button>
                   </SettingRow>
+                  <SettingRow
+                    title={t("settings.account.importData")}
+                    description={t("settings.account.importDataDesc")}
+                  >
+                    <button
+                      type="button"
+                      className="settings-hit px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-white text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                      onClick={() => importInputRef.current?.click()}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      {t("settings.account.importAction")}
+                      <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+                    </button>
+                  </SettingRow>
+                  <SettingRow
+                    title={t("settings.account.clearDeviceData")}
+                    description={t("settings.account.clearDeviceDataDesc")}
+                  >
+                    <button
+                      type="button"
+                      className="settings-hit px-3.5 py-1.5 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-300 text-xs font-medium flex items-center gap-1 transition-colors border-none"
+                      onClick={async () => {
+                        const confirmed = await confirmDialog({
+                          title: t("settings.account.clearDeviceDataConfirmTitle"),
+                          message: t("settings.account.clearDeviceDataConfirmMsg"),
+                          confirmLabel: t("settings.account.clearDeviceDataConfirmLabel"),
+                          cancelLabel: t("settings.reset.cancelLabel"),
+                        });
+                        if (!confirmed) return;
+                        try {
+                          const keys = [];
+                          for (let i = 0; i < localStorage.length; i += 1) {
+                            const k = localStorage.key(i);
+                            if (k && (k.startsWith("aios_") || k.startsWith("setting-"))) keys.push(k);
+                          }
+                          keys.forEach((k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+                          logDebug("export", "Device data cleared.", { count: keys.length });
+                          toast({ type: "success", title: t("settings.account.clearDeviceDataDoneTitle"), message: t("settings.account.clearDeviceDataDoneMsg", { count: keys.length }) });
+                          setTimeout(() => window.location.reload(), 600);
+                        } catch (error) {
+                          logWarn("export", "Device data clear failed.", { message: error?.message });
+                          toast({ type: "error", title: t("settings.account.clearDeviceDataFailTitle"), message: String(error?.message || error) });
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      {t("settings.account.clearDeviceDataAction")}
+                      <ChevronRight className="w-3.5 h-3.5 text-white/40" />
+                    </button>
+                  </SettingRow>
+                  {/* Capacity dashboard (PLAN.md P1.4): free-tier usage at a
+                      glance — fetched on demand, never polled. */}
+                  <SystemStatusRow />
+
+                  {/* Factory reset keeps its own heading inside the data card:
+                      it is the last row of the destructive tools, not a
+                      preference Chronicle of its own. */}
+                  <div className="data-reset-block">
+                    <div className="section-header data-reset-header">
+                      <h3 className="data-reset-title">{t("settings.reset.title")}</h3>
+                      <p className="section-subtitle">{t("settings.reset.desc")}</p>
+                    </div>
+                    <SettingRow
+                      title={t("settings.reset.rowTitle")}
+                      description={t("settings.reset.rowDesc")}
+                    >
+                      <button
+                        type="button"
+                        onClick={handleResetAllPreferences}
+                        className="reset-preferences-button"
+                      >
+                        <RotateCcw size={14} /> {t("settings.reset.resetBtn")}
+                      </button>
+                    </SettingRow>
+                  </div>
                 </div>
               </section>
             )}

@@ -1,13 +1,18 @@
 import { memo } from "react";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+import { useOptionalPreferences } from "../context/preferences";
 
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
    a heavily blurred, saturated backdrop + screen-blended top glow above the
    accent gradient stack. Hooks behind page content so every page gets the
    banner-at-the-time gradient wash. With `fallback` it renders the liquid
    gradient layer even when there is no backdrop image yet (e.g. an empty
-   My List). */
+   My List). Settings → Appearance → "Ambient liquid backdrop" turns off the
+   drifting blobs (the decorative, animation-bearing layer) while the static
+   gradient stack always stays. */
 function AmbientBackground({ src, alt = "", fallback = false, children }) {
+  const prefs = useOptionalPreferences();
+  const liquid = prefs?.ambientBackground !== false;
   // Wrapping usage (Explore / Public collection pages) nests the page body as
   // `children`; self-closing usage passes none. Ignoring `children` rendered
   // those pages blank, so render them here — outside the aria-hidden backdrop
@@ -40,12 +45,15 @@ function AmbientBackground({ src, alt = "", fallback = false, children }) {
         {src && <div className="ambient-top-glow hidden lg:block" aria-hidden="true" />}
         {/* Cinejoy-style liquid backdrop — a few blurred color blobs drifting
             slowly. Transform-only animation (GPU-cheap); disabled for
-            prefers-reduced-motion via CSS. */}
-        <div className="ambient-liquid" aria-hidden="true">
-          <div className="ambient-liquid__blob ambient-liquid__blob--a" />
-          <div className="ambient-liquid__blob ambient-liquid__blob--b" />
-          <div className="ambient-liquid__blob ambient-liquid__blob--c" />
-        </div>
+            prefers-reduced-motion via CSS, and for everyone via the
+            `ambientBackground` preference. */}
+        {liquid && (
+          <div className="ambient-liquid" aria-hidden="true">
+            <div className="ambient-liquid__blob ambient-liquid__blob--a" />
+            <div className="ambient-liquid__blob ambient-liquid__blob--b" />
+            <div className="ambient-liquid__blob ambient-liquid__blob--c" />
+          </div>
+        )}
         {/* Same gradient stack as the hero banner overlay — bottom fade + soft side vignettes */}
         <div className="absolute inset-0 z-0 pointer-events-none watch-hero-gradient" />
       </div>

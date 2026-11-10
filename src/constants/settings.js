@@ -2,14 +2,14 @@
    subtitle styling, server order labels, and Settings section tabs. Single source
    of truth — SettingsPage imports these; keep the data here only. */
 
-import { LayoutGrid, User, Palette, Play, Server, Captions, Bell } from "lucide-react";
+import { LayoutGrid, User, Palette, Play, Server, Captions, Bell, Database } from "lucide-react";
 
 import { PLAYER_SOURCE_LABELS } from "./sources";
 
 export const THEMES = [
   {
     id: "default",
-    name: "Default (Streamly)",
+    name: "Signature Green",
     primary: "#95ff50",
     secondary: "#5ce21c",
   },
@@ -124,14 +124,20 @@ export function findSubtitleTrack(languages, code) {
    resolves; the adapter owns the persisted list. */
 export const DEFAULT_SERVER_ORDER = [...PLAYER_SOURCE_LABELS];
 
+/* Settings tabs, grouped for the sidebar rail (`zone`): WATCHING = how things
+   play, YOUR SPACE = identity + notifications + your data, PERSONALIZE = looks.
+   "All" sits above every zone and stays the default so the global search keeps
+   working across the whole page. On mobile the rail collapses to one horizontal
+   pill row and the zone labels hide (CSS in settings-ui.css). */
 export const TABS = [
   { id: "all", label: "All", icon: LayoutGrid },
-  { id: "account", label: "Account", icon: User },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "playback", label: "Playback", icon: Play },
-  { id: "servers", label: "Servers", icon: Server },
-  { id: "subtitles", label: "Subtitles", icon: Captions },
-  { id: "notifications", label: "Notifications", icon: Bell },
+  { id: "playback", label: "Playback", icon: Play, zone: "watching" },
+  { id: "subtitles", label: "Subtitles", icon: Captions, zone: "watching" },
+  { id: "servers", label: "Servers", icon: Server, zone: "watching" },
+  { id: "account", label: "Account", icon: User, zone: "space" },
+  { id: "notifications", label: "Notifications", icon: Bell, zone: "space" },
+  { id: "data", label: "Data", icon: Database, zone: "space" },
+  { id: "appearance", label: "Appearance", icon: Palette, zone: "personalize" },
 ];
 
 /* Search index for the settings filter. Every term a user can see on screen must
@@ -147,24 +153,25 @@ export const SECTION_SEARCH_TERMS = {
     "my watchlist saved movies television series view list",
     "watch history recently watched movies shows progress view history",
     "keyboard touch shortcuts player gestures swipes hotkeys quick actions open guide",
-    "export device data backup download import restore",
-    "clear device data wipe local storage reset guest",
   ].join(" "),
   appearance: [
-    "appearance look theme color palette interface default streamly",
-    "cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
+    "appearance look theme color palette interface",
+    "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
     "detail view type full info page quick modal page modal",
     "use image logos movie series titles image logos",
-    "trailers play trailers automatically detail pages hover previews",
+    "trailers play trailers automatically detail pages",
     "spoiler-free mode hide information episodes",
     "reduce motion reduce effects",
+    "ambient liquid backdrop drifting color blobs behind pages",
     "high-quality thumbnails stream higher resolution artwork",
+    "hover previews show frame previews scrubbing player seek bar seek previews",
   ].join(" "),
   playback: [
     "playback player behaves autoplay automatically play next episode ends",
     "auto skip intro jump past intro skip intro button",
+    "still watching prompt pause ask after binge unattended",
     "seek time skip forwards backwards seconds",
     "auto subtitles preferred language available",
     "default language subtitle language auto-select",
@@ -172,23 +179,26 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 orion server 2 andromeda server 3 centaurus server 4 atlas server 5 ursa",
+    "reset server 1 server 2 server 3 server 4 server 5 server 6 server 7 default priority",
   ].join(" "),
   subtitles: [
     "subtitles readability customization font cinejoy classic montserrat",
-    "text size adjust subtitle size display",
-    "text color high-contrast subtitle color white yellow cyan magenta emerald",
+    "text size adjust subtitle size display player controls take precedence",
+    "text color high-contrast subtitle color white yellow cyan magenta emerald player overrides",
     "background blur legibility soft glow preview",
   ].join(" "),
   notifications: [
     "notifications in-app status updates scrobble confirmations activity",
-    "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner",
+    "show in-app notifications brief status toasts items added watchlist servers change progress saved alerts toast popup banner hide",
     "library list adds alerts when movie series added to list",
     "milestones streaks achievements watchlist growth",
     "center bell inbox unread mark read clear",
   ].join(" "),
-  reset: [
+  data: [
+    "data privacy device backup export import restore wipe",
+    "clear device data wipe local storage guest reload",
     "reset all preferences factory reset restore theme playback preferences",
     "factory defaults clears custom themes subtitle styling server order danger",
+    "system status capacity relay catalog live today usage",
   ].join(" "),
 };

@@ -47,15 +47,22 @@ Firebase SDK in the bundle.
 | Settings | `/settings` (+ optional `?tab=<section>`) | local only | `setting-*` keys (local) |
 
 The `?tab=` query param on `/settings` is a navigation affordance only: it
-selects the section filter (see `SECTION_SEARCH_TERMS` in `SettingsPage.jsx`),
-initialises from and stays in sync with the URL (`replace: true`), and has no
-effect on any persisted key or data contract.
+selects the section filter (`section-all|playback|subtitles|servers|account|
+notifications|data|appearance`; the tab list lives in `TABS`,
+`src/constants/settings.js`), initialises from and stays in sync with the URL
+(`replace: true`), and has no effect on any persisted key or data contract.
+The page renders as a split shell: a sticky grouped rail (Watching / Your
+space / Personalize) from 1024px up, the same nav as one horizontal pill row
+below it; "All" stays the default so the global search filter spans every
+section. The **Data & privacy** card owns the device-data tools (export /
+import / clear), the capacity row, and the factory-reset block; Account keeps
+identity, cloud sync and library links only.
 
 Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 `aios_continue_watching` (each item stamped `updatedAt` — see merge policy
 below), `aios_my_collections` (named folders referencing saved title ids),
 `aios_search_history`, `streamly:realRatings:<id>`
-(24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications|hoverPreviews|notificationsListAdds|notificationsMilestones`,
+(24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications|hoverPreviews|notificationsListAdds|notificationsMilestones|stillWatching|ambientBackground`,
 `streamly_volume|muted|aspectRatio`, `streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
 `/api/sync`, issued only to a verified email identity by `/api/verifyEmail` or

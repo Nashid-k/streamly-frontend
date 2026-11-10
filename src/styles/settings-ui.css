@@ -134,6 +134,70 @@ html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
   background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, transparent);
 }
 
+/* ── Settings Split Shell ────────────────────────────────────────────────────
+   One <nav>, two shapes. Below 1024px it is the Cinejoy capsule pill row that
+   always shipped; from 1024px up it becomes a grouped vertical rail (Watching /
+   Your space / Personalize) on a sticky glass panel, so a section switch is a
+   single glance instead of a hunt across wrapped pills. */
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settings-rail {
+  /* Non-desktop: static, the nav flows as a normal pill row. */
+  position: static;
+}
+
+.settings-rail__zone {
+  display: none; /* zone labels are a rail-only affordance */
+}
+
+@media (min-width: 1024px) {
+  .settings-body {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .settings-rail {
+    position: sticky;
+    /* Clear the fixed navbar island (glass cards scroll with the same margin). */
+    top: 104px;
+    max-height: calc(100vh - 128px);
+    overflow: auto;
+  }
+
+  .settings-nav {
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.55rem;
+    background: rgba(18, 18, 22, 0.6);
+    border: 1px solid rgba(var(--white-rgb), 0.08);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .settings-rail__zone {
+    display: block;
+    margin: 0.55rem 0.5rem 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(var(--white-rgb), 0.35);
+  }
+
+  .settings-tab {
+    justify-content: flex-start;
+    border-radius: 12px;
+  }
+}
+
 /* Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
    selection with a check). */
 .settings-dropdown-item {
@@ -195,6 +259,26 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.45);
 }
+}
+
+/* Factory-reset sub-block inside the Data & privacy card: the reset tools sit
+   under their own heading in the same card, separated by a hairline. */
+.data-reset-block {
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(var(--white-rgb), 0.08);
+}
+
+.data-reset-header {
+  margin-bottom: 0.5rem;
+}
+
+.data-reset-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 0.15rem;
+  letter-spacing: -0.015em;
 }
 
 /* ── Glass Card (Cinejoy .glass-card recipe) ── */

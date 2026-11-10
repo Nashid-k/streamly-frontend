@@ -29,6 +29,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { STILL_WATCHING_IDLE_MS, STILL_WATCHING_EPISODES } from "../../../constants/playerUi";
 import { logDebug } from "../../../utils/debugLogger";
+import { useOptionalPreferences } from "../../../context/preferences";
 
 /** Idle time before the chrome hides itself. */
 const HIDE_DELAY_MS = 3000;
@@ -52,6 +53,10 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
   const idleTimer = useRef(null);
   // Still-watching bookkeeping.
   const swIdleRef = useRef(null); // rolling play-with-no-input timer
+  // Settings → Playback → "Still watching prompt". OFF = the viewer opted out
+  // of the interruptions: no idle pause, no binge pause (Up Next still works —
+  // that is the autoplay preference, not this one).
+  const prefs = useOptionalPreferences();
   const swAutoAdvRef = useRef(0); // consecutive auto-advanced episodes
   const swOfferTimerRef = useRef(null); // offer expiry
   // Ref-backed so the long-lived gesture/key handlers read the live value.
@@ -70,6 +75,7 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
 
   const offerStillWatching = useCallback(
     (reason) => {
+      if (prefs?.stillWatching === false) return;
       const video = videoRef.current;
       if (!video || video.paused || endedRef.current) return;
       logDebug("native", `Still-watching offer (${reason})`);
@@ -88,7 +94,7 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
         setStillWatching(false);
       }, STILL_WATCHING_OFFER_MS);
     },
-    [videoRef, endedRef],
+    [videoRef, endedRef, prefs],
   );
 
   /* Controls autohide: activity shows them, 3s idle while playing hides them.
