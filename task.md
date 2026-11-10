@@ -7,6 +7,13 @@
 
  ## Done (in order)
 
+- [x] **Seasonal theming: Christmas theme + global snowfall overlay — 2026-11-10 (branch `main`).**
+  - **Christmas theme:** added to `THEMES` (id `christmas`, red/green palette, name "Christmas") with CSS overrides in `settings-ui.css` (`html[data-theme="christmas"]`). Selectable from Settings -> Appearance like any other theme.
+  - **Global snowfall:** new `Snowfall.jsx` component mounted once in `Layout.jsx`, so it covers every route. Active in December (`new Date().getMonth() === 11`) or when the Christmas theme is selected; gated by the new `snowfall` preference (default on) and by reduced motion (OS + in-app). 48 flakes, transform+opacity only (GPU), `will-change`, infinite CSS keyframe animation.
+  - **Settings toggle:** Appearance -> "Seasonal snowfall" (`snowfall` pref, default true). Sanitizer covers it generically (boolean). Search haystack updated.
+  - **z-index:** snowfall uses `var(--z-overlay)` (not a hardcoded number) to satisfy the z-layer contract test.
+  - **Gates:** lint clean; full suite 118 files / 1437 tests green; build 12.1s.
+
 - [x] **TitleDetailsPage mobile: hero cover on phones — 2026-11-10 (branch `main`).**
   - **Mobile hero:** below 640px the fit-mode backdrop switches from `object-fit: contain` (whole 16:9 frame, ~219px tall on a 390px phone) to `object-fit: cover` with a 24-34rem height clamp, so the hero fills the screen like the home banner instead of letterboxing into a short strip. Title/actions still sit over it via the existing shade.
   - **Gates:** lint clean; TitleDetailsPage 7/7 green; build 1.6s.

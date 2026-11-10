@@ -6,6 +6,7 @@ import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
 import MobileBottomNav from "./MobileBottomNav";
+import Snowfall from "../components/Snowfall";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useOptionalPreferences } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
@@ -105,6 +106,7 @@ function Layout({ children }) {
         Skip to content
       </a>
       <Header />
+      <Snowfall />
       <OfflineBanner />
 
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>

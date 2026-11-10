@@ -85,6 +85,9 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   // Gates the drifting liquid-blob backdrop on every page (AmbientBackground).
   // On by default; off keeps the plain gradient wash for focus/perf.
   ambientBackground: true,
+  // Seasonal snowfall overlay (global, mounted in Layout). Auto-on in December
+  // or when the Christmas theme is active; this toggle is the manual override.
+  snowfall: true,
   // Servers — plain labels, DERIVED from the live catalogue so a roster change
     // can never leave the default missing a row (it did: Server 5 stayed absent
     // after Orion came back live). Orders saved under the interim Lisbon/Nebula/…

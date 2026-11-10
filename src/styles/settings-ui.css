@@ -67,12 +67,17 @@ html[data-theme="solar"] {
   --theme-global-accentB: #d97706;
 }
 
-html[data-theme="custom"] {
-  --accent-gradient: linear-gradient(135deg, var(--theme-global-accentA), var(--theme-global-accentB)) !important;
-  --accent-color: var(--theme-global-accentA) !important;
-  --accent-primary: var(--theme-global-accentA) !important;
-  --accent-secondary: var(--theme-global-accentB) !important;
-  --accent-glow: rgba(var(--black-rgb),0.4) !important;
+html[data-theme="christmas"] {
+  --accent-gradient: linear-gradient(135deg, #dc2626, #16a34a) !important;
+  --accent-color: #dc2626 !important;
+  --accent-primary: #dc2626 !important;
+  --accent-secondary: #16a34a !important;
+  --accent-primary-rgb: 220, 38, 38 !important;
+  --accent-secondary-rgb: 22, 163, 74 !important;
+  --accent-glow: rgba(220, 38, 38, 0.4) !important;
+  --on-accent: #ffffff !important;
+  --theme-global-accentA: #dc2626;
+  --theme-global-accentB: #16a34a;
 }
 
 /* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────

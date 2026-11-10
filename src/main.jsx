@@ -19,6 +19,7 @@ import "./styles/player.css";
 import "./styles/settings-ui.css";
 import "./styles/modals.css";
 import "./styles/discovery.css";
+import "./styles/snowfall.css";
 import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";

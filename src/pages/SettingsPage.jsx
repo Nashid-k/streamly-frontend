@@ -108,6 +108,7 @@ export default function SettingsPage() {
     hoverPreviews = true,
     reduceMotion,
     ambientBackground = true,
+    snowfall = true,
     notifications,
     notificationsListAdds = true,
     notificationsMilestones = true,
@@ -1037,6 +1038,18 @@ export default function SettingsPage() {
                       label={t("settings.appearance.ambientBackground")}
                       checked={ambientBackground}
                       onChange={(val) => setPreference("ambientBackground", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Seasonal snowfall overlay (global, Layout reads it) */}
+                  <SettingRow
+                    title={t("settings.appearance.snowfall")}
+                    description={t("settings.appearance.snowfallDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.snowfall")}
+                      checked={snowfall}
+                      onChange={(val) => setPreference("snowfall", val)}
                     />
                   </SettingRow>
 

@@ -1,0 +1,47 @@
+/* ── Seasonal snowfall overlay ─────────────────────────────────────────────
+   Fixed full-viewport layer, pointer-events none, GPU-only (transform +
+   opacity). Rendered by <Snowfall /> (mounted in Layout) only when active. */
+.snowfall {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.snowfall__flake {
+  position: absolute;
+  top: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.6) 60%, transparent 100%);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+  will-change: transform, opacity;
+  animation-name: snowfall-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+
+@keyframes snowfall-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--drift, 0px), 110vh, 0);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowfall { display: none; }
+}
+html[data-reduce-motion="true"] .snowfall {
+  display: none;
+}

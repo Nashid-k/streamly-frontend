@@ -285,6 +285,8 @@ export const en = {
       hoverPreviewsDesc: "Show frame previews when scrubbing the player seek bar.",
       ambientBackground: "Ambient liquid backdrop",
       ambientBackgroundDesc: "The drifting color blobs behind every page. Off keeps the plain gradient wash and saves some GPU.",
+      snowfall: "Seasonal snowfall",
+      snowfallDesc: "Falling snow over every page in December, or whenever the Christmas theme is active. Off disables it year-round.",
       openDetails: "Open details page",
       openOverlay: "Show quick overview",
     },
