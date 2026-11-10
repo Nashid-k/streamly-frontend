@@ -809,21 +809,21 @@ describe("navigation moves one pill, never the dock", () => {
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/color:\s*#000/);
   });
 
-  it("anchors the pill to the active tab natively so no JS measurement can move it late", () => {
-    // The pill used to be a JS-measured WAAPI flight: late avatar/font settles
-    // re-measured it 2-3s after load and swept it across the bar. It is now
-    // positioned by CSS Anchor Positioning — the active element declares
-    // `anchor-name: --active-tab` and the pill anchors to it, so the browser
-    // tracks geometry (including late settles) and the left/width change is a
-    // GPU compositor transition. No measurement, no flight, no retargeting.
+  it("drives the pill via CSS custom properties so geometry settles are instant, not glides", () => {
+    // CSS Anchor Positioning jittered on revisit (anchor identity changed
+    // mid-transition and the browser lost the starting point). The pill is now
+    // positioned by JS-measured --pill-x/--pill-w custom properties, with the
+    // transition gated by data-pill-moving: enabled only on a real active-tab
+    // change (smooth glide), disabled for geometry-only updates (instant snap).
+    // Measured synchronously in useLayoutEffect before paint.
     expect(headerJsx).not.toMatch(/pillItem\.animate\(/);
     expect(headerJsx).not.toMatch(/LIFT_FLIGHT\.easing/);
-    expect(headerJsx).not.toMatch(/measurePill/);
-    expect(headerCss).toMatch(/anchor-name:\s*--active-tab/);
-    expect(block(headerCss, ".nav-active-pill")).toMatch(/position-anchor:\s*--active-tab/);
-    expect(block(headerCss, ".nav-active-pill")).toMatch(/anchor\(left\)/);
-    expect(block(headerCss, ".nav-active-pill")).toMatch(/anchor-size\(width\)/);
-    expect(block(headerCss, ".nav-active-pill")).toMatch(/transition:/);
+    expect(headerJsx).toMatch(/measurePill/);
+    expect(headerJsx).toMatch(/useLayoutEffect/);
+    expect(headerCss).toMatch(/--pill-x/);
+    expect(headerCss).toMatch(/--pill-w/);
+    expect(headerCss).toMatch(/data-pill-moving/);
+    expect(headerCss).toMatch(/transition:/);
     expect(tokensCss).not.toMatch(/--nav-transition/);
   });
 

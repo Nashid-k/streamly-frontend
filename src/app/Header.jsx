@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, Settings, ChevronLeft } from "lucide-react";
@@ -105,27 +105,21 @@ function Header() {
     };
   }, []);
 
-    /* ── Active-tab highlight (Cinejoy .nav-pill) ─────────────────────────
-       Positioning is now native CSS Anchor Positioning: the active link
-       declares `anchor-name: --active-tab` and the pill anchors to it with
-       `position-anchor` + `anchor()`. No JS measurement, no ResizeObserver for
-       the pill, no WAAPI flight: the browser tracks the anchor natively (late
-       avatar/font settles included) and the pill's left/width change is a pure
-       GPU compositor transition — that is what removes the 2-3s post-load
-       slide. Reduced motion is honoured via CSS. Engines without anchor
-       positioning fall back to a single instant measure (no glide). */
+    /* Active-tab highlight: JS-measured CSS custom properties, transition gated. */
   const navRef = useRef(null);
-  const supportsAnchor =
-    typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("anchor-name", "--active-tab");
+  const lastActiveRef = useRef(null);
 
-  const fallbackPlace = useCallback(() => {
+  const measurePill = useCallback(() => {
     const nav = navRef.current;
     if (!nav) return;
     const pillItem = nav.querySelector(".nav-active-pill");
     if (!pillItem) return;
     const active = nav.querySelector('[data-nav-active="true"]');
+    const hasActive = !!active;
+    nav.toggleAttribute("data-has-active", hasActive);
     if (!active) {
-      pillItem.style.opacity = "0";
+      lastActiveRef.current = null;
+      nav.toggleAttribute("data-pill-moving", false);
       return;
     }
     const trackRect = nav.getBoundingClientRect();
@@ -133,41 +127,32 @@ function Header() {
     const x = activeRect.left - trackRect.left;
     const w = activeRect.width;
     if (w <= 0) return;
-    pillItem.style.transform = `translateX(${x}px)`;
-    pillItem.style.width = `${w}px`;
-    pillItem.style.opacity = "1";
+    const activeChanged = lastActiveRef.current !== null && lastActiveRef.current !== active;
+    lastActiveRef.current = active;
+    nav.toggleAttribute("data-pill-moving", activeChanged);
+    nav.style.setProperty("--pill-x", x + "px");
+    nav.style.setProperty("--pill-w", w + "px");
   }, []);
 
-  // Keep the CSS (and the fallback path) in sync with the active state.
-  useEffect(() => {
-    const nav = navRef.current;
-    if (!nav) return;
-    const sync = () => {
-      const has = !!nav.querySelector('[data-nav-active="true"]');
-      nav.toggleAttribute("data-has-active", has);
-    };
-    sync();
-    if (!supportsAnchor) {
-      fallbackPlace();
-      const settled = window.requestAnimationFrame(fallbackPlace);
-      return () => window.cancelAnimationFrame(settled);
-    }
-  }, [location.pathname, supportsAnchor, fallbackPlace]);
+  useLayoutEffect(() => {
+    measurePill();
+    const settled = window.requestAnimationFrame(measurePill);
+    return () => window.cancelAnimationFrame(settled);
+  }, [measurePill, location.pathname]);
 
-  // Fallback engines: real size changes (avatar swap, fonts) re-place instantly.
   useEffect(() => {
-    if (supportsAnchor) return;
     const nav = navRef.current;
     if (!nav) return;
     if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", fallbackPlace);
-      return () => window.removeEventListener("resize", fallbackPlace);
+      const onResize = () => measurePill();
+      window.addEventListener("resize", onResize);
+      return () => window.removeEventListener("resize", onResize);
     }
-    const observer = new ResizeObserver(() => fallbackPlace());
+    const observer = new ResizeObserver(() => measurePill());
     observer.observe(nav);
-    if (document.fonts?.ready) document.fonts.ready.then(fallbackPlace);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measurePill);
     return () => observer.disconnect();
-  }, [supportsAnchor, fallbackPlace]);
+  }, [measurePill]);
 
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>

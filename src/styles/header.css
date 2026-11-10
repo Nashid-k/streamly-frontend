@@ -252,42 +252,43 @@
   color: #ffffff;
 }
 
-/* ── Cinejoy .nav-pill — ONE shared highlight that glides between items.
-   Position/width are now native CSS Anchor Positioning: the active element
-   (any [data-nav-active="true"] inside the navbar) declares
-   `anchor-name: --active-tab` and this pill anchors to it with
-   `position-anchor` + `anchor()`. No JS measurement, no ResizeObserver for
-   the pill, no WAAPI flight — the browser tracks the anchor natively (late
-   avatar/font settles included) and left/width change is a GPU compositor
-   transition. That removes the 2-3s post-load slide. Reduced motion disables
-   the transition via CSS. Engines without anchor positioning fall back to a
-   single instant measure in Header.jsx. */
+/* Cinejoy .nav-pill - ONE shared highlight that glides between items.
+   Position is driven by JS-measured CSS custom properties (--pill-x, --pill-w)
+   on the navbar. Transition is GATED by data-pill-moving: enabled only when
+   the active tab changes (smooth glide), disabled for geometry-only updates
+   (avatar swap, font load, ResizeObserver) so late settles reposition
+   INSTANTLY with no jitter. Measured synchronously in useLayoutEffect before
+   paint, so the pill is correct on first paint - no 2-3s settle. Opacity is
+   an instant toggle (no transition) to avoid flicker on rapid route changes. */
 .nav-active-pill {
   position: absolute;
-  position-anchor: --active-tab;
-  left: anchor(left);
+  left: 0;
   top: var(--nav-pad);
   bottom: var(--nav-pad);
-  width: anchor-size(width);
+  transform: translateX(var(--pill-x, 0px));
+  width: var(--pill-w, 0px);
   border-radius: var(--radius-full);
   background: #ffffff;
   box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
   z-index: 0;
   pointer-events: none;
   opacity: 0;
-  /* Smooth glide on anchor change — compositor only. */
-  transition: left var(--duration-fast) var(--ease-out), width var(--duration-fast) var(--ease-out), opacity var(--duration-instant) var(--ease-out);
-  will-change: left, width, opacity;
+  will-change: transform, width, opacity;
 }
 
-/* Reveal once an anchor exists (set as data-has-active on the navbar). */
+/* Reveal once an active tab exists (set synchronously in useLayoutEffect). */
 .navbar[data-has-active] .nav-active-pill {
   opacity: 1;
 }
 
-/* The active element becomes an anchor target. */
-[data-nav-active="true"] {
-  anchor-name: --active-tab;
+/* Smooth glide only when the active tab actually changes. */
+.navbar[data-pill-moving="true"] .nav-active-pill {
+  transition: transform var(--duration-med) var(--ease-out), width var(--duration-med) var(--ease-out);
+}
+
+/* Geometry-only updates (same active): snap, no glide. */
+.navbar:not([data-pill-moving="true"]) .nav-active-pill {
+  transition: none;
 }
 
 /* Reduced motion: snap, no glide. */
@@ -297,11 +298,6 @@
 html[data-reduce-motion="true"] .nav-active-pill {
   transition: none;
 }
-
-/* Fallback for engines without CSS anchor positioning: Header.jsx measures
-   once and writes inline transform/width/opacity. Those inline values win
-   over the (unsupported) anchor() declarations. */
-
 /* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every
    non-active label — no background chips on individual items, and the
    shared white active pill stays exactly as it is (black ink). */
