@@ -287,6 +287,8 @@ export const en = {
       ambientBackgroundDesc: "The drifting color blobs behind every page. Off keeps the plain gradient wash and saves some GPU.",
       snowfall: "Seasonal snowfall",
       snowfallDesc: "Falling snow over every page in December, or whenever the Christmas theme is active. Off disables it year-round.",
+      fallingLeaves: "Seasonal falling leaves",
+      fallingLeavesDesc: "Autumn leaves drifting over every page from September through November, or whenever the Autumn theme is active. Off disables it year-round.",
       openDetails: "Open details page",
       openOverlay: "Show quick overview",
     },

@@ -109,6 +109,7 @@ export default function SettingsPage() {
     reduceMotion,
     ambientBackground = true,
     snowfall = true,
+    fallingLeaves = true,
     notifications,
     notificationsListAdds = true,
     notificationsMilestones = true,
@@ -1050,6 +1051,18 @@ export default function SettingsPage() {
                       label={t("settings.appearance.snowfall")}
                       checked={snowfall}
                       onChange={(val) => setPreference("snowfall", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Seasonal falling-leaves overlay (global, Layout reads it) */}
+                  <SettingRow
+                    title={t("settings.appearance.fallingLeaves")}
+                    description={t("settings.appearance.fallingLeavesDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.fallingLeaves")}
+                      checked={fallingLeaves}
+                      onChange={(val) => setPreference("fallingLeaves", val)}
                     />
                   </SettingRow>
 

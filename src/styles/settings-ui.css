@@ -67,6 +67,19 @@ html[data-theme="solar"] {
   --theme-global-accentB: #d97706;
 }
 
+html[data-theme="autumn"] {
+  --accent-gradient: linear-gradient(135deg, #f97316, #b45309) !important;
+  --accent-color: #f97316 !important;
+  --accent-primary: #f97316 !important;
+  --accent-secondary: #b45309 !important;
+  --accent-primary-rgb: 249, 115, 22 !important;
+  --accent-secondary-rgb: 180, 83, 9 !important;
+  --accent-glow: rgba(249, 115, 22, 0.4) !important;
+  --on-accent: #ffffff !important;
+  --theme-global-accentA: #f97316;
+  --theme-global-accentB: #b45309;
+}
+
 html[data-theme="christmas"] {
   --accent-gradient: linear-gradient(135deg, #dc2626, #16a34a) !important;
   --accent-color: #dc2626 !important;

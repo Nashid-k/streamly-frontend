@@ -49,6 +49,12 @@ export const THEMES = [
     primary: "#dc2626",
     secondary: "#16a34a",
   },
+  {
+    id: "autumn",
+    name: "Autumn Harvest",
+    primary: "#f97316",
+    secondary: "#b45309",
+  },
 ];
 
 export const LANGUAGES = [
@@ -172,6 +178,7 @@ export const SECTION_SEARCH_TERMS = {
     "reduce motion reduce effects",
     "ambient liquid backdrop drifting color blobs behind pages",
     "seasonal snowfall falling snow december christmas overlay",
+    "seasonal falling leaves autumn september october november overlay",
     "high-quality thumbnails stream higher resolution artwork",
     "hover previews show frame previews scrubbing player seek bar seek previews",
   ].join(" "),
