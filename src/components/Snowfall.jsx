@@ -3,16 +3,20 @@ import { useOptionalPreferences } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
 
 /* Seasonal snowfall overlay — mounted once in Layout so it covers every route.
-   Active in December or when the Christmas theme is selected; the
-   `snowfall` preference is the manual override (off = never). Reduced motion
-   (OS or in-app) disables it entirely. Transform + opacity only — GPU cheap. */
+   Active November 1 through December 31 (the whole festive season) or when the
+   Christmas theme is selected; the `snowfall` preference is the manual override
+   (off = never). Reduced motion (OS or in-app) disables it entirely.
+   Transform + opacity only — GPU cheap. */
 export default function Snowfall() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
   const theme = prefs?.theme;
-  const month = new Date().getMonth(); // 0-based; December = 11
-  const seasonal = month === 11 || theme === "christmas";
+  const now = new Date();
+  const month = now.getMonth(); // 0-based
+  // Seasonal window: November 1 through December 31 (the whole festive season,
+  // "from Nov 1 till Christmas ends"). Plus the Christmas theme as a manual override.
+  const seasonal = (month === 10 || month === 11) || theme === "christmas";
   const enabled = seasonal && prefs?.snowfall !== false && !reduceMotion;
 
   const flakes = useMemo(() => {
