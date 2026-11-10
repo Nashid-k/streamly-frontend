@@ -208,7 +208,10 @@ describe("motion contract is actually enforced", () => {
         /SPRING\.[A-Z]/.test(readFileSync(f, "utf8"))
     );
     const unbacked = users.filter(
-      (f) => !/constants\/motion/.test(readFileSync(f, "utf8"))
+      (f) =>
+        // Sibling imports from inside constants ("./motion") resolve to the
+        // same token file — accepted alongside the explicit path spelling.
+        !/(constants\/motion|from "\.\/motion")/.test(readFileSync(f, "utf8"))
     );
     expect(
       unbacked.map((f) => f.replace(process.cwd(), "")),
@@ -724,27 +727,39 @@ describe("press feedback is one vocabulary", () => {
   });
 });
 
-describe("route variants let framer compose the transform", () => {
+describe("route planes move in the direction they are told", () => {
   /* framer builds `transform` from x/y/scale/translateZ. A variant that also
      carries `transform: "translateZ(0)"` wins the style write and silently
-     drops the movement � verified in jsdom: the element rendered with only
-     `translateZ(0)`, while `translateZ: 0` produced `translateY(10px)
-     scale(0.995)`. Two route variants regressed this way, turning the app's
-     most common pages into fades with no rise. */
+     drops the movement — verified in jsdom. Function variants (directional
+     planes) must resolve to that same clean shape. */
+  const resolve = (state) => (typeof state === "function" ? state(1) : state);
+
   it("never sets a literal transform, which replaces x/y/scale", () => {
     for (const [variant, states] of Object.entries(ROUTE_VARIANTS)) {
       for (const [state, values] of Object.entries(states)) {
-        expect(values, `${variant}.${state}`).not.toHaveProperty("transform");
+        expect(resolve(values), `${variant}.${state}`).not.toHaveProperty("transform");
       }
     }
   });
 
-  it("keeps the movement each variant's name promises", () => {
-    expect(ROUTE_VARIANTS["fade-up-subtle"].initial.y).toBeGreaterThan(0);
-    expect(ROUTE_VARIANTS["fade-up"].initial.y).toBeGreaterThan(0);
-    expect(ROUTE_VARIANTS["slide-right"].initial.x).toBeLessThan(0);
-    expect(ROUTE_VARIANTS["slide-left"].initial.x).toBeGreaterThan(0);
-    expect(ROUTE_VARIANTS["fade-up"].initial.scale).toBeLessThan(1);
+  it("rides the rail: forward pages enter from the right, back pages from the left", () => {
+    const plane = ROUTE_VARIANTS["fade-up-subtle"];
+    // Forward travel: the arriving page comes from the right and springs to place.
+    expect(plane.initial(1).x).toBeGreaterThan(0);
+    expect(plane.initial(1).y).toBeGreaterThan(0);
+    expect(plane.initial(1).scale).toBeLessThan(1);
+    // Back travel mirrors the rail.
+    expect(plane.initial(-1).x).toBeLessThan(0);
+    // Handoff: the leaving page drifts to the opposite side of the same rail.
+    expect(plane.exit(1).x).toBeLessThan(0);
+    expect(plane.exit(-1).x).toBeGreaterThan(0);
+    expect(plane.exit(1).pointerEvents).toBe("none");
+    // Deeper pages keep a stronger arrival rise.
+    expect(ROUTE_VARIANTS["fade-up"].initial(1).y).toBeGreaterThan(plane.initial(1).y);
+    expect(ROUTE_VARIANTS["fade-up"].initial(1).scale).toBeLessThan(1);
+    // Direction-neutral characters carry no directional x at all.
+    expect(ROUTE_VARIANTS["fade-only"].initial).not.toBeTypeOf("function");
+    expect(ROUTE_VARIANTS["fade-only"].initial).not.toHaveProperty("x");
     // crossfade holds a sliver of the outgoing page instead of a hard 0.
     expect(ROUTE_VARIANTS.crossfade.exit.opacity).toBeGreaterThan(0);
   });

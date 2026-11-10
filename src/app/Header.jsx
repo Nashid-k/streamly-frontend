@@ -156,6 +156,20 @@ function Header() {
     (destX, destW) => {
       const pillItem = pillRef.current;
       if (!pillItem) return;
+      /* Compare against the in-flight TARGET, not the live rendering. The
+         settle/ResizeObserver re-measures land right behind a launch with an
+         unchanged destination; comparing against the live rendering read
+         mid-flight progress as a new target and restarted the curve on every
+         navigation (the repeat-navigation hiccup). Only a genuinely different
+         destination relaunches; a running flight simply carries on. */
+      const sameTarget =
+        Math.abs(destX - pillPos.current.x) < 0.5 && Math.abs(destW - pillPos.current.w) < 0.5;
+      if (sameTarget) {
+        // Covers the re-show path too: a tab route revisited after a no-tab
+        // (genre) route cut the pill away relights it in its committed spot.
+        pillItem.style.opacity = "1";
+        return;
+      }
       pillItem.style.opacity = "1";
       const commit = () => {
         pillItem.style.transform = `translateX(${destX}px)`;
@@ -169,8 +183,8 @@ function Header() {
         return;
       }
       /* Start from the LIVE rendered position, not the last commit: a flight
-         interrupted mid-glide continues from its current frame, so rapid
-         repeat navigations chain instead of restarting the curve. */
+         interrupted by a DIFFERENT destination continues from its current
+         frame, so chained navigations glide instead of restarting the curve. */
       const running = pillItem.getAnimations();
       let startX = pillPos.current.x;
       let startW = pillPos.current.w;
@@ -183,12 +197,6 @@ function Header() {
         }
         const liveW = parseFloat(computed.width);
         if (Number.isFinite(liveW)) startW = liveW;
-      }
-      /* Epsilon guard: sub-pixel drift (fractional rects, mid-transition
-         reflows) must never relaunch the flight — only real geometry does. */
-      if (Math.abs(destX - startX) < 0.5 && Math.abs(destW - startW) < 0.5) {
-        pillPos.current = { x: destX, w: destW };
-        return;
       }
       running.forEach((anim) => anim.cancel());
       const flight = pillItem.animate(
