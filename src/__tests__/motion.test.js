@@ -794,10 +794,15 @@ describe("navigation moves one pill, never the dock", () => {
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/color:\s*#000/);
   });
 
-  it("drives the pill with one spring and leaves no CSS transition to fight it", () => {
-    expect(headerJsx).toMatch(/<motion\.span[\s\S]{0,80}className="nav-active-pill"/);
-    expect(headerJsx).toMatch(/transition=\{pillTransition\}/);
-    expect(headerJsx).toMatch(/x:\s*SPRING\.LIFT/);
+  it("drives the pill imperatively so unrelated re-renders can never retarget it", () => {
+    expect(headerJsx).toMatch(/<span[\s\S]{0,80}ref=\{pillRef\}[\s\S]{0,80}className="nav-active-pill"/);
+    // The old pill was framer `animate` + React state: every unrelated header
+    // re-render (scrolled flip, account-menu reset, badge counts) re-evaluated
+    // an in-flight spring and jittered repeat navigations. The element is now
+    // owned by one imperative WAAPI flight per geometry change.
+    expect(headerJsx).not.toMatch(/motion\.span/);
+    expect(headerJsx).toMatch(/pillItem\.animate\(/);
+    expect(headerJsx).toMatch(/LIFT_FLIGHT\.easing/);
     expect(block(headerCss, ".nav-active-pill")).not.toMatch(/transition:/);
     expect(tokensCss).not.toMatch(/--nav-transition/);
   });

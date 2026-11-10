@@ -253,7 +253,8 @@
 }
 
 /* ── Cinejoy .nav-pill — ONE shared highlight that glides between items.
-   x/width/opacity are driven by framer from real measurements in Header.jsx;
+   Position/width are driven imperatively from Header.jsx (WAAPI flight engine
+   on the SPRING.LIFT curve, no CSS transition of ours in the loop);
    no CSS transition may compete with those per-frame writes. */
 .nav-active-pill {
   position: absolute;

@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Check, Trash2, X } from "lucide-react";
-import { DURATION, EASE_OUT } from "../constants/motion";
+import Popover from "./Popover";
 import { useOptionalNotifications } from "../context/notifications";
 import { useAppAuth } from "../context/auth";
 import { buildWelcomeNotification } from "../utils/notificationEngine";
@@ -22,8 +22,8 @@ function timeAgo(ts) {
 export default function NotificationCenter() {
   const ctx = useOptionalNotifications();
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
   const btnRef = useRef(null);
+  const [panelPos, setPanelPos] = useState(null);
   const navigate = useNavigate();
 
   const items = ctx?.notifications || [];
@@ -48,23 +48,27 @@ export default function NotificationCenter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx]);
 
+  /* The panel portals to document.body: .navbar clips every descendant with
+     overflow:hidden + contain:paint and roots a backdrop-filter context, so a
+     panel inside the navbar paints only within the 44px strip — an "open"
+     panel that is invisible. Fixed coords are measured off the bell (the same
+     contract as AccountMenu) and re-measured while open if the viewport
+     resizes. panelPos is deliberately not reset on close so Popover's exit
+     clone keeps its coordinates. */
   useEffect(() => {
     if (!open) return undefined;
-    const handleOutside = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    const measure = () => {
+      const btn = btnRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      setPanelPos({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
     };
-    const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        btnRef.current?.focus();
-      }
-    };
-    document.addEventListener("mousedown", handleOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [open]);
 
   const handleItemClick = (n) => {
@@ -74,7 +78,7 @@ export default function NotificationCenter() {
   };
 
   return (
-    <div className="notif-center" ref={wrapRef}>
+    <div className="notif-center">
       <button
         ref={btnRef}
         type="button"
@@ -92,84 +96,89 @@ export default function NotificationCenter() {
         )}
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="notif-panel"
-            role="dialog"
-            aria-label="Notifications"
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
-          >
-            <div className="notif-panel__header">
-              <span className="notif-panel__title">Notifications</span>
-              <div className="notif-panel__actions">
-                {items.length > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      className="notif-panel__action"
-                      onClick={() => ctx?.markAllRead()}
-                      aria-label="Mark all read"
-                    >
-                      <Check size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className="notif-panel__action"
-                      onClick={() => ctx?.clear()}
-                      aria-label="Clear all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="notif-panel__action"
-                  onClick={() => setOpen(false)}
-                  aria-label="Close"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            <div className="notif-panel__body">
-              {items.length === 0 ? (
-                <p className="notif-panel__empty">No notifications yet.</p>
-              ) : (
-                <ul className="notif-panel__list">
-                  {items.map((n) => (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        className={`notif-item${n.isRead ? " is-read" : ""}`}
-                        onClick={() => handleItemClick(n)}
-                      >
-                        {n.image && (
-                          <img src={n.image} alt="" className="notif-item__img" loading="lazy" />
-                        )}
-                        <div className="notif-item__text">
-                          <span className="notif-item__title">{n.title}</span>
-                          <span className="notif-item__msg">{n.message}</span>
-                          <span className="notif-item__meta">
-                            {n.platform ? `${n.platform} · ` : ""}
-                            {timeAgo(n.createdAt)}
-                          </span>
-                        </div>
-                        {!n.isRead && <span className="notif-item__dot" aria-hidden="true" />}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+      {/* Popover owns outside-click, Escape/Tab and the exit animation; the
+          portal moves the panel out of the navbar's paint-clip root. */}
+      {createPortal(
+        <Popover
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          triggerRef={btnRef}
+          className="notif-panel"
+          role="dialog"
+          aria-label="Notifications"
+          style={
+            panelPos
+              ? { position: "fixed", top: panelPos.top, right: panelPos.right }
+              : undefined
+          }
+        >
+          <div className="notif-panel__header">
+            <span className="notif-panel__title">Notifications</span>
+            <div className="notif-panel__actions">
+              {items.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    className="notif-panel__action"
+                    onClick={() => ctx?.markAllRead()}
+                    aria-label="Mark all read"
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    className="notif-panel__action"
+                    onClick={() => ctx?.clear()}
+                    aria-label="Clear all"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </>
               )}
+              <button
+                type="button"
+                className="notif-panel__action"
+                onClick={() => setOpen(false)}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+
+          <div className="notif-panel__body">
+            {items.length === 0 ? (
+              <p className="notif-panel__empty">No notifications yet.</p>
+            ) : (
+              <ul className="notif-panel__list">
+                {items.map((n) => (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      className={`notif-item${n.isRead ? " is-read" : ""}`}
+                      onClick={() => handleItemClick(n)}
+                    >
+                      {n.image && (
+                        <img src={n.image} alt="" className="notif-item__img" loading="lazy" />
+                      )}
+                      <div className="notif-item__text">
+                        <span className="notif-item__title">{n.title}</span>
+                        <span className="notif-item__msg">{n.message}</span>
+                        <span className="notif-item__meta">
+                          {n.platform ? `${n.platform} · ` : ""}
+                          {timeAgo(n.createdAt)}
+                        </span>
+                      </div>
+                      {!n.isRead && <span className="notif-item__dot" aria-hidden="true" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Popover>,
+        document.body,
+      )}
     </div>
   );
 }

@@ -738,16 +738,16 @@ html:not([data-theme]) .segment-btn.segment-active {
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px rgba(0,0,0,0.4);
 }
+/* Notification panel — portal-rendered by NotificationCenter from document.body,
+   positioned with inline fixed coords measured off the bell button. The glass
+   surface, blur, border, shadow and z-index come from .glass-popover
+   (var(--z-modal) keeps it above the --z-sticky navbar island). */
 .notif-panel {
-  position: absolute; right: 0; top: calc(100% + 8px);
-  width: 360px; max-width: calc(100vw - 24px);
-  max-height: 480px; overflow: hidden;
-  border-radius: 16px; padding: 12px;
-  background: rgba(18, 18, 22, 0.92);
-  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
-  z-index: 60;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: 480px;
+  padding: 12px;
+  border-radius: 16px;
   display: flex; flex-direction: column;
 }
 .notif-panel__header {
@@ -762,7 +762,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   color: rgba(255,255,255,0.6); background: transparent; border: none; cursor: pointer;
 }
 .notif-panel__action:hover { color: #fff; background: rgba(255,255,255,0.08); }
-.notif-panel__body { overflow-y: auto; padding-top: 8px; }
+.notif-panel__body { overflow-y: auto; padding-top: 8px; min-height: 0; }
 .notif-panel__empty { text-align: center; color: rgba(255,255,255,0.4); font-size: 13px; padding: 24px 8px; }
 .notif-panel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .notif-item {
