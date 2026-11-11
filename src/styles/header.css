@@ -227,26 +227,23 @@
   justify-content: center;
   gap: 5px;
   height: var(--nav-item-h);
-  /* Uniform-pill contract (2026-11-11): every tab shows icon + label at the
-     SAME geometry (--nav-item-w), so an active change is a pure position
-     slide — the pill's width never steps and the right-docked island never
-     reflows mid-glide. Slot + 13px type + 10px padding keep the dock SHORT:
-     sized for the longest translated label ("La Mia Lista"). */
-  min-width: var(--nav-item-w, 118px);
+  /* Text-only tabs (2026-11-11): inactive tabs render their label alone and
+     the icon mounts beside it on the ACTIVE tab only (display rules below) —
+     the dock stays short instead of uniform 118px slots. The geometry change
+     is measured in measurePill's synchronous useLayoutEffect in the same
+     commit the class flips, so the pill glide never desyncs from the dock. */
   padding: 0 10px;
   font-size: 13px;
   /* 600 is a frozen contract: motion.test pins it so the pill never reflows
      between rest and active state. */
   font-weight: 600;
-  color: rgba(var(--white-rgb), 0.72);
+  color: rgba(var(--white-rgb), 0.6);
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
   /* The ink never crossfades. It stays white and `difference` resolves it to
      black wherever the white pill is behind it, so the label is legible at
-     every pixel of the pill's travel. Each tab also keeps its icon slot and
-     weight while active — both used to widen the tab and shove the entire
-     right-docked dock sideways a frame before the pill had moved. */
+     every pixel of the pill's travel. */
   mix-blend-mode: difference;
   transition: background-color var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
   white-space: nowrap;
@@ -343,13 +340,22 @@ html[data-reduce-motion="true"] .nav-active-pill {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 2px;
 }
+/* Text-only tabs (2026-11-11): the icon renders beside the label on the
+   ACTIVE tab only. display:none lifts it out of flex flow, so inactive tabs
+   are pure text with no phantom gap, and measurePill re-measures the new
+   geometry in the same commit the class flips. The label (and the active
+   icon) sit above the pill. */
+.nav-link .nav-link-icon {
+  display: none;
+}
+.nav-link--active .nav-link-icon {
+  display: inline-block;
+}
 .nav-link-label,
-.nav-link svg {
+.nav-link--active .nav-link-icon {
   position: relative;
   z-index: 1;
 }
-/* Uniform pill: every tab's label is ALWAYS rendered (the tab is sized by
-   --nav-item-w), so no display toggling ever reflows the dock. */
 
 @media (prefers-reduced-motion: reduce) {
   .navbar,
@@ -368,12 +374,16 @@ html[data-reduce-motion="true"] .nav-active-pill {
   .nav-link {
     padding: 0 9px;
     gap: 0;
-    /* Compact strip: tabs shrink back to icon-sized slots — the uniform
-       geometry only applies where labels render. */
+    /* Icon-sized touch targets on the compact strip. */
     min-width: 44px;
   }
   .nav-link-label {
     display: none !important;
+  }
+  /* The compact strip is icon-only, so EVERY tab shows its icon here — not
+     just the active one. */
+  .nav-link .nav-link-icon {
+    display: inline-block;
   }
   .nav-link--home {
     padding: 0 9px;
@@ -419,38 +429,6 @@ html[data-reduce-motion="true"] .nav-active-pill {
    Keep the avatar glyph normal; the pill still reads behind it. */
 .nav-icon-btn--avatar {
   mix-blend-mode: normal;
-}
-
-/* Search is the one icon control that names its shortcut in the chrome. The
-   handler accepts metaKey or ctrlKey; the hint names the platform's key. */
-.nav-icon-btn--search {
-  width: auto;
-  min-width: var(--nav-item-h);
-  gap: 6px;
-  padding: 0 10px;
-  border-radius: var(--radius-full);
-}
-.nav-search-hint {
-  font-family: inherit;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.02em;
-  color: rgba(var(--white-rgb), 0.55);
-  border: 1px solid rgba(var(--white-rgb), 0.14);
-  border-radius: 5px;
-  padding: 3px 5px;
-}
-/* The pill is already condensed here (labels collapse at 880px); the shortcut
-   is the first thing to go, because the icon alone still works. */
-@media (max-width: 1120px) {
-  .nav-search-hint {
-    display: none;
-  }
-  .nav-icon-btn--search {
-    width: var(--nav-item-h);
-    padding: 0;
-  }
 }
 
 /* Signed-in, no photo: the account's initial in the utility slot. */

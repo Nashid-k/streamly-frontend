@@ -11,16 +11,6 @@ import AccountMenu from "./AccountMenu";
 import NotificationCenter from "../components/NotificationCenter";
 import BrandWordmark from "../components/BrandWordmark";
 
-/* The search control advertises its shortcut, and the shortcut differs by
-   platform: the handler below listens for metaKey OR ctrlKey, so the hint has
-   to name the key the viewer actually owns. Resolved once at module scope —
-   navigator doesn't change mid-session. */
-const SEARCH_HINT =
-  typeof navigator !== "undefined" &&
-  /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent || navigator.platform || "")
-    ? "\u2318K"
-    : "Ctrl K";
-
 /* ── Primary navigation ────────────────────────────────────────────────────
    Two independent floating islands (Cinejoy .header-row): the brand mark hangs
    ALONE at the left end, the desktop-nav glass pill (tabs · divider · icons)
@@ -288,10 +278,9 @@ function Header() {
                   title={label}
                   aria-current={active ? "page" : undefined}
                 >
-                  {/* Every tab keeps its icon; only the ACTIVE tab also shows
-                      its text label (header.css). aria-label carries the name
-                      for the icon-only tabs, so they never lose their
-                      accessible name when the label hides. */}
+                  {/* Text-only tabs keep the dock short; the icon mounts
+                      beside the label on the ACTIVE tab only (header.css).
+                      The label itself is always the accessible name. */}
                   <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
                   <span className="nav-link-label">{label}</span>
                 </Link>
@@ -311,13 +300,10 @@ function Header() {
               to={{ pathname: "/search", search: location.search }}
               data-nav-active={location.pathname === "/search" ? "true" : undefined}
               className={`nav-icon-btn nav-icon-btn--search${location.pathname === "/search" ? " nav-icon-btn--active" : ""}`}
-              aria-label={`${t("nav.search")} (${SEARCH_HINT})`}
-              title={`${t("nav.search")} (${SEARCH_HINT})`}
+              aria-label={t("nav.search")}
+              title={t("nav.search")}
             >
               <Search size={18} strokeWidth={2} />
-              <kbd className="nav-search-hint" aria-hidden="true">
-                {SEARCH_HINT}
-              </kbd>
             </Link>
 
             {/* Notifications */}

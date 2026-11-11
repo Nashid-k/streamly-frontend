@@ -727,11 +727,14 @@ describe("press feedback is one vocabulary", () => {
   });
 });
 
-describe("route planes move in the direction they are told", () => {
+describe("route planes arrive as one clean fade", () => {
   /* framer builds `transform` from x/y/scale/translateZ. A variant that also
      carries `transform: "translateZ(0)"` wins the style write and silently
-     drops the movement — verified in jsdom. Function variants (directional
-     planes) must resolve to that same clean shape. */
+     drops the movement — verified in jsdom. The 2026-11-11 user order removed
+     the directional rail (a ±44px x-slide with y/scale depth): it read as the
+     whole screen tilting sideways every time a route's data landed. Every
+     route now enters and exits on opacity alone; variants are plain objects
+     resolved through the same clean-shape guard. */
   const resolve = (state) => (typeof state === "function" ? state(1) : state);
 
   it("never sets a literal transform, which replaces x/y/scale", () => {
@@ -742,24 +745,20 @@ describe("route planes move in the direction they are told", () => {
     }
   });
 
-  it("rides the rail: forward pages enter from the right, back pages from the left", () => {
-    const plane = ROUTE_VARIANTS["fade-up-subtle"];
-    // Forward travel: the arriving page comes from the right and springs to place.
-    expect(plane.initial(1).x).toBeGreaterThan(0);
-    expect(plane.initial(1).y).toBeGreaterThan(0);
-    expect(plane.initial(1).scale).toBeLessThan(1);
-    // Back travel mirrors the rail.
-    expect(plane.initial(-1).x).toBeLessThan(0);
-    // Handoff: the leaving page drifts to the opposite side of the same rail.
-    expect(plane.exit(1).x).toBeLessThan(0);
-    expect(plane.exit(-1).x).toBeGreaterThan(0);
-    expect(plane.exit(1).pointerEvents).toBe("none");
-    // Deeper pages keep a stronger arrival rise.
-    expect(ROUTE_VARIANTS["fade-up"].initial(1).y).toBeGreaterThan(plane.initial(1).y);
-    expect(ROUTE_VARIANTS["fade-up"].initial(1).scale).toBeLessThan(1);
-    // Direction-neutral characters carry no directional x at all.
-    expect(ROUTE_VARIANTS["fade-only"].initial).not.toBeTypeOf("function");
-    expect(ROUTE_VARIANTS["fade-only"].initial).not.toHaveProperty("x");
+  it("fades the plane in place — no directional travel on any route", () => {
+    for (const [variant, states] of Object.entries(ROUTE_VARIANTS)) {
+      const enter = resolve(states.initial);
+      const exit = resolve(states.exit);
+      expect(enter, `${variant}.initial`).toHaveProperty("opacity", 0);
+      expect(enter, `${variant}.initial`).not.toHaveProperty("x");
+      expect(enter, `${variant}.initial`).not.toHaveProperty("y");
+      expect(enter, `${variant}.initial`).not.toHaveProperty("scale");
+      expect(exit, `${variant}.exit`).not.toHaveProperty("x");
+      expect(exit, `${variant}.exit`).not.toHaveProperty("y");
+      expect(exit, `${variant}.exit`).not.toHaveProperty("scale");
+      // The leaving ghost must not swallow the click that navigated.
+      expect(exit, `${variant}.exit`).toHaveProperty("pointerEvents", "none");
+    }
     // crossfade holds a sliver of the outgoing page instead of a hard 0.
     expect(ROUTE_VARIANTS.crossfade.exit.opacity).toBeGreaterThan(0);
   });
@@ -770,11 +769,12 @@ describe("navigation moves one pill, never the dock", () => {
      reflow of the whole island: 23px of nav shift used to land before the
      pill had moved a single pixel. The ink also crossfaded for 0.3s, leaving
      the outgoing label black-on-glass and the incoming label white-on-white
-     mid-flight. These guards pin the fixes: (a) every tab renders icon+label
-     at the SAME geometry (the uniform-pill contract, 2026-11-11, supersedes
-     the icon-only brief — with the width frozen across tabs the glide is a
-     pure position slide and no label reveal can reflow the dock), (b) the
-     ink is a blend against the pill, not a timed colour change. */
+     mid-flight. The current contract (2026-11-11, "keep only texts on non
+     active navs and text+icon on active ones — the nav is too lengthy"):
+     (a) inactive tabs are TEXT ONLY and the icon mounts beside the label on
+     the active one, (b) measurePill measures synchronously in the same commit
+     the class flips, so the geometry change and the glide land together,
+     (c) the ink is a blend against the pill, not a timed colour change. */
   const headerCss = readFileSync(join(process.cwd(), "src", "styles", "header.css"), "utf8");
   const responsiveCss = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
   const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
@@ -786,24 +786,37 @@ describe("navigation moves one pill, never the dock", () => {
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
   }
 
-  it("renders every tab at one shared geometry so the glide is a pure slide", () => {
+  it("keeps the dock short: text-only tabs, the icon joins the active one", () => {
     const tab = block(headerCss, ".nav-link");
-    expect(tab).toMatch(/font-weight:\s*600/);
-    // Every tab is icon + label inside the same --nav-item-w slot: switching
-    // tabs changes the pill's position only, never its size.
-    expect(tab).toMatch(/min-width:\s*var\(--nav-item-w/);
-    expect(tokensCss).toMatch(/--nav-item-w:/);
-    // The old icon-only reveal (label display:none on inactive tabs) must
-    // stay gone — it was the width step that reflowed the dock mid-glide.
+    expect(tab).toMatch(/font-weight: 600/);
+    // No uniform slot: tabs size to their label, so the dock is as short as
+    // the text allows (--nav-item-w is gone from tokens.css).
+    expect(tab).not.toMatch(/min-width:/);
+    expect(tokensCss).not.toMatch(/--nav-item-w:/);
+    // The icon renders beside the label on the ACTIVE tab only — the 2026-11-11
+    // text-only contract. display:none lifts it out of flex flow on inactive
+    // tabs, leaving no phantom gap for measurePill to mis-measure.
+    expect(headerCss).toMatch(/\.nav-link \.nav-link-icon\s*\{[^}]*display:\s*none/);
+    expect(headerCss).toMatch(/\.nav-link--active \.nav-link-icon\s*\{[^}]*display:\s*inline-block/);
+    // The ≤880px compact strip is icon-only, so every tab re-shows its icon
+    // there — otherwise non-active tabs would render empty.
+    const compact = headerCss.match(/@media \(max-width:\s*880px\)\s*\{([\s\S]*?)\n\}/)?.[1] || "";
+    expect(compact).toMatch(/\.nav-link \.nav-link-icon\s*\{[^}]*display:\s*inline-block/);
+    // The old icon-only reveal (label display:none on inactive tabs) must stay
+    // gone on desktop — the label is always the accessible name there.
     expect(headerCss).not.toMatch(
       /\.nav-link:not\(\.nav-link--active\) \.nav-link-label\s*\{[^}]*display:\s*none/,
     );
-    // The icon slot itself must never appear/disappear on activation — that
-    // was the original reflow bug (the icon mounted in a post-paint settle).
+    // Weight stays frozen across states: the pill never reflows from the ink.
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/font-weight:/);
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/padding:|gap:/);
     expect(block(headerCss, ".nav-link--home")).not.toMatch(/font-weight:/);
-    expect(headerCss).not.toMatch(/\.nav-link-icon[^{]*\{[^}]*display:\s*none/);
+    // The visible ⌘K / Ctrl K hint is gone (2026-11-11 user order): search is
+    // a plain icon button again. The Ctrl+K handler itself stays in Header.jsx.
+    expect(headerCss).not.toMatch(/nav-search-hint/);
+    expect(headerJsx).not.toMatch(/<kbd/);
+    expect(headerJsx).not.toMatch(/SEARCH_HINT/);
+    expect(headerJsx).toMatch(/metaKey \|\| e\.ctrlKey/);
   });
 
   it("keeps the ink in one place and lets difference resolve it over the pill", () => {
