@@ -777,10 +777,24 @@ Never mark a blocked task done. Completion % is recomputed as
   summary/count/clear affordances instead.
 - 2026-11-11 · P2-3 (follow-up) · DONE · Hero banner polish requested by the user: the
   backdrop scrim is neutral black again (`rgba(var(--black-rgb), α)`) so the artwork is not
-  re-tinted green — only the bottom stop still meets the stage floor; the tick row is a glass
-  pill again with the accent progress fill visible, and every slide change (auto **or** a
+  re-tinted green — only the bottom stop still meets the stage floor; the tick row is a  glass pill again with the accent progress fill visible, and every slide change (auto **or** a
   manual tick/arrow) re-arms the 8s timer, so the pill fill is now an accurate countdown.
   Files: `src/styles/hero.css`, `src/pages/HomePage.jsx` (`HERO_DWELL_MS`, `featuredIndex` dep)
+  Follow-up (same session): the tick row was being reported as merged into a single pill and the
+  title logo looked too small. Re-closed: one distinct pill per slide — 48px wide, 7px tall, 
+  with an 8px gap between neighbours (arrows + a 10px gap between the visible pills at ≤480px 
+  where the arrows hide) — each inside a 48×44 hit button; arrows are hidden below 480px so the 
+  row never overflows; a control click/keydown now stops propagation so it changes the slide 
+  without also opening the detail modal; the title logo/text was bumped up (`clamp(96px,
+  17vw,190px)` image, `clamp(1.9rem,4.4vw,3.6rem)` text fallback). Geometry verified over CDP at 
+  360/390/480/481/1440; still needs a catalogue host to render the real logo.
+  Follow-up 2 (same session, after the first landing flaked under the full suite): the effect
+  that re-arms the timer still listed `featuredIndex` in its deps, which restarted the interval
+  on every slide and widened the render window the pool-leak test inspects. The timer stabilised
+  to `[reduceMotion, hasMultipleFeatured]` (the tick reads the live index itself via
+  `nextSlide()`), and the preloader shrank to `[featuredIndex, finalPool.length, nextMovie]` so it
+  no longer re-runs on every tick. Lint 0 errors / 134 warnings · 118 files / 1439 tests green 
+  · build 2.4s.
 
 - 2026-11-11 · **PHASES 0–2 FINISHED** · DONE/ PARTIAL · Closed the last open items in the
   three phases: P0-8 literal sweep (387 tokens in 61 files), P2-3 interactive hero paging

@@ -17,6 +17,8 @@
 
  ## Done (in order)
 
+- [x] **Home banner follow-up (Phase 2-3):** tick row merged into one pill → re-closed as distinct pills (48×7, 8px gaps, 48×44 hit; arrows hidden ≤480px); title logo looked small → bumped to `clamp(96px,17vw,190px)` image / `clamp(1.9rem,4.4vw,3.6rem)` text; control click/keydown stop propagation so they change the slide without opening the detail modal. CDP geometry verified at 360/390/480/481/1440. Lint 0 errors / 134 warnings · 118/118 files · 1439/1439 tests · build 2.4s.
+
 - [x] **UI/UX Phase 0 — foundations: one card radius, a type floor, and a real focus ring — 2026-11-10 (branch `main`).**
   - **Card geometry unified.** New `--radius-card` (12px) is now the single value for the poster artwork (`.poster-wrapper`), the card shell (`.movie-card`) and the card skeleton (`.skeleton-moviecard .sk-poster`). They had drifted to 16px / 0.95rem (15.2px) / 0.95rem, so a card's inner and outer corners were computed from different numbers.
   - **Type floor: 11px.** New `--text-2xs` (0.6875rem) plus `--text-lg` / `--text-2xl` / `--text-3xl` complete the scale; the poster badge chips in `MovieCard.jsx` were authored at `0.5rem`/`0.55rem` (8–8.8px) and are now `--text-2xs` (5 call sites: release chip, S/E chip, air-day chip, SERIES chip, countdown chip). Nothing informational renders below 11px now.

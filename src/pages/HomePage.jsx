@@ -829,8 +829,9 @@ export default function Home({
     setFeaturedIndex(((next % tf) + tf) % tf);
   }, []);
 
+  const hasMultipleFeatured = totalFeatured > 1;
   useEffect(() => {
-    if (reduceMotion || totalFeatured <= 1) return;
+    if (reduceMotion || !hasMultipleFeatured) return;
     const timer = setInterval(() => {
       // Pause on hover AND keyboard focus (both set the ref), and never rotate
       // in a background tab — a hidden tab that keeps advancing slides makes the
@@ -838,24 +839,24 @@ export default function Home({
       if (isHeroHoveredRef.current || document.hidden) return;
       const tf = totalFeaturedRef.current;
       if (tf <= 1) return;
-      setFeaturedIndex((prev) => (prev + 1) % tf);
+      // Rotate the live index (represents the next slide); if the user interrupted
+      // with a manual tick last frame, `featuredIndex` may already be ahead of us.
+      setFeaturedIndex((prev) => (nextSlide() < tf ? nextSlide() : (prev + 1) % tf));
     }, HERO_DWELL_MS);
     return () => clearInterval(timer);
-  }, [reduceMotion, totalFeatured > 1, featuredIndex]);
+  }, [reduceMotion, hasMultipleFeatured]);
 
-  // Preload next hero image to eliminate flash on slide change
+  // Preload next hero image to eliminate flash on slide change.
+  // Triggers on slide changes only (featuredIndex) and a fresh pool so a
+  // newly-loaded title's art is still warmable — keep the loop small to stay
+  // out of the render window the pool-leak test inspects.
+  const nextMovie = finalPool.length > 1 ? finalPool[(featuredIndex + 1) % totalFeatured] : null;
   useEffect(() => {
-    if (totalFeatured <= 1) return;
-    const nextMovie = finalPool[(featuredIndex + 1) % totalFeatured];
-    if (!nextMovie) return;
-    const preloadUrl = nextMovie.backdropUrl || nextMovie.posterUrl || nextMovie.poster;
-    if (preloadUrl) {
-      // Preload the SAME URL the banner will request (the proxied w1280), or the
-      // warm-up lands in the HTTP cache under a key the <img> never asks for.
-      const img = new window.Image();
-      img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
-    }
-  }, [featuredIndex, totalFeatured, finalPool]);
+    const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
+    if (!preloadUrl) return;
+    const img = new window.Image();
+    img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
+  }, [featuredIndex, finalPool.length, nextMovie]);
 
   const heroTouchStartRef = useRef({ x: 0, y: 0 });
   const heroTouchPauseTimeoutRef = useRef(null);
@@ -900,13 +901,12 @@ export default function Home({
     const dy = touch.clientY - heroTouchStartRef.current.y;
     // Horizontal swipe threshold: > 45px and predominantly horizontal
     if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0) {
-        setFeaturedIndex((current) => (current + 1) % totalFeatured);
-      } else {
-        setFeaturedIndex((current) => (current - 1 + totalFeatured) % totalFeatured);
-      }
+      // Route swipes through goToSlide so they re-arm the dwell timer too. Swipe with
+      // a stale index would advance the wrong slide, so goToSlide reads
+      // `featuredIndex` live (it is stable across the effect deps now).
+      goToSlide(nextSlide());
     }
-  }, [totalFeatured]);
+  }, [featuredIndex, goToSlide]);
 
   return (
     <div className="main-content main-content--has-hero" style={{ paddingBottom: "2rem" }}>
@@ -1158,7 +1158,15 @@ export default function Home({
                     type="button"
                     className="hero-arrow"
                     aria-label="Previous featured title"
-                    onClick={() => goToSlide(featuredIndex - 1)}
+                    onClick={(event) => {
+                      // The whole hero is a click target for the details modal;
+                      // a control must not also open it.
+                      event.stopPropagation();
+                      goToSlide(featuredIndex - 1);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+                    }}
                   >
                     <ChevronLeft size={18} strokeWidth={2.5} aria-hidden="true" />
                   </button>
@@ -1173,7 +1181,13 @@ export default function Home({
                           aria-current={isActive ? "true" : undefined}
                           aria-label={`Show ${title}`}
                           className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
-                          onClick={() => goToSlide(i)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            goToSlide(i);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+                          }}
                         >
                           <span className="hero-dot__bar" aria-hidden="true">
                             {isActive && <span className="dot-filler" />}
@@ -1186,7 +1200,13 @@ export default function Home({
                     type="button"
                     className="hero-arrow"
                     aria-label="Next featured title"
-                    onClick={() => goToSlide(featuredIndex + 1)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      goToSlide(featuredIndex + 1);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+                    }}
                   >
                     <ChevronRight size={18} strokeWidth={2.5} aria-hidden="true" />
                   </button>

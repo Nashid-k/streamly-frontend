@@ -66,7 +66,9 @@
 }
 
 .hero-title {
-  font-size: clamp(1.5rem, 3.5vw, 2.8rem);
+  /* Text fallback for titles TMDB has no wordmark for — keep it as loud as
+     the logo it replaces. */
+  font-size: clamp(1.9rem, 4.4vw, 3.6rem);
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.03em;
@@ -114,7 +116,7 @@
     max-width: min(680px, 64vw) !important;
   }
   .hero-title {
-    font-size: clamp(1.75rem, 3.8vw, 2.75rem) !important;
+    font-size: clamp(2rem, 4.2vw, 3rem) !important;
     margin-bottom: 0.5rem !important;
   }
   .hero-desc {
@@ -356,8 +358,10 @@
 
 /* Logo image */
 .hero-logo-img {
-  max-height: clamp(80px, 14vw, 140px);
-  max-width: min(480px, 90%);
+  /* Banner title scale: the wordmark is the hero's focal point, so it is sized
+     off the viewport (17vw) with a much higher cap than before. */
+  max-height: clamp(96px, 17vw, 190px);
+  max-width: min(560px, 92%);
   width: auto;
   height: auto;
   object-fit: contain;
@@ -370,7 +374,7 @@
 /* Reserved slot while the wordmark lookup is in flight (see HeroTitleLogo). */
 .hero-logo-img--placeholder {
   display: block;
-  min-height: clamp(55px, 10vw, 100px);
+  min-height: clamp(70px, 13vw, 140px);
   min-width: 8rem;
   margin-bottom: 1.1rem;
 }
@@ -566,10 +570,10 @@
    featured rotation only swaps background colors instead of transitioning
    `width` (which reflowed the pills row each cycle). Idle slots read wider and
    airier than the old 18px pills - deliberate look change, cheap to revert. */
-/* The 44px button is the hit area; the 52x7 pill inside it is the visual.
-   Keeping the bar as a child means the target grew without the row reflowing. */
+/* One pill PER slide (never one continuous bar): each 48x44 button is the hit
+   area and its 7px bar is the visual, with a real gap between neighbours. */
 .hero-dot {
-  width: 44px;
+  width: 48px;
   height: 44px;
   display: grid;
   place-items: center;
@@ -588,7 +592,7 @@
 .hero-dot__bar {
   position: relative;
   display: block;
-  width: 52px;
+  width: 100%;
   height: 7px;
   overflow: hidden;
   border-radius: var(--radius-full);
@@ -621,7 +625,24 @@
 .hero-dots__ticks {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 8px;
+}
+/* Below 480px the arrows go: the row is swipeable and the ticks stay the
+   primary control, so the pill track never overflows. The buttons stay 44px
+   (hit area) while the visible pill narrows to 36px. */
+@media (max-width: 480px) {
+  .hero-nav .hero-arrow {
+    display: none;
+  }
+  .hero-dot {
+    width: 44px;
+  }
+  .hero-dot__bar {
+    width: 36px;
+  }
+  .hero-dots__ticks {
+    gap: 2px;
+  }
 }
 .hero-arrow {
   display: grid;
