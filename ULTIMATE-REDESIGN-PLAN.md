@@ -790,13 +790,12 @@ Never mark a blocked task done. Completion % is recomputed as
   360/390/480/481/1440; still needs a catalogue host to render the real logo.
   Follow-up 2 (same session, after the first landing flaked under the full suite)
   (timing patch, part 1 of the follow-up): the effect that re-arms the timer still listed `featuredIndex` in its deps, which restarted the interval
-  on every slide and widened the render window the pool-leak test inspects. The timer stabilised
-  to `[reduceMotion, hasMultipleFeatured]` (the tick reads the live index itself via
+  on every slide and widened the render window the pool-leak test inspects. The timer stabilised  to `[reduceMotion, hasMultipleFeatured]` (the tick reads the live index itself via
   `nextSlide()`), and the preloader shrank to `[featuredIndex, finalPool.length, nextMovie]` so it
-  no longer re-runs on every tick. Lint 0 errors / 134 warnings · 118 files / 1439 tests green 
-  · build 2.4s.
-
-- 2026-11-11 · **PHASES 0–2 FINISHED** · DONE/ PARTIAL · Closed the last open items in the
+  no longer re-runs on every tick. Lint 0 errors / 134 warnings · 118 files / 1439 tests green · build 2.4s.
+  Still-blocked, needs a catalogue host: the banner's real title logo (TMDB wordmark) never renders here, so the banner is
+  verified by geometry + gates, not by a real logo screenshot.
+  - 2026-11-11 · **PHASES 0–2 FINISHED** · DONE/ PARTIAL · Closed the last open items in the
   three phases: P0-8 literal sweep (387 tokens in 61 files), P2-3 interactive hero paging
   (44px ticks + arrows + `aria-live` + dwell guard), P2-11 genre tile grid; P0-9 attempted
   with headless Chrome at 390/768/1440 (shell verified, catalogue unreachable). Result:
