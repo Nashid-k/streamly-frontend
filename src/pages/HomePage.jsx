@@ -829,6 +829,14 @@ export default function Home({
     setFeaturedIndex(((next % tf) + tf) % tf);
   }, []);
 
+  // Live mirror of featuredIndex for the auto-rotation / swipe handlers, which
+  // close over a stale `featuredIndex` because their effect deps are stable.
+  const featuredIndexRef = useRef(featuredIndex);
+  useEffect(() => {
+    featuredIndexRef.current = featuredIndex;
+  }, [featuredIndex]);
+  const nextSlide = useCallback(() => featuredIndexRef.current + 1, []);
+
   const hasMultipleFeatured = totalFeatured > 1;
   useEffect(() => {
     if (reduceMotion || !hasMultipleFeatured) return;
