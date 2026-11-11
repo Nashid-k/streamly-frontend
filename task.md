@@ -17,6 +17,11 @@
 
  ## Done (in order)
 
+- [x] **Centred circular play disc on every rail card — 2026-11-11 (branch `main`).**
+  - `MovieCard` gains a `card-play-disc` layer: a 46px blurred-glass circle (black/60 + 12px backdrop blur, white border, soft shadow — Continue Watching's hover-disc language) dead-centre of the poster, revealed on hover/keyboard focus with a 0.7→1 scale pop.
+  - z-index 15 — above the veil (2), badge row (10) and curtain band (5), so no rail layer paints over it; hidden entirely on touch (`@media (hover: none)`, off the tab order); click plays via `/watch/:id/:slug` with stopPropagation.
+  - Gates: lint 0 errors; full suite 118 files / 1439 tests green on first run; build 1.78s.
+
 - [x] **Rail hover Play + title, icon-only nav pills, top scroll line removed — 2026-11-11 (branch `main`).**
   - **Rail card hover** (`MovieCard.jsx` + `grids.css`): the curtain now reveals the title (`curtain-title`, one-line ellipsis) and a white **Play** pill (`curtain-play`) above the rating/year line — same bottom-band language as Continue Watching's Resume pill. Play navigates straight to `/watch/:id/:slug` (auto-resume) with stopPropagation so the card's details action stays quiet; `:focus-within` keeps the curtain open while the pill is keyboard-focused; `@media (hover: none)` drops the button from touch tab order.
   - **Nav pills** (`Header.jsx` + `header.css`): non-active tabs are icon-only (`aria-label` + `title` keep the name/tooltip); the active tab shows icon + label via a `.nav-link:not(.nav-link--active) .nav-link-label { display: none }` rule — pure CSS off the same class `measurePill` reads, so the pill re-measures in one commit. `motion.test.js` nav guard rewritten to pin the new contract (icon slot never toggles; labels render on the active pill only).

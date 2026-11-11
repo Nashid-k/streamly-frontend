@@ -164,6 +164,54 @@
   font-weight: 600;
   color: rgba(var(--white-rgb), 0.9);
 }
+/* ── Centred play disc ─────────────────────────────────────────────────────
+   The brief's hover affordance on every rail card: a circular, blurred-glass
+   disc dead-centre of the poster (same visual language as Continue
+   Watching's hover disc). It rides ABOVE the veil (z 2), the badge row
+   (z 10) and the curtain band (z 5) at z 15, so no rail layer can paint
+   over it. The whole layer scales in from 0.7 for a soft pop. */
+.card-play-disc {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.7);
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-normal) var(--ease-silk);
+}
+.card-play-disc__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(var(--white-rgb), 0.28);
+  border-radius: 50%;
+  background: rgba(9, 9, 11, 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: var(--white);
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+.card-play-disc__btn:hover {
+  background: rgba(9, 9, 11, 0.78);
+  border-color: rgba(var(--white-rgb), 0.45);
+  transform: scale(1.08);
+}
+.card-play-disc__btn:active {
+  transform: scale(0.92);
+}
+@media (hover: none) {
+  /* Touch devices never hover — the disc leaves the tab order entirely. */
+  .card-play-disc {
+    display: none;
+  }
+}
 /* Hover title: the card's own name, one line, clipped by the band. */
 .curtain-title {
   font-size: 0.82rem;
@@ -226,6 +274,11 @@
        choreography. */
     transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
   }
+  .movie-card:hover .card-play-disc {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
 }
 
 /* Keyboard focus opens the same curtain (media query above never matches a
@@ -253,6 +306,13 @@
   transform: translateY(0);
   pointer-events: auto;
   transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
+}
+/* Keyboard parity for the disc: card focus or focus on either play control. */
+.movie-card:focus-visible .card-play-disc,
+.movie-card:focus-within .card-play-disc {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
 }
 
 /* Press sink — last so it beats the matching :hover/:focus-visible lift while

@@ -469,6 +469,29 @@ const MovieCard = memo(function MovieCard({
               }}
             />
 
+            {/* Centred play disc — appears on hover/focus above every layer
+                (z 15), plays the title straight from the poster. */}
+            <div className="card-play-disc">
+              <button
+                type="button"
+                className="card-play-disc__btn"
+                aria-label={`Play ${movie.title}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(watchTo);
+                }}
+              >
+                <Play
+                  size={20}
+                  fill="currentColor"
+                  stroke="none"
+                  style={{ marginLeft: "2px" }}
+                  aria-hidden="true"
+                />
+              </button>
+            </div>
+
             {/* ── Cinematic curtain ─────────────────────────── */}
             <div
               className="card-curtain"
@@ -476,9 +499,9 @@ const MovieCard = memo(function MovieCard({
                  a BOTTOM gradient band (`from-black/85 via-black/40 to-
                  transparent`, `p-3 pt-10`) that rises 8px and fades in over
                  `duration-300 ease-tv`. Their band stops at the rating/year
-                 line; the home brief adds the title and a direct Play pill
-                 (same bottom-band language as Continue Watching) — still no
-                 centred play disc, the whole card remains the target. */
+                 line; ours adds the title and a direct Play pill (same
+                 bottom-band language as Continue Watching), plus the centred
+                 disc rendered above this layer. */
               style={{
                 position: "absolute",
                 inset: "auto 0 0 0",
