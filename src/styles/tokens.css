@@ -155,6 +155,11 @@
   /* 44px minimum target (brief §8). The pill grows with it; the condense
      transform keeps the header from shifting the page. */
   --nav-item-h: 44px;
+  /* Uniform tab width (2026-11-11): every desktop tab renders icon + label
+     inside the SAME slot, so the active pill never changes size between tabs
+     and its glide is a pure position slide. Sized for the longest translated
+     label ("La Mia Lista") + icon + 14px side padding. */
+  --nav-item-w: 136px;
   --nav-fade: var(--duration-fast) var(--ease-out);
   --condense-ease: var(--ease-out);
 

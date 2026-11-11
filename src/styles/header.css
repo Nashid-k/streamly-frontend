@@ -146,9 +146,12 @@
   padding: var(--nav-pad) 6px var(--nav-pad) var(--nav-pad);
   max-width: fit-content;
   border-radius: var(--radius-full);
-  background: transparent;
-  backdrop-filter: blur(8px) saturate(135%);
-  -webkit-backdrop-filter: blur(8px) saturate(135%);
+  /* Frosted glass at rest too: a faint dark tint makes the backdrop blur
+     readable over any artwork behind it (a transparent bg used to hide the
+     blur entirely until scroll). */
+  background: rgba(12, 12, 14, 0.32);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   transform: translateZ(0);
   will-change: transform;
   border: 1px solid rgba(var(--white-rgb), 0.08);
@@ -163,8 +166,8 @@
 .navbar.scrolled {
   transform: translateY(-4px) translateZ(0);
   background: rgba(12, 12, 14, 0.72);
-  backdrop-filter: blur(8px) saturate(135%);
-  -webkit-backdrop-filter: blur(8px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border-color: rgba(var(--white-rgb), 0.1);
   box-shadow: inset 0 1px rgba(var(--white-rgb), 0.14), 0 10px 36px rgba(var(--black-rgb), 0.4);
 }
@@ -215,7 +218,12 @@
   justify-content: center;
   gap: 6px;
   height: var(--nav-item-h);
-  padding: 0 24px;
+  /* Uniform-pill contract (2026-11-11): every tab shows icon + label at the
+     SAME geometry (--nav-item-w), so an active change is a pure position
+     slide — the pill's width never steps and the right-docked island never
+     reflows mid-glide. */
+  min-width: var(--nav-item-w, 136px);
+  padding: 0 14px;
   font-size: 14px;
   /* 600 is a frozen contract: motion.test pins it so the pill never reflows
      between rest and active state. */
@@ -237,14 +245,6 @@
 .nav-link:hover {
   color: var(--white);
 }
-}
-/* Wide desktops get the brief's 24px item padding; below 1200px that would
-   let the pill crowd the brand island, so the padding steps down while the
-   44px target height stays. */
-@media (max-width: 1199px) {
-  .nav-link {
-    padding: 0 14px;
-  }
 }
 .nav-link:active {
   transform: scale(0.96);
@@ -338,13 +338,8 @@ html[data-reduce-motion="true"] .nav-active-pill {
   position: relative;
   z-index: 1;
 }
-/* Icon-only tabs: the text label renders on the ACTIVE pill only — every
-   other tab is its icon (the Link's aria-label keeps the accessible name).
-   The reveal is pure CSS off the same class measurePill reads, so the pill's
-   geometry settles in one commit instead of a post-paint reflow. */
-.nav-link:not(.nav-link--active) .nav-link-label {
-  display: none;
-}
+/* Uniform pill: every tab's label is ALWAYS rendered (the tab is sized by
+   --nav-item-w), so no display toggling ever reflows the dock. */
 
 @media (prefers-reduced-motion: reduce) {
   .navbar,
@@ -363,6 +358,9 @@ html[data-reduce-motion="true"] .nav-active-pill {
   .nav-link {
     padding: 0 9px;
     gap: 0;
+    /* Compact strip: tabs shrink back to icon-sized slots — the uniform
+       geometry only applies where labels render. */
+    min-width: 44px;
   }
   .nav-link-label {
     display: none !important;

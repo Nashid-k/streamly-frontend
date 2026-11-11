@@ -655,3 +655,30 @@
   border: 0;
 }
 
+/* ── Browse-page banner (Movies / Series) — compact variant of the home hero ──
+   BrowseBanner reuses every hero-* class above; only the geometry shrinks
+   (the grid must stay reachable). !important keeps the compact height ahead
+   of the shared .hero-container/.skeleton-hero media overrides. */
+.hero-container--browse {
+  height: min(62vh, 620px) !important;
+  min-height: 400px !important;
+  max-height: 620px !important;
+}
+@media (max-height: 650px) {
+  .hero-container--browse {
+    min-height: 340px !important;
+  }
+}
+.hero-container--browse .hero-logo-img,
+.hero-container--browse .hero-logo-img--placeholder {
+  height: clamp(56px, 9vw, 96px);
+  min-height: clamp(56px, 9vw, 96px);
+}
+.hero-container--browse .hero-desc--apple {
+  -webkit-line-clamp: 3;
+}
+.hero-container--browse .hero-content--apple {
+  padding-bottom: 2.5rem !important;
+}
+
+

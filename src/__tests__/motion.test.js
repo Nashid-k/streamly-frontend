@@ -770,12 +770,11 @@ describe("navigation moves one pill, never the dock", () => {
      reflow of the whole island: 23px of nav shift used to land before the
      pill had moved a single pixel. The ink also crossfaded for 0.3s, leaving
      the outgoing label black-on-glass and the incoming label white-on-white
-     mid-flight. These guards pin the fixes: (a) the ICON SLOT never toggles
-     (the home brief, 2026-11-11, makes non-active tabs icon-only and the
-     active tab icon+label — that label reveal is the only width change, and
-     it is pure CSS off the same class measurePill reads, so it settles in
-     one commit), (b) the ink is a blend against the pill, not a timed colour
-     change. */
+     mid-flight. These guards pin the fixes: (a) every tab renders icon+label
+     at the SAME geometry (the uniform-pill contract, 2026-11-11, supersedes
+     the icon-only brief — with the width frozen across tabs the glide is a
+     pure position slide and no label reveal can reflow the dock), (b) the
+     ink is a blend against the pill, not a timed colour change. */
   const headerCss = readFileSync(join(process.cwd(), "src", "styles", "header.css"), "utf8");
   const responsiveCss = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
   const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
@@ -787,13 +786,16 @@ describe("navigation moves one pill, never the dock", () => {
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
   }
 
-  it("shows text only on the active pill and keeps the icon slot stable", () => {
+  it("renders every tab at one shared geometry so the glide is a pure slide", () => {
     const tab = block(headerCss, ".nav-link");
     expect(tab).toMatch(/font-weight:\s*600/);
-    // Non-active tabs are icon-only; the active tab reveals its label. The
-    // reveal rides the same class the pill measures, so geometry settles in
-    // one commit (no mid-flight reflow).
-    expect(headerCss).toMatch(
+    // Every tab is icon + label inside the same --nav-item-w slot: switching
+    // tabs changes the pill's position only, never its size.
+    expect(tab).toMatch(/min-width:\s*var\(--nav-item-w/);
+    expect(tokensCss).toMatch(/--nav-item-w:/);
+    // The old icon-only reveal (label display:none on inactive tabs) must
+    // stay gone — it was the width step that reflowed the dock mid-glide.
+    expect(headerCss).not.toMatch(
       /\.nav-link:not\(\.nav-link--active\) \.nav-link-label\s*\{[^}]*display:\s*none/,
     );
     // The icon slot itself must never appear/disappear on activation — that

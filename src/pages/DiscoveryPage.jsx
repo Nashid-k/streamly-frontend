@@ -20,6 +20,7 @@ import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
 import BrowseBar from "../components/browse/BrowseBar";
+import BrowseBanner from "../components/browse/BrowseBanner";
 import useDetailView from "../hooks/useDetailView";
 import { useOptionalPreferences } from "../context/preferences";
 import { pickImageWidth } from "../utils/artwork";
@@ -403,6 +404,16 @@ export default function DiscoveryPage({ mode = "movies" }) {
     [gridQuery.data],
   );
 
+  // ── Banner pool — the page's own first results, so the hero always shows a
+  // title the grid actually browses ("corresponding banners"). Titles without
+  // backdrop art are skipped; the compact BrowseBanner rotates the first six.
+  // Placeholder pages during a filter swap keep the previous banner up — the
+  // new pool resets the slide to 0 when it lands.
+  const bannerPool = useMemo(
+    () => gridItems.filter((m) => m && m.backdropUrl).slice(0, 6),
+    [gridItems],
+  );
+
   // ── Random draws only from the CURRENT filter's results ─────────────────
   // While a new filter's first page is in flight react-query keeps the previous
   // filter's rows mounted as placeholderData; those are stale, so exclude them
@@ -603,18 +614,20 @@ export default function DiscoveryPage({ mode = "movies" }) {
       {ambientSrc && <AmbientBackground src={ambientSrc} />}
 
       <div className="discovery-page relative z-10">
+        {/* ── Hero banner — compact home-style hero fed by this page's own
+            results (movies → movies, series → series). Sits flush at the top
+            behind the floating navbar, exactly like the home hero. */}
+        <ErrorBoundary>
+          <BrowseBanner pool={bannerPool} loading={gridLoading} />
+        </ErrorBoundary>
+
         {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="relative mx-auto max-w-[1600px] pt-20 sm:pt-24 pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-8 sm:pt-12 pb-6 px-3 sm:px-6 md:px-8 space-y-6 sm:space-y-8">
+        <header className="relative mx-auto max-w-[1600px] pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
+          <div className="relative pt-5 sm:pt-6 pb-2 px-3 sm:px-6 md:px-8 space-y-4 sm:space-y-5">
             <div className="flex flex-col xl:flex-row gap-10 xl:gap-8 items-start xl:items-end justify-between">
-              <div className="max-w-xl">
-                <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">
-                  {cfg.title}
-                </h1>
-                <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
-                  {cfg.subtitle}
-                </p>
-              </div>
+              {/* The banner's wordmark is the visible title; the page heading
+                  stays available to assistive tech and the document outline. */}
+              <h1 className="sr-only">{cfg.title}</h1>
 
               {/* Filter pills */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
