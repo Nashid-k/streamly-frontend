@@ -93,9 +93,8 @@ function Header() {
     };
   }, [navigate, location.search]);
 
-  // Scrolled is a boolean, so this effect only re-renders on the 50px — the
-  // RIVO progress rail is a CSS scroll timeline (header.css) and React no
-  // longer tracks the scroll fraction per frame.
+  // Scrolled is a boolean, so this effect only re-renders on the 50px —
+  // React no longer tracks the scroll fraction per frame.
   const [isScrolled, setIsScrolled] = useState(false);
 
   useEffect(() => {
@@ -215,11 +214,6 @@ function Header() {
 
   return (
     <header className={`header-row${isScrolled ? " scrolled" : ""}`}>
-      {/* RIVO scroll-progress rail: fixed top hairline with a white glow,
-          width = scroll fraction via a CSS scroll timeline (header.css).
-          Decorative; the scrolled header scrim below keeps it readable over
-          bright backdrops. */}
-      <div className="rivo-scroll-progress" aria-hidden="true" />
       <div className="header-brand-cluster">
       {/* Cinejoy-style back arrow — sits right before the brand logo on
           every non-home page; prefers history, falls back to home. */}
@@ -290,11 +284,14 @@ function Header() {
                   to={item.to}
                   data-nav-active={active ? "true" : undefined}
                   className={`nav-link${item.home ? " nav-link--home" : ""}${active ? " nav-link--active" : ""}`}
+                  aria-label={label}
+                  title={label}
                   aria-current={active ? "page" : undefined}
                 >
-                  {/* Every tab keeps its icon at every width. The slot must
-                      never appear/disappear on activation, or the right-docked
-                      dock reflows before the pill has travelled. */}
+                  {/* Every tab keeps its icon; only the ACTIVE tab also shows
+                      its text label (header.css). aria-label carries the name
+                      for the icon-only tabs, so they never lose their
+                      accessible name when the label hides. */}
                   <item.icon size={16} strokeWidth={2} className="nav-link-icon" />
                   <span className="nav-link-label">{label}</span>
                 </Link>

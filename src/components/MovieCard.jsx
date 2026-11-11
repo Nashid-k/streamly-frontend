@@ -1,5 +1,7 @@
 import { useCallback, useState, useEffect, memo } from "react";
-import { Plus, Check, Star } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Check, Star, Play } from "lucide-react";
+import slugify from "slugify";
 import { getTMDBWeekdayShort } from "../utils/timezone";
 import { highlightSegments } from "../utils/highlightMatch";
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
@@ -82,6 +84,14 @@ const MovieCard = memo(function MovieCard({
   // Details open through one shared gateway — page or modal per the
   // Detail View Type preference (same behavior as the hero banner).
   const { openDetails, modalHost } = useDetailView();
+  const navigate = useNavigate();
+  // Direct play affordance: the watch route auto-resumes, so Play lands the
+  // viewer on the title's playback page whatever the Detail View Type is
+  // (same contract as the hero banner's Play button and CW's Resume pill).
+  const watchTo = `/watch/${movie.id}/${slugify(movie.title || "watch", {
+    lower: true,
+    strict: true,
+  })}`;
   const navigateToDetails = useCallback(() => openDetails(movie), [openDetails, movie]);
   // Card activation is context-dependent: select mode toggles selection instead
   // of navigating, so a click (or Enter/Space) mid-selection can never unmount
@@ -465,9 +475,10 @@ const MovieCard = memo(function MovieCard({
               /* rivo.st's card hover layer, taken from their shipped markup:
                  a BOTTOM gradient band (`from-black/85 via-black/40 to-
                  transparent`, `p-3 pt-10`) that rises 8px and fades in over
-                 `duration-300 ease-tv`. Their cards carry no centred play disc
-                 and no full-poster veil — the whole card is the target and the
-                 hover only reveals the rating/year line. */
+                 `duration-300 ease-tv`. Their band stops at the rating/year
+                 line; the home brief adds the title and a direct Play pill
+                 (same bottom-band language as Continue Watching) — still no
+                 centred play disc, the whole card remains the target. */
               style={{
                 position: "absolute",
                 inset: "auto 0 0 0",
@@ -483,6 +494,11 @@ const MovieCard = memo(function MovieCard({
                 zIndex: 5,
               }}
             >
+              {/* Hover title — the card's name, one line, ellipsis-clipped */}
+              <div className="curtain-title">
+                {movie.title}
+              </div>
+
               {/* rivo.st's hover meta line — `flex items-center gap-1.5
                   text-[13px] font-semibold text-white/90`: amber star, rating,
                   a dim `·`, then the year. No pill background and no play disc
@@ -526,6 +542,22 @@ const MovieCard = memo(function MovieCard({
                   </span>
                 )}
               </div>
+
+              {/* Direct Play — navigates to the watch route (auto-resume).
+                  stopPropagation keeps the card's own details action quiet. */}
+              <button
+                type="button"
+                className="curtain-play"
+                aria-label={`Play ${movie.title}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(watchTo);
+                }}
+              >
+                <Play size={12} fill="currentColor" stroke="none" />
+                Play
+              </button>
             </div>
 
             {/* Progress bar — always on top of curtain */}

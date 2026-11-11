@@ -150,8 +150,8 @@
 /* rivo.st's card overlay: `translate-y-2 ... opacity-0 transition duration-300
    ease-tv group-hover/card:translate-y-0 group-hover/card:opacity-100`. One
    band, one 8px rise, 300ms on their curve — their cards have no centred play
-   disc (clicking the card IS the action), so the old curtain's play button and
-   its staged delays are gone with it. */
+   disc (clicking the card IS the action). Our brief re-adds a Play affordance
+   INSIDE the band (plus the title), keeping the no-centred-disc layout. */
 .card-curtain {
   opacity: 0;
   transform: translateY(8px);
@@ -163,6 +163,46 @@
   font-size: 13px;
   font-weight: 600;
   color: rgba(var(--white-rgb), 0.9);
+}
+/* Hover title: the card's own name, one line, clipped by the band. */
+.curtain-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--white);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Direct Play pill — the same white-pill language as Continue Watching's
+   Resume button. Touch devices never open the curtain, so the button leaves
+   the tab order there instead of sitting invisible between tabs. */
+.curtain-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--white);
+  color: #09090b;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
+}
+.curtain-play:hover {
+  background: rgba(var(--white-rgb), 0.9);
+}
+.curtain-play:active {
+  transform: scale(0.95);
+}
+@media (hover: none) {
+  .curtain-play {
+    display: none;
+  }
 }
 .card-badges {
   transition: opacity var(--duration-instant) var(--ease-out);
@@ -200,6 +240,15 @@
   transition: opacity var(--duration-slow) var(--ease-tv) 60ms;
 }
 .movie-card:focus-visible .card-curtain {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
+}
+/* Focus INSIDE the curtain (the Play pill) keeps it open — :focus-visible on
+   the card alone drops the instant focus moves into the button, which would
+   hide the focused control. */
+.movie-card:focus-within .card-curtain {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;

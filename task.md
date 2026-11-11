@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **Rail hover Play + title, icon-only nav pills, top scroll line removed — 2026-11-11 (branch `main`).**
+  - **Rail card hover** (`MovieCard.jsx` + `grids.css`): the curtain now reveals the title (`curtain-title`, one-line ellipsis) and a white **Play** pill (`curtain-play`) above the rating/year line — same bottom-band language as Continue Watching's Resume pill. Play navigates straight to `/watch/:id/:slug` (auto-resume) with stopPropagation so the card's details action stays quiet; `:focus-within` keeps the curtain open while the pill is keyboard-focused; `@media (hover: none)` drops the button from touch tab order.
+  - **Nav pills** (`Header.jsx` + `header.css`): non-active tabs are icon-only (`aria-label` + `title` keep the name/tooltip); the active tab shows icon + label via a `.nav-link:not(.nav-link--active) .nav-link-label { display: none }` rule — pure CSS off the same class `measurePill` reads, so the pill re-measures in one commit. `motion.test.js` nav guard rewritten to pin the new contract (icon slot never toggles; labels render on the active pill only).
+  - **Top scroll-progress hairline removed**: `rivo-scroll-progress` div deleted from Header.jsx and its keyframes/rules deleted from header.css.
+  - Gates: lint 0 errors; full suite 118 files / 1439 tests green on first run; build 2.56s.
+
 - [x] **Home feed reorder — providers below Continue Watching, no release-calendar promos — 2026-11-11 (branch `main`).**
   - New order below the hero: Continue Watching → **Browse by Provider** (moved out of the category section) → **Because you watched** → Top 10 → Trending → Top Rated → Editorial → My List → Genre showcase/tiles → category rails → Explore all.
   - "Coming this week" (Upcoming rail) and the Leaving Soon banner are gone from home; `LeavingSoonBanner.jsx` deleted (no remaining consumer). `upcomingReleases` survives in HomePage only as the Top 10 rank-pad pool; the regional/newReleases queries stay — the hero banner pool consumes them.

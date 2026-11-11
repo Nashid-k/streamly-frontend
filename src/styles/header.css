@@ -27,31 +27,6 @@
    Engines without scroll timelines keep the scaleX(0) rail — a decorative
    loss only. z-index sits under the nav pill (--z-sticky) so the pill keeps
    painting above the rail, like the reference. */
-@keyframes rivoScrollProgress {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-.rivo-scroll-progress {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--white);
-  box-shadow: 0 0 12px rgba(var(--white-rgb), 0.7);
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-  z-index: 60;
-}
-
-@supports (animation-timeline: scroll()) {
-  .rivo-scroll-progress {
-    animation: rivoScrollProgress linear both;
-    animation-timeline: scroll(root block);
-  }
-}
-
 /* Brand — standalone floating logo at the left end (Cinejoy .brand-mark) */
 .header-brand-cluster {
   display: inline-flex;
@@ -362,6 +337,13 @@ html[data-reduce-motion="true"] .nav-active-pill {
 .nav-link svg {
   position: relative;
   z-index: 1;
+}
+/* Icon-only tabs: the text label renders on the ACTIVE pill only — every
+   other tab is its icon (the Link's aria-label keeps the accessible name).
+   The reveal is pure CSS off the same class measurePill reads, so the pill's
+   geometry settles in one commit instead of a post-paint reflow. */
+.nav-link:not(.nav-link--active) .nav-link-label {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

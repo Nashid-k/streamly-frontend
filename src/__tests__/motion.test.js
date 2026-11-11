@@ -766,13 +766,16 @@ describe("route planes move in the direction they are told", () => {
 });
 
 describe("navigation moves one pill, never the dock", () => {
-  /* The desktop dock is right-docked, so any active-state width change is a
-     one-frame reflow of the whole island: 23px of nav shift used to land
-     before the pill had moved a single pixel. The ink also crossfaded for
-     0.3s, leaving the outgoing label black-on-glass and the incoming label
-     white-on-white mid-flight. These guards pin the two fixes: (a) every tab
-     is the same width whether active or not, (b) the ink is a blend against
-     the pill, not a timed colour change. */
+  /* The desktop dock is right-docked, so an active-state width change is a
+     reflow of the whole island: 23px of nav shift used to land before the
+     pill had moved a single pixel. The ink also crossfaded for 0.3s, leaving
+     the outgoing label black-on-glass and the incoming label white-on-white
+     mid-flight. These guards pin the fixes: (a) the ICON SLOT never toggles
+     (the home brief, 2026-11-11, makes non-active tabs icon-only and the
+     active tab icon+label — that label reveal is the only width change, and
+     it is pure CSS off the same class measurePill reads, so it settles in
+     one commit), (b) the ink is a blend against the pill, not a timed colour
+     change. */
   const headerCss = readFileSync(join(process.cwd(), "src", "styles", "header.css"), "utf8");
   const responsiveCss = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
   const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
@@ -784,11 +787,17 @@ describe("navigation moves one pill, never the dock", () => {
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
   }
 
-  it("keeps every desktop tab the same width in every active state", () => {
+  it("shows text only on the active pill and keeps the icon slot stable", () => {
     const tab = block(headerCss, ".nav-link");
     expect(tab).toMatch(/font-weight:\s*600/);
-    // Active used to bump 500 → 600 and reveal an icon (display:none → block),
-    // widening the tab and reflowing the dock before the pill travelled.
+    // Non-active tabs are icon-only; the active tab reveals its label. The
+    // reveal rides the same class the pill measures, so geometry settles in
+    // one commit (no mid-flight reflow).
+    expect(headerCss).toMatch(
+      /\.nav-link:not\(\.nav-link--active\) \.nav-link-label\s*\{[^}]*display:\s*none/,
+    );
+    // The icon slot itself must never appear/disappear on activation — that
+    // was the original reflow bug (the icon mounted in a post-paint settle).
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/font-weight:/);
     expect(block(headerCss, ".nav-link--active")).not.toMatch(/padding:|gap:/);
     expect(block(headerCss, ".nav-link--home")).not.toMatch(/font-weight:/);
