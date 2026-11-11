@@ -73,32 +73,23 @@
   border-radius: var(--radius-full);
   line-height: 0;
 }
-/* Streamly wordmark — live text, not an image. The header used to render
-   cinejoy-logo.svg with an aria-label reading "Cinejoy home"; there is no
-   Streamly mark in the repo yet, so the brand is set as type (no critical-path
-   image request) and swaps to a designed symbol in one component when one
-   exists. Type, weight and tracking are deliberately fixed: this is a mark, not
-   body copy, so it does not follow the UI type scale. */
+/* Streamly wordmark — the designed SVG mark (public/brand/wordmark.svg), not
+   live type. Sized by height; the SVG's own ratio (~3.76:1) gives the width,
+   so one height rule covers every placement (header, curtain, footer). */
 .brand-wordmark {
-  display: inline-block;
-  color: var(--white);
-  font-size: 1.3rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.045em;
-  white-space: nowrap;
+  display: block;
+  height: 26px;
+  width: auto;
+  user-select: none;
   transform-origin: top left;
   transition: transform var(--anim-hover-time) var(--anim-hover-ease);
-}
-.brand-wordmark__accent {
-  color: var(--accent-color);
 }
 .header-row.scrolled .brand-wordmark {
   transform: scale(0.9);
 }
 @media (max-width: 768px) {
   .brand-wordmark {
-    font-size: 1.15rem;
+    height: 22px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

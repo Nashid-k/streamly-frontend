@@ -285,6 +285,8 @@ export const en = {
       hoverPreviewsDesc: "Show frame previews when scrubbing the player seek bar.",
       ambientBackground: "Ambient liquid backdrop",
       ambientBackgroundDesc: "The drifting color blobs behind every page. Off keeps the plain gradient wash and saves some GPU.",
+      dynamic: "Dynamic seasonal effects",
+      dynamicDesc: "Master switch for every seasonal overlay. Off keeps your theme's colors but never spawns particles — no snow even on Christmas or Winter. On follows the calendar, or just the effect of a theme you picked.",
       snowfall: "Seasonal snowfall",
       snowfallDesc: "Falling snow over every page from November through February, or whenever the Christmas or Winter theme is active. Off disables it year-round.",
       fallingLeaves: "Seasonal falling leaves",

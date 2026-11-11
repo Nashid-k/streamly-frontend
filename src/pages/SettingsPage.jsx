@@ -108,6 +108,7 @@ export default function SettingsPage() {
     hoverPreviews = true,
     reduceMotion,
     ambientBackground = true,
+    dynamic = true,
     snowfall = true,
     fallingLeaves = true,
     summerGlow = true,
@@ -1040,6 +1041,19 @@ export default function SettingsPage() {
                       label={t("settings.appearance.ambientBackground")}
                       checked={ambientBackground}
                       onChange={(val) => setPreference("ambientBackground", val)}
+                    />
+                  </SettingRow>
+
+                  {/* Dynamic — master switch for every seasonal effect.
+                      Off keeps theme colors but spawns no particles. */}
+                  <SettingRow
+                    title={t("settings.appearance.dynamic")}
+                    description={t("settings.appearance.dynamicDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.appearance.dynamic")}
+                      checked={dynamic}
+                      onChange={(val) => setPreference("dynamic", val)}
                     />
                   </SettingRow>
 

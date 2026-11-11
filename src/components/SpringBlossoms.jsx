@@ -1,20 +1,25 @@
 import { FallingLeaves as FallingLeavesLib } from "falling-leaves/react";
 import { useOptionalPreferences } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
+import { resolveSeasonalEffect } from "../utils/seasonal";
 
 /* Seasonal spring blossoms — powered by `falling-leaves` with pink/white
-   petal colors and ginkgo/oval shapes. Mounted once in Layout. Active Mar 1
-   -> May 31 or when the Spring Bloom theme is selected; gated by the
-   `fallingLeaves` preference (shared with autumn) and reduced motion. */
+   petal colors and ginkgo/oval shapes. Mounted once in Layout. Live only when
+   the shared resolver (utils/seasonal) says "blossoms": calendar spring
+   (Mar 1 -> May 31) under the default theme or the Spring Bloom theme under a
+   manual pick, never when Dynamic is off; gated by the `fallingLeaves`
+   preference (shared with autumn) and reduced motion. */
 export default function SpringBlossoms() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
-  const theme = prefs?.theme;
-  const now = new Date();
-  const month = now.getMonth();
-  const seasonal = month === 2 || month === 3 || month === 4 || theme === "spring";
-  const enabled = seasonal && prefs?.fallingLeaves !== false && !reduceMotion;
+  const month = new Date().getMonth();
+  const effect = resolveSeasonalEffect({
+    dynamic: prefs?.dynamic !== false,
+    theme: prefs?.theme,
+    month,
+  });
+  const enabled = effect === "blossoms" && prefs?.fallingLeaves !== false && !reduceMotion;
 
   if (!enabled) return null;
 

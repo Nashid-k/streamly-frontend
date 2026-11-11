@@ -85,6 +85,11 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   // Gates the drifting liquid-blob backdrop on every page (AmbientBackground).
   // On by default; off keeps the plain gradient wash for focus/perf.
   ambientBackground: true,
+  // Master switch for ALL seasonal particle effects. Off = theme colors only,
+  // never particles (no snow even on Christmas/Winter). On = the shared
+  // resolver (utils/seasonal) decides: calendar effect under the default
+  // theme, the picked theme's effect only when a seasonal theme is manual.
+  dynamic: true,
   // Seasonal snowfall overlay (global, mounted in Layout). Auto-on in winter
   // (Nov-Feb) or when the Christmas / Winter theme is active; manual override.
   snowfall: true,

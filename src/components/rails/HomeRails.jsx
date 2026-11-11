@@ -9,7 +9,6 @@ import FadeInSection from "./FadeInSection";
 import MovieRail from "./MovieRail";
 import Top10Rail from "./Top10Rail";
 import EditorialRails from "./EditorialRails";
-import FeaturedCollection from "./FeaturedCollection";
 import GenreTiles from "./GenreTiles";
 import ProviderRow from "./ProviderRow";
 import { useAppAuth } from "../../context/auth";
@@ -74,12 +73,9 @@ const HomeRails = React.memo(function HomeRails({
         </FadeInSection>
       )}
 
-      {/* Featured collection — one wide editorial card between the resume rail
-          and Top 10 (brief §6.3). Driven by existing category data, so it hides
-          itself when no category has a landscape frame to show. */}
-      {!loading && filter === "all" && activeGenre === "All" && (
-        <FeaturedCollection categories={categories} />
-      )}
+      {/* The featured-collection wide banner is gone (did not match the app's
+          rail language). Its category already renders below as a standard
+          MovieRail in the category-rails block, so nothing is lost. */}
 
       {/* Categories Section */}
       <section
