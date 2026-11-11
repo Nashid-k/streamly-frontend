@@ -1,16 +1,20 @@
-/* Streamly wordmark — public/brand/wordmark.svg, the designed mark (loop-and-
-   play glyph + STREAMLY letterforms, white + brand green). The header, the
-   language-switch curtain and the footer all render through this one component,
-   so the brand swaps in exactly one place. Decorative (aria-hidden): the
-   surrounding link/overlay already carries the accessible name. */
+/* Streamly brand lockup — the glyph from public/brand/wordmark.svg (the file
+   shipped with the upstream CINEJOY letterforms baked in; those paths are gone
+   now, so the SVG is the loop-and-play mark alone) plus "Streamly" as live
+   type, which stays crisp at every size the curtain/header scale it to. The
+   header, the language-switch curtain and the footer all render through this
+   one component. Decorative (aria-hidden): the surrounding link/overlay
+   already carries the accessible name. */
 export default function BrandWordmark({ className = "" }) {
   return (
-    <img
-      src="/brand/wordmark.svg"
-      alt=""
-      aria-hidden="true"
-      draggable="false"
-      className={`brand-wordmark ${className}`.trim()}
-    />
+    <span className={`brand-wordmark ${className}`.trim()} aria-hidden="true">
+      <img
+        src="/brand/wordmark.svg"
+        alt=""
+        draggable="false"
+        className="brand-wordmark__glyph"
+      />
+      <span className="brand-wordmark__text">Streamly</span>
+    </span>
   );
 }

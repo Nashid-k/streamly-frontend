@@ -39,13 +39,19 @@
     #050505;
 }
 
-/* The curtain uses the same Streamly mark as the header (BrandWordmark), sized
-   larger because it has no surrounding chrome to carry the brand. Specificity
-   is raised so the override beats the header's base .brand-wordmark height. */
+/* The curtain uses the same brand lockup as the header, sized larger because
+   it has no surrounding chrome to carry the brand. The higher-specificity
+   selectors beat the header's base glyph/text sizes. */
 .brand-wordmark.language-switch-overlay__wordmark {
-  height: clamp(2.4rem, 7vw, 3.4rem);
+  gap: 12px;
   margin-bottom: 0.4rem;
   filter: drop-shadow(0 8px 30px rgba(var(--black-rgb), 0.6));
+}
+.brand-wordmark.language-switch-overlay__wordmark .brand-wordmark__glyph {
+  height: clamp(2.4rem, 7vw, 3.4rem);
+}
+.brand-wordmark.language-switch-overlay__wordmark .brand-wordmark__text {
+  font-size: clamp(2rem, 6vw, 2.75rem);
 }
 
 .language-switch-overlay__label {
