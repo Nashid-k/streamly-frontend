@@ -9,11 +9,11 @@
 > tracked in **`ULTIMATE-REDESIGN-PLAN.md`**. That file is the authoritative task board
 > (58 tasks, per-task status, acceptance criteria, design-system targets, pitfalls, and
 > the required update protocol). Read it after this file and update it in the same turn
-> as any code change. Audited 2026-11-11 (final pass): **≈66 % complete** — **Phases 0, 1
-> and 2 are FINISHED** (94 % / 100 % / 100 %). The only open Phase 0 item is `P0-9`
-> (visual QA of the *populated* home: shell screenshots at 390/768/1440 were taken with
-> headless Chrome, but TMDB is unreachable here). Counts: 31 done / 15 partial / 8 todo /
-> 4 blocked. **Phase 3 — Browse is next.** Phase 7 stays blocked on a catalogue-host.
+> as any code change. Audited 2026-11-11 (latest): **≈73 % complete** — **Phases 0, 1, 2
+> and 3 are FINISHED** (94 % / 100 % / 100 % / 100 %). The only open Phase 0 item is `P0-9`
+> (visual QA of the *populated* UI: shell + Browse were screenshotted and measured over CDP,
+> but TMDB is unreachable here). Counts: 37 done / 11 partial / 6 todo / 4 blocked.
+> **Phase 4 — Detail is next.** Phase 7 stays blocked on a catalogue-host.
 
  ## Done (in order)
 
@@ -8298,8 +8298,15 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 - [ ] `P0-9` **PARTIAL** — headless-Chrome screenshots at 1440×950 / 768×1000 / 390×844 verified the shell, dock labels, nav pill and empty/loading states; the populated home cannot be rendered here (`api.themoviedb.org` → status `000`).
 - [x] Gates: `npm run lint` 0 errors / 134 warnings · `npm run test -- --run` **118 files / 1437 tests** · `npm run build` exit 0 (**1.99 s**); `git diff --stat src/__tests__/` empty (no test edited).
 
-### Redesign Phases 3–7 — not started (`ULTIMATE-REDESIGN-PLAN.md` §8–§12)
-- [ ] Phase 3 Browse: Sort/Filters model, active chips, URL-synced state, sticky bar, states
+### Redesign Phase 3 — Browse: FINISHED 2026-11-11 (`ULTIMATE-REDESIGN-PLAN.md` §8)
+- [x] `P3-1` header: one visible `h1` + result count (`0 titles`, `N+ titles` while more pages exist, `Results unavailable` on error) in the new sticky bar.
+- [x] `P3-2` filter model stays **pills** (decision in plan §19.1.2): they show state in their labels, are the tested surface, and the sticky bar adds the missing summary/count/clear. Each pill still writes straight to `searchParams`.
+- [x] `P3-3` `src/components/browse/BrowseBar.jsx` — one removable chip per non-default param (genre / year / provider / country / language / sort≠popular), `N filters` summary, `Clear all`; chips are derived from the URL, so back/forward restores them. Two contracts added to `DiscoveryPage.test.jsx`.
+- [x] `P3-4` sticky under `--header-h`, collapses on scroll-down and returns on scroll-up: passive listener + `requestAnimationFrame`, reads `window.scrollY` only (no layout reads), motion is CSS.
+- [x] `P3-5` grid ladder measured over CDP: **3 / 4 / 5 / 6 / 7** columns at 390 / 768 / 1024 / 1440 / 1920, with `scrollWidth === clientWidth` at all five (the six pills also stopped clipping Country at 390 — they wrap now).
+- [x] `P3-6` empty state gains `Clear all filters` + genre suggestions, error keeps `Try Again`, skeleton still matches the grid, and the grid's scroll offset is remembered per `mode + query` (module map, no storage APIs) and restored once the first page of cards exists.
+
+### Redesign Phases 4–7 — not started (`ULTIMATE-REDESIGN-PLAN.md` §9–§12)
 - [ ] Phase 4 Detail: **where-to-watch (biggest gap)**, sticky tabs + scroll spy, comment gate
 - [ ] Phase 5 Search + library: grouped results, keyboard/focus recovery, library bulk tools
 - [ ] Phase 6 States/motion/a11y/perf: shared Empty/ErrorState, keyboard rails, budgets (perf measurement blocked here)

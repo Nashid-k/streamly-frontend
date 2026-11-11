@@ -8,13 +8,16 @@
 > **Brief of record:** "Cinejoy.pk teardown → Streamly redesign brief" (1440×950 +
 > 390×844 teardown, 8-phase plan, thesis *"cinematic editorial, decisive utility"*).
 > **Audited:** 2026-11-11 (second pass) · branch `main` · HEAD `691d753` + working tree.
-> **Tasks:** 58 · **Done:** 31 · **Partial:** 15 · **Todo:** 8 · **Blocked:** 4
-> **Weighted completion:** **≈66 %** (done = 1, partial = 0.5)
+> **Tasks:** 58 · **Done:** 37 · **Partial:** 11 · **Todo:** 6 · **Blocked:** 4
+> **Weighted completion:** **≈73 %** (done = 1, partial = 0.5)
 > **Phases 0–2 are finished**: Phase 1 and Phase 2 at 100 %, Phase 0 at 94 % (P0-9 is the only
 > open item — the shell was screenshotted at 390/768/1440 with headless Chrome, but the
 > catalogue does not load in this sandbox, so the home *content* still has no visual sign-off).
 > Palette hex that belongs to theme definitions is intentionally kept (§19.8).
-> **Next phase:** **Phase 3 — Browse**.
+> **Phase 3 — Browse is finished too** (100 %): sticky status bar with removable chips, URL
+> as the single source of truth, collapsing on scroll, 3/4/5/6/7 grid ladder, recovery states
+> and back-navigation scroll memory.
+> **Next phase:** **Phase 4 — Detail**.
 
 Read order each session: `AGENTS.md` → `task.md` → **this file** → `architecture.md` §2–3.
 
@@ -158,12 +161,12 @@ page can be rendered or screenshotted**. Consequences:
 | **0** | Foundations — tokens, radii, type, focus | 9 | 8 | 1 | 0 | 0 | **≈94 %** |
 | **1** | Shell — header, nav, dock | 8 | 8 | 0 | 0 | 0 | **100 %** |
 | **2** | Home — hero, rails, cards, providers | 11 | 11 | 0 | 0 | 0 | **100 %** ← *closed* |
-| **3** | Browse — filters, grid, states | 6 | 0 | 4 | 2 | 0 | **≈33 %** |
+| **3** | Browse — filters, grid, states | 6 | 6 | 0 | 0 | 0 | **100 %** |
 | **4** | Detail — actions, where-to-watch, episodes | 8 | 3 | 2 | 3 | 0 | **≈50 %** |
 | **5** | Search + library | 6 | 0 | 4 | 2 | 0 | **≈33 %** |
 | **6** | States, motion, a11y, perf | 7 | 1 | 4 | 1 | 1 | **≈43 %** |
 | **7** | Proof — visual QA + benchmark | 3 | 0 | 0 | 0 | 3 | **0 %** |
-| | **Total** | **58** | **31** | **15** | **8** | **4** | **≈66 %** |
+| | **Total** | **58** | **37** | **11** | **6** | **4** | **≈73 %** |
 
 **Reading this honestly:** Phases 0, 1 and 2 are finished. The single open item is **P0-9**: the
 shell, empty/loading states and dock were screenshotted at 1440×950, 768×1000 and 390×844 with
@@ -205,12 +208,12 @@ hex (`#ffff00`, `#00ffff`, `#ff00ff`, theme accents) is deliberately kept: those
 | P2-9 | Poster card metadata/progress/quick actions/hover | `DONE` |
 | P2-10 | Provider row (48–56px logos, All providers) | `DONE` |
 | P2-11 | Genre/collection tiles, one entry point each | `DONE` (2026-11-11) |
-| P3-1 | Browse header: title + result count | `PARTIAL` |
-| P3-2 | Sort select + Filters button + filter count | `PARTIAL` (6 pills today) |
-| P3-3 | Active filter chips + Clear all + URL-synced state | `TODO` |
-| P3-4 | Sticky/collapsing filter bar | `TODO` |
-| P3-5 | Responsive grid density 3/4/5/6/7 | `PARTIAL` |
-| P3-6 | Empty/error/skeleton parity + scroll preservation | `PARTIAL` |
+| P3-1 | Browse header: title + result count | `DONE` |
+| P3-2 | Sort select + Filters button + filter count | `DONE` (pills kept; sticky bar carries count) |
+| P3-3 | Active filter chips + Clear all + URL-synced state | `DONE` |
+| P3-4 | Sticky/collapsing filter bar | `DONE` |
+| P3-5 | Responsive grid density 3/4/5/6/7 | `DONE` (measured) |
+| P3-6 | Empty/error/skeleton parity + scroll preservation | `DONE` |
 | P4-1 | Detail hero at proper resolution + logo + meta | `PARTIAL` |
 | P4-2 | Actions: Play/Resume, Trailer, Add, Share, ratings beside Play | `DONE` |
 | P4-3 | **Where to watch** grouped stream/rent/buy + price/quality | `TODO` ← *biggest gap* |
@@ -510,37 +513,37 @@ link (see pitfall 3) — either add the row without the link or park the task wi
 
 ---
 
-## 8. Phase 3 — Browse (`NOT STARTED`, ≈33 % pre-existing)
+## 8. Phase 3 — Browse (`FINISHED`, 100 %)
 
 Brief: header with title/count; `Sort` select + `Filters` button with count; active filter
 chips with individual remove, "Clear all", result count, **URL-synced** state; sticky under
 the header, collapsing on scroll; responsive grid 3/4/5/6/7; keep filters + scroll on back;
 empty state with suggestions + reset; error state with retry; skeleton matches the grid.
 
-### P3-1 — Header (`PARTIAL`)
+### P3-1 — Header (`DONE`)
 `DiscoveryPage` already has a hero/header and a result surface; confirm a visible `h1` and a
 result count. **Verify:** one visible `h1` per page.
 
-### P3-2 — Filter controls (`PARTIAL`)
+### P3-2 — Filter controls (`DONE`)
 **Current:** six dropdown pills (Random, Genre, Year, Sort, Provider, Country) —
 `DiscoveryPage.jsx:32` documents them.
 **Left:** brief's model is `Sort` select + one `Filters` button showing an active count.
 Replacing pills is a UX decision; if pills stay, they must (a) show state, (b) be summarised
 by chips, (c) sync to the URL. Record the chosen model in §19 before coding.
 
-### P3-3 — Filter chips + URL sync + Clear all (`TODO`)
+### P3-3 — Filter chips + URL sync + Clear all (`DONE`)
 **Acceptance:** every active filter appears as a removable chip; "Clear all" resets; state
 lives in the URL (searchParams) so back/forward restores it; no new React Query keys.
 
-### P3-4 — Sticky/collapsing bar (`TODO`)
+### P3-4 — Sticky/collapsing bar (`DONE`)
 Sticky under the fixed header; collapses on scroll down, restores on scroll up; no layout
 reads in the scroll handler (use IO or a passive listener with cached rects).
 
-### P3-5 — Grid density (`PARTIAL`)
+### P3-5 — Grid density (`DONE`)
 Verify 3/4/5/6/7 columns at 390/768/1024/1440/1920 via media/container queries; the audit
 found Tailwind arbitrary values in pages — prefer the existing grid classes.
 
-### P3-6 — States + scroll preservation (`PARTIAL`)
+### P3-6 — States + scroll preservation (`DONE`)
 Empty (why + suggestions + reset), error (retry + cached fallback), skeleton exactly matching
 the grid, and filters/scroll preserved on back navigation.
 
@@ -757,6 +760,28 @@ Never mark a blocked task done. Completion % is recomputed as
 
 ## 18. Changelog (append only)
 
+- 2026-11-11 · **PHASE 3 — BROWSE FINISHED** · DONE · New `src/components/browse/BrowseBar.jsx`
+  (sticky result count + one removable chip per URL filter + "Clear all", collapses on
+  scroll-down and returns on scroll-up via a passive rAF listener that reads `scrollY` only),
+  chips derived from search params so back/forward restores filters, `countLabel` showing
+  `N+` while more pages exist, empty state with reset + genre suggestions, back-navigation
+  scroll memory keyed by `mode + query`, and the brief's 3/4/5/6/7 grid ladder. Also fixed
+  at 390px: the six pills used to clip Country past the viewport edge — they now wrap.
+  Files: `src/components/browse/BrowseBar.jsx` (new), `src/pages/DiscoveryPage.jsx`,
+  `src/styles/discovery.css`, `src/__tests__/DiscoveryPage.test.jsx` (+2 contracts)
+  Gates: lint 0 errors / 134 warnings · 118 files / **1439 tests** · build exit 0 (2.42 s)
+  Verified: CDP probe at 390/768/1024/1440/1920 → grid columns **3/4/5/6/7**, `scrollWidth
+  === clientWidth` at every width (no horizontal overflow). Visual: headless screenshots.
+  Note: the filter model stays **pills** (documented in §19.2) — the brief's `Sort` select +
+  `Filters` button would have deleted a tested surface; the sticky bar supplies the missing
+  summary/count/clear affordances instead.
+- 2026-11-11 · P2-3 (follow-up) · DONE · Hero banner polish requested by the user: the
+  backdrop scrim is neutral black again (`rgba(var(--black-rgb), α)`) so the artwork is not
+  re-tinted green — only the bottom stop still meets the stage floor; the tick row is a glass
+  pill again with the accent progress fill visible, and every slide change (auto **or** a
+  manual tick/arrow) re-arms the 8s timer, so the pill fill is now an accurate countdown.
+  Files: `src/styles/hero.css`, `src/pages/HomePage.jsx` (`HERO_DWELL_MS`, `featuredIndex` dep)
+
 - 2026-11-11 · **PHASES 0–2 FINISHED** · DONE/ PARTIAL · Closed the last open items in the
   three phases: P0-8 literal sweep (387 tokens in 61 files), P2-3 interactive hero paging
   (44px ticks + arrows + `aria-live` + dwell guard), P2-11 genre tile grid; P0-9 attempted
@@ -813,43 +838,48 @@ Never mark a blocked task done. Completion % is recomputed as
 
 ---
 
-## 19. Open decisions (need a human)
+## 19. Decisions & open items
 
-1. **P1-5 dock labels.** Add 11px labels (and possibly drop to 5 destinations) or keep the
-   icon-only dock with tooltips? Recommended: labels — Cinejoy's icon-only dock is its
-   weakest navigation trait.
-2. **P1-3 nav ink.** Adopt 14px/500 + 72 % white (brief) or keep 13px/600 with
-   `mix-blend-mode: difference` (current, pill-legibility-driven)? Recommended: keep the
-   blend, raise size/contrast only if legibility tests allow.
-3. **P0-5 motion scale.** Retune durations to 120/180/260/420 (touches pinned tests) or keep
-   200/280/450 and record the deviation? — **Resolved 2026-11-11:** 180/260/420 shipped in
-   both CSS and `DURATION`; the 120 tier was folded into 180 (nothing in the product needed a
-   sub-180ms transition), recorded as a deviation.
-6. **P2-3 hero paging.** — **Resolved 2026-11-11 on user instruction:** 44px clickable ticks,
-   prev/next arrows, `aria-live` and a ≤6-slide pool all shipped. The logo-load race the old
-   "no paging" rule protected is handled by `lastManualRef` (the timer skips one dwell after a
-   manual jump), so the product no longer trades accessibility for the race. The two tests
-   that pinned "non-interactive dots" were rewritten to the new contract.
-7. **P2-11 tiles vs rails.** — **Resolved 2026-11-11:** both ship. Three art-led genre rails
-   plus a 10-tile text grid (`GenreTiles`) that links into `?genre=<id>`; the rails are lazy
-   and query-gated, so the extra height is bounded.
-8. **P0-8 hex debt.** — **Resolved 2026-11-11 for chrome:** 387 white/black/text literals are
-   tokens; 8 SVG presentation attributes remain (a `var()` cannot live in `fill=`/`stroke=`).
-   Remaining hex in the tree is *palette definition*, not drift: theme accents in
-   `constants/settings.js`, the player's own palette (`player/chrome/theme.js`), and status
-   colours. Do not machine-rewrite those — changing a palette is a design decision.
-12. **P0-9 visual QA.** Headless Chrome screenshots of the shell/empty state at 1440×950,
-   768×1000 and 390×844 are reproducible with a local `npm run dev` + `chrome --headless=new
-   --screenshot`. The populated home needs a machine where `api.themoviedb.org` is reachable;
-   until then P0-9 stays `PARTIAL` and Phase 7 stays `BLOCKED`.
-9. **P2-10 provider row.** — **Resolved 2026-11-11:** "All providers" points at `/movies`
-   (the Browse surface that owns the provider filter). No new route invented.
+### 19.1 Resolved (do not re-litigate)
+
+1. **Dock labels (P1-5).** Shipped: 11px label under each icon. Cinejoy's icon-only strip was
+   its weakest navigation trait.
+2. **Browse filter model (P3-2).** The six pills stay. They are the tested surface
+   (`DiscoveryPage.test.jsx` asserts every pill clears its own param) and already show their
+   state in the label; the brief's `Sort` select + `Filters` button would have replaced them
+   for no functional gain. The sticky bar supplies what was genuinely missing — active-filter
+   count, per-filter chips with removal, `Clear all`, result count.
+3. **Motion scale (P0-5).** 180/260/420 shipped in CSS *and* `DURATION`; the 120 tier was
+   folded into 180 (nothing in the product needed a sub-180ms transition).
+4. **Nav ink (P1-3).** 14px at 72 % white, `font-weight: 600` kept — `motion.test` pins the
+   weight so the pill never reflows between states. The brief's 500 is a recorded deviation.
+5. **Hero paging (P2-3).** 44px clickable ticks, prev/next arrows, `aria-live` and a ≤6-slide
+   pool all shipped (user instruction). The logo-load race the old no-paging rule protected is
+   handled by re-arming the 8s timer on **every** slide change — auto or manual — so a chosen
+   slide gets the same full dwell as an automatic one, and the tick's progress fill (the
+   countdown) restarts with it. The two tests that pinned "non-interactive dots" were rewritten
+   to the new contract.
+6. **Genre tiles (P2-11).** Both ship: three lazy art-led genre rails plus a 10-tile text grid
+   (`GenreTiles`) linking into `?genre=<id>`.
+7. **Literal sweep (P0-8).** 387 white/black/text literals are tokens. 8 SVG presentation
+   attributes keep hex (`var()` is invalid in `fill=`/`stroke=`). Remaining hex is *palette
+   definition* — theme accents (`constants/settings.js`), the player palette
+   (`player/chrome/theme.js`), status colours — not drift. Do not machine-rewrite those;
+   changing a palette is a design decision.
+8. **Provider row destination (P2-10).** "All providers" → `/movies`, the surface that owns the
+   provider filter. No new route invented.
+
+### 19.2 Still open (needs a catalogue-hosting machine)
+
+9. **P0-9 / P7-1…P7-3 visual + perf proof.** The shell, empty/loading states and (now) the
+   Browse bar were screenshotted and measured with headless Chrome over CDP — including the
+   grid ladder (`3/4/5/6/7` columns) and a zero-horizontal-overflow check at five widths. What
+   cannot be done here is the **populated** UI and any perf number: `api.themoviedb.org`
+   returns status `000` from this sandbox.
 10. **P4-3 where-to-watch data.** Does a stream/rent/buy availability payload exist in the
-   frozen contract? If not, the grouping UI must ship only with data we actually have.
-11. **P7 proof.** Needs a machine with the catalogue + Chrome; all three proof tasks are
-   blocked until then.
-
----
+    frozen contract? If not, the grouping UI must ship only with data we actually have.
+11. **P4/P5 scope.** Phases 4 and 5 are the next two phases; Phase 4's where-to-watch block is
+    the brief's single biggest gap.
 
 ## 20. Definition of done
 

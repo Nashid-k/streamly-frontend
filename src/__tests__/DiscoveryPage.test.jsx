@@ -186,3 +186,43 @@ describe("DiscoveryPage upcoming rail", () => {
     ).toBeNull();
   });
 });
+
+/* Phase 3 contract: filters are mirrored as removable chips and the sticky bar
+   can reset everything. The chips must be driven by the URL params (not local
+   state) so back/forward restores them. */
+describe("DiscoveryPage active filter chips", () => {
+  it("mirrors the URL filters as chips, counts them and removes one", async () => {
+    const discover = vi
+      .spyOn(movieService, "getDiscover")
+      .mockResolvedValue(makeMovies(3));
+
+    renderPage("/movies?genre=28&year=2020");
+
+    expect(await screen.findByText("3 titles")).toBeInTheDocument();
+    expect(await screen.findByText("2 filters")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Action filter" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Remove Action filter" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByText("1 filter")).toBeInTheDocument();
+    expect(discover.mock.calls.at(-1)[0].genreId).toBeNull();
+  });
+
+  it("resets every filter from the bar's Clear all button", async () => {
+    vi.spyOn(movieService, "getDiscover").mockResolvedValue(makeMovies(2));
+
+    renderPage("/movies?genre=28&year=2020");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Clear all" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Clear all" })).toBeNull(),
+    );
+    expect(screen.queryByText(/\d+ filters?/)).toBeNull();
+    expect(await screen.findByText("2 titles")).toBeInTheDocument();
+  });
+});

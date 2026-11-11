@@ -49,6 +49,10 @@ const isAnime = (m) =>
 // Regional rail language name → TMDB original-language code. normalizeResult
 // emits `originalLanguage` (it never populates audioLanguages/languages), so a
 // name-only match left every regional rail empty.
+/* Banner dwell. Keep in sync with `.dot-filler` (search.css) and the
+   `bannerProgress` keyframes — the pill fill IS the countdown for this timer. */
+const HERO_DWELL_MS = 8000;
+
 const REGIONAL_LANGUAGE_CODES = {
   malayalam: "ml",
   tamil: "ta",
@@ -813,16 +817,15 @@ export default function Home({
     totalFeaturedRef.current = totalFeatured;
   });
 
-  /* Manual paging (brief P2-3). The earlier build removed arrows and clickable
-     ticks because a jump could fire before the title logo finished loading. That
-     race is handled here instead: any manual jump stamps `lastManualRef`, and the
-     rotation timer ignores ticks for one full dwell afterwards, so the slide the
-     viewer chose keeps its logo-load window. */
-  const lastManualRef = useRef(0);
+  /* Manual paging (brief P2-3) with a dwell guarantee.
+     The earlier build removed arrows and clickable ticks because a jump could
+     fire before the title logo finished loading. Here every slide change — auto
+     OR manual — re-arms the rotation timer, so the slide the viewer picked gets
+     the same full 8s window as an automatic one (and the dot's progress fill
+     restarts because it remounts with the newly active tick). */
   const goToSlide = useCallback((next) => {
     const tf = totalFeaturedRef.current;
     if (tf <= 1) return;
-    lastManualRef.current = Date.now();
     setFeaturedIndex(((next % tf) + tf) % tf);
   }, []);
 
@@ -833,15 +836,12 @@ export default function Home({
       // in a background tab — a hidden tab that keeps advancing slides makes the
       // banner jump the moment the viewer returns.
       if (isHeroHoveredRef.current || document.hidden) return;
-      // Give a manually chosen slide its full dwell (logo load) before the
-      // timer takes over again.
-      if (Date.now() - lastManualRef.current < 8000) return;
       const tf = totalFeaturedRef.current;
       if (tf <= 1) return;
       setFeaturedIndex((prev) => (prev + 1) % tf);
-    }, 8000);
+    }, HERO_DWELL_MS);
     return () => clearInterval(timer);
-  }, [reduceMotion, totalFeatured > 1]);
+  }, [reduceMotion, totalFeatured > 1, featuredIndex]);
 
   // Preload next hero image to eliminate flash on slide change
   useEffect(() => {

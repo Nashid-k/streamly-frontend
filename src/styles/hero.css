@@ -41,13 +41,16 @@
   inset: 0;
   background:
     /* Bottom fade — keeps content legible */
-    linear-gradient(0deg, var(--stage-bottom) 0%, rgba(6,17,13,0.92) 8%, rgba(6,17,13,0.65) 22%, rgba(6,17,13,0.25) 45%, transparent 65%),
+    /* Neutral black scrim, NOT the green-black stage tint: the scrim sits on
+       top of real artwork and any hue in it re-tints the backdrop. Only the
+       very bottom stop matches the page floor so the seam disappears. */
+    linear-gradient(0deg, var(--stage-bottom) 0%, rgba(var(--black-rgb),0.92) 8%, rgba(var(--black-rgb),0.65) 22%, rgba(var(--black-rgb),0.25) 45%, transparent 65%),
     /* Soft left-side vignette — no harsh vertical line */
-    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(6,17,13,0.85) 0%, rgba(6,17,13,0.4) 40%, transparent 70%),
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(var(--black-rgb),0.85) 0%, rgba(var(--black-rgb),0.4) 40%, transparent 70%),
     /* Soft right-side vignette */
-    radial-gradient(ellipse 40% 100% at 100% 50%, rgba(6,17,13,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 100% at 100% 50%, rgba(var(--black-rgb),0.55) 0%, transparent 60%),
     /* Corner dark anchors */
-    radial-gradient(ellipse at 30% 90%, rgba(6,17,13,0.4) 0%, transparent 50%);
+    radial-gradient(ellipse at 30% 90%, rgba(var(--black-rgb),0.4) 0%, transparent 50%);
 }
 
 .hero-content {
@@ -155,9 +158,9 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(0deg, rgba(6,17,13,0.98) 0%, rgba(6,17,13,0.95) 3%, rgba(6,17,13,0.9) 7%, rgba(6,17,13,0.82) 12%, rgba(6,17,13,0.68) 18%, rgba(6,17,13,0.5) 25%, rgba(6,17,13,0.32) 34%, rgba(6,17,13,0.18) 44%, rgba(6,17,13,0.08) 54%, transparent 68%),
-    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(6,17,13,0.8) 0%, rgba(6,17,13,0.32) 42%, transparent 72%),
-    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(6,17,13,0.42) 0%, transparent 62%);
+    linear-gradient(0deg, rgba(var(--black-rgb),0.98) 0%, rgba(var(--black-rgb),0.95) 3%, rgba(var(--black-rgb),0.9) 7%, rgba(var(--black-rgb),0.82) 12%, rgba(var(--black-rgb),0.68) 18%, rgba(var(--black-rgb),0.5) 25%, rgba(var(--black-rgb),0.32) 34%, rgba(var(--black-rgb),0.18) 44%, rgba(var(--black-rgb),0.08) 54%, transparent 68%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(var(--black-rgb),0.8) 0%, rgba(var(--black-rgb),0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(var(--black-rgb),0.42) 0%, transparent 62%);
   /* Same mask as .hero-bg — fade over the last 62% so the bottom edge has
      no hard boundary. backdrop-filter is not applied here for the same
      reason as .hero-bg: the mask boundary + compositor layer creates a
@@ -169,9 +172,9 @@
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
 .watch-hero-gradient {
   background:
-    linear-gradient(0deg, rgba(6,17,13,0.98) 0%, rgba(6,17,13,0.95) 3%, rgba(6,17,13,0.9) 7%, rgba(6,17,13,0.82) 12%, rgba(6,17,13,0.68) 18%, rgba(6,17,13,0.5) 25%, rgba(6,17,13,0.32) 34%, rgba(6,17,13,0.18) 44%, rgba(6,17,13,0.08) 54%, transparent 68%),
-    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(6,17,13,0.8) 0%, rgba(6,17,13,0.32) 42%, transparent 72%),
-    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(6,17,13,0.42) 0%, transparent 62%);
+    linear-gradient(0deg, rgba(var(--black-rgb),0.98) 0%, rgba(var(--black-rgb),0.95) 3%, rgba(var(--black-rgb),0.9) 7%, rgba(var(--black-rgb),0.82) 12%, rgba(var(--black-rgb),0.68) 18%, rgba(var(--black-rgb),0.5) 25%, rgba(var(--black-rgb),0.32) 34%, rgba(var(--black-rgb),0.18) 44%, rgba(var(--black-rgb),0.08) 54%, transparent 68%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(var(--black-rgb),0.8) 0%, rgba(var(--black-rgb),0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(var(--black-rgb),0.42) 0%, transparent 62%);
 }
 
 /* ── Static ambient sky ───────────────────────────────────────────────────
@@ -540,10 +543,15 @@
   left: auto !important;
   transform: none !important;
   display: flex;
-  gap: 10px;
+  gap: 4px;
   align-items: center;
-  padding: 12px 18px;
-  border: none;
+  padding: 4px 8px;
+  /* The row reads as one control surface again (the old glass pill), so the
+     ticks + arrows do not float as loose marks over the artwork. */
+  background: rgba(var(--black-rgb), 0.38);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
   border-radius: var(--radius-full);
 }
 @media (max-width: 1200px) {

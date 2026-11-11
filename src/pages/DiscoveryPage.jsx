@@ -19,6 +19,7 @@ import SEO from "../components/SEO";
 import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
+import BrowseBar from "../components/browse/BrowseBar";
 import useDetailView from "../hooks/useDetailView";
 import { useOptionalPreferences } from "../context/preferences";
 import { pickImageWidth } from "../utils/artwork";
@@ -26,6 +27,12 @@ import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 import { DURATION, EASE_OUT } from "../constants/motion";
+
+/* Back-navigation memory for the grid. Filters already live in the URL; the
+   scroll offset lives here, keyed by `mode + query`, so returning to a filtered
+   Browse lands where the viewer left it. A module map avoids storage APIs (no
+   quota/privacy exceptions) and resets with the tab. */
+const browseScrollMemory = new Map();
 
 /* ── Cinejoy-mirrored Movies / Series discovery pages ───────────────────
    One parameterized layout drives /movies and /series: glass header, filter
@@ -406,6 +413,30 @@ export default function DiscoveryPage({ mode = "movies" }) {
     // floor, so the grid appears to grow with the scroll.
   const loadMoreRef = useRef(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = gridQuery;
+
+  /* ── Grid scroll memory (brief P3-6) ───────────────────────────────────
+     Restore once, from the key the page mounted with, AFTER the first page of
+     cards exists (restoring before the grid has height would clamp to 0). Save
+     while scrolling and again on unmount. */
+  const mountScrollKeyRef = useRef(`${mode}:${searchParams.toString()}`);
+  const restoredScrollRef = useRef(false);
+
+  useEffect(() => {
+    if (restoredScrollRef.current || gridItems.length === 0) return;
+    restoredScrollRef.current = true;
+    const y = browseScrollMemory.get(mountScrollKeyRef.current) || 0;
+    if (y > 40) requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "auto" }));
+  }, [gridItems.length]);
+
+  useEffect(() => {
+    const key = mountScrollKeyRef.current;
+    const save = () => browseScrollMemory.set(key, window.scrollY);
+    window.addEventListener("scroll", save, { passive: true });
+    return () => {
+      save();
+      window.removeEventListener("scroll", save);
+    };
+  }, []);
   useEffect(() => {
     const el = loadMoreRef.current;
     if (!el || typeof IntersectionObserver === "undefined") return undefined;
@@ -497,6 +528,28 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const countryLabel = countryParam && countryByCode.get(countryParam) ? countryByCode.get(countryParam) : "Country";
   const languageLabel = languageParam ? (LANGUAGE_OPTIONS.find(l => l.id === languageParam)?.name || "Language") : "Language";
 
+  /* ── Active-filter chips (brief P3-3) ──────────────────────────────────
+     One chip per *non-default* param. `sort=popular` is the default and gets no
+     chip; changing sort still writes to the URL and shows as a chip. Labels come
+     from the same option maps the pills use, so chip text and pill text agree. */
+  const activeChips = useMemo(() => {
+    const chips = [];
+    if (genreParam) chips.push({ key: "genre", label: genreLabel });
+    if (yearParam) chips.push({ key: "year", label: yearLabel });
+    if (providerParam) chips.push({ key: "provider", label: providerLabel });
+    if (countryParam) chips.push({ key: "country", label: countryLabel });
+    if (languageParam) chips.push({ key: "language", label: languageLabel });
+    if (sortParam && sortParam !== "popular") {
+      chips.push({ key: "sort", label: sortLabel });
+    }
+    return chips;
+  }, [genreParam, yearParam, providerParam, countryParam, languageParam, sortParam,
+      genreLabel, yearLabel, providerLabel, countryLabel, languageLabel, sortLabel]);
+
+  const clearAllFilters = () => {
+    setSearchParams(new URLSearchParams());
+  };
+
     // ── Random: open a random title from the current grid ───────────────────
     // Forces the instant info modal (never the page route) so the click gives
     // immediate content with no route-load skeleton. The reveal is deferred ~0.6s
@@ -533,6 +586,9 @@ export default function DiscoveryPage({ mode = "movies" }) {
     ? "Streamly couldn't reach the catalog right now. Try again, or come back in a moment."
     : null;
   const railEmpty = !railQuery.isLoading && !railQuery.error && railItems.length === 0;
+  // `+` while more pages exist: the grid is paginated, so the honest count is
+  // "at least this many" until the last page lands.
+  const countLabel = `${gridItems.length}${hasNextPage ? "+" : ""} ${isSeries ? "shows" : "titles"}`;
 
   const ambientSrc = gridItems[0]?.backdropUrl || gridItems[0]?.posterUrl || railItems[0]?.backdropUrl || null;
 
@@ -743,6 +799,15 @@ export default function DiscoveryPage({ mode = "movies" }) {
           </div>
         </header>
 
+        {/* ── Sticky status bar — count, active-filter chips, Clear all ── */}
+        <BrowseBar
+          loading={gridLoading}
+          countLabel={gridError ? "Results unavailable" : countLabel}
+          chips={activeChips}
+          onRemove={(key) => setParam(key, "")}
+          onClearAll={clearAllFilters}
+        />
+
         {/* ── Editorial rail ──────────────────────────────────────────── */}
         {!railQuery.isLoading &&
           !railQuery.error &&
@@ -841,7 +906,40 @@ export default function DiscoveryPage({ mode = "movies" }) {
               <EmptyState
                 icon="film"
                 title="No titles found"
-                description="Try clearing a filter or choosing another category."
+                description={
+                  activeChips.length > 0
+                    ? "No title matches every filter at once. Remove one to widen the search."
+                    : "Nothing in this corner of the catalog yet — try a genre below."
+                }
+                actions={
+                  <div className="browse-empty-actions">
+                    {activeChips.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        pill
+                        icon={RotateCw}
+                        onClick={clearAllFilters}
+                      >
+                        Clear all filters
+                      </Button>
+                    )}
+                    {(genresQuery.data || []).slice(0, 6).length > 0 && (
+                      <div className="browse-suggestions">
+                        <span className="browse-suggestions__label">Try a genre</span>
+                        {(genresQuery.data || []).slice(0, 6).map((g) => (
+                          <button
+                            key={g.id}
+                            type="button"
+                            className="browse-chip"
+                            onClick={() => setParam("genre", g.id)}
+                          >
+                            {g.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                }
               />
             ) : (
               <>
