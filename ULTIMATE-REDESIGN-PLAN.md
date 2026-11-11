@@ -788,7 +788,8 @@ Never mark a blocked task done. Completion % is recomputed as
   without also opening the detail modal; the title logo/text was bumped up (`clamp(96px,
   17vw,190px)` image, `clamp(1.9rem,4.4vw,3.6rem)` text fallback). Geometry verified over CDP at 
   360/390/480/481/1440; still needs a catalogue host to render the real logo.
-  Follow-up 2 (same session, after the first landing flaked under the full suite): the effect
+  Follow-up 2 (same session, after the first landing flaked under the full suite)
+  (timing patch, part 1 of the follow-up): the effect that re-arms the timer still listed: the effect
   that re-arms the timer still listed `featuredIndex` in its deps, which restarted the interval
   on every slide and widened the render window the pool-leak test inspects. The timer stabilised
   to `[reduceMotion, hasMultipleFeatured]` (the tick reads the live index itself via
