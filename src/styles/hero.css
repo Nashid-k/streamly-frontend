@@ -553,7 +553,7 @@
   /* The row reads as one control surface again (the old glass pill), so the
      ticks + arrows do not float as loose marks over the artwork. */
   background: transparent;
-  border: 1px solid rgba(var(--white-rgb), 0.06);
+  border: none;
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   border-radius: var(--radius-full);
@@ -623,9 +623,7 @@
   padding: 4px 8px;
 }
 .hero-dots__ticks {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: none;
 }
 /* Below 480px the arrows go: the row is swipeable and the ticks stay the
    primary control, so the pill track never overflows. The buttons stay 44px
