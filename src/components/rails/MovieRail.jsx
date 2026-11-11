@@ -5,7 +5,7 @@ import SectionHeader from "./SectionHeader";
 import useRailArrows from "../../hooks/useRailArrows";
 
 const MovieRail = React.memo(
-  function MovieRail({ category, railIndex: _railIndex = 0 }) {
+  function MovieRail({ category, railIndex: _railIndex = 0, header }) {
     const railRef = useRef(null);
     const containerRef = useRef(null);
     // Windowing: render the rail's cards only while it is near the viewport.
@@ -14,6 +14,7 @@ const MovieRail = React.memo(
     const [inView, setInView] = useState(false);
     const scrollPosRef = useRef(0);
     const isDynamicRail =
+      Boolean(category.dynamic) ||
       category.name === "Continue Watching" ||
       category.name === "My List" ||
       category.name === "Upcoming" ||
@@ -21,8 +22,7 @@ const MovieRail = React.memo(
       category.name === "Upcoming TV Shows" ||
       category.name === "Upcoming Anime" ||
       category.name === "Releases This Month" ||
-      category.name === "Coming This Month" ||
-      category.name.startsWith("Because you watched");
+      category.name === "Coming This Month";
 
     useEffect(() => {
       if (!("IntersectionObserver" in window)) {
@@ -68,7 +68,9 @@ const MovieRail = React.memo(
       if (railRef.current) {
         railRef.current.scrollLeft = 0;
       }
-    }, [category.name]);
+      // movies, not just name: an anchor swap on the because rail changes the
+      // row's data while the translated label stays constant.
+    }, [category.name, category.movies]);
 
     const handleScroll = (e) => {
       if (inThrottle.current) return;
@@ -108,25 +110,37 @@ const MovieRail = React.memo(
         style={{ position: "relative" }}
       >
         {/* Shared row head — title on the left, a quiet `See all` on the right
-            that goes white on hover. Dynamic rails get the title alone. */}
+            that goes white on hover. Dynamic rails get the title alone. A
+            caller-supplied `header` node replaces the plain title entirely
+            (the because rail's anchor picker renders in this slot). */}
         <SectionHeader
           title={
-            <h3
-              className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
-              style={{
-                fontFamily: "var(--font-display)",
-                fontSize: "20px",
-                fontWeight: "var(--weight-display)",
-                margin: 0,
-                letterSpacing: "var(--tracking-display)",
-                color: "var(--white)",
-              }}
-            >
-              {category.name}
-            </h3>
+            header || (
+              <h3
+                className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}`}
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "20px",
+                  fontWeight: "var(--weight-display)",
+                  margin: 0,
+                  letterSpacing: "var(--tracking-display)",
+                  color: "var(--white)",
+                }}
+              >
+                {category.name}
+              </h3>
+            )
           }
-          seeAllTo={isDynamicRail ? undefined : `/category/${encodeURIComponent(category.name)}`}
-          seeAllState={isDynamicRail ? undefined : { movies: category.movies, name: category.name }}
+          seeAllTo={
+            header || isDynamicRail
+              ? undefined
+              : `/category/${encodeURIComponent(category.name)}`
+          }
+          seeAllState={
+            header || isDynamicRail
+              ? undefined
+              : { movies: category.movies, name: category.name }
+          }
         />
 
         {inView && (
@@ -170,7 +184,10 @@ const MovieRail = React.memo(
   },
   (prev, next) =>
     prev.category.name === next.category.name &&
-    prev.category.movies === next.category.movies,
+    prev.category.movies === next.category.movies &&
+    // Header node: the because picker re-renders when its anchor changes, so
+    // element identity is part of the contract.
+    prev.header === next.header,
 );
 
 export default MovieRail;

@@ -6,6 +6,7 @@ import GenreShowcase from "../GenreShowcase";
 import SkeletonRail from "../SkeletonRail";
 import FadeInSection from "./FadeInSection";
 import MovieRail from "./MovieRail";
+import BecauseSelector from "./BecauseSelector";
 import Top10Rail from "./Top10Rail";
 import EditorialRails from "./EditorialRails";
 import GenreTiles from "./GenreTiles";
@@ -31,7 +32,8 @@ const HomeRails = React.memo(function HomeRails({
   sectionTitle,
   categories,
   visibleCatCount,
-  lastWatched,
+  becauseAnchor,
+  onBecauseAnchorChange,
   recommendations,
   top10Movies,
   trendingThisWeek,
@@ -63,20 +65,33 @@ const HomeRails = React.memo(function HomeRails({
       )}
 
       {/* Because you watched — personalized discovery ranker, right after the
-          providers. */}
-      {!loading && filter === "all" && lastWatched && recommendations?.length > 0 && (
-        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
-          <ErrorBoundary>
-            <MovieRail
-              railIndex={1}
-              category={{
-                name: t("home.rails.becauseWatched", { title: lastWatched.title }),
-                movies: recommendations,
-              }}
-            />
-          </ErrorBoundary>
-        </FadeInSection>
-      )}
+          providers. The rail head is cinejoy's anchor picker: the anchor title
+          is a bold underlined button whose dropdown lists the watch history
+          and re-bases the rail on the picked title. */}
+      {!loading &&
+        filter === "all" &&
+        becauseAnchor &&
+        recommendations?.length > 0 && (
+          <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
+            <ErrorBoundary>
+              <MovieRail
+                railIndex={1}
+                category={{
+                  name: t("home.rails.becauseWatched"),
+                  movies: recommendations,
+                  dynamic: true,
+                }}
+                header={
+                  <BecauseSelector
+                    anchor={becauseAnchor}
+                    items={continueWatching}
+                    onPick={onBecauseAnchorChange}
+                  />
+                }
+              />
+            </ErrorBoundary>
+          </FadeInSection>
+        )}
 
       {/* Categories Section */}
       <section

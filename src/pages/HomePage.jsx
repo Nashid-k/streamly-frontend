@@ -567,20 +567,37 @@ export default function Home({
       ? continueWatching[0]
       : null;
 
+  // Because-you-watched anchor: the rail is computed for ONE title. Default
+  // anchor = the most recently watched; the rail head's dropdown lets the
+  // viewer re-base the rail on any other title in the watch history (cinejoy's
+  // "Because you watched X ▾"). A picked title wins until it leaves the watch
+  // list, then the rail falls back to the newest entry.
+  const [pickedAnchorId, setPickedAnchorId] = useState(null);
+  const becauseAnchor = useMemo(() => {
+    if (pickedAnchorId) {
+      const picked = continueWatching?.find((m) => m.id === pickedAnchorId);
+      if (picked) return picked;
+    }
+    return lastWatched;
+  }, [pickedAnchorId, continueWatching, lastWatched]);
+
   const { data: rawRecommendations, error: recommendationsError } = useQuery({
-    queryKey: ["recommendations", lastWatched?.id],
-    queryFn: () => movieService.getRecommendations(lastWatched.id),
-    enabled: Boolean(lastWatched && lastWatched.id),
+    queryKey: ["recommendations", becauseAnchor?.id],
+    queryFn: () => movieService.getRecommendations(becauseAnchor.id),
+    enabled: Boolean(becauseAnchor && becauseAnchor.id),
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
+    // While the new anchor's fetch is in flight the previous rail stays up, so
+    // the swap reads as an instant re-base instead of a blank rail.
+    placeholderData: (prev) => prev,
   });
 
   useEffect(() => {
     if (recommendationsError) {
-      reportQueryError("HomePage", ["recommendations", lastWatched?.id], recommendationsError, { lastWatchedId: lastWatched?.id });
+      reportQueryError("HomePage", ["recommendations", becauseAnchor?.id], recommendationsError, { anchorId: becauseAnchor?.id });
     }
-  }, [recommendationsError, lastWatched?.id]);
+  }, [recommendationsError, becauseAnchor?.id]);
   const recommendations = useMemo(() => asArray(rawRecommendations), [rawRecommendations]);
 
   const finalPool = useMemo(() => {
@@ -1233,7 +1250,8 @@ export default function Home({
         sectionTitle={sectionTitle}
         categories={categories}
         visibleCatCount={visibleCatCount}
-        lastWatched={lastWatched}
+        becauseAnchor={becauseAnchor}
+        onBecauseAnchorChange={setPickedAnchorId}
         recommendations={recommendations}
         top10Movies={top10Movies}
         trendingThisWeek={trendingThisWeek}

@@ -224,26 +224,111 @@ textarea:focus-visible {
 .movie-rail-wrapper > div:first-child h3.rail-title--dynamic::before {
   display: none;
 }
-.movie-rail-wrapper > div:first-child h3.rail-title--because {
-  border-bottom: 1px dashed rgba(var(--white-rgb), 0.28);
-  padding-bottom: 2px;
-  max-width: min(76vw, 620px);
+
+/* Because-you-watched rail head — cinejoy.pk's `because-selector`: the plain
+   label, then the anchor title as a bold underlined button that opens a
+   dark-glass listbox of previously watched titles (the panel shell and
+   scrollbar come from `.discovery-menu`). */
+.because-selector {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.because-selector__label {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
+  color: rgba(var(--white-rgb), 0.9);
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin: 0;
+}
+.because-selector__anchor {
+  position: relative;
+  min-width: 0;
+}
+.because-selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--white);
+  cursor: pointer;
+}
+.because-selector__title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(var(--white-rgb), 0.4);
+  transition: text-decoration-color var(--duration-fast) var(--ease-tv);
+}
+.because-selector__trigger:hover .because-selector__title,
+.because-selector__trigger:focus-visible .because-selector__title {
+  text-decoration-color: rgba(var(--white-rgb), 0.85);
+}
+.because-selector__chevron {
+  flex-shrink: 0;
+  color: rgba(var(--white-rgb), 0.5);
+  transition: transform var(--duration-fast) var(--ease-tv), color var(--duration-fast) var(--ease-tv);
+}
+.because-selector__chevron--open {
+  transform: rotate(180deg);
+}
+.because-selector__trigger:hover .because-selector__chevron,
+.because-selector__trigger:focus-visible .because-selector__chevron {
+  color: var(--white);
+}
+.because-selector__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 70;
+  width: 256px;
+  max-width: calc(100vw - 2rem);
+  max-height: 288px;
+  overflow-y: auto;
+  border: 1px solid rgba(var(--white-rgb), 0.15);
+  border-radius: var(--radius-panel);
+  padding: 4px;
+}
+.because-selector__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: rgba(var(--white-rgb), 0.7);
+  cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
-.movie-rail-wrapper > div:first-child h3.rail-title--because::after {
-  content: "▾";
-  flex-shrink: 0;
-  font-size: 0.62em;
-  color: rgba(var(--white-rgb), 0.6);
-  margin-left: 10px;
-  transition: transform var(--duration-fast) var(--ease-out);
+.because-selector__item:hover {
+  background: rgba(var(--white-rgb), 0.1);
+  color: var(--white);
 }
-@media (hover: hover) and (pointer: fine) {
-.movie-rail-wrapper > div:first-child h3.rail-title--because:hover::after {
-  transform: translateY(2px);
-}
+.because-selector__item--active {
+  background: rgba(var(--white-rgb), 0.05);
+  color: var(--white);
 }
 
 

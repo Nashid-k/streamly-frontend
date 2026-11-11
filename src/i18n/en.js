@@ -90,7 +90,9 @@ export const en = {
       airingThisWeek: "Airing This Week",
       popularNow: "Popular Now",
       nowPlaying: "Now Playing / In Theaters",
-      becauseWatched: "Because you watched {title}",
+      /* Rail head = this label + the anchor title as a bold button (the anchor
+         picker), so the phrase must read naturally BEFORE a title. */
+      becauseWatched: "Because you watched",
     },
   },
   search: {

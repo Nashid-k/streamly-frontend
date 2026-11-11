@@ -38,7 +38,7 @@ export const ja = {
       airingThisWeek: "今週の放送中作品",
       popularNow: "今人気の作品",
       nowPlaying: "上映中 / 劇場公開中",
-      becauseWatched: "{title}を見た人へのおすすめ",
+      becauseWatched: "視聴履歴からのおすすめ",
     },
   },
   search: {
@@ -171,7 +171,7 @@ export const ko = {
       airingThisWeek: "이번 주 방영 중",
       popularNow: "지금 인기 있는 작품",
       nowPlaying: "상영 중 / 극장 개봉",
-      becauseWatched: "{title}을(를) 본 당신을 위해",
+      becauseWatched: "시청 기록 기반 추천",
     },
   },
   search: {
@@ -304,7 +304,7 @@ export const hi = {
       airingThisWeek: "इस सप्ताह प्रसारित",
       popularNow: "अभी लोकप्रिय",
       nowPlaying: "चल रही / सिनेमाघरों में",
-      becauseWatched: "क्योंकि आपने {title} देखा था",
+      becauseWatched: "आपके देखे गए के आधार पर",
     },
   },
   search: {
@@ -437,7 +437,7 @@ export const ar = {
       airingThisWeek: "يُعرض هذا الأسبوع",
       popularNow: "الشائع الآن",
       nowPlaying: "قيد العرض / في دور العرض",
-      becauseWatched: "لأنك شاهدت {title}",
+      becauseWatched: "لأنك شاهدت",
     },
   },
   search: {

@@ -38,7 +38,7 @@ export const es = {
       airingThisWeek: "En Emisión Esta Semana",
       popularNow: "Populares Ahora",
       nowPlaying: "En cartelera / En cines",
-      becauseWatched: "Porque viste {title}",
+      becauseWatched: "Porque viste",
     },
   },
   search: {
@@ -170,7 +170,7 @@ export const fr = {
       airingThisWeek: "En Diffusion Cette Semaine",
       popularNow: "Populaires en Ce Moment",
       nowPlaying: "À l'affiche / Au cinéma",
-      becauseWatched: "Parce que vous avez regardé {title}",
+      becauseWatched: "Parce que vous avez regardé",
     },
   },
   search: {
@@ -303,7 +303,7 @@ export const de = {
       airingThisWeek: "Diese Woche in Ausstrahlung",
       popularNow: "Jetzt beliebt",
       nowPlaying: "Im Kino / Laufend",
-      becauseWatched: "Weil du {title} gesehen hast",
+      becauseWatched: "Basierend auf",
     },
   },
   search: {
@@ -436,7 +436,7 @@ export const it = {
       airingThisWeek: "In Onda Questa Settimana",
       popularNow: "Popolari Ora",
       nowPlaying: "In Programmazione / Al Cinema",
-      becauseWatched: "Perché hai guardato {title}",
+      becauseWatched: "Perché hai guardato",
     },
   },
   search: {
@@ -569,7 +569,7 @@ export const pt = {
       airingThisWeek: "No Ar Esta Semana",
       popularNow: "Populares Agora",
       nowPlaying: "Em Cartaz / Nos Cinemas",
-      becauseWatched: "Porque você assistiu {title}",
+      becauseWatched: "Porque você assistiu",
     },
   },
   search: {
