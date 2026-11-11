@@ -15,7 +15,7 @@ import TitleInfoModal from "../components/TitleInfoModal";
    transformed ancestor can trap it). `forceModal` bypasses the preference
    for call sites that need instant content with zero loading chrome (e.g.
    the Random picker). Call sites: MovieCard, hero banner click / Info
-   button, LeavingSoonBanner rows. */
+   button. */
 
 export default function useDetailView() {
   const navigate = useNavigate();

@@ -23,7 +23,7 @@ const ProviderRow = React.memo(function ProviderRow() {
   });
 
   const providers = useMemo(
-    () => asArray(data).filter((p) => p && p.logoUrl).slice(0, 12),
+    () => asArray(data).filter((p) => p && p.logoUrl),
     [data],
   );
 
@@ -62,11 +62,9 @@ const ProviderRow = React.memo(function ProviderRow() {
             <img
               src={provider.logoUrl}
               alt=""
-              width={32}
-              height={32}
               loading="lazy"
               decoding="async"
-              className="provider-chip__logo"
+              className="provider-chip__logo w-full h-full object-cover"
             />
           </Link>
         ))}

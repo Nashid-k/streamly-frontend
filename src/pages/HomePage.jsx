@@ -23,7 +23,7 @@ import useFeedSentinel from "../hooks/useFeedSentinel";
 import RatingsCluster from "../components/RatingsCluster";
 
 import RailArrow from "../components/RailArrow";
-import { detectLeavingSoon, buildUpcomingThisWeek } from "../utils/releaseCalendar";
+import { buildUpcomingThisWeek } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
@@ -149,12 +149,12 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
-  // Regional (Tamil/Hindi/Malayalam/Telugu) feeds, merged into the Upcoming and
-  // Airing rails so those keep their global breadth. Each is a /discover sweep,
+  // Regional (Tamil/Hindi/Malayalam/Telugu) feeds, merged into the hero banner
+  // pool and the Airing rail so those keep their global breadth. Each is a /discover sweep,
   // cached 10 min like the other rails.
   //
   // These three are ~38 catalogue requests between them (4 languages x pages,
-  // plus 10 detail calls), and everything they build is a rail BELOW the hero.
+  // plus 10 detail calls), and everything they build renders BELOW the hero.
   // They wait for the rail section to come within 600px of the viewport, so a
   // cold load no longer pays for them before the viewer has scrolled anywhere.
   const [railsSentinelRef, railsNear] = useNearViewport("600px 0px");
@@ -505,20 +505,10 @@ export default function Home({
     [nowPlayingData, filter],
   );
 
-  // "Upcoming" — premieres only: movies with a future release date plus series the
-  // backend flags isUpcoming. Ongoing shows whose NEXT EPISODE is in the future are
-  // excluded (they live in the Airing rail). Rows are anchored to the current date
-  // (TODAY/TOMORROW/weekday chips), sorted soonest-first, limited to THIS WEEK's
-  // premieres, and NEVER padded with trending/airing titles — released films are
-  // not "coming soon".
-  // detectLeavingSoon() flattens every category, parses date strings and sorts
-  // the result. Calling it inline meant all of that ran again on every render —
-  // including the 1 Hz progress ticks while a title plays in the background.
-  const leavingSoonItems = useMemo(
-    () => detectLeavingSoon(categories.flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])), 14),
-    [categories],
-  );
-
+  // Upcoming premieres (movies with a future release date + series the backend
+  // flags isUpcoming, soonest first, never padded with already-released titles).
+  // The "Coming this week" rail is gone from the home feed — this pool survives
+  // only as the final pad for the Top 10 rail when the backend rank list is short.
   const upcomingReleases = useMemo(() => {
     const pool = [
       ...asArray(airingData),
@@ -550,20 +540,6 @@ export default function Home({
     return [...guaranteedRegional, ...remainingRegional, ...globalTitles].slice(0, 12);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter]);
-
-  // The rail only holds this week's premieres, so the heading always says so;
-  // the scope suffix still follows the active tab.
-  const upcomingTitle = (() => {
-    const translatedScope =
-      filter === "series" || filter === "tv shows"
-        ? t("home.scope.shows")
-        : filter === "movies"
-          ? t("home.scope.movies")
-          : "";
-    return translatedScope
-      ? t("home.upcomingWeekScope", { scope: translatedScope })
-      : t("home.upcomingWeek");
-  })();
 
   // Top 10 — backend rank first, padded to a full 10 per tab (the per-page-type
   // backend list can be short). Padding comes from tab-filtered
@@ -1252,9 +1228,6 @@ export default function Home({
         loading={loading}
         filter={filter}
         activeGenre={activeGenre}
-        leavingSoonItems={leavingSoonItems}
-        upcomingReleases={upcomingReleases}
-        upcomingTitle={upcomingTitle}
         railsSentinelRef={railsSentinelRef}
         catEndRef={catEndRef}
         sectionTitle={sectionTitle}

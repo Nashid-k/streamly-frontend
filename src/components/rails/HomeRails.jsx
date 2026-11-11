@@ -2,7 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import ErrorBoundary from "../ErrorBoundary";
 import ContinueWatchingRail from "../ContinueWatchingRail";
-import LeavingSoonBanner from "../LeavingSoonBanner";
 import GenreShowcase from "../GenreShowcase";
 import SkeletonRail from "../SkeletonRail";
 import FadeInSection from "./FadeInSection";
@@ -14,8 +13,8 @@ import ProviderRow from "./ProviderRow";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n/index.jsx";
 
-/* Everything BELOW the hero: Leaving Soon, Upcoming, Continue Watching and the
-   category rails. It is memoised on purpose — the hero owns its rotation and
+/* Everything BELOW the hero: Continue Watching, Browse-by-Provider,
+   Because-you-watched and the category rails. It is memoised on purpose — the hero owns its rotation and
    hover state back in HomePage, and every tick of that state used to re-render
    this whole subtree (a dozen rails × a row of cards each) on the main thread
    every 10 seconds and on every banner hover. All inputs are useMemo'd query
@@ -27,9 +26,6 @@ const HomeRails = React.memo(function HomeRails({
   loading,
   filter,
   activeGenre,
-  leavingSoonItems,
-  upcomingReleases,
-  upcomingTitle,
   railsSentinelRef,
   catEndRef,
   sectionTitle,
@@ -46,24 +42,6 @@ const HomeRails = React.memo(function HomeRails({
 
   return (
     <>
-      {/* Leaving Soon — home page only */}
-      {!loading && filter === 'all' && activeGenre === 'All' && (
-        <LeavingSoonBanner items={leavingSoonItems} />
-      )}
-
-      {/* Upcoming — standard rail UI on every tab; tab-filtered (all on Home,
-          movies/series on their pages) and padded so the rail always fills. */}
-      {!loading && activeGenre === "All" && upcomingReleases.length > 0 && (
-        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
-          <ErrorBoundary>
-            <MovieRail
-              railIndex={0}
-              category={{ name: upcomingTitle, movies: upcomingReleases }}
-            />
-          </ErrorBoundary>
-        </FadeInSection>
-      )}
-
       {/* Continue Watching — resume-first; right below the hero, on every tab */}
       {!loading && continueWatching && continueWatching.length > 0 && (
         <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
@@ -73,9 +51,32 @@ const HomeRails = React.memo(function HomeRails({
         </FadeInSection>
       )}
 
-      {/* The featured-collection wide banner is gone (did not match the app's
-          rail language). Its category already renders below as a standard
-          MovieRail in the category-rails block, so nothing is lost. */}
+      {/* Browse by Provider — sits directly below Continue Watching; the full
+          provider slate, each chip linking to the existing
+          /movies?provider=<id> filter. */}
+      {!loading && filter === "all" && activeGenre === "All" && (
+        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
+          <ErrorBoundary>
+            <ProviderRow />
+          </ErrorBoundary>
+        </FadeInSection>
+      )}
+
+      {/* Because you watched — personalized discovery ranker, right after the
+          providers. */}
+      {!loading && filter === "all" && lastWatched && recommendations?.length > 0 && (
+        <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
+          <ErrorBoundary>
+            <MovieRail
+              railIndex={1}
+              category={{
+                name: t("home.rails.becauseWatched", { title: lastWatched.title }),
+                movies: recommendations,
+              }}
+            />
+          </ErrorBoundary>
+        </FadeInSection>
+      )}
 
       {/* Categories Section */}
       <section
@@ -98,21 +99,9 @@ const HomeRails = React.memo(function HomeRails({
           </h3>
         ) : (
           <>
-            {/* Because you watched — personalized discovery ranker */}
-            {filter === "all" && lastWatched && recommendations?.length > 0 && (
-              <FadeInSection>
-                <ErrorBoundary>
-                  <MovieRail
-                    railIndex={1}
-                    category={{
-                      name: t("home.rails.becauseWatched", { title: lastWatched.title }),
-                      movies: recommendations,
-                    }}
-                  />
-                </ErrorBoundary>
-              </FadeInSection>
-            )}
-            {/* 3. Top 10 — social proof & fresh discovery */}
+            {/* Top 10 — social proof & fresh discovery. Because-you-watched and
+                the provider row now sit above this section, directly under
+                Continue Watching. */}
             {(filter === "all" ||
               filter === "series" ||
               filter === "tv shows" ||
@@ -166,14 +155,6 @@ const HomeRails = React.memo(function HomeRails({
                   />
                 </ErrorBoundary>
               </FadeInSection>
-            )}
-
-            {/* Providers — real watch-provider logos, filtered through the
-                existing /movies?provider=<id> contract. */}
-            {filter === "all" && activeGenre === "All" && (
-              <ErrorBoundary>
-                <ProviderRow />
-              </ErrorBoundary>
             )}
 
             {/* 11. Genre showcase — Streamly/Prime-style rows (tab-aware) */}

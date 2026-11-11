@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **Home feed reorder — providers below Continue Watching, no release-calendar promos — 2026-11-11 (branch `main`).**
+  - New order below the hero: Continue Watching → **Browse by Provider** (moved out of the category section) → **Because you watched** → Top 10 → Trending → Top Rated → Editorial → My List → Genre showcase/tiles → category rails → Explore all.
+  - "Coming this week" (Upcoming rail) and the Leaving Soon banner are gone from home; `LeavingSoonBanner.jsx` deleted (no remaining consumer). `upcomingReleases` survives in HomePage only as the Top 10 rank-pad pool; the regional/newReleases queries stay — the hero banner pool consumes them.
+  - Provider chips enlarged: 64×64, 30px border radius, full-bleed `img.provider-chip__logo` with `w-full h-full object-cover` (overflow hidden keeps the rounded edge), and the 12-chip cap removed — the full provider slate scrolls horizontally.
+  - Gates: lint 0 errors (pre-existing warnings unchanged); full suite 118 files / 1439 tests green on first run; build 2.59s.
+
 - [x] **Home banner follow-up (Phase 2-3) — 2026-11-11 (branch `main`).**
   - Tick row re-closed as distinct pills (48×7, 8px gaps, 48×44 hit; arrows hidden ≤480px); title logo bumped to clamp(96px,17vw,190px) image / clamp(1.9rem,4.4vw,3.6rem) text; control click/keydown stopPropagation so they change the slide without opening the detail modal; CDP geometry verified at 360/390/480/481/1440.
   - Timer effect stabilised to [reduceMotion, hasMultipleFeatured] + preloader shrank to [featuredIndex, finalPool.length, nextMovie] so the pool-leak assertion's render-window race closed.

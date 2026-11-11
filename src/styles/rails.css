@@ -248,7 +248,7 @@ textarea:focus-visible {
 
 
 /* ── Browse by Provider (brief §6.7) ──────────────────────────────────────
-   48–56px logo chips on neutral surfaces, horizontally scrollable, no glass. */
+   64px logo chips on neutral surfaces, horizontally scrollable, no glass. */
 .provider-row {
   position: relative;
 }
@@ -268,9 +268,10 @@ textarea:focus-visible {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-chip);
+  width: 64px;
+  height: 64px;
+  border-radius: 30px;
+  overflow: hidden;
   background: rgba(var(--white-rgb), 0.06);
   border: 1px solid rgba(var(--white-rgb), 0.1);
   transition:
@@ -286,9 +287,9 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 .provider-chip__logo {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Feed terminator — the page ends here instead of growing a tail of rails. */
