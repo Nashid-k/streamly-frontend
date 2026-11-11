@@ -201,7 +201,7 @@ describe("manual server pick prefers then falls back fast", () => {
     hlsState.releaseProbe?.();
   });
 
-  it("shows the horizontal loader on a server switch (not only the first cold open)", async () => {
+  it("shows the animated logo loader on a server switch (not only the first cold open)", async () => {
     const { container } = render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
@@ -215,7 +215,7 @@ describe("manual server pick prefers then falls back fast", () => {
     fireEvent.click(server2);
 
     const stage = await screen.findByRole("status", { name: "Loading video" });
-    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
     expect(stage.querySelector(".np-tailspin")).toBeNull();
 
     hlsState.deferProbe = false;

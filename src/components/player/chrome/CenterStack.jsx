@@ -5,6 +5,7 @@
 // - End state shows replay
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMotionTokens, DURATION, EASE_OUT, PRESS_SCALE } from "../../../constants/motion";
+import { useOptionalPreferences } from "../../../context/preferences";
 import {
   ACCENT_FG,
   ACCENT_GLOW,
@@ -25,6 +26,11 @@ export default function CenterStack({
   onReplay,
 }) {
   const M = useMotionTokens(useReducedMotion());
+  const osReduced = useReducedMotion();
+  const prefs = useOptionalPreferences();
+  // The cold-open loader is an animated GIF, which CSS reduced-motion rules
+  // cannot park — so reduced-motion viewers (OS or in-app) get the still logo.
+  const stillLoader = osReduced || prefs?.reduceMotion === true;
 
   return (
     <>
@@ -49,6 +55,7 @@ export default function CenterStack({
               message={stageNote}
               initial={stageInitial}
               frame={switchFrame}
+              still={stillLoader}
             />
           </motion.div>
         )}

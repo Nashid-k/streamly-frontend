@@ -1,48 +1,49 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { DURATION, EASE_OUT } from "../constants/motion";
+import { useOptionalPreferences } from "../context/preferences";
+import { StreamlyLoader } from "./StreamlyLoader";
 
-/* Lightweight Suspense fallback for lazy route chunks. Replaces the dual-ring
-   spinner with a page-shaped skeleton so the swap reads as "content loading"
-   rather than "app stalled". With routeWarmup preloading chunks on idle and
-   on hover this rarely renders, but when it does (first visit to a route, a
-   slow network) it should feel like the page is arriving, not like a spinner. */
+/* Suspense fallback for lazy route chunks — the compact neon Streamly spinner
+   (routine navigation loading; the animated logo GIF stays reserved for the
+   player's video startup). With routeWarmup preloading chunks on idle and on
+   hover this rarely renders, but when it does (first visit to a route, a slow
+   network) it should feel branded, not like a bare spinner. Reduced motion
+   (OS or the in-app preference) swaps the spinning ring for the still logo —
+   the CSS ring parks itself under the OS media query, but the in-app
+   preference is JS-only, so it is honoured here. */
 export default function RouteFallback() {
+  const prefs = useOptionalPreferences();
+  const osReduced = useReducedMotion();
+  const stillLoader = osReduced || prefs?.reduceMotion === true;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "2rem",
-        padding: "6rem var(--content-gutter, 2rem) 4rem",
-        minHeight: "60dvh",
-        width: "100%",
-      }}
       aria-busy="true"
       aria-live="polite"
     >
-      {/* Hero-shaped skeleton */}
-      <div className="skeleton" style={{ width: "100%", height: "clamp(200px, 38vw, 420px)", borderRadius: "var(--radius-xl, 12px)" }} />
-
-      {/* Two rail-shaped rows of card placeholders */}
-      {[0, 1].map((row) => (
-        <div key={row} style={{ display: "flex", gap: "1rem", overflow: "hidden" }}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="skeleton skeleton-card"
-              style={{
-                flex: "0 0 auto",
-                width: "clamp(120px, 14vw, 180px)",
-                aspectRatio: "2 / 3",
-                borderRadius: "var(--radius-lg, 8px)",
-              }}
-            />
-          ))}
-        </div>
-      ))}
+      <div className="streamly-loading-screen streamly-loading-screen--route">
+        {stillLoader ? (
+          <img
+            src="/brand/streamly-logo-transparent.png"
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            style={{
+              height: "clamp(3rem, 8vw, 4.5rem)",
+              width: "auto",
+              objectFit: "contain",
+            }}
+          />
+        ) : (
+          <StreamlyLoader size={58} label="Loading Streamly" />
+        )}
+        <span className="streamly-loading-screen__label">
+          Loading your experience
+        </span>
+      </div>
     </motion.div>
   );
 }

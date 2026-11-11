@@ -146,11 +146,12 @@ describe("NativePlayerView (smoke)", () => {
 });
 
 /* The loading stage the viewer stares at while a stream resolves: the title
-   image centred over a blurred full-screen backdrop, with the horizontal
-   loader line under the title. jsdom takes the fatal path (no MediaSource),
-   which leaves the stage mounted — exactly the pass whose DOM we assert. */
+   image centred over a blurred full-screen backdrop, with the neon
+   player-loader GIF under the title. jsdom takes the fatal path (no
+   MediaSource), which leaves the stage mounted — exactly the pass whose DOM
+   we assert. */
 describe("NativePlayerView loading stage", () => {
-  it("renders the title image and the horizontal loader line under the title", () => {
+  it("renders the title image and the player-loader GIF under the title", () => {
     render(
       <NativePlayerView
         type="movie"
@@ -174,8 +175,8 @@ describe("NativePlayerView loading stage", () => {
     const backdrop = stage.querySelector(".np-loading-art");
     expect(backdrop).toBeTruthy();
     expect(backdrop.getAttribute("src")).toBe("https://image.test/backdrop.jpg");
-    // INITIAL cold open: the loader is the horizontal sweep, not the ring.
-    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+    // INITIAL cold open: the loader is the animated logo GIF, not the ring.
+    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
     expect(stage.querySelector(".np-tailspin")).toBeNull();
   });
 
@@ -215,21 +216,21 @@ describe("NativePlayerView loading stage", () => {
     );
     expect(fallback).toBeTruthy();
     expect(fallback).toBeTruthy();
-    // The horizontal sweep still loads — a black stage never looks frozen.
-    expect(stage.querySelector(".np-loading-line > span")).toBeTruthy();
+    // The player-loader GIF still loads — a black stage never looks frozen.
+    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
   });
 });
 
-/* The horizontal sweep is for the two SERVER-level cold opens — the very first
-   load and a manual server switch (the component passes `initial=true` for
-   both). Every other later cold stage (quality/dub/episode) passes
+/* The animated logo GIF is for the two SERVER-level cold opens — the very
+   first load and a manual server switch (the component passes `initial=true`
+   for both). Every other later cold stage (quality/dub/episode) passes
    `initial=false` and keeps the round Tailspin ring. */
 describe("LoadingStage loader variant", () => {
-  it("sweeps horizontally only while `initial`, and rings otherwise", () => {
+  it("shows the animated logo only while `initial`, and rings otherwise", () => {
     const { container: first, unmount } = render(
       <LoadingStage title="Fight Club" initial />,
     );
-    expect(first.querySelector(".np-loading-line > span")).toBeTruthy();
+    expect(first.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
     expect(first.querySelector(".np-tailspin")).toBeNull();
     unmount();
 
@@ -237,6 +238,6 @@ describe("LoadingStage loader variant", () => {
       <LoadingStage title="Fight Club" initial={false} />,
     );
     expect(later.querySelector(".np-tailspin > span")).toBeTruthy();
-    expect(later.querySelector(".np-loading-line")).toBeNull();
+    expect(later.querySelector('img[src*="streamly-player-loader"]')).toBeNull();
   });
 });

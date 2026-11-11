@@ -39,19 +39,13 @@
     #050505;
 }
 
-/* The curtain uses the same brand lockup as the header, sized larger because
-   it has no surrounding chrome to carry the brand. The higher-specificity
-   selectors beat the header's base glyph/text sizes. */
+/* The curtain uses the same Streamly PNG mark as the header, sized larger
+   because it has no surrounding chrome to carry the brand. The img-height
+   override beats the header's base .brand-wordmark rule. */
 .brand-wordmark.language-switch-overlay__wordmark {
-  gap: 12px;
+  height: clamp(5rem, 11vw, 7rem);
   margin-bottom: 0.4rem;
   filter: drop-shadow(0 8px 30px rgba(var(--black-rgb), 0.6));
-}
-.brand-wordmark.language-switch-overlay__wordmark .brand-wordmark__glyph {
-  height: clamp(2.4rem, 7vw, 3.4rem);
-}
-.brand-wordmark.language-switch-overlay__wordmark .brand-wordmark__text {
-  font-size: clamp(2rem, 6vw, 2.75rem);
 }
 
 .language-switch-overlay__label {

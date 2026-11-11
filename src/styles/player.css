@@ -426,18 +426,12 @@
      its blur (that is legibility, not movement) but loses the slow scale. */
   .np-ring-spinner,
   .np-ring-spinner > span,
-  .np-loading-art,
-  .np-loading-line > span {
+  .np-loading-art {
     animation: none !important;
     -webkit-animation: none !important;
   }
   .np-loading-art {
     transform: none !important;
-  }
-  /* The sweeping segment parks mid-track instead of animating: a frozen full
-     bar would read as progress, a parked partial bar reads as "loading". */
-  .np-loading-line > span {
-    width: 32%;
   }
 }
 
@@ -469,10 +463,6 @@
   --zxc-t-fast: 150ms;
   --zxc-t-med: 300ms;
   --zxc-t-slow: 500ms;
-  /* The start loader's sweep period. Its own value (not an interaction
-     duration) but kept as a token so no bare `Ns` literal lives in a player
-     `animation:` declaration — same rule the Tailspin period follows. */
-  --np-load-period: 1.3s;
 }
 
 /* ── Tailspin loader ──────────────────────────────────────────────────────
@@ -504,21 +494,6 @@
 @keyframes npTailspin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-/* ── Horizontal start loader (INITIAL cold open only) ─────────────────────
-   A hairline track (`.np-loading-line`, sized inline) with an accent segment
-   sweeping across it. Rendered by LoadingStage ONLY while `initial` is true —
-   i.e. the first time the player boots and no frame has played yet; every
-   later wait (server/quality/dub switch, stall) keeps the Tailspin ring.
-   Purely decorative. */
-.np-loading-line > span {
-  width: 32%;
-  animation: npLoadingLine var(--np-load-period) ease-in-out infinite;
-}
-@keyframes npLoadingLine {
-  0% { transform: translateX(-110%); }
-  100% { transform: translateX(420%); }
 }
 
 /* ── Glass surfaces: their dark zinc chrome ─────────────────────────────── */

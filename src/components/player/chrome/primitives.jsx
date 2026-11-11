@@ -5,7 +5,7 @@
 // presentation-only; the stage's data comes in as props so the engine keeps
 // owning the resolve state.
 import { useEffect, useState } from "react";
-import { TEXT, TEXT_FAINT, TRACK } from "./theme";
+import { TEXT, TEXT_FAINT } from "./theme";
 import { CdnImageAdapter } from "../../../api/cdnImageAdapter";
 
 /* The stage a viewer stares at while a stream resolves: the title's own art,
@@ -14,7 +14,7 @@ import { CdnImageAdapter } from "../../../api/cdnImageAdapter";
    those are the same wait wearing different clothes — the artwork is what tells
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
-export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, frame }) {
+export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, frame, still }) {
   // A logo URL that fails to decode (a stale TMDB path, a blocked CDN) must not
   // leave an empty frame where the title should be: the failed art steps aside
   // and the styled text title takes its place, exactly as when no logo exists.
@@ -146,15 +146,15 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
               {title}
             </div>
           ) : null}
-          {/* The loader under the art: a horizontal sweep on the SERVER-level
-              cold opens — the very first load (the viewer is waiting on the
-              player to boot) AND a manual server switch (they tapped a new
-              backend) — and the Tailspin ring for every later wait (a quality/
-              dub/episode switch re-mounts this same stage, and a ring reads as
-              "the stream is thinking" rather than "the app is starting"). Purely
-              decorative → the reduced-motion block stops and parks both. */}
+          {/* The loader under the art: the neon player-loader GIF on the
+              SERVER-level cold opens — the very first load (the viewer is
+              waiting on the player to boot) AND a manual server switch (they
+              tapped a new backend) — and the Tailspin ring for every later
+              wait (a quality/dub/episode switch re-mounts this same stage,
+              and a ring reads as "the stream is thinking" rather than "the
+              app is starting"). */}
           <div style={{ marginTop: 6, display: "flex", justifyContent: "center" }}>
-            {initial ? <LineLoader /> : <RingSpinner size={44} />}
+            {initial ? <PlayerLoader still={still} /> : <RingSpinner size={44} />}
           </div>
         </div>
       ) : null}
@@ -217,35 +217,43 @@ export function RingSpinner({ size = 44 }) {
   );
 }
 
-/* The horizontal loader: a hairline track with an accent segment sweeping
-   across it. Used for the SERVER-level cold opens (the first load and a manual
-   server switch — see LoadingStage); every other later wait keeps the unified
-   v4 double-arc spinner. Purely decorative, aria-hidden, and the reduced-motion block in
-   player.css parks the segment mid-track (a frozen full bar would read as
-   progress; a parked partial bar reads as "loading"). */
-export function LineLoader() {
-  return (
-    <span
-      aria-hidden="true"
-      className="np-loading-line"
-      style={{
-        width: "min(56vw, 340px)",
-        height: 3,
-        borderRadius: 999,
-        background: TRACK,
-        overflow: "hidden",
-        display: "block",
-      }}
-    >
-      <span
+/* The loader under the stage art. SERVER-level cold opens — the very first
+   load (the player is booting) and a manual server switch (the viewer tapped a
+   new backend) — show the neon Streamly player-loader GIF
+   (public/brand/streamly-player-loader.gif); every later wait (a quality/dub/
+   episode switch re-mounts this same stage) keeps the Tailspin ring, which
+   reads as "the stream is thinking" rather than "the app is starting".
+   Reduced motion gets the still logo instead of the GIF — an animated GIF
+   cannot be parked by CSS, so the static mark is the honest fallback. */
+function PlayerLoader({ still }) {
+  if (still) {
+    return (
+      <img
+        src="/brand/streamly-logo-transparent.png"
+        alt=""
+        aria-hidden="true"
+        draggable="false"
         style={{
-          display: "block",
-          height: "100%",
-          borderRadius: 999,
-          background: "linear-gradient(90deg, var(--accent, #8652bb), var(--white))",
-          boxShadow: "0 0 12px var(--accent, #8652bb)",
+          height: 56,
+          width: "auto",
+          objectFit: "contain",
+          opacity: 0.9,
         }}
       />
-    </span>
+    );
+  }
+  return (
+    <img
+      src="/brand/streamly-player-loader.gif"
+      alt=""
+      aria-hidden="true"
+      draggable="false"
+      style={{
+        height: "clamp(72px, 11vw, 104px)",
+        width: "auto",
+        maxWidth: "min(70vw, 300px)",
+        objectFit: "contain",
+      }}
+    />
   );
 }

@@ -73,39 +73,22 @@
   border-radius: var(--radius-full);
   line-height: 0;
 }
-/* Streamly brand lockup — glyph SVG + "Streamly" live type. Sized by the
-   glyph's height; the text follows the old wordmark's fixed type rules (it is
-   a mark, not body copy, so it does not follow the UI type scale). */
+/* Streamly brand lockup — the transparent PNG mark (glyph over the outlined
+   wordmark), sized by height in every placement (header, curtain, footer). */
 .brand-wordmark {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  transform-origin: top left;
-  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
-}
-.brand-wordmark__glyph {
   display: block;
-  height: 26px;
+  height: 40px;
   width: auto;
   user-select: none;
-}
-.brand-wordmark__text {
-  font-size: 1.3rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.045em;
-  color: var(--white);
-  white-space: nowrap;
+  transform-origin: top left;
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
 }
 .header-row.scrolled .brand-wordmark {
   transform: scale(0.9);
 }
 @media (max-width: 768px) {
-  .brand-wordmark__glyph {
-    height: 22px;
-  }
-  .brand-wordmark__text {
-    font-size: 1.15rem;
+  .brand-wordmark {
+    height: 30px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

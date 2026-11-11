@@ -17,6 +17,7 @@ import "./styles/settings.css";
 import "./styles/ui-kit.css";
 import "./styles/player.css";
 import "./styles/settings-ui.css";
+import "./styles/streamly-loader.css";
 import "./styles/modals.css";
 import "./styles/discovery.css";
 import { ToastProvider } from "./components/Toast.jsx";
