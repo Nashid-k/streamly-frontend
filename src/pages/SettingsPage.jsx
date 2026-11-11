@@ -635,7 +635,7 @@ export default function SettingsPage() {
                             how to turn sync on. */}
                         {hasAccount && (
                           <span
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
                               syncStatus === "error"
                                 ? "bg-red-500/15 text-red-300 border-red-500/30"
                                 : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"

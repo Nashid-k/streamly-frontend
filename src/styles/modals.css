@@ -96,7 +96,7 @@
   background: rgba(20, 20, 20, 0.85);
   border: none;
   color: rgba(var(--white-rgb), 0.9);
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   flex-shrink: 0;
@@ -171,7 +171,7 @@
 }
 
 .player-preview-time {
-  font-size: 0.62rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   font-variant-numeric: tabular-nums;
@@ -188,7 +188,7 @@
 
 .player-preview-title {
   color: rgba(var(--white-rgb), 0.88);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -197,7 +197,7 @@
 
 .player-preview-pill {
   flex-shrink: 0;
-  font-size: 0.56rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: rgba(var(--white-rgb), 0.7);
@@ -252,7 +252,7 @@
   max-height: min(86vh, 92svh);
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-radius: 18px;
+  border-radius: var(--radius-panel);
   background: var(--bg-elevated, #14141c);
   border: 1px solid rgba(var(--white-rgb), 0.1);
   box-shadow: 0 32px 90px rgba(var(--black-rgb), 0.65);
@@ -362,7 +362,7 @@
 .title-info-match { color: #46d369; font-weight: 700; }
 .title-info-genres { display: flex; flex-wrap: wrap; gap: 8px; }
 .title-info-genre {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   padding: 4px 12px;
@@ -581,7 +581,7 @@
   text-overflow: ellipsis;
 }
 .title-info-similar-row-meta {
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   color: rgba(var(--white-rgb), 0.5);
 }
 .title-info-similar-row-arrow {

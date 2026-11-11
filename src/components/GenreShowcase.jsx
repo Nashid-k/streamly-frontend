@@ -26,14 +26,12 @@ const GENRE_RAILS = [
   },
   { id: "comedy", name: "Comedies", movieGenres: [35], tvGenres: [35] },
   { id: "drama", name: "Dramas", movieGenres: [18], tvGenres: [18] },
-  {
-    id: "thriller",
-    name: "Mystery & Thrillers",
-    movieGenres: [9648, 53],
-    tvGenres: [9648],
-  },
-  { id: "documentary", name: "Documentaries", movieGenres: [99], tvGenres: [99] },
 ];
+
+// The home feed renders the first three only: the brief caps the page at ~8
+// rails, and six lazily-fetched genre rows alone already exceeded it. The other
+// genres stay reachable from the Browse genre chips.
+const MAX_GENRE_RAILS = 3;
 
 function mediaTypesFor(filter) {
   if (filter === "movies") return ["movie"];
@@ -58,7 +56,7 @@ export default function GenreShowcase({ filter = "all", activeGenre = "All", lim
      the moment Home mounted, three rails below the fold. */
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
-      {GENRE_RAILS.map((rail) => (
+      {GENRE_RAILS.slice(0, MAX_GENRE_RAILS).map((rail) => (
         <GenreRail key={rail.id} rail={rail} mediaTypes={mediaTypes} limit={limit} />
       ))}
     </div>

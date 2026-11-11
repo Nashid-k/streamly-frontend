@@ -74,6 +74,22 @@
   --bg-color: #000000;
   --bg-elevated: #09090b;
   --bg-surface: #121217;
+  /* ── Stage (Phase 0) ─────────────────────────────────────────
+     Cinejoy paints a deep green-black stage rather than a neutral black. The
+     outer frame stays --bg-color; the app stage is a vertical wash between
+     these two so the page has a horizon instead of a flat fill. */
+  --stage-top: #081410;
+  --stage-bottom: #06110d;
+  --stage-gradient: linear-gradient(180deg, var(--stage-top) 0%, var(--stage-bottom) 100%);
+  /* ── Semantic colours (Phase 0) ──────────────────────────────
+     Named for what they MEAN, not what they look like, so a theme can retarget
+     them. Ratings/progress/live/spoiler/danger were previously spelled as
+     literals at every call site. */
+  --rating: #fbbf24;
+  --progress: var(--accent-color);
+  --live: #ff5050;
+  --spoiler: rgba(6, 17, 13, 0.94);
+  --danger: #f87171;
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
   --text-muted: #71717a;
@@ -109,7 +125,7 @@
   --btn-ink: #000000;
   --btn-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   --btn-shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.5);
-  --error-color: #f87171;
+  --error-color: var(--danger);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.1);
 
@@ -132,7 +148,9 @@
 
   /* ── Nav (compact sleek floating dock) ─────────────────── */
   --nav-pad: 4px;
-  --nav-item-h: 36px;
+  /* 44px minimum target (brief §8). The pill grows with it; the condense
+     transform keeps the header from shifting the page. */
+  --nav-item-h: 44px;
   --nav-fade: var(--duration-fast) var(--ease-out);
   --condense-ease: var(--ease-out);
 
@@ -156,6 +174,8 @@
      purpose: 12px keeps the gallery feel while still separating a poster from
      its neighbours. */
   --radius-card: 0.75rem;   /* 12px — poster, card shell, card skeleton */
+  --radius-chip: 0.375rem;  /* 6px — filter/status chips */
+  --radius-panel: 1rem;     /* 16px — popovers, dialogs, sheets */
 
   /* ── Focus ─────────────────────────────────────────────── */
   /* One focus recipe for the whole app. Previously the outline colour was
@@ -174,11 +194,12 @@
   --glass-blur: blur(14px) saturate(140%);
 
   /* ── Typography ────────────────────────────────────────── */
-  /* The scale's floor is 11px (--text-2xs). Nothing informational may render
-     below it: the poster badge chips were authored at 0.5rem/0.55rem (8-8.8px),
-     which is effectively unreadable on a poster and was the smallest text in
-     the app. Decorative marquees and glyph tints are exempt. */
-  --text-2xs: 0.6875rem;    /* 11px — badge/metadata floor */
+  /* The scale's floor is 12px (--text-2xs). Nothing informational may render
+     below it (13px for metadata on phones): the poster badge chips were once
+     authored at 0.5rem/0.55rem (8-8.8px), which is unreadable on a poster. The
+     floor moved 11px -> 12px in Phase 0 because 11px still failed the brief.
+     Decorative marquees and glyph tints are exempt. */
+  --text-2xs: 0.75rem;      /* 12px — badge/metadata floor */
   --text-xs: 0.75rem;
   --text-sm: 0.85rem;
   --text-lg: 1.125rem;
@@ -186,6 +207,17 @@
   --text-2xl: 2rem;
   --text-3xl: 2.5rem;
   --leading-relaxed: 1.85;
+  /* Display face for editorial/rail headings. The app already self-hosts the
+     Inter variable face (public/fonts/inter-var-*.woff2), so the display voice
+     is Inter at a heavier weight with tighter tracking instead of a second
+     downloaded family — same hierarchy, one fewer font payload, no Google
+     Fonts fetch. */
+  --font-display: "Inter", -apple-system, sans-serif;
+  --weight-display: 700;
+  --tracking-display: -0.02em;
+  /* Ratings, runtimes, counts and episode numbers must not reflow as digits
+     change. */
+  --font-numeric: "Inter", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* ── Transitions ───────────────────────────────────────── */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -207,9 +239,12 @@
      0.2s throughout the stylesheets, and the token has to match the code it
      names. player.css's --zxc-t-* alias these instead of redeclaring a scale. */
   --duration-instant: 120ms;
-  --duration-fast: 200ms;
-  --duration-normal: 280ms;
-  --duration-slow: 450ms;
+  --duration-fast: 180ms;
+  --duration-normal: 260ms;
+  --duration-slow: 420ms;
+  /* The brief's second easing: colour/opacity only, so a tint change settles
+     without the springy overshoot of --ease-out. */
+  --ease-silk: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   /* Press feedback: how far a surface sinks while held. Three tiers, because
      the depth has to match the target's size — an icon button reads as a
@@ -411,9 +446,13 @@ body {
     "Inter",
     -apple-system,
     sans-serif;
-  background: #050505;
+  background: var(--stage-gradient);
+  background-attachment: fixed;
   color: var(--text-primary);
   line-height: 1.6;
+  /* Ratings, runtimes, counts and episode numbers must not reflow as digits
+     change (Phase 0). Applies app-wide; letterforms are unaffected. */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -498,7 +537,7 @@ textarea {
 
 #root {
   min-height: 100vh;
-  background: #050505;
+  background: transparent;
 }
 
 input,
@@ -548,7 +587,7 @@ a {
   overflow-x: hidden;
   overflow-x: clip;
   position: relative;
-  background: #050505;
+  background: transparent;
 }
 /* Top ambient scrim — guarantees legibility for brand mark and nav on bright backdrops.
    Deliberately short and shallow: it only has to carry the ~56px header island,

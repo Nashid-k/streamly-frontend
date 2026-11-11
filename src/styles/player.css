@@ -548,7 +548,7 @@
    row happens to look slightly lighter behind the glass (user report: the
    active server/audio row did not read as selected). */
 .np-dialog-row[aria-pressed="true"] {
-  background: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(var(--white-rgb), 0.16) !important;
   box-shadow: inset 3px 0 0 var(--np-accent), inset 0 0 0 1px rgba(var(--np-accent-rgb), 0.22);
   color: #fff !important;
 }
@@ -565,7 +565,7 @@
   translate: .15em 0;
 }
 .np-dialog-row[aria-pressed="true"]:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22) !important;
+  background: rgba(var(--white-rgb), 0.22) !important;
 }
 .np-dialog-row:active:not(:disabled) {
   transform: scale(var(--press-scale-row));
@@ -679,8 +679,8 @@
 .np-deck:hover,
 .np-deck:focus-within {
   border-color: rgba(var(--np-accent-rgb), 0.26);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+  box-shadow: 0 24px 64px rgba(var(--black-rgb), 0.55),
+    inset 0 1px 0 rgba(var(--white-rgb), 0.09),
     0 0 0 1px rgba(var(--np-accent-rgb), 0.05);
 }
 
@@ -703,7 +703,7 @@
 .np-pill {
   border-radius: var(--radius-full);
   background: rgba(22, 27, 23, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(var(--white-rgb), 0.08);
   -webkit-backdrop-filter: blur(14px) saturate(1.25);
   backdrop-filter: blur(14px) saturate(1.25);
   transition: background var(--zxc-t-fast) var(--zxc-ease),
@@ -712,14 +712,14 @@
 .np-pill:hover,
 .np-pill:focus-within {
   background: rgba(40, 47, 41, 0.82);
-  border-color: rgba(255, 255, 255, 0.14);
+  border-color: rgba(var(--white-rgb), 0.14);
 }
 
 /* The clock is a readout, not a control: it never lights up on hover. */
 .np-time-pill,
 .np-time-pill:hover {
   background: rgba(12, 16, 13, 0.36);
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--white-rgb), 0.06);
 }
 
 /* Fullscreen button wrapper (kept so the tooltip can anchor to it). */
@@ -735,7 +735,7 @@
     transform var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-dialog-row sup {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 800;
   margin-left: 4px;
   color: var(--np-accent);
@@ -747,13 +747,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(var(--white-rgb), 0.85);
   font-size: 13.5px;
 }
 .np-dialog-row-icon {
   transition: color var(--zxc-t-fast) var(--zxc-ease),
     transform var(--zxc-t-fast) var(--zxc-ease);
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(var(--white-rgb), 0.85);
 }
 .np-dialog-row:hover:not(:disabled) .np-dialog-row-icon,
 .np-dialog-row[aria-pressed="true"] .np-dialog-row-icon {
@@ -782,7 +782,7 @@
   justify-content: center;
   background: var(--np-accent);
   color: #07120a;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.3px;
   line-height: 1;
@@ -806,7 +806,7 @@
 /* Panel scrollbar polish */
 .np-panel-surface * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: rgba(var(--white-rgb), 0.22) transparent;
 }
 .np-panel-surface *::-webkit-scrollbar {
   width: 6px;
@@ -815,7 +815,7 @@
   background: transparent;
 }
 .np-panel-surface *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(var(--white-rgb), 0.22);
   border-radius: var(--radius-full);
 }
 .np-panel-surface *::-webkit-scrollbar-thumb:hover {
@@ -978,7 +978,7 @@
 }
 .np-title-sub {
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(var(--white-rgb), 0.82);
 }
 @keyframes np-swap-in {
   from {
@@ -1159,7 +1159,7 @@
   transition: background var(--duration-fast) var(--np-ease), transform var(--duration-fast) var(--np-ease);
 }
 .np-subback:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(var(--white-rgb), 0.05);
   transform: translateX(-2px);
 }
 .np-subback:focus-visible {
@@ -1651,7 +1651,7 @@
 .np-ep:hover,
 .np-ep.cur {
   background: #131c25;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.2);
 }
 .np-ep:hover {
   transform: translateX(2px);
@@ -1997,10 +1997,10 @@
   margin-top: 4px;
   min-width: 150px;
   background: #1a232e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
   border-radius: 8px;
   padding: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(var(--black-rgb), 0.4);
   z-index: 100;
   animation: dropdownIn var(--duration-instant) var(--ease) backwards;
 }
@@ -2030,7 +2030,7 @@
   transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
 }
 .np-mode-dropdown button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--white-rgb), 0.08);
 }
 .np-mode-dropdown button.active {
   background: var(--accent);
@@ -2115,7 +2115,7 @@
 .osd span,
 :is(.player, .np-root) .osd b,
 .osd b {
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9)) !important;
+  filter: drop-shadow(0 2px 8px rgba(var(--black-rgb), 0.9)) !important;
 }
 :is(.player, .np-root) .osd.show,
 .osd.show {
@@ -2142,12 +2142,12 @@
 :is(.player, .np-root) .dt.l,
 .dt.l {
   left: 0;
-  background: radial-gradient(ellipse at 0% 50%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 72%) !important;
+  background: radial-gradient(ellipse at 0% 50%, rgba(var(--white-rgb), 0.14) 0%, rgba(var(--white-rgb), 0.04) 45%, transparent 72%) !important;
 }
 :is(.player, .np-root) .dt.r,
 .dt.r {
   right: 0;
-  background: radial-gradient(ellipse at 100% 50%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 45%, transparent 72%) !important;
+  background: radial-gradient(ellipse at 100% 50%, rgba(var(--white-rgb), 0.14) 0%, rgba(var(--white-rgb), 0.04) 45%, transparent 72%) !important;
 }
 :is(.player, .np-root) .dt.show,
 .dt.show {
@@ -2741,7 +2741,7 @@
   background: rgba(20, 28, 38, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(var(--white-rgb), 0.15);
   border-radius: 20px;
   color: #e6edf3;
   font-size: 12px;
@@ -2751,14 +2751,14 @@
               border-color var(--duration-fast) var(--ease), 
               box-shadow var(--duration-fast) var(--ease), 
               transform var(--duration-instant) var(--ease);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.2);
   will-change: transform;
 }
 
 .np-mode-select:hover {
   background: rgba(20, 28, 38, 0.95);
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-color: rgba(var(--white-rgb), 0.25);
+  box-shadow: 0 4px 12px rgba(var(--black-rgb), 0.3);
 }
 
 .np-mode-select:active {
@@ -2785,10 +2785,10 @@
   background: rgba(20, 28, 38, 0.98);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(var(--white-rgb), 0.12);
   border-radius: 10px;
   padding: 4px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 12px 32px rgba(var(--black-rgb), 0.5), 0 0 0 1px rgba(var(--white-rgb), 0.05);
   animation: menuIn 200ms var(--ease) backwards;
   will-change: transform, opacity;
 }
@@ -2821,7 +2821,7 @@
 }
 
 .np-mode-menu button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(var(--white-rgb), 0.08);
   color: #f0f6fc;
 }
 

@@ -41,13 +41,13 @@
   inset: 0;
   background:
     /* Bottom fade — keeps content legible */
-    linear-gradient(0deg, #050505 0%, rgba(5,5,5,0.92) 8%, rgba(5,5,5,0.65) 22%, rgba(5,5,5,0.25) 45%, transparent 65%),
+    linear-gradient(0deg, var(--stage-bottom) 0%, rgba(6,17,13,0.92) 8%, rgba(6,17,13,0.65) 22%, rgba(6,17,13,0.25) 45%, transparent 65%),
     /* Soft left-side vignette — no harsh vertical line */
-    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(5,5,5,0.85) 0%, rgba(5,5,5,0.4) 40%, transparent 70%),
+    radial-gradient(ellipse 60% 100% at 0% 50%, rgba(6,17,13,0.85) 0%, rgba(6,17,13,0.4) 40%, transparent 70%),
     /* Soft right-side vignette */
-    radial-gradient(ellipse 40% 100% at 100% 50%, rgba(5,5,5,0.55) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 100% at 100% 50%, rgba(6,17,13,0.55) 0%, transparent 60%),
     /* Corner dark anchors */
-    radial-gradient(ellipse at 30% 90%, rgba(5,5,5,0.4) 0%, transparent 50%);
+    radial-gradient(ellipse at 30% 90%, rgba(6,17,13,0.4) 0%, transparent 50%);
 }
 
 .hero-content {
@@ -155,9 +155,9 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.95) 3%, rgba(5,5,5,0.9) 7%, rgba(5,5,5,0.82) 12%, rgba(5,5,5,0.68) 18%, rgba(5,5,5,0.5) 25%, rgba(5,5,5,0.32) 34%, rgba(5,5,5,0.18) 44%, rgba(5,5,5,0.08) 54%, transparent 68%),
-    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
-    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
+    linear-gradient(0deg, rgba(6,17,13,0.98) 0%, rgba(6,17,13,0.95) 3%, rgba(6,17,13,0.9) 7%, rgba(6,17,13,0.82) 12%, rgba(6,17,13,0.68) 18%, rgba(6,17,13,0.5) 25%, rgba(6,17,13,0.32) 34%, rgba(6,17,13,0.18) 44%, rgba(6,17,13,0.08) 54%, transparent 68%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(6,17,13,0.8) 0%, rgba(6,17,13,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(6,17,13,0.42) 0%, transparent 62%);
   /* Same mask as .hero-bg — fade over the last 62% so the bottom edge has
      no hard boundary. backdrop-filter is not applied here for the same
      reason as .hero-bg: the mask boundary + compositor layer creates a
@@ -169,9 +169,9 @@
 /* ── Watch/details page — reuse the exact hero banner gradient stack ── */
 .watch-hero-gradient {
   background:
-    linear-gradient(0deg, rgba(5,5,5,0.98) 0%, rgba(5,5,5,0.95) 3%, rgba(5,5,5,0.9) 7%, rgba(5,5,5,0.82) 12%, rgba(5,5,5,0.68) 18%, rgba(5,5,5,0.5) 25%, rgba(5,5,5,0.32) 34%, rgba(5,5,5,0.18) 44%, rgba(5,5,5,0.08) 54%, transparent 68%),
-    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(5,5,5,0.8) 0%, rgba(5,5,5,0.32) 42%, transparent 72%),
-    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(5,5,5,0.42) 0%, transparent 62%);
+    linear-gradient(0deg, rgba(6,17,13,0.98) 0%, rgba(6,17,13,0.95) 3%, rgba(6,17,13,0.9) 7%, rgba(6,17,13,0.82) 12%, rgba(6,17,13,0.68) 18%, rgba(6,17,13,0.5) 25%, rgba(6,17,13,0.32) 34%, rgba(6,17,13,0.18) 44%, rgba(6,17,13,0.08) 54%, transparent 68%),
+    radial-gradient(ellipse 70% 100% at 0% 50%, rgba(6,17,13,0.8) 0%, rgba(6,17,13,0.32) 42%, transparent 72%),
+    radial-gradient(ellipse 38% 100% at 100% 50%, rgba(6,17,13,0.42) 0%, transparent 62%);
 }
 
 /* ── Static ambient sky ───────────────────────────────────────────────────
@@ -186,7 +186,7 @@
     radial-gradient(45% 40% at 88% 10%, rgba(92, 226, 28, 0.11), transparent 55%),
     radial-gradient(50% 40% at 72% 92%, rgba(96, 165, 250, 0.1), transparent 60%),
     radial-gradient(38% 32% at 24% 86%, rgba(167, 139, 250, 0.07), transparent 58%),
-    #050505;
+    var(--stage-bottom);
 }
 
 /* ── Cinejoy-style liquid backdrop ────────────────────────────────────────
@@ -340,7 +340,7 @@
   margin-bottom: 1rem;
 }
 .hero-eyebrow-tag {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: rgba(var(--white-rgb), 0.55);
   background: rgba(var(--white-rgb), 0.1);

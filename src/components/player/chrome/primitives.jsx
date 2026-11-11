@@ -162,7 +162,7 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
         <div
           style={{
             position: "relative",
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 600,
             color: TEXT_FAINT,
             letterSpacing: "0.16em",

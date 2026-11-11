@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import ErrorBoundary from "../ErrorBoundary";
 import ContinueWatchingRail from "../ContinueWatchingRail";
 import LeavingSoonBanner from "../LeavingSoonBanner";
@@ -8,6 +9,8 @@ import FadeInSection from "./FadeInSection";
 import MovieRail from "./MovieRail";
 import Top10Rail from "./Top10Rail";
 import EditorialRails from "./EditorialRails";
+import FeaturedCollection from "./FeaturedCollection";
+import ProviderRow from "./ProviderRow";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n/index.jsx";
 
@@ -36,10 +39,7 @@ const HomeRails = React.memo(function HomeRails({
   recommendations,
   top10Movies,
   trendingThisWeek,
-  airingThisWeek,
-  popularNow,
   topRated,
-  nowPlaying,
 }) {
   const { t } = useI18n();
   const { continueWatching, myList } = useAppAuth();
@@ -71,6 +71,13 @@ const HomeRails = React.memo(function HomeRails({
             <ContinueWatchingRail railIndex={0} items={continueWatching} />
           </ErrorBoundary>
         </FadeInSection>
+      )}
+
+      {/* Featured collection — one wide editorial card between the resume rail
+          and Top 10 (brief §6.3). Driven by existing category data, so it hides
+          itself when no category has a landscape frame to show. */}
+      {!loading && filter === "all" && activeGenre === "All" && (
+        <FeaturedCollection categories={categories} />
       )}
 
       {/* Categories Section */}
@@ -134,29 +141,11 @@ const HomeRails = React.memo(function HomeRails({
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 5. Airing This Week — currently-airing TV, the "On the Air" row */}
-            {airingThisWeek.length > 0 && activeGenre === "All" && (
-              <FadeInSection>
-                <ErrorBoundary>
-                  <MovieRail
-                    railIndex={4}
-                    category={{ name: t("home.rails.airingThisWeek"), movies: airingThisWeek }}
-                  />
-                </ErrorBoundary>
-              </FadeInSection>
-            )}
-            {/* 6. Popular Now */}
-            {popularNow.length > 0 && activeGenre === "All" && (
-              <FadeInSection>
-                <ErrorBoundary>
-                  <MovieRail
-                    railIndex={5}
-                    category={{ name: t("home.rails.popularNow"), movies: popularNow }}
-                  />
-                </ErrorBoundary>
-              </FadeInSection>
-            )}
-            {/* 7. Top Rated */}
+            {/* 5. Top Rated — the algorithmic set is capped at three rails on
+                purpose (trending / because-you-watched / top rated). "Airing
+                This Week", "Popular Now" and "Now Playing" were the same
+                catalogue re-sorted and are reachable from Browse filters, so
+                they no longer add page height here. */}
             {topRated.length > 0 && activeGenre === "All" && (
               <FadeInSection>
                 <ErrorBoundary>
@@ -167,19 +156,7 @@ const HomeRails = React.memo(function HomeRails({
                 </ErrorBoundary>
               </FadeInSection>
             )}
-            {/* 8. Now Playing / In Theaters */}
-            {nowPlaying.length > 0 && activeGenre === "All" && (
-              <FadeInSection>
-                <ErrorBoundary>
-                  <MovieRail
-                    railIndex={7}
-                    category={{ name: t("home.rails.nowPlaying"), movies: nowPlaying }}
-                  />
-                </ErrorBoundary>
-              </FadeInSection>
-            )}
-
-            {/* 9. Cinejoy-style editorial curated rows */}
+            {/* 6. Cinejoy-style editorial curated rows (capped at three) */}
             <EditorialRails filter={filter} activeGenre={activeGenre} />
 
             {/* 10. My List */}
@@ -194,19 +171,34 @@ const HomeRails = React.memo(function HomeRails({
               </FadeInSection>
             )}
 
+            {/* Providers — real watch-provider logos, filtered through the
+                existing /movies?provider=<id> contract. */}
+            {filter === "all" && activeGenre === "All" && (
+              <ErrorBoundary>
+                <ProviderRow />
+              </ErrorBoundary>
+            )}
+
             {/* 11. Genre showcase — Streamly/Prime-style rows (tab-aware) */}
             <ErrorBoundary>
               <GenreShowcase filter={filter} activeGenre={activeGenre} />
             </ErrorBoundary>
 
-            {/* 12. Category rails */}
-            {categories.slice(0, visibleCatCount).map((category, catIdx) => (
+            {/* 12. Category rails — capped at three so the page terminates
+                (brief: ~8 rails, not an infinite feed). */}
+            {categories.slice(0, Math.min(visibleCatCount, 3)).map((category, catIdx) => (
               <FadeInSection key={catIdx} delay={0.1}>
                 <ErrorBoundary key={category.id || catIdx}>
                   <MovieRail railIndex={catIdx + 9} category={category} />
                 </ErrorBoundary>
               </FadeInSection>
             ))}
+            {/* Explore all — terminates the feed instead of growing forever. */}
+            <div className="home-explore-all">
+              <Link to="/movies" className="home-explore-all__link">
+                Explore all
+              </Link>
+            </div>
             {/* End sentinel: HomePage's useFeedSentinel grows this feed when
                 it sits inside the viewport margin. */}
             <div ref={catEndRef} className="h-px" aria-hidden="true" />

@@ -1654,7 +1654,7 @@ export default function TitleDetails() {
                               </div>
                             )}
                             {/* E badge */}
-                            <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[11px] font-semibold text-white">
+                            <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-semibold text-white">
                               {episodeNumberLabel(ep.episodeNumber)}
                             </span>
                             {/* Watched toggle */}
@@ -1691,7 +1691,7 @@ export default function TitleDetails() {
                             </div>
                             {isEpPlaying && (
                               <div
-                                className="absolute top-2 right-12 px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-widest uppercase z-10 pointer-events-none"
+                                className="absolute top-2 right-12 px-2 py-0.5 rounded-md text-xs font-extrabold tracking-widest uppercase z-10 pointer-events-none"
                                 style={{ background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', color: 'var(--on-accent, #fff)' }}
                               >
                                 Playing
@@ -1699,7 +1699,7 @@ export default function TitleDetails() {
                             )}
                             {/* Duration chip */}
                             {ep.duration && (
-                              <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-[11px] font-medium text-white">
+                              <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-medium text-white">
                                 {ep.duration}
                               </span>
                             )}

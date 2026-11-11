@@ -39,7 +39,7 @@
   right: 0;
   height: 3px;
   background: #ffffff;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 12px rgba(var(--white-rgb), 0.7);
   transform: scaleX(0);
   transform-origin: 0 50%;
   z-index: 60;
@@ -196,7 +196,7 @@
      the tint/shadow ease with the scroll state for a polished feel. */
 }
 .navbar.scrolled {
-  transform: translateY(-3px) translateZ(0);
+  transform: translateY(-4px) translateZ(0);
   background: rgba(12, 12, 14, 0.72);
   backdrop-filter: blur(8px) saturate(135%);
   -webkit-backdrop-filter: blur(8px) saturate(135%);
@@ -250,10 +250,12 @@
   justify-content: center;
   gap: 6px;
   height: var(--nav-item-h);
-  padding: 0 11px;
-  font-size: 13px;
+  padding: 0 24px;
+  font-size: 14px;
+  /* 600 is a frozen contract: motion.test pins it so the pill never reflows
+     between rest and active state. */
   font-weight: 600;
-  color: rgba(var(--white-rgb), 0.86);
+  color: rgba(var(--white-rgb), 0.72);
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
@@ -270,6 +272,14 @@
 .nav-link:hover {
   color: #ffffff;
 }
+}
+/* Wide desktops get the brief's 24px item padding; below 1200px that would
+   let the pill crowd the brand island, so the padding steps down while the
+   44px target height stays. */
+@media (max-width: 1199px) {
+  .nav-link {
+    padding: 0 14px;
+  }
 }
 .nav-link:active {
   transform: scale(0.96);

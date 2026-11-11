@@ -45,7 +45,7 @@
 .language-switch-overlay__wordmark {
   font-size: clamp(2rem, 6vw, 2.75rem);
   margin-bottom: 0.4rem;
-  filter: drop-shadow(0 8px 30px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 8px 30px rgba(var(--black-rgb), 0.6));
 }
 
 .language-switch-overlay__label {

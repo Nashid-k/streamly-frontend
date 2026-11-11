@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
 import MovieCard from "../MovieCard";
 import RailArrow from "../RailArrow";
+import SectionHeader from "./SectionHeader";
 import useRailArrows from "../../hooks/useRailArrows";
 
 const MovieRail = React.memo(
@@ -107,34 +107,27 @@ const MovieRail = React.memo(
         className="movie-rail-wrapper"
         style={{ position: "relative" }}
       >
-        {/* rivo.st's row head: `gutter mb-1 flex items-end justify-between gap-4`
-            — title on the left, a quiet `See all` on the right that goes white on
-            hover. Ours used `align-items: baseline`, which left the two ends of
-            the row sitting on different lines of type. */}
-        <div className="rail-head" style={{ paddingLeft: "0.25rem" }}>
-          <h3
-            className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
-            style={{
-              fontSize: "20px",
-              fontWeight: 600,
-              margin: 0,
-              letterSpacing: "-0.02em",
-              color: "#ffffff",
-            }}
-          >
-            {category.name}
-          </h3>
-          {!isDynamicRail && (
-            <Link
-              to={`/category/${encodeURIComponent(category.name)}`}
-              state={{ movies: category.movies, name: category.name }}
-              className="rail-see-all"
-              style={{ textDecoration: "none" }}
+        {/* Shared row head — title on the left, a quiet `See all` on the right
+            that goes white on hover. Dynamic rails get the title alone. */}
+        <SectionHeader
+          title={
+            <h3
+              className={`rail-title${isDynamicRail ? " rail-title--dynamic" : ""}${category.name.startsWith("Because you watched") ? " rail-title--because" : ""}`}
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "20px",
+                fontWeight: "var(--weight-display)",
+                margin: 0,
+                letterSpacing: "var(--tracking-display)",
+                color: "#ffffff",
+              }}
             >
-              See all
-            </Link>
-          )}
-        </div>
+              {category.name}
+            </h3>
+          }
+          seeAllTo={isDynamicRail ? undefined : `/category/${encodeURIComponent(category.name)}`}
+          seeAllState={isDynamicRail ? undefined : { movies: category.movies, name: category.name }}
+        />
 
         {inView && (
           <>

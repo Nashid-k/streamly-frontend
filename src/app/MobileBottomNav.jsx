@@ -114,6 +114,12 @@ function MobileBottomNav() {
             ) : (
               <item.icon size={22} strokeWidth={2} />
             )}
+            {/* 12px label under the icon (brief §5: a dock of naked icons is
+                pure visual memory). The CSS already styled this class — it had
+                no JSX consumer until now. */}
+            <span className="bottom-nav-label" aria-hidden="true">
+              {item.label}
+            </span>
             {item.id === "settings" && unread > 0 && (
               <span
                 aria-hidden="true"
@@ -121,15 +127,15 @@ function MobileBottomNav() {
                   position: "absolute",
                   top: 2,
                   right: 2,
-                  minWidth: 14,
-                  height: 14,
-                  padding: "0 3px",
+                  minWidth: 16,
+                  height: 16,
+                  padding: "0 4px",
                   borderRadius: 999,
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: 700,
-                  background: "#ff5050",
+                  background: "var(--live)",
                   color: "#fff",
-                  lineHeight: "14px",
+                  lineHeight: "16px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

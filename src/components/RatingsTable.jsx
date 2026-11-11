@@ -10,7 +10,7 @@ const RATING_LEGEND = [
   { label: "8.5+", color: "#22c55e" },
   { label: "8+", color: "#4ade80" },
   { label: "7+", color: "#86efac" },
-  { label: "6.5+", color: "#fbbf24" },
+  { label: "6.5+", color: "var(--rating)" },
   { label: "6+", color: "#fb923c" },
   { label: "<6", color: "#f87171" },
 ];
@@ -113,7 +113,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
         <div className="relative flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06]">
-              <Star size={16} className="text-[#fbbf24]" aria-hidden="true" />
+              <Star size={16} style={{ color: "var(--rating)" }} aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <h3 id="ratings-title" className="truncate text-base font-bold text-white">
@@ -134,14 +134,14 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
 
         {/* Legend */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-white/[0.06] px-5 py-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Legend</span>
+          <span className="text-xs font-semibold uppercase tracking-wider text-white/40">Legend</span>
           {RATING_LEGEND.map((l) => (
-            <span key={l.label} className="inline-flex items-center gap-1.5 text-[10px] text-white/60">
+            <span key={l.label} className="inline-flex items-center gap-1.5 text-xs text-white/60">
               <span className="inline-block h-3 w-3 rounded-[4px]" style={{ background: l.color }} aria-hidden="true" />
               {l.label}
             </span>
           ))}
-          <span className="inline-flex items-center gap-1.5 text-[10px] text-white/60">
+          <span className="inline-flex items-center gap-1.5 text-xs text-white/60">
             <span
               className="inline-block h-3 w-3 rounded-[4px] border border-white/10"
               style={{ background: NO_RATING_COLOR }}
@@ -172,13 +172,13 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
                   gap: 4,
                 }}
               >
-                <div className="flex items-end justify-end pb-1 text-[10px] font-bold uppercase text-white/30">
+                <div className="flex items-end justify-end pb-1 text-xs font-bold uppercase text-white/30">
                   S\E
                 </div>
                 {Array.from({ length: gridCols }).map((_, i) => (
                   <div
                     key={`h-${i}`}
-                    className="flex items-center justify-center pb-1 text-[10px] font-semibold text-white/35"
+                    className="flex items-center justify-center pb-1 text-xs font-semibold text-white/35"
                   >
                     {i + 1}
                   </div>
@@ -187,7 +187,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
                 {rows.list.map((row) => (
                   <React.Fragment key={row.seasonNumber}>
                     <div
-                      className="sticky left-0 z-10 flex items-center justify-end pr-2 text-[11px] font-bold text-white/70"
+                      className="sticky left-0 z-10 flex items-center justify-end pr-2 text-xs font-bold text-white/70"
                       style={{ background: "rgba(12,12,14,0.95)" }}
                     >
                       S{row.seasonNumber}
@@ -202,7 +202,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
                         <button
                           type="button"
                           onClick={() => retrySeason(row.seasonNumber)}
-                          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-white/[0.12]"
+                          className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-white/[0.12]"
                         >
                           <RefreshCw size={11} aria-hidden="true" /> Retry
                         </button>

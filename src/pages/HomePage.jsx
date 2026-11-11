@@ -781,7 +781,9 @@ export default function Home({
       }
     }
 
-    return pool;
+    // Brief: no more than six slides — the rotation is a showcase, not a
+    // carousel of the whole catalogue, and every extra slide dilutes dwell time.
+    return pool.slice(0, 6);
     } catch (e) {
       logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
       return [];
@@ -813,11 +815,14 @@ export default function Home({
   useEffect(() => {
     if (reduceMotion || totalFeatured <= 1) return;
     const timer = setInterval(() => {
-      if (isHeroHoveredRef.current) return;
+      // Pause on hover AND keyboard focus (both set the ref), and never rotate
+      // in a background tab — a hidden tab that keeps advancing slides makes the
+      // banner jump the moment the viewer returns.
+      if (isHeroHoveredRef.current || document.hidden) return;
       const tf = totalFeaturedRef.current;
       if (tf <= 1) return;
       setFeaturedIndex((prev) => (prev + 1) % tf);
-    }, 15000);
+    }, 8000);
     return () => clearInterval(timer);
   }, [reduceMotion, totalFeatured > 1]);
 

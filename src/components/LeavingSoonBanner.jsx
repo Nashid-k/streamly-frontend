@@ -101,7 +101,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "1px" }}>
                 <span style={{
-                  fontSize: "0.62rem", fontWeight: 700,
+                  fontSize: "0.75rem", fontWeight: 700,
                   color: item.urgency === "critical" ? "#ef4444" : item.urgency === "warning" ? "#f97316" : "#a1a1aa",
                 }}>
                   {item.daysLeft <= 1 ? t("home.leaving.tomorrow") : t("home.leaving.daysLeft", { n: item.daysLeft })}

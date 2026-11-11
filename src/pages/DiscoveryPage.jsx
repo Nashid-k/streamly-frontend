@@ -156,7 +156,7 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
         <h3 className="font-medium text-white text-xs leading-tight line-clamp-1">
           {item.title}
         </h3>
-        <p className="flex items-center gap-1 text-[10px] text-white/60">
+        <p className="flex items-center gap-1 text-xs text-white/60">
           <CalendarDays size={10} className="text-white/40" />
           {episodeLabel && <span>{episodeLabel}</span>}
           <span>{dateLabel}</span>

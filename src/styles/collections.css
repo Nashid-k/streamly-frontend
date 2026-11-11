@@ -241,7 +241,7 @@
 
 .collection-card__count {
   color: rgba(var(--white-rgb), 0.55);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   white-space: nowrap;
 }
 

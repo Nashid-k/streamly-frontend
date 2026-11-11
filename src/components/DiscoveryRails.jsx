@@ -40,7 +40,7 @@ export const DiscoveryRail = ({ section }) => {
               to={section.href}
               state={section.linkState}
               style={{
-                fontSize: "0.72rem",
+                fontSize: "0.75rem",
                 color: "rgba(255,255,255,0.72)",
                 textDecoration: "none",
                 fontWeight: 500,

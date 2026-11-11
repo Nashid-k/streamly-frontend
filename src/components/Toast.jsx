@@ -159,7 +159,7 @@ function ToastItem({ toast, onDismiss }) {
         {toast.message && (
           <div
             style={{
-              fontSize: "0.72rem",
+              fontSize: "0.75rem",
               /* --text-muted (AA on the toast surface), not the old #71717a
                  (≈3.5:1) — the message is the payload, it has to be readable. */
               color: "var(--text-muted)",

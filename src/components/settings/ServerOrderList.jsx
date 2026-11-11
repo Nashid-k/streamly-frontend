@@ -54,7 +54,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
             >
               <GripVertical className="w-4 h-4" />
             </span>
-            <span className="w-6 h-6 rounded-full bg-white/10 text-[11px] font-bold flex items-center justify-center text-white/80 shrink-0">
+            <span className="w-6 h-6 rounded-full bg-white/10 text-xs font-bold flex items-center justify-center text-white/80 shrink-0">
               {idx + 1}
             </span>
             <span className="order-name">{srv}</span>

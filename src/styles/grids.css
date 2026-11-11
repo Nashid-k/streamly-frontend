@@ -162,7 +162,7 @@
 .curtain-meta {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(var(--white-rgb), 0.9);
 }
 .card-badges {
   transition: opacity var(--duration-instant) var(--ease-out);
@@ -392,38 +392,38 @@
        for any background image. */
     linear-gradient(
       to top,
-      #050505 0%,
-      #050505 6%,
-      rgba(5, 5, 5, 0.9) 12%,
-      rgba(5, 5, 5, 0.78) 18%,
-      rgba(5, 5, 5, 0.55) 25%,
-      rgba(5, 5, 5, 0.3) 33%,
-      rgba(5, 5, 5, 0.12) 40%,
+      var(--stage-bottom) 0%,
+      var(--stage-bottom) 6%,
+      rgba(6, 17, 13, 0.9) 12%,
+      rgba(6, 17, 13, 0.78) 18%,
+      rgba(6, 17, 13, 0.55) 25%,
+      rgba(6, 17, 13, 0.3) 33%,
+      rgba(6, 17, 13, 0.12) 40%,
       transparent 48%
     ),
     /* Content fade — the softer shoulder above the floor. */
     linear-gradient(
       to top,
-      rgba(5, 5, 5, 0.95) 0%,
-      rgba(5, 5, 5, 0.62) 20%,
-      rgba(5, 5, 5, 0.22) 45%,
+      rgba(6, 17, 13, 0.95) 0%,
+      rgba(6, 17, 13, 0.62) 20%,
+      rgba(6, 17, 13, 0.22) 45%,
       transparent 66%
     ),
     linear-gradient(
       to bottom,
-      rgba(5, 5, 5, 0.72) 0%,
-      rgba(5, 5, 5, 0.3) 14%,
+      rgba(6, 17, 13, 0.72) 0%,
+      rgba(6, 17, 13, 0.3) 14%,
       transparent 32%
     ),
     radial-gradient(
       120% 95% at 0% 50%,
-      rgba(5, 5, 5, 0.58) 0%,
-      rgba(5, 5, 5, 0.2) 38%,
+      rgba(6, 17, 13, 0.58) 0%,
+      rgba(6, 17, 13, 0.2) 38%,
       transparent 62%
     ),
     radial-gradient(
       90% 95% at 100% 50%,
-      rgba(5, 5, 5, 0.45) 0%,
+      rgba(6, 17, 13, 0.45) 0%,
       transparent 52%
     );
   /* The single knob for how dark the banner art gets (1 = as authored, 0.6 =

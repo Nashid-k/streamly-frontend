@@ -573,7 +573,7 @@ body::after {
   padding: 0.18rem 0.5rem;
   border: 1px solid rgba(var(--white-rgb), 0.14);
   border-radius: 999px;
-  font-size: 0.66rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgba(var(--white-rgb), 0.7);

@@ -76,7 +76,10 @@ export const PRESS_SCALE = {
    FAST/NORMAL/SLOW here are the same scale CSS publishes as --duration-fast /
    --duration-normal / --duration-slow in tokens.css. Retune one and retune the
    other. */
-export const DURATION = { FAST: 0.2, MED: 0.28, SLOW: 0.45 };
+/* The brief's four-step scale: 120 / 180 / 260 / 420 ms. The JS side carries the
+   three durations that framer tweens; CSS owns `--duration-instant` (120ms)
+   plus the same three so `motion.test.js` can assert one vocabulary. */
+export const DURATION = { FAST: 0.18, MED: 0.26, SLOW: 0.42 };
 
 /* `useMotionTokens` is a hook, so it needs the import. Kept at the top of the
    file with the other module setup rather than added at the use site. */

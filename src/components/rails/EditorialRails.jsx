@@ -22,7 +22,10 @@ function EditorialRails({ filter, activeGenre }) {
   if (filter !== "all" || activeGenre !== "All") return null;
   return (
     <>
-      {EDITORIAL_RAILS.map((cfg) => (
+      {/* Brief: 3–4 curated rails maximum. The config list is longer; the home
+          page renders the first three so it terminates instead of scrolling
+          forever. */}
+      {EDITORIAL_RAILS.slice(0, 3).map((cfg) => (
         <EditorialRailRow key={cfg.key} cfg={cfg} />
       ))}
     </>

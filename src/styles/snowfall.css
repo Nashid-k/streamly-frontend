@@ -13,8 +13,8 @@
   position: absolute;
   top: -10px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.6) 60%, transparent 100%);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.4);
+  background: radial-gradient(circle, rgba(var(--white-rgb), 0.95) 0%, rgba(var(--white-rgb), 0.6) 60%, transparent 100%);
+  box-shadow: 0 0 6px rgba(var(--white-rgb), 0.4);
   will-change: transform, opacity;
   animation-name: snowfall-fall;
   animation-timing-function: linear;

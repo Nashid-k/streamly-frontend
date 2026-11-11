@@ -3,6 +3,7 @@ import { DURATION, EASE_OUT } from "../../constants/motion";
 import { motion } from "framer-motion";
 import MovieCard from "../MovieCard";
 import RailArrow from "../RailArrow";
+import SectionHeader from "./SectionHeader";
 import useRailArrows from "../../hooks/useRailArrows";
 
 const Top10Rail = React.memo(
@@ -74,31 +75,29 @@ const Top10Rail = React.memo(
         className="movie-rail-wrapper"
         style={{ position: "relative" }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            marginBottom: "0.25rem",
-            paddingLeft: "0.25rem",
-          }}
-        >
-        <h3
-          style={{
-            fontSize: "1.1rem",
-            fontWeight: 700,
-            margin: 0,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          <span style={{ background: "var(--accent-gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginRight: "6px" }}>Top 10</span>
-          {filter === "series" || filter === "tv shows"
-            ? "TV Shows"
-            : filter === "movies"
-              ? "Movies"
-              : "Today"}
-        </h3>
-        </div>
+        {/* Shared row head. Top 10 has no standalone page, so it renders the
+            title alone — no invented "See all" link to a route that does not
+            exist. */}
+        <SectionHeader
+          title={
+            <h3
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "1.1rem",
+                fontWeight: "var(--weight-display)",
+                margin: 0,
+                letterSpacing: "var(--tracking-display)",
+              }}
+            >
+              <span style={{ background: "var(--accent-gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginRight: "6px" }}>Top 10</span>
+              {filter === "series" || filter === "tv shows"
+                ? "TV Shows"
+                : filter === "movies"
+                  ? "Movies"
+                  : "Today"}
+            </h3>
+          }
+        />
 
         {inView && (
           <>

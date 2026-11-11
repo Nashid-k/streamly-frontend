@@ -157,12 +157,12 @@
   padding: 0.5rem 0.9rem;
   border-radius: var(--radius-full, 9999px);
   background: var(--surface-elevated, rgba(24, 24, 27, 0.92));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(var(--white-rgb), 0.12);
   color: var(--text-secondary, #d4d4d8);
   font-size: 0.8rem;
   font-weight: 600;
   backdrop-filter: blur(8px);
-  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 8px 24px -8px rgba(var(--black-rgb), 0.6);
   pointer-events: none;
 }
 

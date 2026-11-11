@@ -6,6 +6,7 @@ import { useAppAuth } from "../context/auth";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import useRailArrows from "../hooks/useRailArrows";
 import RailArrow from "./RailArrow";
+import SectionHeader from "./rails/SectionHeader";
 import { progressPct, remainingSeconds } from "../utils/resumeProgress";
 import { useI18n } from "../i18n/index.jsx";
 
@@ -77,17 +78,27 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
   return (
     <div className="space-y-2 relative z-10 group/row">
-      {/* ── Section Header ── */}
-      <div className="px-1 flex items-center justify-between group/title">
-        <Link
-          to="/continue-watching"
-          className="group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
-        >
-          <h2 className="text-xl font-semibold text-white/90 group-hover/label:text-white shadow-black drop-shadow-md transition-all duration-300">
-            {t("home.rails.continueWatching")}
-          </h2>
-          <ChevronRight className="lucide-icon lucide lucide-chevron-right w-5 h-5 text-white/70 shrink-0 opacity-0 -translate-x-1 transition-all duration-300 group-hover/title:opacity-100 group-hover/title:translate-x-0 group-hover/label:text-white" />
-        </Link>
+      {/* ── Section Header — shared row head: linked title left, quiet "See all" right. ── */}
+      <SectionHeader
+        title={
+          <Link
+            to="/continue-watching"
+            className="group/title group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
+          >
+            <h2
+              style={{ fontFamily: "var(--font-display)" }}
+              className="text-xl font-semibold text-white/90 group-hover/label:text-white shadow-black drop-shadow-md transition-all duration-300"
+            >
+              {t("home.rails.continueWatching")}
+            </h2>
+            <ChevronRight className="lucide-icon lucide lucide-chevron-right w-5 h-5 text-white/70 shrink-0 opacity-0 -translate-x-1 transition-all duration-300 group-hover/title:opacity-100 group-hover/title:translate-x-0 group-hover/label:text-white" />
+          </Link>
+        }
+        seeAllTo="/continue-watching"
+      />
+
+      {/* ── Edit-mode toggle — secondary action, kept out of the two-child row head. ── */}
+      <div className="px-1 flex items-center">
         <button
           className={`text-white/50 hover:text-white transition-colors duration-300 p-1 flex items-center gap-1.5 rounded-lg ${
             editMode ? "text-emerald-400 font-medium" : ""
@@ -200,8 +211,8 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                   {/* 3px Progress Bar */}
                   <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/20">
                     <div
-                      className="h-full bg-white theme-progress-bar rounded-r-full transition-all duration-300"
-                      style={{ width: `${pct}%` }}
+                      className="h-full theme-progress-bar rounded-r-full transition-all duration-300"
+                      style={{ width: `${pct}%`, background: "var(--progress)" }}
                     />
                   </div>
 
