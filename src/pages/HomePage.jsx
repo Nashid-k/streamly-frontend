@@ -51,7 +51,7 @@ const isAnime = (m) =>
 // name-only match left every regional rail empty.
 /* Banner dwell. Keep in sync with `.dot-filler` (search.css) and the
    `bannerProgress` keyframes — the pill fill IS the countdown for this timer. */
-const HERO_DWELL_MS = 8000;
+const HERO_DWELL_MS = 10000;
 
 const REGIONAL_LANGUAGE_CODES = {
   malayalam: "ml",

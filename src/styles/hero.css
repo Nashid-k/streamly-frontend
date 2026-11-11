@@ -358,12 +358,13 @@
 
 /* Logo image */
 .hero-logo-img {
-  /* Banner title scale: the wordmark is the hero's focal point, so it is sized
-     off the viewport (17vw) with a much higher cap than before. */
-  max-height: clamp(96px, 17vw, 190px);
-  max-width: min(560px, 92%);
+  /* Every wordmark renders at the SAME height: an explicit height (scale from
+     the pre-redesign banner: 14vw, 140px cap) instead of max-height, which let
+     small-resolution TMDB logos paint tiny and big ones paint huge. Width
+     follows each logo's own aspect ratio, capped at the old 480px limit. */
+  height: clamp(80px, 14vw, 140px);
+  max-width: min(480px, 90%);
   width: auto;
-  height: auto;
   object-fit: contain;
   object-position: left bottom;
   margin-bottom: 1.1rem;
@@ -374,7 +375,7 @@
 /* Reserved slot while the wordmark lookup is in flight (see HeroTitleLogo). */
 .hero-logo-img--placeholder {
   display: block;
-  min-height: clamp(70px, 13vw, 140px);
+  min-height: clamp(80px, 14vw, 140px);
   min-width: 8rem;
   margin-bottom: 1.1rem;
 }
@@ -623,7 +624,9 @@
   padding: 4px 8px;
 }
 .hero-dots__ticks {
-  display: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 /* Below 480px the arrows go: the row is swipeable and the ticks stay the
    primary control, so the pill track never overflows. The buttons stay 44px
