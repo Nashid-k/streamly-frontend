@@ -201,7 +201,7 @@ const ZXC_ORIGIN = "https://zxcstream.cc";
 // below is rewritten in place from values the script derives from the
 // provider's own shipped chunk and then confirms by real playback. Do not
 // hand-edit inside the markers — edit the script instead.
-const ZXC_MINT_PATH = "/backend/trace";
+const ZXC_MINT_PATH = "/backend/andromeda";
 /* The title-details GET prefix, read off the shipped `useTmdbDetails` hook —
    upstream renames it alongside the mint. */
 const ZXC_DETAILS_PATH = "/backend/imdb/details";
