@@ -618,7 +618,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
             results (movies → movies, series → series). Sits flush at the top
             behind the floating navbar, exactly like the home hero. */}
         <ErrorBoundary>
-          <BrowseBanner pool={bannerPool} loading={gridLoading} />
+          <BrowseBanner pool={bannerPool} loading={gridLoading} mediaType={cfg.mediaType} />
         </ErrorBoundary>
 
         {/* ── Header ─────────────────────────────────────────────────── */}

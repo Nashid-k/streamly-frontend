@@ -760,6 +760,20 @@ Never mark a blocked task done. Completion % is recomputed as
 
 ## 18. Changelog (append only)
 
+- 2026-11-12 · **Cross-route banner carry (cinejoy parity) · DONE** · The banner no longer
+  skeleton-swaps when navigating home → movies/series with a matching title on screen, per a
+  fresh live teardown of cinejoy.pk (their home/movies/series keep one shared banner record:
+  kind match keeps the exact banner while the rest of the page skeletons in — 54 blocks — and
+  the data never changes; kind mismatch swaps over a skeleton; revisit restores with zero
+  refetch; `/movies` and `/series` are one component parameterized by `mediaType`). Streamly
+  now mirrors it: module-scope record `src/utils/bannerMemory.js` (no storage APIs), the home
+  hero and `BrowseBanner` publish their active slide, and `BrowseBanner` carries a kind-matched
+  record as slide 0 of its pool (skeleton skipped; mismatch/no-record keeps the old behavior).
+  `DiscoveryPage` hands `cfg.mediaType` through. Files: `src/utils/bannerMemory.js` (new),
+  `src/components/browse/BrowseBanner.jsx`, `src/pages/DiscoveryPage.jsx`, `src/pages/HomePage.jsx`,
+  `src/__tests__/{BrowseBanner,HomePage,DiscoveryPage}.test.jsx` (+11 tests, 120 files / 1455 green).
+  Gates: lint 0 errors · build exit 0 (2.12 s).
+
 - 2026-11-11 · **PHASE 3 — BROWSE FINISHED** · DONE · New `src/components/browse/BrowseBar.jsx`
   (sticky result count + one removable chip per URL filter + "Clear all", collapses on
   scroll-down and returns on scroll-up via a passive rAF listener that reads `scrollY` only),

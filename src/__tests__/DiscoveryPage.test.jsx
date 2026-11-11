@@ -3,6 +3,7 @@ import { act, screen, fireEvent, waitFor } from "@testing-library/react";
 import DiscoveryPage from "../pages/DiscoveryPage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";
+import { setBannerMemory, clearBannerMemory } from "../utils/bannerMemory";
 
 /* Regression contract for the browse page's filter pills and grid footer:
    - every pill can clear its own param (no one-way filters),
@@ -224,5 +225,54 @@ describe("DiscoveryPage active filter chips", () => {
     );
     expect(screen.queryByText(/\d+ filters?/)).toBeNull();
     expect(await screen.findByText("2 titles")).toBeInTheDocument();
+  });
+});
+
+/* Cross-route banner carry (cinejoy parity): while the grid's first page is in
+   flight, a matching record keeps the banner that was on screen up instead of
+   swapping in a skeleton. This pins the page-side wiring too — DiscoveryPage
+   must hand its media type to BrowseBanner or the carry can never fire. */
+describe("DiscoveryPage browse banner carry", () => {
+  beforeEach(() => {
+    clearBannerMemory();
+  });
+
+  afterEach(() => {
+    clearBannerMemory();
+  });
+
+  it("keeps the on-screen movie banner while the movies grid loads", async () => {
+    const pending = deferred();
+    vi.spyOn(movieService, "getDiscover").mockImplementation(() => pending.promise);
+    setBannerMemory({
+      id: "tmdb-movie-100",
+      title: "Carried Movie",
+      mediaType: "movie",
+      backdropUrl: "https://example.com/carried.jpg",
+      posterUrl: "https://example.com/carried-poster.jpg",
+    });
+
+    renderPage("/movies");
+
+    const heroImg = document.querySelector(".hero-bg");
+    expect(heroImg).not.toBeNull();
+    expect(heroImg.getAttribute("alt")).toBe("Carried Movie");
+    expect(document.querySelector(".skeleton-hero")).toBeNull();
+  });
+
+  it("shows the banner skeleton on a kind mismatch", () => {
+    vi.spyOn(movieService, "getDiscover").mockImplementation(() => new Promise(() => {}));
+    setBannerMemory({
+      id: "tmdb-tv-1399",
+      title: "Carried Series",
+      mediaType: "tv",
+      backdropUrl: "https://example.com/carried-tv.jpg",
+      posterUrl: "https://example.com/carried-tv-poster.jpg",
+    });
+
+    renderPage("/movies");
+
+    expect(document.querySelector(".skeleton-hero")).not.toBeNull();
+    expect(document.querySelector(".hero-bg")).toBeNull();
   });
 });

@@ -25,6 +25,7 @@ import RatingsCluster from "../components/RatingsCluster";
 import RailArrow from "../components/RailArrow";
 import { buildUpcomingThisWeek } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
+import { setBannerMemory } from "../utils/bannerMemory";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
@@ -791,6 +792,20 @@ export default function Home({
   const activeFeaturedMovie =
     totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
   const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
+
+  /* Cross-route banner record (cinejoy parity): publish the on-screen featured
+     slide so the browse pages can keep this exact banner when their media kind
+     matches instead of skeleton-swapping it on navigation. */
+  useEffect(() => {
+    if (!activeFeaturedMovie) return;
+    const backdropUrl = activeFeaturedMovie.backdropUrl || null;
+    const posterUrl = activeFeaturedMovie.posterUrl || activeFeaturedMovie.poster || null;
+    if (!backdropUrl && !posterUrl) return;
+    setBannerMemory({
+      ...activeFeaturedMovie,
+      mediaType: activeFeaturedMovie.mediaType || (activeFeaturedMovie.isSeries ? "tv" : "movie"),
+    });
+  }, [activeFeaturedMovie]);
 
   const cwResumeEntry =
     Array.isArray(continueWatching) && activeFeaturedMovie

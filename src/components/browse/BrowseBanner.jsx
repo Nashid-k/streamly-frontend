@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Calendar, Check, Heart, Info, Play, Plus } from "lucide-react";
@@ -10,6 +10,7 @@ import useDetailView from "../../hooks/useDetailView";
 import HeroTitleLogo from "../HeroTitleLogo";
 import RatingsCluster from "../RatingsCluster";
 import { useI18n } from "../../i18n/index.jsx";
+import { getBannerMemory, setBannerMemory } from "../../utils/bannerMemory";
 
 /**
  * Compact hero banner for the browse pages (Movies / Series). The home page
@@ -18,7 +19,10 @@ import { useI18n } from "../../i18n/index.jsx";
  * HeroTitleLogo / RatingsCluster, at a shorter height (.hero-container--browse).
  *
  * Pool: the first titles of the page's own discover results (with backdrop art),
- * so the banner is always "corresponding" to what the page browses.
+ * so the banner is always "corresponding" to what the page browses. When the
+ * cross-route banner record shows the same media kind, its title leads the
+ * pool as slide 0 — arriving from home never swaps the banner art or flashes
+ * a skeleton (cinejoy parity).
  *
  * Contracts kept from the home banner: 10s dwell (synced with .dot-filler),
  * hover/focus/touch pause, hidden-tab guard, dots are real buttons with a
@@ -29,20 +33,40 @@ import { useI18n } from "../../i18n/index.jsx";
 const BROWSE_DWELL_MS = 10000;
 const SWIPE_THRESHOLD_PX = 45;
 
-export default function BrowseBanner({ pool, loading = false }) {
+export default function BrowseBanner({ pool, loading = false, mediaType = null }) {
   const { t } = useI18n();
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const { isInList, toggleMyList } = useAppAuth();
   const { openDetails } = useDetailView();
 
-  const total = pool.length;
+  /* cinejoy parity — cross-route carry. The record's kind matching this
+     page's mediaType is decided once per page: the carried title then leads
+     the pool as slide 0 while this page's own results land behind it. A
+     mismatch or no record keeps the original skeleton-then-pool behavior.
+     The record is only read here; writes always come from the on-screen
+     slide (below), so a carry can never race back into the decision. */
+  const carried = useMemo(() => {
+    if (!mediaType) return null;
+    const m = getBannerMemory();
+    if (!m || m.mediaType !== mediaType || m.id == null) return null;
+    if (!m.backdropUrl && !m.posterUrl) return null;
+    return m;
+  }, [mediaType]);
+
+  const effectivePool = useMemo(() => {
+    if (!carried) return pool;
+    const rest = pool.filter((m) => m && String(m.id) !== String(carried.id));
+    return [carried, ...rest];
+  }, [carried, pool]);
+
+  const total = effectivePool.length;
   const [index, setIndex] = useState(0);
-  const active = total > 0 ? pool[index % total] : null;
+  const active = total > 0 ? effectivePool[index % total] : null;
 
   /* A new result set (filter change, mode switch) restarts from the first
      slide instead of leaving the index pointing past a shorter pool. */
-  const poolIdentity = `${pool[0]?.id || ""}:${total}`;
+  const poolIdentity = `${effectivePool[0]?.id || ""}:${total}`;
   const lastPoolIdentity = useRef(poolIdentity);
   useEffect(() => {
     if (lastPoolIdentity.current !== poolIdentity) {
@@ -60,6 +84,14 @@ export default function BrowseBanner({ pool, loading = false }) {
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
+
+  /* Publish the on-screen slide to the banner record so the next page's carry
+     decision sees what the viewer is looking at (the home hero publishes its
+     featured slides the same way). */
+  useEffect(() => {
+    if (!mediaType || !active) return;
+    setBannerMemory({ ...active, mediaType });
+  }, [active, mediaType]);
 
   const pausedRef = useRef(false);
 
@@ -80,7 +112,7 @@ export default function BrowseBanner({ pool, loading = false }) {
   }, []);
 
   /* Preload the next slide's art so a rotation never flashes empty. */
-  const nextMovie = total > 1 ? pool[(index + 1) % total] : null;
+  const nextMovie = total > 1 ? effectivePool[(index + 1) % total] : null;
   useEffect(() => {
     const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
     if (!preloadUrl) return;
@@ -114,9 +146,10 @@ export default function BrowseBanner({ pool, loading = false }) {
     }
   };
 
-  /* Loading → reserved skeleton slot (no layout shift when the banner arrives).
-     Settled but nothing with backdrop art → no banner at all. */
-  if (loading) {
+  /* Loading → reserved skeleton slot (no layout shift when the banner arrives),
+     unless the carried record already covers the slot (kind match, cinejoy
+     parity). Settled but nothing with backdrop art → no banner at all. */
+  if (loading && !carried) {
     return (
       <div
         className="hero-container hero-container--browse skeleton-hero"
@@ -307,7 +340,7 @@ export default function BrowseBanner({ pool, loading = false }) {
             aria-label="Featured titles"
           >
             <div className="hero-dots__ticks">
-              {pool.map((movie, i) => {
+              {effectivePool.map((movie, i) => {
                 const isActive = i === index % total;
                 return (
                   <button

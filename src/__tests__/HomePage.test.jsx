@@ -3,6 +3,7 @@ import { screen, fireEvent, waitFor } from "@testing-library/react";
 import Home from "../pages/HomePage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";
+import { getBannerMemory, clearBannerMemory } from "../utils/bannerMemory";
 
 /* HomePage had NO coverage at all (1,136 lines, the app's landing surface).
    These tests pin the behaviours that are easy to break silently:
@@ -108,11 +109,13 @@ function revealHeroControls() {
 
 beforeEach(() => {
   localStorage.clear();
+  clearBannerMemory();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  clearBannerMemory();
 });
 
 describe("HomePage hero", () => {
@@ -260,5 +263,36 @@ describe("HomePage hero", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(dots[1].getAttribute("aria-current")).toBe("true");
     expect(dots[0].getAttribute("aria-current")).toBe(null);
+  });
+});
+
+describe("HomePage cross-route banner record", () => {
+  it("publishes the active featured movie so the Movies page can carry it", async () => {
+    stubHomeService();
+    renderHome();
+
+    expect(
+      await screen.findByText(/an insomniac office worker forms an underground fight club/i),
+    ).toBeInTheDocument();
+    expect(getBannerMemory()).toMatchObject({
+      id: "tmdb-movie-550",
+      mediaType: "movie",
+      title: "Fight Club",
+      backdropUrl: "https://example.com/backdrop.jpg",
+    });
+  });
+
+  it("publishes a series hero as tv so the Series page can carry it", async () => {
+    stubHomeService({ featured: [SERIES] });
+    renderHome();
+
+    expect(
+      await screen.findByText(/noble families vie for control of the iron throne/i),
+    ).toBeInTheDocument();
+    expect(getBannerMemory()).toMatchObject({
+      id: "tmdb-tv-1399",
+      mediaType: "tv",
+      title: "Game of Thrones",
+    });
   });
 });
