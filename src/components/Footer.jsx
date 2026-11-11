@@ -2,9 +2,8 @@ import { memo } from "react";
 import { useI18n } from "../i18n/index.jsx";
 import BrandWordmark from "../components/BrandWordmark";
 
-/* ── Global footer — matches Cinejoy's: a branded wordmark (now the live-text
-   Streamly mark rather than /brand/wordmark.svg, which was still the upstream
-   logo), then disclaimer + contact link. */
+/* ── Global footer — a branded bar: the Streamly PNG mark, then disclaimer +
+   contact link. */
 function Footer() {
   const { t } = useI18n();
   return (
