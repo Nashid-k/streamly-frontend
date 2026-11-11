@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **Skeleton loading on every route · shape-matched nav fallbacks — 2026-11-11 (branch `main`).**
+  - **RouteFallback rebuilt**: the centred branded GIF is gone. The Suspense fallback is now SHAPE-MATCHED per route family (`pathname` passed from `AppRoutes`): home → mirror of the page's own `skeleton-hero` + two `SkeletonRail`s; movies/series → the exact `hero-container--browse` banner slot + `discovery-grid` of `MovieCardSkeleton`s; `/watch` → the page's own `MovieDetailsSkeleton` component; person → profile+grid shape; search → input+chips+`movie-grid` (the page's own loading classes); category/genre → heading+grid; watchlist/history → title+toolbar+grid; explore/public collections → their row/poster shapes; settings → tabs+panel rows; unknown → grid. A cold chunk swap now reads as the page filling in — no spinner, no layout jump.
+  - **Crude pulses upgraded**: ExploreCollections' and PublicCollection's `animate-pulse bg-white/5` boxes swapped to the `.skeleton` shimmer primitives (consistent with the rest).
+  - **Reduced motion honesty**: `skeleton.css` now freezes the shimmer wave and the card entry animation for `prefers-reduced-motion` and `html[data-reduce-motion="true"]` (static gradient stays).
+  - In-page skeletons were already present on home/discovery/search/category/genre/person/details; verify-email stays deliberately bare (email-confirm page must land instantly); watchlist/history/settings render synchronously from context, so the chunk-level fallback covers them.
+  - Gates: lint 0 errors; build 1.84s; full suite **119 files / 1444 tests** green.
+
 - [x] **Shorter navbar · pure-CSS translucent glass — 2026-11-11 (branch `main`).**
   - **Length**: tab slot tightened from 136px → 118px (`--nav-item-w`) by dropping the tab type to 13px, side padding to 10px and icon gap to 5px; `.nav-links` gap 4→2px, `.nav-cluster` gap 12→8px. Dock ≈ 95px shorter with the uniform-pill contract intact (slot still fits the longest translated label "La Mia Lista").
   - **Glass**: `backdrop-filter: blur(14px) saturate(150%)` (a re-render per frame the page scrolls under the dock) replaced with pure-CSS translucent glass — `background-image` static sheen + `background-color: rgba(12,12,14,0.5)` (0.8 scrolled), hairline `inset` top/bottom highlights, soft drop shadow. One cheap compositor layer, no filters; the tint still eases with the scroll state via the existing `background-color` transition.

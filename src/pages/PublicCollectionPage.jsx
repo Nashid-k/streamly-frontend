@@ -140,10 +140,10 @@ export default function PublicCollectionPage() {
             <ArrowLeft size={16} />
             {t("explore.title")}
           </Link>
-          <div className="mt-6 h-10 w-64 animate-pulse rounded-lg bg-white/5" aria-hidden="true" />
+          <div className="mt-6 h-10 w-64 skeleton" aria-hidden="true" />
           <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
             {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-white/5" aria-hidden="true" />
+              <div key={i} className="skeleton aspect-[2/3]" aria-hidden="true" />
             ))}
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function PublicCollectionPage() {
           remoteItemsQuery.isFetching && !local ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4" aria-busy="true">
               {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-white/5" aria-hidden="true" />
+                <div key={i} className="skeleton aspect-[2/3]" aria-hidden="true" />
               ))}
             </div>
           ) : (

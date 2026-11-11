@@ -32,7 +32,7 @@ function AppRoutes() {
   const location = useLocation();
   return (
     <ErrorBoundary key={location.pathname}>
-      <Suspense fallback={<RouteFallback />}>
+      <Suspense fallback={<RouteFallback pathname={location.pathname} />}>
         <Routes>
               <Route
                 path="/"

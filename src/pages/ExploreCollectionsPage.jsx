@@ -104,11 +104,7 @@ export default function ExploreCollectionsPage() {
         {loadError && merged.length === 0 ? null : isLoading && merged.length === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
             {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="h-[72px] animate-pulse rounded-xl border bg-muted/40"
-                aria-hidden="true"
-              />
+              <div key={i} className="skeleton h-[72px]" aria-hidden="true" />
             ))}
           </div>
         ) : merged.length === 0 ? (

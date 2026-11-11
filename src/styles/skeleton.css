@@ -200,6 +200,19 @@
   margin-bottom: 1rem;
 }
 
+/* Skeleton shimmer + entry animations are decorative — freeze them for
+   reduced motion (OS or the in-app preference); the static gradient stays. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .skeleton-card {
+    animation: none;
+  }
+}
+html[data-reduce-motion="true"] .skeleton::after,
+html[data-reduce-motion="true"] .skeleton-card {
+  animation: none;
+}
+
 /* Smooth image fade-in on load to prevent harsh pop-in */
 /* Scoped to specific elements only — avoids flicker on cached images during navigation */
 img {
