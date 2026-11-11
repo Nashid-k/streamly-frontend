@@ -29,8 +29,10 @@ export const getFeaturedMovies = async () => {
   }
 };
 
-// Fetch just the English or language-neutral title logo for a movie or TV show,
-// sized for fast loading (w500 = retina 2x for hero display, ~30KB vs 5MB original).
+// Fetch just the English or language-neutral title logo for a movie or TV show.
+// `original` — the hero renders the wordmark up to ~480 CSS px wide (960 device
+// px on a retina display), so a w500 raster gets upscaled and goes soft; logos
+// are small files and React Query caches them for 24h.
 export const getTitleLogo = async (id) => {
   const isTV = isTvId(id);
   const rid = rawId(id);
@@ -38,7 +40,7 @@ export const getTitleLogo = async (id) => {
     const data = await tmdb(`/${isTV ? 'tv' : 'movie'}/${rid}/images`, {
       include_image_language: 'en,null',
     });
-    const out = logoUrlFromImages(data, 'w500');
+    const out = logoUrlFromImages(data, 'original');
     if (!out) {
       logDebug('movieService', `getTitleLogo: no logo on TMDB for ${id} — hero falls back to text title.`, { id });
     }

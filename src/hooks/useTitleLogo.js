@@ -44,7 +44,9 @@ export function useTitleLogo(movie, scope = "useTitleLogo", earlyId = null) {
   }, [error, id, movie?.title, scope]);
 
   const logoUrl = useImageLogos && !imageError
-    ? CdnImageAdapter.getUrl(movie?.logoUrl || data || null, "w500")
+    // `original` keeps an `original`-wrapped lookup URL untouched; asking for
+    // w500 here would downscale the crisp logo the lookup already resolved.
+    ? CdnImageAdapter.getUrl(movie?.logoUrl || data || null, "original")
     : null;
 
   // True only while the lookup is actually in flight (not a cached hit, and

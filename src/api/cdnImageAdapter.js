@@ -23,6 +23,15 @@ export class CdnImageAdapter {
   static getUrl(path, size = "w500") {
     if (!path) return null;
 
+    // SVG artwork must never ride the proxy: wsrv rasterizes vectors to a
+    // lossy WebP at the file's intrinsic size, and the hero wordmark went
+    // soft. TMDB serves .svg unresized at every size path, so hand the
+    // browser the original file — it scales perfectly at any rendered size.
+    if (path.endsWith(".svg") && !path.includes("wsrv.nl")) {
+      const direct = path.replace(/^https?:\/\/image\.tmdb\.org\/t\/p\/(?:w\d+|original)\//, "");
+      return `https://image.tmdb.org/t/p/original/${direct.startsWith("/") ? direct.substring(1) : direct}`;
+    }
+
     // Clean path — strip leading slash for proxy URL building
     const cleanPath = path.startsWith("/") ? path.substring(1) : path;
 

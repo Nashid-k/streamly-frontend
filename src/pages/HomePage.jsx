@@ -4,7 +4,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Check, Plus, Info, Calendar, Heart, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Check, Plus, Info, Calendar, Heart } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -1154,7 +1154,8 @@ export default function Home({
             </motion.div>
             </AnimatePresence>
 
-            {/* Manual paging: arrows + clickable ticks, each a 44px target. */}
+            {/* Manual paging: clickable ticks, each a 44px target. The banner is
+                also swipeable; arrows were removed per user direction. */}
             {totalFeatured > 1 && (
               <>
                 <div
@@ -1162,22 +1163,6 @@ export default function Home({
                   role="group"
                   aria-label="Featured titles"
                 >
-                  <button
-                    type="button"
-                    className="hero-arrow"
-                    aria-label="Previous featured title"
-                    onClick={(event) => {
-                      // The whole hero is a click target for the details modal;
-                      // a control must not also open it.
-                      event.stopPropagation();
-                      goToSlide(featuredIndex - 1);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
-                    }}
-                  >
-                    <ChevronLeft size={18} strokeWidth={2.5} aria-hidden="true" />
-                  </button>
                   <div className="hero-dots__ticks">
                     {Array.from({ length: totalFeatured }).map((_, i) => {
                       const isActive = i === featuredIndex % totalFeatured;
@@ -1204,20 +1189,6 @@ export default function Home({
                       );
                     })}
                   </div>
-                  <button
-                    type="button"
-                    className="hero-arrow"
-                    aria-label="Next featured title"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      goToSlide(featuredIndex + 1);
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
-                    }}
-                  >
-                    <ChevronRight size={18} strokeWidth={2.5} aria-hidden="true" />
-                  </button>
                 </div>
                 {/* Announced on every slide change; the visual hero is animated
                     in/out, so screen readers get a stable live region instead. */}
