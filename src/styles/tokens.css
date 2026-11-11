@@ -157,9 +157,10 @@
   --nav-item-h: 44px;
   /* Uniform tab width (2026-11-11): every desktop tab renders icon + label
      inside the SAME slot, so the active pill never changes size between tabs
-     and its glide is a pure position slide. Sized for the longest translated
-     label ("La Mia Lista") + icon + 14px side padding. */
-  --nav-item-w: 136px;
+     and its glide is a pure position slide. 118px = longest translated label
+     ("La Mia Lista" at 13px) + 16px icon + 5px gap + 10px side padding, kept
+     tight so the dock stays short. */
+  --nav-item-w: 118px;
   --nav-fade: var(--duration-fast) var(--ease-out);
   --condense-ease: var(--ease-out);
 

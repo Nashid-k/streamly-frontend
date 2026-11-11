@@ -146,30 +146,39 @@
   padding: var(--nav-pad) 6px var(--nav-pad) var(--nav-pad);
   max-width: fit-content;
   border-radius: var(--radius-full);
-  /* Frosted glass at rest too: a faint dark tint makes the backdrop blur
-     readable over any artwork behind it (a transparent bg used to hide the
-     blur entirely until scroll). */
-  background: rgba(12, 12, 14, 0.32);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  /* Translucent glass in PURE CSS — no backdrop-filter. A blur() behind the
+     dock re-renders on every frame the page scrolls underneath it; instead a
+     translucent tint the artwork shows through, a static top sheen and
+     hairline edges sell the glass for the cost of one cheap layer. */
+  background-image: linear-gradient(
+    to bottom,
+    rgba(var(--white-rgb), 0.09),
+    rgba(var(--white-rgb), 0.02) 45%,
+    transparent 60%
+  );
+  background-color: rgba(12, 12, 14, 0.5);
   transform: translateZ(0);
   will-change: transform;
-  border: 1px solid rgba(var(--white-rgb), 0.08);
-  box-shadow: none;
+  border: 1px solid rgba(var(--white-rgb), 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--white-rgb), 0.12),
+    inset 0 -1px 0 rgba(var(--white-rgb), 0.05),
+    0 8px 24px rgba(var(--black-rgb), 0.35);
   transition: transform var(--anim-hover-time) var(--anim-hover-ease),
               border-color var(--duration-fast) var(--ease-out),
               background-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out);
-  /* Condense: the padded pill glides smoothly (transform only, no re-blur) and
-     the tint/shadow ease with the scroll state for a polished feel. */
+  /* Condense: the padded pill glides smoothly (transform only) and the
+     tint/shadow ease with the scroll state for a polished feel. */
 }
 .navbar.scrolled {
   transform: translateY(-4px) translateZ(0);
-  background: rgba(12, 12, 14, 0.72);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border-color: rgba(var(--white-rgb), 0.1);
-  box-shadow: inset 0 1px rgba(var(--white-rgb), 0.14), 0 10px 36px rgba(var(--black-rgb), 0.4);
+  background-color: rgba(12, 12, 14, 0.8);
+  border-color: rgba(var(--white-rgb), 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(var(--white-rgb), 0.14),
+    inset 0 -1px 0 rgba(var(--white-rgb), 0.06),
+    0 10px 36px rgba(var(--black-rgb), 0.4);
 }
 @media (min-width: 1024px) {
   .navbar:not(.scrolled):hover {
@@ -184,7 +193,7 @@
 .nav-cluster {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -207,7 +216,7 @@
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-link {
@@ -216,15 +225,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   height: var(--nav-item-h);
   /* Uniform-pill contract (2026-11-11): every tab shows icon + label at the
      SAME geometry (--nav-item-w), so an active change is a pure position
      slide — the pill's width never steps and the right-docked island never
-     reflows mid-glide. */
-  min-width: var(--nav-item-w, 136px);
-  padding: 0 14px;
-  font-size: 14px;
+     reflows mid-glide. Slot + 13px type + 10px padding keep the dock SHORT:
+     sized for the longest translated label ("La Mia Lista"). */
+  min-width: var(--nav-item-w, 118px);
+  padding: 0 10px;
+  font-size: 13px;
   /* 600 is a frozen contract: motion.test pins it so the pill never reflows
      between rest and active state. */
   font-weight: 600;
@@ -253,8 +263,8 @@
 /* Active state — the shared pill supplies the white field; the label stays
    full-strength white so `difference` resolves it to pure black over the pill. */
 .nav-link--home {
-  gap: 6px;
-  padding: 0 12px;
+  gap: 5px;
+  padding: 0 10px;
 }
 .nav-link--active {
   color: var(--white);
