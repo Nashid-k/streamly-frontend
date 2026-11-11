@@ -34,13 +34,13 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
   const styles = {
     imminent: {
       background: "linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.9))",
-      text: "#fff",
+      text: "var(--white)",
       shadow: "0 2px 8px rgba(239,68,68,0.4)",
       animate: true,
     },
     soon: {
       background: "linear-gradient(135deg, rgba(249,115,22,0.9), rgba(234,88,12,0.9))",
-      text: "#fff",
+      text: "var(--white)",
       shadow: "0 2px 8px rgba(249,115,22,0.3)",
       animate: false,
     },
@@ -52,7 +52,7 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
     },
     future: {
       background: "rgba(255,255,255,0.08)",
-      text: "#a1a1aa",
+      text: "var(--text-secondary)",
       shadow: "none",
       animate: false,
     },

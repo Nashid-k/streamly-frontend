@@ -256,7 +256,7 @@
   transition: color var(--duration-fast) var(--ease-out);
 }
 .movie-card:hover .movie-title {
-  color: #ffffff;
+  color: var(--white);
 }
 /* Search-result highlight (<mark>). The UA default is black-on-yellow, which
    clashes with the dark card palette; tint with the accent instead and keep

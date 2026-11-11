@@ -738,7 +738,7 @@ export default function SearchPage() {
                   <span
                     style={{
                       fontSize: "0.85rem",
-                      color: "#a1a1aa",
+                      color: "var(--text-secondary)",
                       textAlign: "center",
                       marginBottom: "0.5rem",
                     }}
@@ -758,7 +758,7 @@ export default function SearchPage() {
                       width: "100%",
                     }}
                   >
-                    <span style={{ fontSize: "0.85rem", color: "#a1a1aa" }}>
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                       Did you mean:
                     </span>
                     <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>

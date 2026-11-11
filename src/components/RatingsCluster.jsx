@@ -136,7 +136,7 @@ export default function RatingsCluster({
             borderRadius: "50%",
             background: "rgba(255,255,255,0.08)",
             border: "1px solid rgba(255,255,255,0.12)",
-            color: "#a1a1aa",
+            color: "var(--text-secondary)",
             cursor: "pointer",
             transition: "color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out)",
           }}

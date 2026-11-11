@@ -35,7 +35,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.16);
   border-radius: 50%;
   background: rgba(8, 8, 10, 0.72);
-  color: #fff;
+  color: var(--white);
   cursor: pointer;
   opacity: 0;
   box-shadow: 0 8px 18px rgba(var(--black-rgb), 0.36);
@@ -230,7 +230,7 @@
 }
 
 .collection-card__name {
-  color: #fff;
+  color: var(--white);
   font-size: 0.92rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -266,7 +266,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.18);
   border-radius: 50%;
   background: rgba(8, 8, 10, 0.72);
-  color: #fff;
+  color: var(--white);
   cursor: pointer;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -330,7 +330,7 @@
 
 .collection-dialog__title {
   margin: 0;
-  color: #fff;
+  color: var(--white);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -352,7 +352,7 @@
 @media (hover: hover) and (pointer: fine) {
 .collection-dialog__close:hover {
   background: rgba(var(--white-rgb), 0.12);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -368,7 +368,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.14);
   border-radius: 14px;
   background: rgba(var(--white-rgb), 0.05);
-  color: #fff;
+  color: var(--white);
   font-size: 0.95rem;
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
@@ -417,7 +417,7 @@
 
 @media (hover: hover) and (pointer: fine) {
 .collection-dialog__vis:hover {
-  color: #fff;
+  color: var(--white);
   background: rgba(var(--white-rgb), 0.06);
 }
 }
@@ -425,7 +425,7 @@
 .collection-dialog__vis[aria-checked="true"] {
   background: rgba(var(--white-rgb), 0.12);
   border-color: rgba(var(--white-rgb), 0.16);
-  color: #fff;
+  color: var(--white);
 }
 
 .collection-dialog__vis[aria-checked="true"][data-visibility="public"] {
@@ -483,7 +483,7 @@
   flex-shrink: 0;
   border-radius: 50%;
   border: 2px solid rgba(var(--white-rgb), 0.4);
-  color: #fff;
+  color: var(--white);
 }
 
 .collection-add__row[aria-pressed="true"] .collection-add__check {

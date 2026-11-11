@@ -10,6 +10,7 @@ import MovieRail from "./MovieRail";
 import Top10Rail from "./Top10Rail";
 import EditorialRails from "./EditorialRails";
 import FeaturedCollection from "./FeaturedCollection";
+import GenreTiles from "./GenreTiles";
 import ProviderRow from "./ProviderRow";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n/index.jsx";
@@ -96,7 +97,7 @@ const HomeRails = React.memo(function HomeRails({
             {[1, 2, 3, 4].map((rail) => <SkeletonRail key={rail} cards={8} />)}
           </div>
         ) : categories.length === 0 ? (
-          <h3 style={{ textAlign: "center", color: "#a1a1aa" }}>
+          <h3 style={{ textAlign: "center", color: "var(--text-secondary)" }}>
             {t("home.noTitles")}
           </h3>
         ) : (
@@ -183,6 +184,13 @@ const HomeRails = React.memo(function HomeRails({
             <ErrorBoundary>
               <GenreShowcase filter={filter} activeGenre={activeGenre} />
             </ErrorBoundary>
+
+            {/* 11b. Genre entry points — one tile per genre, real filter links */}
+            {activeGenre === "All" && (
+              <ErrorBoundary>
+                <GenreTiles />
+              </ErrorBoundary>
+            )}
 
             {/* 12. Category rails — capped at three so the page terminates
                 (brief: ~8 rails, not an infinite feed). */}

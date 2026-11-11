@@ -29,7 +29,7 @@ export default function SummerGlow() {
       speed={0.35}
       wind={0.1}
       size={[3, 10]}
-      colors={["#fde68a", "#fcd34d", "#fbbf24", "#ffffff"]}
+      colors={["#fde68a", "#fcd34d", "#fbbf24", "var(--white)"]}
       opacity={[0.2, 0.55]}
       spin={0.2}
       sway={0.7}

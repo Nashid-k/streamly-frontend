@@ -64,11 +64,11 @@ export default class ErrorBoundary extends React.Component {
             />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             <h1
-              style={{ color: "#fff", fontSize: "1.5rem", fontWeight: 700, margin: 0 }}
+              style={{ color: "var(--white)", fontSize: "1.5rem", fontWeight: 700, margin: 0 }}
             >
               Updating Application
             </h1>
-            <p style={{ color: "#71717a", fontSize: "0.9rem", margin: 0 }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 }}>
               Fetching the latest version...
             </p>
             {/* Escape hatch when the loop-guard suppressed auto-recovery
@@ -77,7 +77,7 @@ export default class ErrorBoundary extends React.Component {
               onClick={() => clearRuntimeCaches().finally(() => window.location.reload())}
               style={{
                 background: "transparent",
-                color: "#a1a1aa",
+                color: "var(--text-secondary)",
                 border: "1px solid rgba(255,255,255,0.2)",
                 padding: "0.6rem 1.4rem",
                 borderRadius: "8px",
@@ -112,7 +112,7 @@ export default class ErrorBoundary extends React.Component {
           >
             Something went wrong
           </h1>
-          <p style={{ color: "#a1a1aa", marginBottom: "2rem" }}>
+          <p style={{ color: "var(--text-secondary)", marginBottom: "2rem" }}>
             Don&rsquo;t worry &mdash; this isn&rsquo;t your fault. Try again, or head
             back home. If it keeps happening, reloading the app usually clears it.
           </p>
@@ -124,7 +124,7 @@ export default class ErrorBoundary extends React.Component {
               }}
               style={{
                 background: "var(--btn-bg, rgba(242,242,242,0.96))",
-                color: "var(--btn-ink, #000000)",
+                color: "var(--btn-ink, var(--black))",
                 border: "none",
                 padding: "0.8rem 1.5rem",
                 borderRadius: "8px",
@@ -140,7 +140,7 @@ export default class ErrorBoundary extends React.Component {
               onClick={() => clearRuntimeCaches().finally(() => window.location.reload())}
               style={{
                 background: "transparent",
-                color: "#a1a1aa",
+                color: "var(--text-secondary)",
                 border: "1px solid rgba(255,255,255,0.2)",
                 padding: "0.8rem 1.5rem",
                 borderRadius: "8px",

@@ -53,7 +53,7 @@ const StillWatching = memo(function StillWatching({ onContinue, onExit }) {
           boxShadow: SHADOW.card,
         }}
       >
-        <span style={{ color: "#fff", fontSize: 24, fontWeight: 600, letterSpacing: -0.2 }}>
+        <span style={{ color: "var(--white)", fontSize: 24, fontWeight: 600, letterSpacing: -0.2 }}>
           Still watching?
         </span>
         <div style={{ display: "flex", gap: 12 }}>
@@ -82,7 +82,7 @@ const StillWatching = memo(function StillWatching({ onContinue, onExit }) {
               borderRadius: RADIUS.pill,
               border: "1px solid rgba(255,255,255,0.24)",
               background: "transparent",
-              color: "#fff",
+              color: "var(--white)",
               fontSize: 15,
               fontWeight: 600,
               cursor: "pointer",

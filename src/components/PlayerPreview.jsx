@@ -72,7 +72,7 @@ const PlayerPreview = ({
   const {
     subtitleFont = "cinejoy",
     subtitleSize = 100,
-    subtitleColor = "#ffffff",
+    subtitleColor = "var(--white)",
   } = usePreferences();
 
   const subtitleStyle = {
@@ -80,7 +80,7 @@ const PlayerPreview = ({
     fontSize: `calc(clamp(11px, 1.8vw, 20px) * ${(Number(subtitleSize) || 100) / 100})`,
     color: subtitleColor,
     textShadow:
-      "0 2px 4px rgba(0,0,0,0.95), 0 0 2px #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000",
+      "0 2px 4px rgba(0,0,0,0.95), 0 0 2px var(--black), -1px -1px 0 var(--black), 1px -1px 0 var(--black), -1px 1px 0 var(--black), 1px 1px 0 var(--black)",
   };
 
   return (

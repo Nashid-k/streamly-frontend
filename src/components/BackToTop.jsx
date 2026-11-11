@@ -94,7 +94,7 @@ export default function BackToTop() {
             backdropFilter: "blur(20px) saturate(150%)",
             WebkitBackdropFilter: "blur(20px) saturate(150%)",
             border: "1px solid rgba(255,255,255,0.2)",
-            color: "#fff",
+            color: "var(--white)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

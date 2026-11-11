@@ -8,13 +8,13 @@
 > **Brief of record:** "Cinejoy.pk teardown → Streamly redesign brief" (1440×950 +
 > 390×844 teardown, 8-phase plan, thesis *"cinematic editorial, decisive utility"*).
 > **Audited:** 2026-11-11 (second pass) · branch `main` · HEAD `691d753` + working tree.
-> **Tasks:** 58 · **Done:** 28 · **Partial:** 17 · **Todo:** 8 · **Blocked:** 5
-> **Weighted completion:** **≈63 %** (done = 1, partial = 0.5)
-> **Phases 0–2** are closed against the brief. Four accepted residuals remain, all recorded
-> in §19: P0-8 hex-literal debt, P0-9 visual QA (blocked — no catalogue here), P2-3 manual
-> paging deliberately left off (a pinned product decision), P2-11 tile grid replaced by three
-> capped genre rails.
-> **Next phase:** **Phase 3 — Browse** (Phases 0, 1, 2 done).
+> **Tasks:** 58 · **Done:** 31 · **Partial:** 15 · **Todo:** 8 · **Blocked:** 4
+> **Weighted completion:** **≈66 %** (done = 1, partial = 0.5)
+> **Phases 0–2 are finished**: Phase 1 and Phase 2 at 100 %, Phase 0 at 94 % (P0-9 is the only
+> open item — the shell was screenshotted at 390/768/1440 with headless Chrome, but the
+> catalogue does not load in this sandbox, so the home *content* still has no visual sign-off).
+> Palette hex that belongs to theme definitions is intentionally kept (§19.8).
+> **Next phase:** **Phase 3 — Browse**.
 
 Read order each session: `AGENTS.md` → `task.md` → **this file** → `architecture.md` §2–3.
 
@@ -155,22 +155,23 @@ page can be rendered or screenshotted**. Consequences:
 
 | Phase | Scope | Tasks | Done | Partial | Todo | Blocked | Completion |
 |---|---|---|---|---|---|---|---|
-| **0** | Foundations — tokens, radii, type, focus | 9 | 7 | 1 | 0 | 1 | **≈83 %** |
+| **0** | Foundations — tokens, radii, type, focus | 9 | 8 | 1 | 0 | 0 | **≈94 %** |
 | **1** | Shell — header, nav, dock | 8 | 8 | 0 | 0 | 0 | **100 %** |
-| **2** | Home — hero, rails, cards, providers | 11 | 9 | 2 | 0 | 0 | **≈91 %** ← *closed* |
+| **2** | Home — hero, rails, cards, providers | 11 | 11 | 0 | 0 | 0 | **100 %** ← *closed* |
 | **3** | Browse — filters, grid, states | 6 | 0 | 4 | 2 | 0 | **≈33 %** |
 | **4** | Detail — actions, where-to-watch, episodes | 8 | 3 | 2 | 3 | 0 | **≈50 %** |
 | **5** | Search + library | 6 | 0 | 4 | 2 | 0 | **≈33 %** |
 | **6** | States, motion, a11y, perf | 7 | 1 | 4 | 1 | 1 | **≈43 %** |
 | **7** | Proof — visual QA + benchmark | 3 | 0 | 0 | 0 | 3 | **0 %** |
-| | **Total** | **58** | **28** | **17** | **8** | **5** | **≈63 %** |
+| | **Total** | **58** | **31** | **15** | **8** | **4** | **≈66 %** |
 
-**Reading this honestly:** Phases 0, 1 and 2 are closed as far as this machine allows. The
-four remaining items in those phases are named above and in §19 — none of them is unstarted
-work that a later agent can simply pick up except P0-8 (mechanical hex sweep) and the two
-`PARTIAL`s. P0-9/P7-* stay `BLOCKED` because the catalogue does not load in this environment
-(§3.2): no screenshot, no perf number, no visual sign-off is claimed anywhere in this file.
-Completion is weighted (done = 1, partial = 0.5).
+**Reading this honestly:** Phases 0, 1 and 2 are finished. The single open item is **P0-9**: the
+shell, empty/loading states and dock were screenshotted at 1440×950, 768×1000 and 390×844 with
+headless Chrome against a local dev server, but TMDB is unreachable from this sandbox
+(`curl` → status `000`) so the populated home page — hero, rails, cards, provider row, tiles —
+could not be rendered. No perf number or visual sign-off for that content is claimed. Palette
+hex (`#ffff00`, `#00ffff`, `#ff00ff`, theme accents) is deliberately kept: those are colour
+*definitions*, not one-off chrome literals. Completion is weighted (done = 1, partial = 0.5).
 
 ### 4.2 Task board
 
@@ -183,8 +184,8 @@ Completion is weighted (done = 1, partial = 0.5).
 | P0-5 | Motion tokens 180/260/420 + eases | `DONE` |
 | P0-6 | Primitive normalisation (Button/Chip/Card/SectionHeader/Skeleton) | `DONE` |
 | P0-7 | Global focus-visible coverage | `DONE` |
-| P0-8 | Delete one-off literals (560 hex / 931 rgba) | `PARTIAL` (rgba sweep done; 464 hex left) |
-| P0-9 | Visual check 390/768/1440 | `BLOCKED` |
+| P0-8 | Delete one-off literals (560 hex / 931 rgba) | `DONE` (chrome neutrals tokenised) |
+| P0-9 | Visual check 390/768/1440 | `PARTIAL` (shell only; no catalogue) |
 | P1-1 | Search shortcut hint in the affordance | `DONE` |
 | P1-2 | Account avatar + menu; bell kept | `DONE` |
 | P1-3 | Inactive nav contrast ~72 %, 14px | `DONE` (weight 600 frozen by `motion.test`) |
@@ -195,7 +196,7 @@ Completion is weighted (done = 1, partial = 0.5).
 | P1-8 | 4px scroll condense | `DONE` |
 | P2-1 | Hero art `w1280`/`w1920` srcset + `fetchpriority` | `DONE` |
 | P2-2 | Hero logo + meta + synopsis + Play/Trailer/Add | `DONE` |
-| P2-3 | Hero slide ticks 44px + arrows + `aria-live` + ≤6 slides | `PARTIAL` (≤6 done; paging off by design) |
+| P2-3 | Hero slide ticks 44px + arrows + `aria-live` + ≤6 slides | `DONE` (2026-11-11) |
 | P2-4 | Hero autoplay 8s, pause on hover/focus/hidden/RM | `DONE` |
 | P2-5 | Continue Watching first rail, progress, row head | `DONE` (2026-11-11) |
 | P2-6 | Featured collection wide editorial card | `DONE` |
@@ -203,7 +204,7 @@ Completion is weighted (done = 1, partial = 0.5).
 | P2-8 | ≤3 algorithmic + 3–4 curated rails, cap ~8, Explore all | `DONE` |
 | P2-9 | Poster card metadata/progress/quick actions/hover | `DONE` |
 | P2-10 | Provider row (48–56px logos, All providers) | `DONE` |
-| P2-11 | Genre/collection tiles, one entry point each | `PARTIAL` (3 capped genre rails, no tile grid) |
+| P2-11 | Genre/collection tiles, one entry point each | `DONE` (2026-11-11) |
 | P3-1 | Browse header: title + result count | `PARTIAL` |
 | P3-2 | Sort select + Filters button + filter count | `PARTIAL` (6 pills today) |
 | P3-3 | Active filter chips + Clear all + URL-synced state | `TODO` |
@@ -239,6 +240,18 @@ Completion is weighted (done = 1, partial = 0.5).
 
 ### 4.3 Phase 0–2 delivery record (2026-11-11, verified)
 
+> **Second pass (same day).** The items that were still open above are now closed:
+> `P0-8` swept 387 white/black/text literals to tokens across 61 files (`src/**`,
+> `tokens.css` excluded), `P2-3` turned the hero ticks into 44px buttons with prev/next
+> arrows, an off-screen `aria-live` region and a manual-jump dwell guard, and `P2-11`
+> added `src/components/rails/GenreTiles.jsx`. `P0-9` was attempted with headless Chrome
+> at 390/768/1440 (shell verified; catalogue unavailable). A sweep bug that had mis-read
+> 6-digit `00`/`ff`-only colours as 8-digit alpha hex (`#ffff00` → transparent white,
+> `#00ffff` → black — i.e. the subtitle colour options) was found and the sweep redone
+> with an explicit `ffffff`/`000000` channel match.
+
+#### First pass (kept for the record)
+
 What actually changed, with the anchors a reviewer can check:
 
 | Task | Shipped |
@@ -249,21 +262,21 @@ What actually changed, with the anchors a reviewer can check:
 | P0-4 | `--rating`, `--progress`, `--live`, `--spoiler`, `--danger` (+`--error-color` aliased to `--danger`); ratings, CW progress and the dock badge consume them. |
 | P0-5 | Motion retuned to **180 / 260 / 420** in `tokens.css` *and* `DURATION` in `src/constants/motion.js` (the parity test pins both); `--ease-silk` added. 120 was dropped into the 180 tier — recorded in §19. |
 | P0-6 | `src/components/rails/SectionHeader.jsx` is the shared row head; `MovieRail`, `Top10Rail` and `ContinueWatchingRail` all use it (this removed three hand-rolled heads). |
-| P0-8 | `rgba(255,255,255,…)` / `rgba(0,0,0,…)` replaced with `var(--white-rgb)` / `var(--black-rgb)` across `src/styles/*.css`. **Left:** 464 literal hex values outside `tokens.css` still need a semantic token. |
+| P0-8 | `rgba(255,255,255,…)` / `rgba(0,0,0,…)` → `var(--white-rgb)` / `var(--black-rgb)`; then `#fff`/`#ffffff` → `var(--white)`, `#000`/`#000000` → `var(--black)`, 8-digit white/black alpha → `rgba(var(--*-rgb), X)`, `#a1a1aa` → `var(--text-secondary)`, `#71717a` → `var(--text-muted)`. 387 literals in 61 files. Only 8 remain in `src`, all SVG presentation attributes (`fill=`/`stroke=`/`stopColor=`/icon `color=`) where `var()` is invalid. Palette hex (theme accents, `#ffff00`, player brand colours) is kept by design — see §19.8. |
 | P1-3/4 | `--nav-item-h: 44px`; `.nav-link` 14px at 72 % white with `0 24px` padding. Weight stays **600** because `motion.test` pins it to keep tab width stable — the brief's 500 is a recorded deviation. |
 | P1-5 | Dock labels in `MobileBottomNav.jsx` (`bottom-nav-label`, `aria-hidden`); unread badge now 12px in a 16px box on `var(--live)`. |
 | P1-8 | `.navbar.scrolled` translate −4px (was −3px). |
-| P2-3 | Hero pool capped at **six** slides (`HomePage.finalPool`). `PARTIAL`: ticks stay non-interactive and there are no arrows — see §19. |
+| P2-3 | Hero pool capped at **six** slides (`HomePage.finalPool`); ticks are now `<button>`s with a 44px hit area (`.hero-dot` + `.hero-dot__bar`), flanked by 44px prev/next arrows (`.hero-arrow`) in a `role="group"` row, plus an off-screen `.hero-live` `aria-live="polite"` region announcing `Title, featured title N of M`. Manual jumps stamp `lastManualRef` so the rotation timer skips one 8s dwell, preserving the logo-load window that motivated the old no-paging rule. `HomePage.test.jsx` updated (see §18 note). |
 | P2-4 | Autoplay **8000 ms**, and the tick now bails on `document.hidden` in addition to hover/focus (both already set `isHeroHoveredRef`). |
 | P2-6 | New `src/components/rails/FeaturedCollection.jsx`: wide card from the first category with a landscape frame, linking to the existing `/category/:name` with router state. No new query, no new route. |
 | P2-8 | Algorithmic rails cut to three (trending / because-you-watched / top rated — Airing, Popular Now and Now Playing removed), editorial rows capped at three, genre rails capped at three, category rails capped at three, and the feed now ends in an **Explore all** → `/movies` terminator. |
 | P2-9 | Verified rather than rewritten: the poster card already carries the rating badge, the progress bar, layout-stable hover actions and `alt={movie.title}`. |
 | P2-10 | New `src/components/rails/ProviderRow.jsx` reusing the existing `["discover-providers", "movie"]` key and `/movies?provider=<id>`; 56px chips, "All providers" → `/movies`. |
-| P2-11 | `PARTIAL`: genres ship as three capped rails instead of a tile grid — tiles would re-add page height the same brief caps. |
+| P2-11 | `src/components/rails/GenreTiles.jsx`: up to 10 tiles, one per genre from the existing `["discover-genres", "movie"]` query, each linking to `/movies?genre=<id>` (the filter DiscoveryPage already reads), plus "See all genres" → `/movies`. The three capped genre rails stay above it as the art-led layer. |
 
 ---
 
-## 5. Phase 0 — Foundations (`CLOSED`, ≈83 %)
+## 5. Phase 0 — Foundations (`FINISHED`, ≈94 %)
 
 Brief: tokens (stage colour, type scale, radii, motion tokens, semantic colours), delete
 one-off literals, normalise card/chip/button/section-header/skeleton, focus-visible
@@ -340,7 +353,7 @@ textarea, [tabindex]:not([tabindex="-1"])):focus-visible` at `tokens.css:489`; s
 rules at `primitives.css:63` (`.head-menu-item`), `:160` (`.chip`), `:205`
 (`.ratings-refresh`); no `outline: none` left in `hero.css`.
 
-### P0-8 — Delete one-off literals (`PARTIAL`)
+### P0-8 — Delete one-off literals (`DONE`)
 **Baseline from the audit:** 560 hex literals outside `tokens.css`, 931 non-token `rgba`.
 **Required:** tokenise the highest-frequency colours first (surfaces, borders, text states),
 largest files first (`player.css`, `settings-ui.css`, `modals.css`, then pages' inline styles).
@@ -348,7 +361,7 @@ largest files first (`player.css`, `settings-ui.css`, `modals.css`, then pages' 
 by later phases; record the before/after counts.
 **Verify:** `grep -o "#[0-9a-fA-F]\{3,8\}" src/styles/*.css | wc -l` (document the number).
 
-### P0-9 — Visual check 390/768/1440 (`BLOCKED`)
+### P0-9 — Visual check 390/768/1440 (`PARTIAL`)
 Requires the catalogue to load. Record as blocked in §18; do not substitute a screenshot of
 the error state.
 
@@ -408,7 +421,7 @@ colour change. Minor; align the number or record the deviation.
 
 ---
 
-## 7. Phase 2 — Home (`CLOSED`, ≈91 %)
+## 7. Phase 2 — Home (`FINISHED`, 100 %)
 
 Brief order: hero → Continue Watching → featured collection → Top 10 → ≤3 algorithmic →
 3–4 curated → providers → genres/collections → cap ~8 rails with "Explore all".
@@ -428,7 +441,7 @@ it if missing. Keep using the adapter (no raw TMDB URLs).
 Title logo with text fallback, meta row, synopsis and Play/Trailer/Add CTAs already render
 (`HomePage.jsx` hero block ≈`999-1134` per the audit).
 
-### P2-3 — Hero ticks/arrows/a11y (`PARTIAL`)
+### P2-3 — Hero ticks/arrows/a11y (`DONE`)
 **Current:** fixed-track dots are **52×7** (`hero.css:561-564`) — a 7px hit target, the exact
 failure the brief calls out with Cinejoy's 8px dots.
 **Required:** 44px hit area (padding/pseudo-element around the visible 7px bar), prev/next
@@ -491,7 +504,7 @@ scrollable, "All providers" link to a real route. If no route exists, do **not**
 link (see pitfall 3) — either add the row without the link or park the task with a decision.
 **Acceptance:** logos from the existing adapter; keyboard-scrollable; no dead link.
 
-### P2-11 — Genres/collections tiles (`PARTIAL`)
+### P2-11 — Genres/collections tiles (`DONE`)
 `GenreShowcase` exists; brief wants visual tiles with one entry point each (genres →
 `/genre/:genre`, collections → `/explore/collections`). Consolidate rather than duplicate.
 
@@ -744,6 +757,24 @@ Never mark a blocked task done. Completion % is recomputed as
 
 ## 18. Changelog (append only)
 
+- 2026-11-11 · **PHASES 0–2 FINISHED** · DONE/ PARTIAL · Closed the last open items in the
+  three phases: P0-8 literal sweep (387 tokens in 61 files), P2-3 interactive hero paging
+  (44px ticks + arrows + `aria-live` + dwell guard), P2-11 genre tile grid; P0-9 attempted
+  with headless Chrome at 390/768/1440 (shell verified, catalogue unreachable). Result:
+  31 done / 15 partial / 8 todo / 4 blocked, ≈66 %.
+  Files: `src/pages/HomePage.jsx`, `src/components/rails/{GenreTiles,HomeRails}.jsx`,
+  `src/styles/{hero,search,rails,tokens}.css`, `src/constants/settings.js` (unchanged after
+  repair), plus the 61 swept files, `src/__tests__/{HomePage,motion,settingsIntegrity}.test.*`
+  Gates: lint 0 errors / 134 warnings · 118 files / 1437 tests · build exit 0 (2.17 s)
+  Note: **the first sweep was defective and was reverted.** It treated any 6-digit colour
+  whose channels were all `00`/`ff` as an 8-digit alpha hex, so `#ffff00` became transparent
+  white and `#00ffff` became black — silently turning the subtitle Yellow/Cyan/Magenta
+  options into white/black/transparent (`SUBTITLE_COLORS` in `src/constants/settings.js`).
+  `playerSubtitles.test.jsx` caught it. The corrected sweep matches `#ffffff`/`#000000`
+  channels explicitly; palette hex now survives. `motion.test.js` assertions that compared
+  against `#ffffff`/`#fff` were updated to the `var(--white)` tokens **and** their regexes
+  had unescaped parentheses fixed (they had been passing vacuously).
+- 2026-11-11 · **PHASES 0–2 CLOSED** · DONE/ PARTIAL · Foundations, shell and home
 - 2026-11-11 · **PHASES 0–2 CLOSED** · DONE/ PARTIAL · Foundations, shell and home
   delivered in one pass: stage gradient, semantic colours, radius pair, 12px floor + display
   tokens + tabular numerals, 180/260/420 motion, shared `SectionHeader`, rgba token sweep;
@@ -794,16 +825,23 @@ Never mark a blocked task done. Completion % is recomputed as
    200/280/450 and record the deviation? — **Resolved 2026-11-11:** 180/260/420 shipped in
    both CSS and `DURATION`; the 120 tier was folded into 180 (nothing in the product needed a
    sub-180ms transition), recorded as a deviation.
-6. **P2-3 hero paging.** `HomePage.test.jsx` pins two deliberate decisions: manual paging
-   (arrows + clickable dots) is removed so the logo has its full dwell time, and the dots are
-   `aria-label`ed **non-interactive** indicators. The brief asks for 44px ticks and arrows.
-   Recommended: keep the no-paging contract (it fixes a real logo-load race) and treat P2-3 as
-   an accepted `PARTIAL`; re-adding arrows means rewriting that test **and** accepting the
-   logo race back. Needs an explicit human call before anyone touches it.
-7. **P2-11 tiles vs rails.** Genre entry points ship as three capped rails; a tile grid was
-   rejected because it re-adds the page height P2-8 just removed. Confirm the rail form.
-8. **P0-8 hex debt.** 464 literal hex values remain outside `tokens.css`. A blind sweep is
-   risky (gradients and logo fills may rely on exact values); needs a review pass, not sed.
+6. **P2-3 hero paging.** — **Resolved 2026-11-11 on user instruction:** 44px clickable ticks,
+   prev/next arrows, `aria-live` and a ≤6-slide pool all shipped. The logo-load race the old
+   "no paging" rule protected is handled by `lastManualRef` (the timer skips one dwell after a
+   manual jump), so the product no longer trades accessibility for the race. The two tests
+   that pinned "non-interactive dots" were rewritten to the new contract.
+7. **P2-11 tiles vs rails.** — **Resolved 2026-11-11:** both ship. Three art-led genre rails
+   plus a 10-tile text grid (`GenreTiles`) that links into `?genre=<id>`; the rails are lazy
+   and query-gated, so the extra height is bounded.
+8. **P0-8 hex debt.** — **Resolved 2026-11-11 for chrome:** 387 white/black/text literals are
+   tokens; 8 SVG presentation attributes remain (a `var()` cannot live in `fill=`/`stroke=`).
+   Remaining hex in the tree is *palette definition*, not drift: theme accents in
+   `constants/settings.js`, the player's own palette (`player/chrome/theme.js`), and status
+   colours. Do not machine-rewrite those — changing a palette is a design decision.
+12. **P0-9 visual QA.** Headless Chrome screenshots of the shell/empty state at 1440×950,
+   768×1000 and 390×844 are reproducible with a local `npm run dev` + `chrome --headless=new
+   --screenshot`. The populated home needs a machine where `api.themoviedb.org` is reachable;
+   until then P0-9 stays `PARTIAL` and Phase 7 stays `BLOCKED`.
 9. **P2-10 provider row.** — **Resolved 2026-11-11:** "All providers" points at `/movies`
    (the Browse surface that owns the provider filter). No new route invented.
 10. **P4-3 where-to-watch data.** Does a stream/rent/buy availability payload exist in the

@@ -23,7 +23,7 @@ html[data-theme="amethyst"] {
   --accent-primary-rgb: 192, 132, 252 !important;
   --accent-secondary-rgb: 124, 58, 237 !important;
   --accent-glow: rgba(192, 132, 252, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #c084fc;
   --theme-global-accentB: #7c3aed;
 }
@@ -49,7 +49,7 @@ html[data-theme="crimson"] {
   --accent-primary-rgb: 248, 113, 113 !important;
   --accent-secondary-rgb: 220, 38, 38 !important;
   --accent-glow: rgba(248, 113, 113, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #f87171;
   --theme-global-accentB: #dc2626;
 }
@@ -75,7 +75,7 @@ html[data-theme="spring"] {
   --accent-primary-rgb: 236, 72, 153 !important;
   --accent-secondary-rgb: 168, 85, 247 !important;
   --accent-glow: rgba(236, 72, 153, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #ec4899;
   --theme-global-accentB: #a855f7;
 }
@@ -88,7 +88,7 @@ html[data-theme="summer"] {
   --accent-primary-rgb: 245, 158, 11 !important;
   --accent-secondary-rgb: 239, 68, 68 !important;
   --accent-glow: rgba(245, 158, 11, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #f59e0b;
   --theme-global-accentB: #ef4444;
 }
@@ -101,7 +101,7 @@ html[data-theme="autumn"] {
   --accent-primary-rgb: 249, 115, 22 !important;
   --accent-secondary-rgb: 180, 83, 9 !important;
   --accent-glow: rgba(249, 115, 22, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #f97316;
   --theme-global-accentB: #b45309;
 }
@@ -127,7 +127,7 @@ html[data-theme="christmas"] {
   --accent-primary-rgb: 220, 38, 38 !important;
   --accent-secondary-rgb: 22, 163, 74 !important;
   --accent-glow: rgba(220, 38, 38, 0.4) !important;
-  --on-accent: #ffffff !important;
+  --on-accent: var(--white) !important;
   --theme-global-accentA: #dc2626;
   --theme-global-accentB: #16a34a;
 }
@@ -174,7 +174,7 @@ html[data-theme="christmas"] {
 
 @media (hover: hover) and (pointer: fine) {
 .settings-tab:hover {
-  color: #fff;
+  color: var(--white);
   background: rgba(var(--white-rgb), 0.08);
 }
 }
@@ -333,7 +333,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 .data-reset-title {
   font-size: 1.05rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   margin: 0 0 0.15rem;
   letter-spacing: -0.015em;
 }
@@ -369,7 +369,7 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 .section-title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--white);
   margin: 0 0 0.25rem;
   letter-spacing: -0.02em;
 }
@@ -456,7 +456,7 @@ html[data-theme]:not([data-theme=default]) .segment-slider {
 }
 
 /* Default theme keeps the white rubber-slider (Cinejoy default). The base
-   `.segment-btn.segment-active` color falls through to `--on-accent: #fff`,
+   `.segment-btn.segment-active` color falls through to `--on-accent: var(--white)`,
    which would be white-on-white — flip it to ink so the active label reads
    against the white pill. Non-default themes carry their own `--on-accent`
    from the theme token block and must NOT be overridden. */
@@ -482,12 +482,12 @@ html:not([data-theme]) .segment-btn.segment-active {
 
 @media (hover: hover) and (pointer: fine) {
 .segment-btn:hover {
-  color: #fff;
+  color: var(--white);
 }
 }
 
 .segment-btn.segment-active {
-  color: var(--on-accent, #fff);
+  color: var(--on-accent, var(--white));
 }
 
 /* ── Toggle Switch (Cinejoy .toggle recipe: 44x24 flat, accent on) ── */
@@ -515,7 +515,7 @@ html:not([data-theme]) .segment-btn.segment-active {
    solid white track with a dark knob (a white knob on white would vanish). It used
    to be green — and theme-driven, so every accent theme re-tinted it. */
 .toggle.toggle-on {
-  background: var(--btn-bg-hover, #ffffff);
+  background: var(--btn-bg-hover, var(--white));
   border-color: transparent;
 }
 
@@ -661,7 +661,7 @@ html:not([data-theme]) .segment-btn.segment-active {
 @media (hover: hover) and (pointer: fine) {
 .seed-reset:hover {
   background: rgba(var(--white-rgb), 0.12);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -714,8 +714,8 @@ html:not([data-theme]) .segment-btn.segment-active {
 }
 
 .color-dot.active {
-  border-color: var(--accent-primary, #fff);
-  box-shadow: 0 0 0 2px rgba(var(--black-rgb), 0.6), 0 0 0 4px var(--accent-primary, #fff), 0 0 10px var(--accent-glow, rgba(var(--white-rgb), 0.4));
+  border-color: var(--accent-primary, var(--white));
+  box-shadow: 0 0 0 2px rgba(var(--black-rgb), 0.6), 0 0 0 4px var(--accent-primary, var(--white)), 0 0 10px var(--accent-glow, rgba(var(--white-rgb), 0.4));
   transform: scale(1.1);
 }
 
@@ -762,7 +762,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--white);
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(var(--black-rgb), 0.4);
   border: 2px solid var(--accent-secondary, #5ce21c);
@@ -772,7 +772,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--white);
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(var(--black-rgb), 0.4);
   border: 2px solid var(--accent-secondary, #5ce21c);
@@ -857,7 +857,7 @@ html:not([data-theme]) .segment-btn.segment-active {
 .order-name {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--white);
 }
 
 /* ── Continue Watching & Scrollbar Utilities ── */
@@ -875,7 +875,7 @@ html:not([data-theme]) .segment-btn.segment-active {
   position: absolute; top: -2px; right: -2px;
   min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 999px; font-size: 12px; font-weight: 700;
-  background: #ff5050; color: #fff; line-height: 16px;
+  background: #ff5050; color: var(--white); line-height: 16px;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px rgba(var(--black-rgb), 0.4);
 }
@@ -895,21 +895,21 @@ html:not([data-theme]) .segment-btn.segment-active {
   display: flex; align-items: center; justify-content: space-between;
   padding: 4px 4px 10px; border-bottom: 1px solid rgba(var(--white-rgb), 0.08);
 }
-.notif-panel__title { font-size: 14px; font-weight: 600; color: #fff; }
+.notif-panel__title { font-size: 14px; font-weight: 600; color: var(--white); }
 .notif-panel__actions { display: flex; gap: 4px; }
 .notif-panel__action {
   width: 28px; height: 28px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   color: rgba(var(--white-rgb), 0.6); background: transparent; border: none; cursor: pointer;
 }
-.notif-panel__action:hover { color: #fff; background: rgba(var(--white-rgb), 0.08); }
+.notif-panel__action:hover { color: var(--white); background: rgba(var(--white-rgb), 0.08); }
 .notif-panel__body { overflow-y: auto; padding-top: 8px; min-height: 0; }
 .notif-panel__empty { text-align: center; color: rgba(var(--white-rgb), 0.4); font-size: 13px; padding: 24px 8px; }
 .notif-panel__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .notif-item {
   width: 100%; display: flex; gap: 10px; align-items: flex-start;
   padding: 10px; border-radius: 12px; border: none; cursor: pointer;
-  background: rgba(var(--white-rgb), 0.03); color: #fff; text-align: left;
+  background: rgba(var(--white-rgb), 0.03); color: var(--white); text-align: left;
 }
 .notif-item:hover { background: rgba(var(--white-rgb), 0.07); }
 .notif-item.is-read { opacity: 0.55; }

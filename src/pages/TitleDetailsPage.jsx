@@ -778,7 +778,7 @@ export default function TitleDetails() {
                 style={{
                   background: "rgba(255,255,255,0.08)",
                   border: "1px solid rgba(255,255,255,0.12)",
-                  color: "#fff",
+                  color: "var(--white)",
                   padding: "10px 24px",
                   borderRadius: "10px",
                   fontSize: "0.9rem",
@@ -798,7 +798,7 @@ export default function TitleDetails() {
                 style={{
                   background: "var(--btn-bg, rgba(242,242,242,0.96))",
                   border: "none",
-                  color: "var(--btn-ink, #000000)",
+                  color: "var(--btn-ink, var(--black))",
                   padding: "10px 24px",
                   borderRadius: "10px",
                   fontSize: "0.9rem",
@@ -1021,7 +1021,7 @@ export default function TitleDetails() {
                     padding: "4px 12px",
                     borderRadius: "7px 7px 0 0",
                     background: "#3c8217",
-                    color: "#fff",
+                    color: "var(--white)",
                     fontSize: "11px",
                     fontWeight: 500,
                     lineHeight: 1.45,
@@ -1092,7 +1092,7 @@ export default function TitleDetails() {
                 className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
                 }`}
-                style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, #000000)", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+                style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
               </button>
@@ -1270,8 +1270,8 @@ export default function TitleDetails() {
               {...L.Reveal}
             >
               Episodes {isAiring && releasedEpisodes < totalEpisodes
-                ? <span style={{ fontSize: '0.7em', color: '#71717a', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
-                : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: '#71717a', fontWeight: 400 }}>({episodes.length})</span>}
+                ? <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
+                : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({episodes.length})</span>}
             </motion.h2>
 
             <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap">
@@ -1357,7 +1357,7 @@ export default function TitleDetails() {
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
                     background: episodeLayout === 'carousel' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'carousel' ? '#fff' : '#9ca3af',
+                    color: episodeLayout === 'carousel' ? 'var(--white)' : '#9ca3af',
                   }}
                   title="Carousel view"
                 >
@@ -1370,7 +1370,7 @@ export default function TitleDetails() {
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
                     background: episodeLayout === 'grid' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'grid' ? '#fff' : '#9ca3af',
+                    color: episodeLayout === 'grid' ? 'var(--white)' : '#9ca3af',
                   }}
                   title="Grid view"
                 >
@@ -1383,7 +1383,7 @@ export default function TitleDetails() {
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
                   style={{
                     background: episodeLayout === 'list' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'list' ? '#fff' : '#9ca3af',
+                    color: episodeLayout === 'list' ? 'var(--white)' : '#9ca3af',
                   }}
                   title="List view"
                 >
@@ -1678,13 +1678,13 @@ export default function TitleDetails() {
                             {/* Center status */}
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                               {!isAired ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3c8217', color: '#fff', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3c8217', color: 'var(--white)', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
                                   <Calendar size={12} strokeWidth={2} aria-hidden="true" />
                                   <span>Airs</span>
                                   {formatAirsDate(ep.airDate)}
                                 </div>
                               ) : isAired ? (
-                                <div style={{ background: 'rgba(0,0,0,0.85)', color: '#a1a1aa', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                                <div style={{ background: 'rgba(0,0,0,0.85)', color: 'var(--text-secondary)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
                                   Playable
                                 </div>
                               ) : null}
@@ -1692,7 +1692,7 @@ export default function TitleDetails() {
                             {isEpPlaying && (
                               <div
                                 className="absolute top-2 right-12 px-2 py-0.5 rounded-md text-xs font-extrabold tracking-widest uppercase z-10 pointer-events-none"
-                                style={{ background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', color: 'var(--on-accent, #fff)' }}
+                                style={{ background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', color: 'var(--on-accent, var(--white))' }}
                               >
                                 Playing
                               </div>
@@ -1719,7 +1719,7 @@ export default function TitleDetails() {
                                 <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
                                   <div style={{ height: '100%', width: `${pctWatched}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
                                 </div>
-                                <span style={{ fontSize: '0.65rem', color: '#71717a', marginTop: '3px', display: 'block' }}>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
                                   {watchedTs > 0 ? `${formatTime(watchedTs)} watched` : 'Watched'}
                                 </span>
                               </div>
@@ -1770,7 +1770,7 @@ export default function TitleDetails() {
                                   <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
                                 </div>
                               ) : (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#3c8217', color: '#fff', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#3c8217', color: 'var(--white)', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
                                 <Calendar size={11} strokeWidth={2} aria-hidden="true" />
                                 {formatAirsDate(ep.airDate)}
                               </div>
@@ -1783,14 +1783,14 @@ export default function TitleDetails() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : '#71717a', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
-                              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? '#fff' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
+                              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? 'var(--white)' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
                             </div>
                           </div>
                           {/* Spoiler-free copy is distinguished by italics, not by
                               dimming: #52525b (--text-faint) read as a ghost at
                               2.9:1 against the card. */}
-                          <p style={{ fontSize: '0.78rem', color: '#71717a', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
                           </p>
                           {isWatched && (
@@ -1826,7 +1826,7 @@ export default function TitleDetails() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
                           background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                          color: '#fff', padding: '8px 20px', borderRadius: 'var(--radius-full)',
+                          color: 'var(--white)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
                           letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
                         }}
@@ -1840,7 +1840,7 @@ export default function TitleDetails() {
                           onClick={() => setVisibleEpisodeCount(episodes.length)}
                           style={{
                             background: 'transparent', border: 'none',
-                            color: '#a1a1aa', padding: '8px 12px',
+                            color: 'var(--text-secondary)', padding: '8px 12px',
                             fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer',
                             textDecoration: 'underline',
                           }}
@@ -1867,7 +1867,7 @@ export default function TitleDetails() {
                         style={{
                           display: 'flex', alignItems: 'center', gap: '6px',
                           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                          color: '#a1a1aa', padding: '8px 20px', borderRadius: 'var(--radius-full)',
+                          color: 'var(--text-secondary)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
                           letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
                         }}
@@ -2056,7 +2056,7 @@ export default function TitleDetails() {
         {movie.matchScore && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ThumbsUp size={16} color="#4ade80" />
-            <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               <strong style={{ color: '#4ade80' }}>{movie.matchScore}%</strong> match
             </span>
           </div>
@@ -2064,7 +2064,7 @@ export default function TitleDetails() {
         {isTvContent && normalizedSeasonCount > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Tv size={16} color="#60a5fa" />
-            <span style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               <strong style={{ color: '#60a5fa' }}>{normalizedSeasonCount}</strong> season{normalizedSeasonCount > 1 ? 's' : ''}
             </span>
           </div>
@@ -2142,7 +2142,7 @@ export default function TitleDetails() {
                     style={{
                       background: "transparent",
                       border: "none",
-                      color: "#fff",
+                      color: "var(--white)",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -2162,11 +2162,11 @@ export default function TitleDetails() {
                       margin: 0,
                       fontSize: "1rem",
                       fontWeight: 700,
-                      color: "#fff",
+                      color: "var(--white)",
                     }}
                   >
                     {movie.title}{" "}
-                    <span style={{ color: "#71717a", fontWeight: 400 }}>
+                    <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>
                       — Official Trailer
                     </span>
                   </h3>
@@ -2263,7 +2263,7 @@ export default function TitleDetails() {
                         style={{
                           width: "100%",
                           height: "100%",
-                          background: "#000",
+                          background: "var(--black)",
                         }}
                       />
                     }
@@ -2364,7 +2364,7 @@ export default function TitleDetails() {
                           }}
                         />
                       ) : (
-                        <div style={{ width: "100%", height: "100%", background: "#000" }} />
+                        <div style={{ width: "100%", height: "100%", background: "var(--black)" }} />
                       )}
                     </div>
                   </Suspense>

@@ -56,13 +56,13 @@
    button surface (--btn-*), never the accent gradient. */
 .btn-primary {
   background: var(--btn-bg, rgba(242, 242, 242, 0.96));
-  color: var(--btn-ink, #000000);
+  color: var(--btn-ink, var(--black));
   box-shadow: var(--btn-shadow, 0 8px 24px rgba(var(--black-rgb), 0.4));
 }
 @media (hover: hover) and (pointer: fine) {
 .btn-primary:hover {
   transform: translateY(-3px) scale(1.03);
-  background: var(--btn-bg-hover, #ffffff);
+  background: var(--btn-bg-hover, var(--white));
   box-shadow: var(--btn-shadow-hover, 0 14px 36px rgba(var(--black-rgb), 0.5));
 }
 }
@@ -75,7 +75,7 @@
 /* ── Secondary Button — Cinejoy `.theme-btn-secondary` white/10 glass ── */
 .btn-secondary {
   background: rgba(var(--white-rgb), 0.1);
-  color: #ffffff;
+  color: var(--white);
   border: 1px solid rgba(var(--white-rgb), 0.2);
   box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.06);
 }
@@ -83,7 +83,7 @@
 .btn-secondary:hover {
   background: rgba(var(--white-rgb), 0.2);
   border-color: rgba(var(--white-rgb), 0.35);
-  color: #ffffff;
+  color: var(--white);
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 8px 24px rgba(var(--black-rgb), 0.3);
 }

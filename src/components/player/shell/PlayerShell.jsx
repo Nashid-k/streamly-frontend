@@ -384,7 +384,7 @@ export default function PlayerShell({
           position: "relative",
           width: "100%",
           height: "100%",
-          background: "#000",
+          background: "var(--black)",
           overflow: "hidden",
           userSelect: "none",
           WebkitUserSelect: "none",
@@ -409,7 +409,7 @@ export default function PlayerShell({
         <div
           className="stage"
           onClick={playerMode === "embed" ? undefined : onVideoClick}
-          style={{ position: "absolute", inset: 0, background: "#000" }}
+          style={{ position: "absolute", inset: 0, background: "var(--black)" }}
         >
           <video
             ref={videoRef}

@@ -16,7 +16,8 @@
   left: 0;
   height: 100%;
   background: var(--accent-gradient, linear-gradient(90deg, var(--accent-color), #5ce21c));
-  animation: bannerProgress 15s linear forwards;
+  /* Matches the 8s autoplay tick in HomePage; keep the two in sync. */
+  animation: bannerProgress 8s linear forwards;
   transform-origin: left;
   width: 100%;
   will-change: transform;
@@ -35,17 +36,17 @@
 
 .cast-rail__scroll {
   -webkit-overflow-scrolling: touch;
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, var(--black) 5%, var(--black) 95%, transparent);
+  mask-image: linear-gradient(to right, transparent, var(--black) 5%, var(--black) 95%, transparent);
   transition: -webkit-mask-image var(--duration-fast) var(--ease-out), mask-image var(--duration-fast) var(--ease-out);
 }
 .cast-rail__scroll.is-at-start {
-  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);
-  mask-image: linear-gradient(to right, #000 0%, #000 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, var(--black) 0%, var(--black) 95%, transparent);
+  mask-image: linear-gradient(to right, var(--black) 0%, var(--black) 95%, transparent);
 }
 .cast-rail__scroll.is-at-end {
-  -webkit-mask-image: linear-gradient(to left, #000 0%, #000 95%, transparent);
-  mask-image: linear-gradient(to left, #000 0%, #000 95%, transparent);
+  -webkit-mask-image: linear-gradient(to left, var(--black) 0%, var(--black) 95%, transparent);
+  mask-image: linear-gradient(to left, var(--black) 0%, var(--black) 95%, transparent);
 }
 .cast-rail__scroll.is-at-start.is-at-end {
   -webkit-mask-image: none;
@@ -241,7 +242,7 @@ body::after {
 
 .content-page-header h1 {
   margin: 0;
-  color: #fff;
+  color: var(--white);
   font-size: clamp(1.5rem, 2.3vw, 2.6rem);
   font-weight: 780;
   line-height: 1.1;
@@ -314,7 +315,7 @@ body::after {
   transform: translateX(-2px);
   background: rgba(var(--white-rgb), 0.1);
   border-color: rgba(var(--white-rgb), 0.2);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -393,7 +394,7 @@ body::after {
 .filter-group .chip:hover,
 .filter-group .chip:focus-visible {
   background: rgba(var(--white-rgb), 0.085);
-  color: #fff;
+  color: var(--white);
 }
 
 /* Same white selected-chip surface as primitives.css (one definition of the
@@ -403,7 +404,7 @@ body::after {
 .filter-group .chip--active:focus-visible {
   border-color: transparent;
   background: var(--btn-bg, rgba(242, 242, 242, 0.96));
-  color: var(--btn-ink, #000000);
+  color: var(--btn-ink, var(--black));
   box-shadow: 0 6px 16px rgba(var(--black-rgb), 0.35);
 }
 
@@ -452,7 +453,7 @@ body::after {
   outline: none;
   background: linear-gradient(135deg, rgba(var(--white-rgb), 0.075), rgba(var(--white-rgb), 0.035));
   box-shadow: inset 0 1px 0 rgba(var(--white-rgb), 0.055), 0 18px 44px -36px rgba(var(--black-rgb), 0.85);
-  color: #fff;
+  color: var(--white);
   font: inherit;
   font-size: 0.98rem;
   transition: border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
@@ -490,7 +491,7 @@ body::after {
 .search-panel__clear:hover {
   transform: translateY(-50%) scale(1.06);
   background: rgba(var(--white-rgb), 0.16);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -638,7 +639,7 @@ body::after {
   font-weight: 700;
   line-height: 1.06;
   letter-spacing: -0.03em;
-  color: #fff;
+  color: var(--white);
   text-shadow: 0 2px 26px rgba(var(--black-rgb), 0.65), 0 1px 3px rgba(var(--black-rgb), 0.55);
 }
 
@@ -721,7 +722,7 @@ body::after {
 .search-chippill:hover,
 .search-chippill:focus-visible {
   background: rgba(var(--white-rgb), 0.14);
-  color: #fff;
+  color: var(--white);
 }
 
 .search-chippill:active {
@@ -748,7 +749,7 @@ body::after {
   font-size: clamp(1.1rem, 2.1vw, 1.45rem);
   font-weight: 700;
   letter-spacing: -0.01em;
-  color: #fff;
+  color: var(--white);
 }
 
 .search-trending__head h2::before {

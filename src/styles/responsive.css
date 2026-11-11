@@ -170,10 +170,10 @@
     transform: scale(0.96);
   }
   .bottom-nav-item:hover {
-    color: #fff;
+    color: var(--white);
   }
   .bottom-nav-item.active {
-    color: #fff;
+    color: var(--white);
     background: transparent;
     box-shadow: none;
   }

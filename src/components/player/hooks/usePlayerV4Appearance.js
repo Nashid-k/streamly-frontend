@@ -37,7 +37,7 @@ export default function usePlayerV4Appearance({
     }
   });
 
-  const subColor = subColorOverride || initialSubColor || "#ffffff";
+  const subColor = subColorOverride || initialSubColor || "var(--white)";
 
   const [subBgStyle, setSubBgStyleState] = useState(() => {
     try {

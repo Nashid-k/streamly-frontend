@@ -280,7 +280,7 @@ const MovieCard = memo(function MovieCard({
                   <div
                     style={{
                       background: "rgba(0,0,0,0.65)",
-                      color: "#fff",
+                      color: "var(--white)",
                       padding: "2px 6px",
                       borderRadius: "3px",
                       fontSize: "var(--text-2xs)",
@@ -320,7 +320,7 @@ const MovieCard = memo(function MovieCard({
                     <div
                       style={{
                         background: "var(--accent-gradient)",
-                        color: "#fff",
+                        color: "var(--white)",
                         padding: "2px 6px",
                         borderRadius: "3px",
                         fontSize: "var(--text-2xs)",
@@ -332,7 +332,7 @@ const MovieCard = memo(function MovieCard({
                         textShadow: "0 1px 2px rgba(0,0,0,0.3)",
                       }}
                     >
-                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#fff', flexShrink: 0 }} />
+                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--white)', flexShrink: 0 }} />
                       {movie.formattedRelease || nextAirWeekdayShort.toUpperCase()}
                     </div>
                   </>
@@ -343,7 +343,7 @@ const MovieCard = memo(function MovieCard({
                     <div
                       style={{
                         background: "rgba(0,0,0,0.7)",
-                        color: "#fff",
+                        color: "var(--white)",
                         padding: "2px 6px",
                         borderRadius: "3px",
                         fontSize: "var(--text-2xs)",
@@ -358,7 +358,7 @@ const MovieCard = memo(function MovieCard({
                       <div
                         style={{
                           background: "rgba(0,0,0,0.65)",
-                          color: "#fff",
+                          color: "var(--white)",
                           padding: "2px 6px",
                           borderRadius: "3px",
                           fontSize: "var(--text-2xs)",

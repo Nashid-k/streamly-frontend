@@ -112,6 +112,10 @@
      byte-identical to what they replace — this pass changes nothing visually. */
   --white-rgb: 255, 255, 255;
   --black-rgb: 0, 0, 0;
+  /* Opaque counterparts, so stylesheets stop spelling #fff / #000 by hand.
+     Anything that needs translucency uses rgba(var(--white-rgb), X) instead. */
+  --white: #ffffff;
+  --black: #000000;
   /* Text color that stays legible on top of --accent-gradient. Light
      accents (emerald, ocean, solar) need dark text; saturated ones use white. */
   --on-accent: #ffffff;

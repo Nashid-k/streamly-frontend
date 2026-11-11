@@ -35,7 +35,7 @@ export default function Snowfall() {
       speed={0.6}
       wind={0.15}
       size={[2, 10]}
-      colors={["#ffffff", "#eaf4ff"]}
+      colors={["var(--white)", "#eaf4ff"]}
       opacity={[0.25, 0.7]}
       spin={0.5}
       sway={0.5}

@@ -119,7 +119,7 @@ const MovieRail = React.memo(
                 fontWeight: "var(--weight-display)",
                 margin: 0,
                 letterSpacing: "var(--tracking-display)",
-                color: "#ffffff",
+                color: "var(--white)",
               }}
             >
               {category.name}

@@ -40,7 +40,7 @@ export default function SEO({
       <meta name="twitter:image" content={metaImage} />
 
       {/* Theme */}
-      <meta name="theme-color" content="#000000" />
+      <meta name="theme-color" content="var(--black)" />
     </Helmet>
   );
 }

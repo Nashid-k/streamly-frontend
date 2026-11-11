@@ -138,7 +138,7 @@ export default function ProviderEmbedPlayer({
         position: "relative",
         width: "100%",
         height: "100%",
-        background: "#000",
+        background: "var(--black)",
         overflow: "hidden",
       }}
     >
@@ -163,7 +163,7 @@ export default function ProviderEmbedPlayer({
             height: "100%",
             border: 0,
             display: "block",
-            background: "#000",
+            background: "var(--black)",
           }}
         />
       ) : (
@@ -220,7 +220,7 @@ export default function ProviderEmbedPlayer({
             zIndex: 4,
           }}
         >
-          <div style={{ color: "#fff", fontSize: 16, fontWeight: 600 }}>
+          <div style={{ color: "var(--white)", fontSize: 16, fontWeight: 600 }}>
             The provider player didn’t load.
           </div>
           <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, maxWidth: 420 }}>
@@ -234,8 +234,8 @@ export default function ProviderEmbedPlayer({
                 border: "none",
                 borderRadius: 999,
                 padding: "10px 22px",
-                background: "#fff",
-                color: "#000",
+                background: "var(--white)",
+                color: "var(--black)",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -251,7 +251,7 @@ export default function ProviderEmbedPlayer({
                 borderRadius: 999,
                 padding: "10px 22px",
                 background: "transparent",
-                color: "#fff",
+                color: "var(--white)",
                 fontSize: 14,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -298,7 +298,7 @@ export default function ProviderEmbedPlayer({
             borderRadius: "50%",
             border: "none",
             background: "rgba(0,0,0,0.5)",
-            color: "#fff",
+            color: "var(--white)",
             cursor: "pointer",
           }}
         >
@@ -307,7 +307,7 @@ export default function ProviderEmbedPlayer({
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
             style={{
-              color: "#fff",
+              color: "var(--white)",
               fontWeight: 600,
               fontSize: 15,
               whiteSpace: "nowrap",
@@ -336,7 +336,7 @@ export default function ProviderEmbedPlayer({
               height: 40,
               borderRadius: "50%",
               background: "rgba(0,0,0,0.5)",
-              color: "#fff",
+              color: "var(--white)",
             }}
           >
             <ExternalLink size={18} />

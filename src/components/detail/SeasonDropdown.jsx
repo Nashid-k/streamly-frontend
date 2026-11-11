@@ -39,7 +39,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
           gap: "10px",
           background: "rgba(255,255,255,0.1)",
           border: "1px solid rgba(255,255,255,0.1)",
-          color: "#fff",
+          color: "var(--white)",
           padding: "0 16px",
           height: "40px",
           borderRadius: "var(--radius-full)",
@@ -72,7 +72,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                 padding: "2px 10px",
                 borderRadius: "7px 7px 0 0",
                 background: "#3c8217",
-                color: "#fff",
+                color: "var(--white)",
                 fontSize: "11px",
                 fontWeight: 500,
                 lineHeight: 1.45,
@@ -87,7 +87,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
         <motion.span
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: DURATION.MED, ease: EASE_IN }}
-          style={{ display: "flex", color: "#a1a1aa" }}
+          style={{ display: "flex", color: "var(--text-secondary)" }}
         >
           <ChevronDown size={16} />
         </motion.span>
@@ -175,7 +175,7 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                           padding: "2px 10px",
                           borderRadius: "7px 7px 0 0",
                           background: "#3c8217",
-                          color: "#fff",
+                          color: "var(--white)",
                           fontSize: "11px",
                           fontWeight: 500,
                           lineHeight: 1.45,

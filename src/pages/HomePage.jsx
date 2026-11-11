@@ -4,7 +4,7 @@ import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import { Play, Check, Plus, Info, Calendar, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -812,6 +812,20 @@ export default function Home({
   useEffect(() => {
     totalFeaturedRef.current = totalFeatured;
   });
+
+  /* Manual paging (brief P2-3). The earlier build removed arrows and clickable
+     ticks because a jump could fire before the title logo finished loading. That
+     race is handled here instead: any manual jump stamps `lastManualRef`, and the
+     rotation timer ignores ticks for one full dwell afterwards, so the slide the
+     viewer chose keeps its logo-load window. */
+  const lastManualRef = useRef(0);
+  const goToSlide = useCallback((next) => {
+    const tf = totalFeaturedRef.current;
+    if (tf <= 1) return;
+    lastManualRef.current = Date.now();
+    setFeaturedIndex(((next % tf) + tf) % tf);
+  }, []);
+
   useEffect(() => {
     if (reduceMotion || totalFeatured <= 1) return;
     const timer = setInterval(() => {
@@ -819,6 +833,9 @@ export default function Home({
       // in a background tab — a hidden tab that keeps advancing slides makes the
       // banner jump the moment the viewer returns.
       if (isHeroHoveredRef.current || document.hidden) return;
+      // Give a manually chosen slide its full dwell (logo load) before the
+      // timer takes over again.
+      if (Date.now() - lastManualRef.current < 8000) return;
       const tf = totalFeaturedRef.current;
       if (tf <= 1) return;
       setFeaturedIndex((prev) => (prev + 1) % tf);
@@ -1129,25 +1146,59 @@ export default function Home({
             </motion.div>
             </AnimatePresence>
 
-            {/* Slim progress dots */}
+            {/* Manual paging: arrows + clickable ticks, each a 44px target. */}
             {totalFeatured > 1 && (
-              <div className="hero-dots hero-dots--apple" aria-label="Featured titles">
-                {Array.from({ length: totalFeatured }).map((_, i) => {
-                  const isActive = i === featuredIndex % totalFeatured;
-                  return (
-                    <span
-                      key={i}
-                      aria-current={isActive ? "true" : undefined}
-                      aria-label={finalPool[i]?.title || `featured title ${i + 1}`}
-                      className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
-                    >
-                      {isActive && (
-                        <div className="dot-filler" />
-                      )}
-                    </span>
-                  );
-                })}
-              </div>
+              <>
+                <div
+                  className="hero-dots hero-dots--apple hero-nav"
+                  role="group"
+                  aria-label="Featured titles"
+                >
+                  <button
+                    type="button"
+                    className="hero-arrow"
+                    aria-label="Previous featured title"
+                    onClick={() => goToSlide(featuredIndex - 1)}
+                  >
+                    <ChevronLeft size={18} strokeWidth={2.5} aria-hidden="true" />
+                  </button>
+                  <div className="hero-dots__ticks">
+                    {Array.from({ length: totalFeatured }).map((_, i) => {
+                      const isActive = i === featuredIndex % totalFeatured;
+                      const title = finalPool[i]?.title || `featured title ${i + 1}`;
+                      return (
+                        <button
+                          type="button"
+                          key={i}
+                          aria-current={isActive ? "true" : undefined}
+                          aria-label={`Show ${title}`}
+                          className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
+                          onClick={() => goToSlide(i)}
+                        >
+                          <span className="hero-dot__bar" aria-hidden="true">
+                            {isActive && <span className="dot-filler" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="hero-arrow"
+                    aria-label="Next featured title"
+                    onClick={() => goToSlide(featuredIndex + 1)}
+                  >
+                    <ChevronRight size={18} strokeWidth={2.5} aria-hidden="true" />
+                  </button>
+                </div>
+                {/* Announced on every slide change; the visual hero is animated
+                    in/out, so screen readers get a stable live region instead. */}
+                <p className="hero-live" aria-live="polite" aria-atomic="true">
+                  {activeFeaturedMovie
+                    ? `${activeFeaturedMovie.title}, featured title ${(featuredIndex % totalFeatured) + 1} of ${totalFeatured}`
+                    : ""}
+                </p>
+              </>
             )}
           </motion.div>
           </ErrorBoundary>
@@ -1170,10 +1221,10 @@ export default function Home({
               <div className="logo-icon" style={{ margin: "0 auto 1rem", width: "56px", height: "56px" }}>
                 <Play size={28} fill="currentColor" stroke="none" />
               </div>
-              <h2 style={{ color: "#fff", marginBottom: "0.5rem" }}>
+              <h2 style={{ color: "var(--white)", marginBottom: "0.5rem" }}>
                 {hasInitialLoadError ? t("home.loadError") : t("home.welcome")}
               </h2>
-              <p style={{ color: "#a1a1aa", maxWidth: "420px", margin: "0 auto" }}>
+              <p style={{ color: "var(--text-secondary)", maxWidth: "420px", margin: "0 auto" }}>
                 {hasInitialLoadError
                   ? t("home.heroError")
                   : t("home.heroEmpty")}

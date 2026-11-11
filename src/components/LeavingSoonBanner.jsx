@@ -45,10 +45,10 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
           <AlertTriangle size={14} color="#fff" />
         </div>
         <div>
-          <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "#fff" }}>
+          <div style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--white)" }}>
             {t("home.rails.leavingSoon")}
           </div>
-          <div style={{ fontSize: "0.7rem", color: "#a1a1aa" }}>
+          <div style={{ fontSize: "0.7rem", color: "var(--text-secondary)" }}>
             {items.length === 1 ? t("home.leaving.titlesOne") : t("home.leaving.titlesMany", { n: items.length })}
           </div>
         </div>
@@ -102,7 +102,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "1px" }}>
                 <span style={{
                   fontSize: "0.75rem", fontWeight: 700,
-                  color: item.urgency === "critical" ? "#ef4444" : item.urgency === "warning" ? "#f97316" : "#a1a1aa",
+                  color: item.urgency === "critical" ? "#ef4444" : item.urgency === "warning" ? "#f97316" : "var(--text-secondary)",
                 }}>
                   {item.daysLeft <= 1 ? t("home.leaving.tomorrow") : t("home.leaving.daysLeft", { n: item.daysLeft })}
                 </span>
@@ -115,7 +115,7 @@ export default function LeavingSoonBanner({ items = [], maxDisplay = 3 }) {
 
       {items.length > maxDisplay && (
         <div style={{
-          fontSize: "0.7rem", color: "#71717a", textAlign: "center",
+          fontSize: "0.7rem", color: "var(--text-muted)", textAlign: "center",
           marginTop: "8px", padding: "4px",
         }}>
           {t("home.leaving.more", { n: items.length - maxDisplay })}

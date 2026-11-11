@@ -242,7 +242,7 @@ export function LineLoader() {
           display: "block",
           height: "100%",
           borderRadius: 999,
-          background: "linear-gradient(90deg, var(--accent, #8652bb), #fff)",
+          background: "linear-gradient(90deg, var(--accent, #8652bb), var(--white))",
           boxShadow: "0 0 12px var(--accent, #8652bb)",
         }}
       />

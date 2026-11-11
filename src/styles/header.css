@@ -38,7 +38,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: #ffffff;
+  background: var(--white);
   box-shadow: 0 0 12px rgba(var(--white-rgb), 0.7);
   transform: scaleX(0);
   transform-origin: 0 50%;
@@ -81,7 +81,7 @@
    body copy, so it does not follow the UI type scale. */
 .brand-wordmark {
   display: inline-block;
-  color: #ffffff;
+  color: var(--white);
   font-size: 1.3rem;
   font-weight: 800;
   line-height: 1;
@@ -149,7 +149,7 @@
 @media (hover: hover) and (pointer: fine) {
 .back-btn:hover {
   background: rgba(var(--white-rgb), 0.08);
-  color: #ffffff;
+  color: var(--white);
 }
 }
 .back-btn:active {
@@ -270,7 +270,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
 .nav-link:hover {
-  color: #ffffff;
+  color: var(--white);
 }
 }
 /* Wide desktops get the brief's 24px item padding; below 1200px that would
@@ -292,7 +292,7 @@
   padding: 0 12px;
 }
 .nav-link--active {
-  color: #ffffff;
+  color: var(--white);
 }
 
 /* Cinejoy .nav-pill - ONE shared highlight that glides between items.
@@ -311,7 +311,7 @@
   transform: translateX(var(--pill-x, 0px));
   width: var(--pill-w, 0px);
   border-radius: var(--radius-full);
-  background: #ffffff;
+  background: var(--white);
   box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
   z-index: 0;
   pointer-events: none;
@@ -352,14 +352,14 @@ html[data-reduce-motion="true"] .nav-active-pill {
    shared white active pill stays exactly as it is (black ink). */
 @media (hover: hover) and (pointer: fine) {
 .navbar:hover .nav-link:not(.nav-link--active) {
-  color: #ffffff;
+  color: var(--white);
 }
 .navbar:hover .nav-icon-btn:not(.nav-icon-btn--active) {
-  color: #ffffff;
+  color: var(--white);
 }
 .navbar:hover .nav-link--active,
 .navbar:hover .nav-icon-btn--active {
-  color: #ffffff;
+  color: var(--white);
   background: transparent;
 }
 }
@@ -429,11 +429,11 @@ html[data-reduce-motion="true"] .nav-active-pill {
 }
 @media (hover: hover) and (pointer: fine) {
 .nav-icon-btn:hover {
-  color: #ffffff;
+  color: var(--white);
 }
 }
 .nav-icon-btn--active {
-  color: #ffffff;
+  color: var(--white);
 }
 /* A photo cannot invert: over a white pill it would turn into a negative.
    Keep the avatar glyph normal; the pill still reads behind it. */
@@ -482,7 +482,7 @@ html[data-reduce-motion="true"] .nav-active-pill {
   height: 26px;
   border-radius: 50%;
   background: var(--accent-gradient);
-  color: #000000;
+  color: var(--black);
   font-size: var(--text-2xs);
   font-weight: 800;
   line-height: 1;

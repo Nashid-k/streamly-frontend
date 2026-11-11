@@ -126,7 +126,7 @@ export function useConfirmDialog() {
                     margin: "0 0 6px",
                     fontSize: "1.1rem",
                     fontWeight: 700,
-                    color: "#fff",
+                    color: "var(--white)",
                   }}
                 >
                   {dialog.title || "Are you sure?"}
@@ -136,7 +136,7 @@ export function useConfirmDialog() {
                   style={{
                     margin: 0,
                     fontSize: "0.9rem",
-                    color: "#a1a1aa",
+                    color: "var(--text-secondary)",
                     lineHeight: 1.5,
                   }}
                 >
@@ -184,7 +184,7 @@ export function useConfirmDialog() {
                   style={{
                     background: "#ef4444",
                     border: "1px solid #ef4444",
-                    color: "#fff",
+                    color: "var(--white)",
                     padding: "10px 20px",
                     borderRadius: "var(--radius-full)",
                     minHeight: "42px",

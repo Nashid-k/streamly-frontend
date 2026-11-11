@@ -52,15 +52,15 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
             style={{
               width: "min(340px, calc(100% - 32px))",
               background: "#0d1219",
-              border: "1px solid #ffffff17",
+              border: "1px solid rgba(var(--white-rgb), 0.09)",
               borderRadius: "1.25em",
-              boxShadow: "0 1em 3em #000c",
+              boxShadow: "0 1em 3em rgba(var(--black-rgb), 0.8)",
               padding: "1.8em 1.5em 1.5em",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               textAlign: "center",
-              color: "#fff",
+              color: "var(--white)",
             }}
           >
             {/* Accent-tinted play badge */}
@@ -83,7 +83,7 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
               style={{
                 fontSize: "1.25em",
                 fontWeight: 700,
-                color: "#fff",
+                color: "var(--white)",
                 margin: "0 0 0.35em",
                 letterSpacing: "-0.01em",
               }}
@@ -116,7 +116,7 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
                   padding: ".6em 1em",
                   borderRadius: ".8em",
                   background: "var(--accent, #8652bb)",
-                  color: "#fff",
+                  color: "var(--white)",
                   fontWeight: 700,
                   fontSize: "1em",
                   border: 0,
@@ -142,7 +142,7 @@ export default function ResumeCard({ offer, fmtTime, onResume, onRestart }) {
                   minHeight: "42px",
                   padding: ".5em 1em",
                   borderRadius: ".8em",
-                  background: "#ffffff12",
+                  background: "rgba(var(--white-rgb), 0.07)",
                   color: "#b9c6d2",
                   fontWeight: 600,
                   fontSize: ".92em",

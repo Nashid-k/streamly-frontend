@@ -132,7 +132,7 @@ export default function SettingsPage() {
     // Subtitles (live-controls the Subtitles section below)
     subtitleFont = "cinejoy",
     subtitleSize = 100,
-    subtitleColor = "#ffffff",
+    subtitleColor = "var(--white)",
     // Setter
     setPreference,
     resetPreferences,
@@ -907,7 +907,7 @@ export default function SettingsPage() {
                                   <label className="seed-pill" title={t("settings.appearance.pickAccent")}>
                                     <span
                                       className="seed-dot"
-                                      style={{ background: accentSeed || "#ffffff" }}
+                                      style={{ background: accentSeed || "var(--white)" }}
                                     />
                                     <span className="seed-text">
                                       <span className="seed-label">
@@ -916,7 +916,7 @@ export default function SettingsPage() {
                                           : t("settings.appearance.customize")}
                                       </span>
                                       <span className="seed-hex">
-                                        {(accentSeed || "#ffffff").toUpperCase()}
+                                        {(accentSeed || "var(--white)").toUpperCase()}
                                       </span>
                                     </span>
                                     <input

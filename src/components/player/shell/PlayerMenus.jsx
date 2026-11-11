@@ -592,7 +592,7 @@ export default function PlayerMenus({
   }
 
   if (panel === "captions") {
-    const subColor = v4Appearance?.subColor || "#ffffff";
+    const subColor = v4Appearance?.subColor || "var(--white)";
     const subBgStyle = v4Appearance?.subBgStyle || "shadow";
     const czMap = [0.8, 1, 1.3, 1.7];
     const activeCz = czMap[sizeIndex] || 1;
@@ -650,7 +650,7 @@ export default function PlayerMenus({
 
         <div className="lbl np-lbl">Color</div>
         <div className="seg c4" role="radiogroup" aria-label="Subtitle color">
-          {[["White", "#ffffff"], ["Yellow", "#ffe14d"], ["Cyan", "#5ee7ff"], ["Green", "#7dff8a"]].map(([name, val]) => {
+          {[["White", "var(--white)"], ["Yellow", "#ffe14d"], ["Cyan", "#5ee7ff"], ["Green", "#7dff8a"]].map(([name, val]) => {
             const isSel = subColor.toLowerCase() === val.toLowerCase();
             return (
               <button

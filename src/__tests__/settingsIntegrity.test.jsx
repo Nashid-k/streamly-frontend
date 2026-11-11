@@ -69,7 +69,7 @@ describe("preferences are sanitised on read, not only on write", () => {
         <SeekProbe />
       </PreferencesProvider>,
     );
-    expect(screen.getByTestId("colour")).toHaveTextContent("#ffffff");
+    expect(screen.getByTestId("colour")).toHaveTextContent("var(--white)");
   });
 });
 

@@ -122,7 +122,7 @@ export default function GenrePage() {
           left: 0,
           width: "100%",
           height: "30vh",
-          background: "linear-gradient(to bottom, transparent, #000)",
+          background: "linear-gradient(to bottom, transparent, var(--black))",
           zIndex: -1,
         }}
       />

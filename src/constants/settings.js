@@ -108,7 +108,7 @@ export const SUBTITLE_FONTS = [
 ];
 
 export const SUBTITLE_COLORS = [
-  { name: "White", value: "#ffffff" },
+  { name: "White", value: "var(--white)" },
   { name: "Yellow", value: "#ffff00" },
   { name: "Cyan", value: "#00ffff" },
   { name: "Magenta", value: "#ff00ff" },

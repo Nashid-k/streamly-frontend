@@ -30,7 +30,7 @@ export default function SpringBlossoms() {
       rotationSpeed={[-0.8, 0.8]}
       size={[8, 18]}
       shapes={["ginkgo", "oval", "birch"]}
-      colors={["#fce7f3", "#fbcfe8", "#f9a8d4", "#f472b6", "#ffffff", "#fdf2f8"]}
+      colors={["#fce7f3", "#fbcfe8", "#f9a8d4", "#f472b6", "var(--white)", "#fdf2f8"]}
       opacity={0.9}
       zIndex={5000}
       respectReducedMotion

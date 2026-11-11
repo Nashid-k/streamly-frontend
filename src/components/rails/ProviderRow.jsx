@@ -41,7 +41,7 @@ const ProviderRow = React.memo(function ProviderRow() {
               fontWeight: "var(--weight-display)",
               margin: 0,
               letterSpacing: "var(--tracking-display)",
-              color: "#ffffff",
+              color: "var(--white)",
             }}
           >
             Browse by Provider

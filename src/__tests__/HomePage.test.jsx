@@ -242,19 +242,23 @@ describe("HomePage hero", () => {
     expect(activeSlideName()).toMatch(/fight club/i);
   });
 
-  it("renders one slide dot per hero title as a non-interactive indicator", async () => {
+  it("turns the slide ticks into buttons that jump to that slide", async () => {
+    // P2-3: the ticks used to be non-interactive spans. They are now real
+    // buttons with a 44px hit area (see .hero-dot in hero.css), so the previous
+    // "clicking must not advance" assertion no longer describes the product.
     stubHomeService({ featured: [MOVIE, SERIES] });
     renderHome();
 
     await screen.findByText(/an insomniac office worker forms an underground fight club/i);
     revealHeroControls();
-    // Dots are indicators only — no click target, no slide jump.
     const dots = document.querySelectorAll(".hero-dot");
     expect(dots.length).toBe(2);
+    expect(dots[0].tagName).toBe("BUTTON");
     expect(dots[0].getAttribute("aria-current")).toBe("true");
-    // Clicking a dot must not advance the slide.
+
     fireEvent.click(dots[1]);
     await new Promise((r) => setTimeout(r, 50));
-    expect(activeSlideName()).toMatch(/fight club/i);
+    expect(dots[1].getAttribute("aria-current")).toBe("true");
+    expect(dots[0].getAttribute("aria-current")).toBe(null);
   });
 });

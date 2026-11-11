@@ -50,7 +50,7 @@ const COLORS = {
   info: {
     bg: "rgba(255, 255, 255, 0.05)",
     border: "rgba(255, 255, 255, 0.1)",
-    icon: "#a1a1aa",
+    icon: "var(--text-secondary)",
     iconBg: "rgba(255, 255, 255, 0.06)",
     glow: "transparent",
   },
@@ -160,7 +160,7 @@ function ToastItem({ toast, onDismiss }) {
           <div
             style={{
               fontSize: "0.75rem",
-              /* --text-muted (AA on the toast surface), not the old #71717a
+              /* --text-muted (AA on the toast surface), not the old var(--text-muted)
                  (≈3.5:1) — the message is the payload, it has to be readable. */
               color: "var(--text-muted)",
               lineHeight: 1.3,
@@ -194,7 +194,7 @@ function ToastItem({ toast, onDismiss }) {
           /* The duration-band vocabulary, not a raw 0.15s. */
           transition: "color var(--duration-fast) var(--ease-out)",
         }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = "#a1a1aa")}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
       >
         <X size={12} />

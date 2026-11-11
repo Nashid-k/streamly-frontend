@@ -978,7 +978,7 @@ export default function WatchlistPage() {
               maxWidth: "92vw",
             }}
           >
-            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "#fff", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--white)", whiteSpace: "nowrap" }}>
               {selectedIds.size} selected
             </span>
             <button
@@ -1005,7 +1005,7 @@ export default function WatchlistPage() {
               style={{
                 background: selectedIds.size > 0 ? "rgba(239, 68, 68, 0.95)" : "rgba(255,255,255,0.06)",
                 border: "none",
-                color: selectedIds.size > 0 ? "#fff" : "rgba(255,255,255,0.3)",
+                color: selectedIds.size > 0 ? "var(--white)" : "rgba(255,255,255,0.3)",
                 padding: "5px 14px",
                 borderRadius: "var(--radius-full)",
                 fontSize: "0.78rem",

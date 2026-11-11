@@ -123,7 +123,7 @@ export default function GlobalShortcuts() {
                   display: "flex",
                   alignItems: "center",
                   gap: "10px",
-                  color: "#fff",
+                  color: "var(--white)",
                 }}
               >
                 <Keyboard size={20} color="var(--accent-secondary, #5ce21c)" />
@@ -135,7 +135,7 @@ export default function GlobalShortcuts() {
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#a1a1aa",
+                  color: "var(--text-secondary)",
                   cursor: "pointer",
                   display: "flex",
                   padding: "4px",
@@ -143,11 +143,11 @@ export default function GlobalShortcuts() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-                  e.currentTarget.style.color = "#fff";
+                  e.currentTarget.style.color = "var(--white)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#a1a1aa";
+                  e.currentTarget.style.color = "var(--text-secondary)";
                 }}
               >
                 <X size={20} />
@@ -196,7 +196,7 @@ export default function GlobalShortcuts() {
                           borderRadius: "6px",
                           fontSize: "0.8rem",
                           fontWeight: 600,
-                          color: "#fff",
+                          color: "var(--white)",
                           letterSpacing: "0.05em",
                         }}
                       >
@@ -213,7 +213,7 @@ export default function GlobalShortcuts() {
                 margin: "1.5rem 0 0",
                 textAlign: "center",
                 fontSize: "0.8rem",
-                color: "#71717a",
+                color: "var(--text-muted)",
               }}
             >
               Press Esc to close

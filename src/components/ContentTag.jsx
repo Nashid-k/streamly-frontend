@@ -17,7 +17,7 @@ import { motion, useReducedMotion } from "framer-motion";
 const TONES = {
   new: {
     background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-    color: "#fff",
+    color: "var(--white)",
     border: "1px solid rgba(255,255,255,0.22)",
     // Soft, steady glow. No pulse: pulsing is CountdownBadge's signature and
     // reusing it here would blur the two states together.
@@ -26,7 +26,7 @@ const TONES = {
   },
   neutral: {
     background: "rgba(0,0,0,0.7)",
-    color: "#fff",
+    color: "var(--white)",
     border: "1px solid rgba(255,255,255,0.1)",
     boxShadow: "none",
     dot: "rgba(255,255,255,0.7)",

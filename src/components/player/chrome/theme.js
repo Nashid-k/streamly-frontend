@@ -14,7 +14,7 @@ export const DEFAULT_V4_ACCENT = "#8652bb";
 // Primary accent fallback: unified with player v4 theme accent.
 export const ACCENT = "#8652bb";
 // Glyph/text colour that sits ON an accent fill (dark, never white).
-export const ACCENT_FG = "#ffffff";
+export const ACCENT_FG = "var(--white)";
 export const ACCENT_GLOW = "0 0 20px rgba(134,82,187,0.32)";
 
 // The 8 theme swatches from player-v4.html
@@ -35,7 +35,7 @@ export const TRACK = "rgba(255,255,255,0.16)";
 export const BUFFERED = "rgba(255,255,255,0.32)";
 // Measured skip windows: an accent wash, distinct from buffered.
 
-export const TEXT = "#ffffff";
+export const TEXT = "var(--white)";
 export const TEXT_FAINT = "rgba(255,255,255,0.42)";
 
 // Chips on the deck (time, volume, utility cluster).

@@ -9,10 +9,11 @@
 > tracked in **`ULTIMATE-REDESIGN-PLAN.md`**. That file is the authoritative task board
 > (58 tasks, per-task status, acceptance criteria, design-system targets, pitfalls, and
 > the required update protocol). Read it after this file and update it in the same turn
-> as any code change. Audited 2026-11-11 (second pass): **≈63 % complete** — **Phases 0, 1
-> and 2 are closed** (83 % / 100 % / 91 %; the four accepted residuals are listed in the
-> plan's §19). Counts: 28 done / 17 partial / 8 todo / 5 blocked. **Phase 3 — Browse is
-> next.** Phases 6–7 stay blocked on a real browser + catalogue.
+> as any code change. Audited 2026-11-11 (final pass): **≈66 % complete** — **Phases 0, 1
+> and 2 are FINISHED** (94 % / 100 % / 100 %). The only open Phase 0 item is `P0-9`
+> (visual QA of the *populated* home: shell screenshots at 390/768/1440 were taken with
+> headless Chrome, but TMDB is unreachable here). Counts: 31 done / 15 partial / 8 todo /
+> 4 blocked. **Phase 3 — Browse is next.** Phase 7 stays blocked on a catalogue-host.
 
  ## Done (in order)
 
@@ -8279,22 +8280,22 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 - [ ] Visuals not verified — the Streamly catalogue does not load in this environment, so the row-head spacing and title/"See all" baseline alignment are covered by code inspection + gates only.
 - History (kept on purpose): the previous block claimed this shipped in `24fd3dc` with 136 warnings and two intentional unused imports. `git show --stat 24fd3dc` contains neither the rail nor the dock file, and the real count is 134 with neither import present. No commit has been made for this delivered change yet (not requested).
 
-### Redesign Phase 2 — Home: CLOSED 2026-11-11 (see `ULTIMATE-REDESIGN-PLAN.md` §4.3, §7)
+### Redesign Phase 2 — Home: FINISHED 2026-11-11 (see `ULTIMATE-REDESIGN-PLAN.md` §4.3, §7)
 - [x] `P2-5` Continue Watching first rail + row head — delivered 2026-11-11 (record above).
 - [x] `P2-1` hero art `w1280`/`w1920` srcset + `fetchpriority="high"` — already present via `CdnImageAdapter.getSrcSet`; verified, not rewritten. Landscape art under the logo is what P2-1 asked for.
-- [ ] `P2-3` **PARTIAL by decision** — pool now capped at **six** slides (`HomePage.finalPool`), but manual paging stays off and the dots stay non-interactive: `HomePage.test.jsx` pins both (`"keeps the banner on its current slide under manual input (no paging)"` and `"renders one slide dot per hero title as a non-interactive indicator"`), because manual paging reintroduced a logo-load race the dwell time had fixed. Re-adding 44px ticks + arrows needs that product decision reversed first (plan §19.6).
+- [x] `P2-3` hero paging shipped on the user's instruction: ticks are 44px `<button>`s, prev/next 44px arrows, `role="group"`, off-screen `aria-live="polite"` region, pool capped at six. Manual jumps stamp `lastManualRef`, so the timer skips one 8s dwell and the logo-load race the old no-paging rule protected stays fixed. `HomePage.test.jsx` rewritten to the new contract (dots are buttons and jump).
 - [x] `P2-4` autoplay 8000 ms and the tick now bails on `document.hidden` as well as hover/focus (both already set `isHeroHoveredRef`), so a background tab never advances the banner.
 - [x] `P2-6` `src/components/rails/FeaturedCollection.jsx` — wide editorial card between the resume rail and Top 10, built from the first category that has a landscape frame; links to the existing `/category/:name` with router state. No new query, no new route, hides itself when no art exists.
 - [x] `P2-9` verified: `MovieCard` already carries the rating badge, the progress bar, layout-stable hover actions and `alt={movie.title}` — no rewrite needed.
 - [x] `P2-10` `src/components/rails/ProviderRow.jsx` — 56px logo chips from the existing `["discover-providers", "movie"]` query key, each linking to `/movies?provider=<id>` (the param `DiscoveryPage` already reads), plus "All providers" → `/movies`. No frozen contract touched.
-- [ ] `P2-11` **PARTIAL by decision** — genres ship as **three capped rails** (`MAX_GENRE_RAILS` in `GenreShowcase.jsx`) instead of a tile grid; a tile grid would re-add the exact page height P2-8 removed. Confirm the rail form (plan §19.7).
+- [x] `P2-11` `src/components/rails/GenreTiles.jsx` — up to 10 genre tiles from the existing `["discover-genres", "movie"]` key, each linking to `/movies?genre=<id>`, plus "See all genres"; the three capped genre rails stay above it.
 - [x] `P2-8` rail budget: algorithmic rails cut to three (trending / because-you-watched / top rated; Airing This Week, Popular Now and Now Playing removed), editorial capped at three, genre at three, category at three, feed terminates in an "Explore all" → `/movies` link.
 
 ### Redesign Phases 0 + 1 — CLOSED 2026-11-11
 - [x] Phase 0: stage gradient + `--stage-*`, semantic `--rating/--progress/--live/--spoiler/--danger`, `--radius-chip`/`--radius-panel`, 12px type floor + display/tabular tokens, motion 180/260/420 (CSS + `DURATION`), shared `SectionHeader`, rgba-literal sweep.
 - [x] Phase 1: `--nav-item-h: 44px`, 14px/72 % nav ink (`font-weight: 600` kept — `motion.test` pins it), 4px scroll condense, dock labels, unread badge on `--live`.
-- [ ] `P0-8` **PARTIAL** — 464 literal hex values remain outside `tokens.css`; needs a review pass, not a blind sed.
-- [ ] `P0-9` **BLOCKED** — visual check at 390/768/1440: the catalogue still does not load here.
+- [x] `P0-8` chrome literals tokenised: `#fff`/`#ffffff` → `var(--white)`, `#000`/`#000000` → `var(--black)`, 8-digit white/black alpha → `rgba(var(--*-rgb), X)`, `#a1a1aa` → `var(--text-secondary)`, `#71717a` → `var(--text-muted)` — 387 literals in 61 files. Only 8 SVG presentation attributes keep hex (`var()` is invalid in `fill=`/`stroke=`), and palette hex (themes, player, `#ffff00`) is kept by design.
+- [ ] `P0-9` **PARTIAL** — headless-Chrome screenshots at 1440×950 / 768×1000 / 390×844 verified the shell, dock labels, nav pill and empty/loading states; the populated home cannot be rendered here (`api.themoviedb.org` → status `000`).
 - [x] Gates: `npm run lint` 0 errors / 134 warnings · `npm run test -- --run` **118 files / 1437 tests** · `npm run build` exit 0 (**1.99 s**); `git diff --stat src/__tests__/` empty (no test edited).
 
 ### Redesign Phases 3–7 — not started (`ULTIMATE-REDESIGN-PLAN.md` §8–§12)

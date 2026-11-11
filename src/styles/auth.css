@@ -47,7 +47,7 @@
 
 .auth-dialog__title {
   margin: 0;
-  color: #fff;
+  color: var(--white);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -69,7 +69,7 @@
 @media (hover: hover) and (pointer: fine) {
 .auth-dialog__close:hover:not(:disabled) {
   background: rgba(var(--white-rgb), 0.12);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -102,7 +102,7 @@
 }
 
 .auth-dialog__tab[aria-selected="true"] {
-  background: #fff;
+  background: var(--white);
   color: #0d0d10;
 }
 
@@ -142,7 +142,7 @@
   border: 1px solid rgba(var(--white-rgb), 0.14);
   border-radius: 14px;
   background: rgba(var(--white-rgb), 0.05);
-  color: #fff;
+  color: var(--white);
   font-size: 0.95rem;
   outline: none;
   transition: border-color var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
@@ -179,7 +179,7 @@
 
 @media (hover: hover) and (pointer: fine) {
 .auth-dialog__reveal:hover {
-  color: #fff;
+  color: var(--white);
   background: rgba(var(--white-rgb), 0.08);
 }
 }
@@ -207,7 +207,7 @@
   padding: 0.8rem 1rem;
   border: none;
   border-radius: 14px;
-  background: #fff;
+  background: var(--white);
   color: #0d0d10;
   font-size: 0.92rem;
   font-weight: 700;
@@ -242,7 +242,7 @@
 @media (hover: hover) and (pointer: fine) {
 .auth-dialog__ghost:hover {
   background: rgba(var(--white-rgb), 0.08);
-  color: #fff;
+  color: var(--white);
 }
 }
 
@@ -262,7 +262,7 @@
 
 .auth-dialog__pending-title {
   margin: 0;
-  color: #fff;
+  color: var(--white);
   font-size: 1rem;
   font-weight: 700;
 }
@@ -293,7 +293,7 @@
   align-items: center;
   justify-content: center;
   padding: 3rem 1.5rem;
-  color: #fff;
+  color: var(--white);
 }
 
 .verify-card {
@@ -344,7 +344,7 @@
   padding: 0.7rem 1.2rem;
   border: none;
   border-radius: var(--radius-full);
-  background: #fff;
+  background: var(--white);
   color: #0d0d10;
   font-size: 0.88rem;
   font-weight: 700;

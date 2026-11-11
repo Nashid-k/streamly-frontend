@@ -309,7 +309,7 @@ export default function PersonDetails() {
                 justifyContent: "center",
               }}
             >
-              <span style={{ color: "#a1a1aa" }}>No Image</span>
+              <span style={{ color: "var(--text-secondary)" }}>No Image</span>
             </div>
           )}
         </div>
@@ -333,7 +333,7 @@ export default function PersonDetails() {
               flexWrap: "wrap",
               gap: "1rem",
               marginBottom: "2rem",
-              color: "#a1a1aa",
+              color: "var(--text-secondary)",
               fontWeight: 500,
             }}
           >
@@ -385,7 +385,7 @@ export default function PersonDetails() {
                 style={{
                   fontSize: "1.2rem",
                   marginBottom: "1rem",
-                  color: "#fff",
+                  color: "var(--white)",
                 }}
               >
                 Biography
