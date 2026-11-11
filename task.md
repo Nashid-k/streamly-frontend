@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **One play control on rail cards, no series badges, details arrival feels alive — 2026-11-11 (branch `main`).**
+  - **Bottom Play pill removed** (`MovieCard.jsx` + `grids.css`): the curtain band now carries title + rating/year only; the centred `card-play-disc` is the card's single play control (cinejoy's card contract). `.curtain-play` rules + its touch-media block deleted; the now-dead `:focus-within .card-curtain` rule deleted (the band holds no tabbable element anymore) — keyboard parity stays via `:focus-visible`/`:focus-within` on the disc.
+  - **Series badge cluster removed** (`MovieCard.jsx`): the SERIES chip, S/E chip and air-day chip blocks are gone from `.card-badges`; with them the dead `nextEpisodeInfo`/`nextAir*` consts, the whole next-airing block, and the `getTMDBWeekdayShort` import. Cards keep content tags (NEW), the movie release-date chip and the movie countdown.
+  - **Details arrival retuned** (`routeMotion.js`): the `fade-up` route plane (watch/category/collections) is now a depth push — enter rises 34px out of a 4.5% scale (was 22px/1.5%) with x/y/scale all on the one SHEET spring (scale used to tween on its own clock, splitting the motion), opacity ramps over MED so the page materialises through the travel instead of snapping opaque first, and the exit recedes (scale 0.965, no upward drift) so drilling into a title reads as descending into the stack. Reduced-motion variants untouched.
+  - Gates: lint 0 errors (pre-existing warnings unchanged); build 1.77s; full suite 118 files / 1439 tests green on first run.
+
 - [x] **Centred circular play disc on every rail card — 2026-11-11 (branch `main`).**
   - `MovieCard` gains a `card-play-disc` layer: a 46px blurred-glass circle (black/60 + 12px backdrop blur, white border, soft shadow — Continue Watching's hover-disc language) dead-centre of the poster, revealed on hover/keyboard focus with a 0.7→1 scale pop.
   - z-index 15 — above the veil (2), badge row (10) and curtain band (5), so no rail layer paints over it; hidden entirely on touch (`@media (hover: none)`, off the tab order); click plays via `/watch/:id/:slug` with stopPropagation.

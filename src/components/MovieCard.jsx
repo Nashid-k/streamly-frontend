@@ -2,7 +2,6 @@ import { useCallback, useState, useEffect, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Star, Play } from "lucide-react";
 import slugify from "slugify";
-import { getTMDBWeekdayShort } from "../utils/timezone";
 import { highlightSegments } from "../utils/highlightMatch";
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
@@ -152,27 +151,7 @@ const MovieCard = memo(function MovieCard({
     setHasImageError(false);
   }, [posterSrc]);
 
-    // ── Next-airing info for the rail badges ──────────────────────────────
-    // Airing-rail cards (and any series with an announced next episode) show the
-    // DAY it drops plus season/episode: airing-only series use nextEpisode,
-    // premiering series their future release date.
   const platformForDate = movie.source || movie.platform;
-  const nextEpisodeInfo = movie.nextEpisode || {};
-  const nextAirDate =
-    nextEpisodeInfo.releaseDate ||
-    (isTvContent && movie.isUpcoming ? movie.releaseDate : null) ||
-    null;
-  const nextAirSeason =
-    nextEpisodeInfo.season ?? nextEpisodeInfo.seasonNumber ?? null;
-  const nextAirEpisodeNumber =
-    nextEpisodeInfo.episode ?? nextEpisodeInfo.episodeNumber ?? null;
-  const nextAirLabel =
-    nextAirEpisodeNumber != null
-      ? `S${nextAirSeason || 1} E${nextAirEpisodeNumber}`
-      : null;
-  const nextAirWeekdayShort = nextAirDate
-    ? getTMDBWeekdayShort(nextAirDate, undefined, platformForDate)
-    : "";
 
   // Content tags ("NEW" = recently released) come from one pure helper so the
   // rule lives in contentTags.js and is unit-tested there, not re-derived here.
@@ -254,11 +233,11 @@ const MovieCard = memo(function MovieCard({
 
 
 
-            {/* Bottom-left badges: SERIES + S/E + NEW {DAY} — one row so nothing
-                overlaps. Always mounted; the CSS curtain choreography fades the
-                row out while the curtain is open (old code unmounted it on a
-                debounced hover state, which re-rendered the card on every
-                hover). */}
+            {/* Bottom-left badges: content tags (NEW) + release chips — one
+                row so nothing overlaps. Always mounted; the CSS curtain
+                choreography fades the row out while the curtain is open (old
+                code unmounted it on a debounced hover state, which re-rendered
+                the card on every hover). */}
             <div
               className="card-badges"
               style={{
@@ -308,86 +287,6 @@ const MovieCard = memo(function MovieCard({
                     platform={platformForDate}
                     compact
                   />
-                )}
-                {/* Series with a known next episode: S/E chip + the air DAY
-                    (or full release date when the rail provides it) */}
-                {isTvContent && nextAirLabel && nextAirDate && (
-                  <>
-                    <div
-                      style={{
-                        background: "rgba(96,165,250,0.18)",
-                        color: "#93c5fd",
-                        padding: "2px 6px",
-                        borderRadius: "3px",
-                        fontSize: "var(--text-2xs)",
-                        fontWeight: 800,
-                        letterSpacing: "0.04em",
-                        border: "1px solid rgba(96,165,250,0.25)",
-                      }}
-                    >
-                      {nextAirLabel}
-                    </div>
-                    <div
-                      style={{
-                        background: "var(--accent-gradient)",
-                        color: "var(--white)",
-                        padding: "2px 6px",
-                        borderRadius: "3px",
-                        fontSize: "var(--text-2xs)",
-                        fontWeight: 800,
-                        letterSpacing: "0.04em",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "3px",
-                        textShadow: "0 1px 2px rgba(0,0,0,0.3)",
-                      }}
-                    >
-                      <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--white)', flexShrink: 0 }} />
-                      {movie.formattedRelease || nextAirWeekdayShort.toUpperCase()}
-                    </div>
-                  </>
-                )}
-                {/* Series premiere / no episode info yet */}
-                {isTvContent && !nextAirLabel && (
-                  <>
-                    <div
-                      style={{
-                        background: "rgba(0,0,0,0.7)",
-                        color: "var(--white)",
-                        padding: "2px 6px",
-                        borderRadius: "3px",
-                        fontSize: "var(--text-2xs)",
-                        fontWeight: 700,
-                        letterSpacing: "0.06em",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      SERIES
-                    </div>
-                    {nextAirDate && movie.formattedRelease && (
-                      <div
-                        style={{
-                          background: "rgba(0,0,0,0.65)",
-                          color: "var(--white)",
-                          padding: "2px 6px",
-                          borderRadius: "3px",
-                          fontSize: "var(--text-2xs)",
-                          fontWeight: 800,
-                          letterSpacing: "0.04em",
-                          border: "1px solid rgba(255,255,255,0.12)",
-                        }}
-                      >
-                        {movie.formattedRelease}
-                      </div>
-                    )}
-                    {nextAirDate && !movie.formattedRelease && (
-                      <CountdownBadge
-                        releaseDate={nextAirDate}
-                        platform={platformForDate}
-                        compact
-                      />
-                    )}
-                  </>
                 )}
             </div>
 
@@ -499,9 +398,8 @@ const MovieCard = memo(function MovieCard({
                  a BOTTOM gradient band (`from-black/85 via-black/40 to-
                  transparent`, `p-3 pt-10`) that rises 8px and fades in over
                  `duration-300 ease-tv`. Their band stops at the rating/year
-                 line; ours adds the title and a direct Play pill (same
-                 bottom-band language as Continue Watching), plus the centred
-                 disc rendered above this layer. */
+                 line; ours adds the title. Play lives in the centred disc
+                 above this layer — the band itself carries no controls. */
               style={{
                 position: "absolute",
                 inset: "auto 0 0 0",
@@ -524,8 +422,8 @@ const MovieCard = memo(function MovieCard({
 
               {/* rivo.st's hover meta line — `flex items-center gap-1.5
                   text-[13px] font-semibold text-white/90`: amber star, rating,
-                  a dim `·`, then the year. No pill background and no play disc
-                  (their card has neither; the card itself is the target). */}
+                  a dim `·`, then the year. The centred disc is the only
+                  control on the card; the band carries none. */}
               <div
                 className="curtain-meta"
                 style={{
@@ -565,22 +463,6 @@ const MovieCard = memo(function MovieCard({
                   </span>
                 )}
               </div>
-
-              {/* Direct Play — navigates to the watch route (auto-resume).
-                  stopPropagation keeps the card's own details action quiet. */}
-              <button
-                type="button"
-                className="curtain-play"
-                aria-label={`Play ${movie.title}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  navigate(watchTo);
-                }}
-              >
-                <Play size={12} fill="currentColor" stroke="none" />
-                Play
-              </button>
             </div>
 
             {/* Progress bar — always on top of curtain */}

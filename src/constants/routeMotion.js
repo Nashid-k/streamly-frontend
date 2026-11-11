@@ -10,7 +10,17 @@ import { DURATION, EASE_OUT, EASE_IN, SPRING } from "./motion";
    -1 = travelling back/left (enter from the left). Transform + opacity only
    — everything here animates on the compositor, never layout. The spring is
    SPRING.SHEET so pages, sheets and the tab rail (+ its pill) share one
-   motion vocabulary. */
+   motion vocabulary.
+
+   Two flavours of arrival. The rail variants ("fade-up-subtle" and friends)
+   slide AND rise a little — lateral travel with a hint of depth. The details
+   push ("fade-up", /watch + /category + collections) is a depth-first move:
+   the page rises further and materialises from a 4.5% scale on the same
+   spring (scale used to tween on its own clock, which split the motion in
+   two), its opacity ramps over MED so the page appears THROUGH the travel
+   instead of snapping opaque before it, and the exit recedes toward the
+   viewer's back rather than sliding away — pushing into a title should feel
+   like walking into it, not swapping slides. */
 
 const ENTER_SPRING = SPRING.SHEET;
 
@@ -23,8 +33,8 @@ export const ROUTE_TRANSITIONS = {
   "fade-up": {
     x: ENTER_SPRING,
     y: ENTER_SPRING,
-    scale: { duration: DURATION.MED, ease: EASE_OUT },
-    opacity: { duration: DURATION.FAST, ease: EASE_OUT },
+    scale: ENTER_SPRING,
+    opacity: { duration: DURATION.MED, ease: EASE_OUT },
   },
   "fade-only": { opacity: { duration: DURATION.FAST, ease: EASE_OUT } },
   crossfade: { opacity: { duration: DURATION.FAST, ease: EASE_OUT } },
@@ -38,18 +48,18 @@ export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
    swallowing the click the viewer just made while the new page is invisible.
 // The exit transition is baked into the exit values: exit runs on its own
 // clock (ease-in, accelerating away) instead of the enter spring. */
-const planeEnter = (dir, { y = 0, scale = 1 } = {}) => ({
+const planeEnter = (dir, { x = 44, y = 0, scale = 1 } = {}) => ({
   opacity: 0,
-  x: 44 * dir,
+  x: x * dir,
   y,
   scale,
   translateZ: 0,
   willChange: "transform, opacity",
 });
 
-const planeExit = (dir, { y = 0, scale = 1 } = {}) => ({
+const planeExit = (dir, { x = 30, y = 0, scale = 1 } = {}) => ({
   opacity: 0,
-  x: -30 * dir,
+  x: -x * dir,
   y,
   scale,
   pointerEvents: "none",
@@ -65,9 +75,13 @@ export const ROUTE_VARIANTS = {
     exit: (dir = 1) => planeExit(dir, { y: -10, scale: 0.996 }),
   },
   "fade-up": {
-    initial: (dir = 1) => planeEnter(dir, { y: 22, scale: 0.985 }),
+    initial: (dir = 1) => planeEnter(dir, { y: 34, scale: 0.955 }),
     animate: { opacity: 1, x: 0, y: 0, scale: 1, translateZ: 0, willChange: "auto" },
-    exit: (dir = 1) => planeExit(dir, { y: -14, scale: 0.993 }),
+    /* The depth push: drilling into a title descends INTO the stack, so the
+       leaving page recedes (scales down, no upward drift) under the arriving
+       one instead of sliding off a rail. Back navigation reverses the depth:
+       the details page recedes while the list page surfaces. */
+    exit: (dir = 1) => planeExit(dir, { y: 0, scale: 0.965 }),
   },
   /* Direction-neutral characters (search, settings stay phrase-level fades —
      a sliding settings panel reads wrong). */

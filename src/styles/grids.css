@@ -130,7 +130,7 @@
 }
 
 /* ── Cinematic curtain — pure CSS hover/focus choreography ────────────────
-   The card lift, veil, curtain, meta row, play button and badge row are all
+   The card lift, veil, curtain, meta row, play disc and badge row are all
    transitioned here from ONE selector set instead of framer variants fed by a
    150ms-debounced React state. Three wins: transitions start on the FIRST
    frame of hover (no debounce lag), enter gets the silk curve + staged delays
@@ -139,7 +139,7 @@
    rest/hover split), and zero React work happens per card hover.
    `:hover` is scoped to real pointing devices so touch never gets a sticky
    hover curtain; keyboard `:focus-visible` opens it exactly like the old focus
-   handler did. The play button opens on the `translate` property so its own
+   handler did. The band rises on the `translate` property so the disc's own
    hover scale (`transform`) never fights the open travel. */
 
 /* Leave side (base) — what a hover EXITS to. */
@@ -149,9 +149,8 @@
 }
 /* rivo.st's card overlay: `translate-y-2 ... opacity-0 transition duration-300
    ease-tv group-hover/card:translate-y-0 group-hover/card:opacity-100`. One
-   band, one 8px rise, 300ms on their curve — their cards have no centred play
-   disc (clicking the card IS the action). Our brief re-adds a Play affordance
-   INSIDE the band (plus the title), keeping the no-centred-disc layout. */
+   band, one 8px rise, 300ms on their curve. The band carries title + meta
+   only — play lives in the centred disc above it. */
 .card-curtain {
   opacity: 0;
   transform: translateY(8px);
@@ -221,37 +220,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* Direct Play pill — the same white-pill language as Continue Watching's
-   Resume button. Touch devices never open the curtain, so the button leaves
-   the tab order there instead of sitting invisible between tabs. */
-.curtain-play {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 6px;
-  padding: 5px 12px;
-  border: none;
-  border-radius: 999px;
-  background: var(--white);
-  color: #09090b;
-  font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
-  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out);
-}
-.curtain-play:hover {
-  background: rgba(var(--white-rgb), 0.9);
-}
-.curtain-play:active {
-  transform: scale(0.95);
-}
-@media (hover: none) {
-  .curtain-play {
-    display: none;
-  }
-}
 .card-badges {
   transition: opacity var(--duration-instant) var(--ease-out);
 }
@@ -298,16 +266,10 @@
   pointer-events: auto;
   transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
 }
-/* Focus INSIDE the curtain (the Play pill) keeps it open — :focus-visible on
-   the card alone drops the instant focus moves into the button, which would
-   hide the focused control. */
-.movie-card:focus-within .card-curtain {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-  transition: opacity var(--duration-fast) var(--ease-tv), transform var(--duration-fast) var(--ease-tv);
-}
-/* Keyboard parity for the disc: card focus or focus on either play control. */
+/* Focus INSIDE the curtain kept it open while the Play pill was tabbable —
+   the band now carries no controls, so :focus-within can never match and the
+   rule is gone. Keyboard parity for the disc: card focus or focus on the disc
+   itself. */
 .movie-card:focus-visible .card-play-disc,
 .movie-card:focus-within .card-play-disc {
   opacity: 1;
