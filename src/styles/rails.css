@@ -270,7 +270,7 @@ textarea:focus-visible {
   place-items: center;
   width: 64px;
   height: 64px;
-  border-radius: 30px;
+  border-radius: 8px;
   overflow: hidden;
   background: rgba(var(--white-rgb), 0.06);
   border: 1px solid rgba(var(--white-rgb), 0.1);
