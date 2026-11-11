@@ -1,56 +1,17 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { useI18n } from "../i18n/index.jsx";
+import { StreamlyLoader } from "./StreamlyLoader";
 
-/* Liquid-wave loader — three dots that flow upward in a staggered wave.
-   Replaces the old dual-ring SVG spinner, which read as mechanical. The wave
-   is organic: each dot scales and lifts on a 1.4 s cycle, offset by 0.14 s so
-   the eye reads one continuous ripple rather than three separate pulses. */
+/* Universal Loader — the branded neon ring (see StreamlyLoader) in every
+   data-loading slot, so the app has ONE spinner look: page, inline, button
+   and the delayed global badge. The two big brand moments stay separate on
+   purpose: route changes show the page-loader GIF (RouteFallback) and the
+   player's cold open shows the player-loader GIF (PlayerLoader). The old
+   liquid-wave dots and every ad-hoc spinner (lucide Loader2, Tailwind
+   animate-spin, .btn-spinner) were replaced by this. */
 
-function WaveDots({ dimensions, color }) {
-  const dotSize = Math.max(4, Math.round(parseFloat(dimensions) * 0.22));
-  const gap = Math.max(3, Math.round(dotSize * 0.7));
-  const accent = color || "var(--accent-primary, #95ff50)";
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: `${gap}px`,
-        width: dimensions,
-        height: dimensions,
-      }}
-    >
-      {[0, 1, 2].map((i) => (
-        <span
-          key={i}
-          style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: "50%",
-            background: accent,
-            animation: `loader-wave 1.4s ease-in-out ${i * 0.14}s infinite`,
-            willChange: "transform, opacity",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/**
- * Universal Loader — liquid-wave dots with context-aware colours.
- *
- * Variants:
- * - 'page': Full-page centred wave for Suspense/loading states
- * - 'inline': Section-bound wave
- * - 'button': Tiny 18px wave for buttons
- * - 'global': Non-blocking frosted-glass badge fixed bottom-right for
- *   background fetches. Fades in after 400 ms so a fast request never flashes.
- */
-export default function Loader({ variant = "page", size, color }) {
+export default function Loader({ variant = "page", size }) {
   const isFetching = useIsFetching();
   const isMutating = useIsMutating();
   const { t } = useI18n();
@@ -71,17 +32,16 @@ export default function Loader({ variant = "page", size, color }) {
 
   if (variant === "global" && !showGlobal) return null;
 
-  // Sizing
-  let dimensions = "56px";
+  let dimensions = 56;
   if (size) dimensions = size;
-  else if (variant === "button") dimensions = "18px";
-  else if (variant === "global") dimensions = "28px";
+  else if (variant === "button") dimensions = 18;
+  else if (variant === "global") dimensions = 28;
 
   // ── Button variant ──
   if (variant === "button") {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        <WaveDots dimensions={dimensions} color={color} />
+        <StreamlyLoader size={dimensions} label="" />
       </span>
     );
   }
@@ -106,7 +66,7 @@ export default function Loader({ variant = "page", size, color }) {
           animation: "loader-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
-        <WaveDots dimensions={dimensions} color={color} />
+        <StreamlyLoader size={dimensions} label="" />
       </div>
     );
   }
@@ -121,9 +81,9 @@ export default function Loader({ variant = "page", size, color }) {
         justifyContent: "center",
         // Content-area height, not 100dvh: as a route Suspense fallback this
         // sits inside .app-main, where a full-viewport box blanks the page,
-        // drops the footer a screen down and reads as a reload. 55dvh keeps the
-        // spinner centred in the content well while the header/footer hold
-        // their place.
+        // drops the footer a screen down and reads as a reload. 55dvh keeps
+        // the spinner centred in the content well while the header/footer
+        // hold their place.
         minHeight: variant === "page" ? "55dvh" : "auto",
         width: "100%",
         padding: variant === "inline" ? "2rem" : "0",
@@ -131,7 +91,7 @@ export default function Loader({ variant = "page", size, color }) {
         flex: variant === "page" ? 1 : undefined,
       }}
     >
-      <WaveDots dimensions={dimensions} color={color} />
+      <StreamlyLoader size={dimensions} label="" />
       {variant === "page" && (
         <div
           style={{
@@ -140,7 +100,6 @@ export default function Loader({ variant = "page", size, color }) {
             fontWeight: 500,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            animation: "loader-wave 1.4s ease-in-out 0.28s infinite",
           }}
         >
           {t("common.loading")}

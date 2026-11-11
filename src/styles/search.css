@@ -23,9 +23,8 @@
   will-change: transform;
 }
 
-.animate-spin {
-  animation: spin 1s linear infinite;
-}
+/* The old `.animate-spin` utility is gone: loading states spin the branded
+   StreamlyLoader ring instead (see components/StreamlyLoader.jsx). */
 
 /* Hide mobile bottom nav by default on desktop */
 .mobile-bottom-nav {

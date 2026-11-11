@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertCircle, CheckCircle2, Loader2, MailCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, MailCheck } from "lucide-react";
+import { StreamlyLoader } from "../components/StreamlyLoader";
 import { useAppAuth } from "../context/auth";
 import { useI18n } from "../i18n";
 import { MotionLeaf } from "../components/MotionLeaf";
@@ -116,7 +117,7 @@ export default function VerifyEmailPage() {
       >
         {status === "working" && (
           <>
-            <Loader2 size={30} className="verify-card__icon" aria-hidden="true" />
+            <StreamlyLoader size={30} label="" className="verify-card__icon" />
             <h1 className="verify-card__title">{t(titleKey)}</h1>
           </>
         )}

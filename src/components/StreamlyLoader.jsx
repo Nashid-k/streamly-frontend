@@ -5,18 +5,20 @@
    GIF stays reserved for the player's video startup (see PlayerLoader). */
 
 export function StreamlyLoader({ size = 42, label = "Loading", className = "" }) {
+  const labelled = label !== "";
   return (
     <span
       className={`streamly-loader ${className}`.trim()}
       style={{ width: size, height: size }}
-      role="status"
-      aria-label={label}
+      {...(labelled
+        ? { role: "status", "aria-label": label }
+        : { "aria-hidden": true })}
     >
       <span className="streamly-loader__ring" aria-hidden="true" />
       <span className="streamly-loader__center" aria-hidden="true">
         <span className="streamly-loader__play" />
       </span>
-      <span className="streamly-loader__sr-only">{label}</span>
+      {labelled && <span className="streamly-loader__sr-only">{label}</span>}
     </span>
   );
 }

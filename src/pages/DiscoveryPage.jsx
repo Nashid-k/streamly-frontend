@@ -27,6 +27,7 @@ import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
 import { DURATION, EASE_OUT } from "../constants/motion";
+import { StreamlyLoader } from "../components/StreamlyLoader";
 
 /* Back-navigation memory for the grid. Filters already live in the URL; the
    scroll offset lives here, keyed by `mode + query`, so returning to a filtered
@@ -92,7 +93,7 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
     >
       <span className="flex items-center justify-center w-9 h-9 shrink-0">
         {busy ? (
-          <span className="btn-spinner" aria-hidden="true" />
+          <StreamlyLoader size={16} label="" />
         ) : (
           <Dices
             size={16}

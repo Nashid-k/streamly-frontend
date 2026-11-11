@@ -5,6 +5,7 @@ import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
 import useDialogA11y from "../hooks/useDialogA11y";
+import { StreamlyLoader } from "./StreamlyLoader";
 
 const RATING_LEGEND = [
   { label: "8.5+", color: "#22c55e" },
@@ -156,10 +157,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
           <div className="overflow-x-auto scrollbar-hide px-5 pb-5 pt-3">
             {rows.maxEp === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-white/45">
-                <span
-                  className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-[var(--accent-primary)]"
-                  aria-hidden="true"
-                />
+                <StreamlyLoader size={20} label="" />
                 <span className="text-sm">Loading ratings…</span>
               </div>
             ) : (

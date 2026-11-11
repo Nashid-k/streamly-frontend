@@ -25,6 +25,7 @@ import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
 import Loader from "../components/Loader";
+import { StreamlyLoader } from "../components/StreamlyLoader";
 
 const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
@@ -706,7 +707,7 @@ export default function SettingsPage() {
                           className="settings-hit px-3.5 py-1.5 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/15 text-white transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer disabled:opacity-50"
                         >
                           {syncStatus === "syncing" ? (
-                            <span className="btn-spinner" aria-hidden="true" style={{ width: "14px", height: "14px" }} />
+                            <StreamlyLoader size={14} label="" />
                           ) : (
                             <RotateCcw className="w-3.5 h-3.5" />
                           )}

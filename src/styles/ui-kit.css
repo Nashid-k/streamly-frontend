@@ -279,24 +279,10 @@
 /* Button icon spin on hover — removed: the only `.btn-icon-spin` consumer
    never rendered, so the rules were dead (no CSS/JXS reference remained). */
 
-/* Loading spinner for buttons */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.btn-spinner {
-  width: 18px; height: 18px;
-  border: 2px solid rgba(var(--white-rgb),0.3);
-  border-top-color: var(--white);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
+/* The old `.btn-spinner` border-circle and the shared `spin` keyframes are
+   gone: every button now spins the branded StreamlyLoader ring instead. */
 
 /* Loader component keyframes */
-@keyframes loader-wave {
-  0%, 80%, 100% { transform: scale(0.55) translateY(0); opacity: 0.35; }
-  40% { transform: scale(1) translateY(-3px); opacity: 1; }
-}
 @keyframes loader-fade-in {
   from { opacity: 0; transform: translateY(12px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }
