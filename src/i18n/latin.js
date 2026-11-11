@@ -39,6 +39,8 @@ export const es = {
       popularNow: "Populares Ahora",
       nowPlaying: "En cartelera / En cines",
       becauseWatched: "Porque viste",
+      providerMovies: "Películas de {name}",
+      providerShows: "Series de TV de {name}",
     },
   },
   search: {
@@ -171,6 +173,8 @@ export const fr = {
       popularNow: "Populaires en Ce Moment",
       nowPlaying: "À l'affiche / Au cinéma",
       becauseWatched: "Parce que vous avez regardé",
+      providerMovies: "Films sur {name}",
+      providerShows: "Séries TV sur {name}",
     },
   },
   search: {
@@ -304,6 +308,8 @@ export const de = {
       popularNow: "Jetzt beliebt",
       nowPlaying: "Im Kino / Laufend",
       becauseWatched: "Basierend auf",
+      providerMovies: "Filme auf {name}",
+      providerShows: "Serien auf {name}",
     },
   },
   search: {
@@ -437,6 +443,8 @@ export const it = {
       popularNow: "Popolari Ora",
       nowPlaying: "In Programmazione / Al Cinema",
       becauseWatched: "Perché hai guardato",
+      providerMovies: "Film su {name}",
+      providerShows: "Serie TV su {name}",
     },
   },
   search: {
@@ -570,6 +578,8 @@ export const pt = {
       popularNow: "Populares Agora",
       nowPlaying: "Em Cartaz / Nos Cinemas",
       becauseWatched: "Porque você assistiu",
+      providerMovies: "Filmes na {name}",
+      providerShows: "Séries na {name}",
     },
   },
   search: {

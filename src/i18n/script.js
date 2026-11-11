@@ -39,6 +39,8 @@ export const ja = {
       popularNow: "今人気の作品",
       nowPlaying: "上映中 / 劇場公開中",
       becauseWatched: "視聴履歴からのおすすめ",
+      providerMovies: "{name}の映画",
+      providerShows: "{name}のドラマ",
     },
   },
   search: {
@@ -172,6 +174,8 @@ export const ko = {
       popularNow: "지금 인기 있는 작품",
       nowPlaying: "상영 중 / 극장 개봉",
       becauseWatched: "시청 기록 기반 추천",
+      providerMovies: "{name} 영화",
+      providerShows: "{name} 드라마",
     },
   },
   search: {
@@ -305,6 +309,8 @@ export const hi = {
       popularNow: "अभी लोकप्रिय",
       nowPlaying: "चल रही / सिनेमाघरों में",
       becauseWatched: "आपके देखे गए के आधार पर",
+      providerMovies: "{name} की फ़िल्में",
+      providerShows: "{name} की टीवी सीरीज़",
     },
   },
   search: {
@@ -438,6 +444,8 @@ export const ar = {
       popularNow: "الشائع الآن",
       nowPlaying: "قيد العرض / في دور العرض",
       becauseWatched: "لأنك شاهدت",
+      providerMovies: "أفلام على {name}",
+      providerShows: "مسلسلات على {name}",
     },
   },
   search: {

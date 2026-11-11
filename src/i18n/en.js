@@ -93,6 +93,8 @@ export const en = {
       /* Rail head = this label + the anchor title as a bold button (the anchor
          picker), so the phrase must read naturally BEFORE a title. */
       becauseWatched: "Because you watched",
+      providerMovies: "Movies on {name}",
+      providerShows: "TV Series on {name}",
     },
   },
   search: {

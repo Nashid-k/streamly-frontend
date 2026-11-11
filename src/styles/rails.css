@@ -355,17 +355,28 @@ textarea:focus-visible {
   place-items: center;
   width: 64px;
   height: 64px;
+  padding: 0;
   border-radius: 8px;
   overflow: hidden;
   background: rgba(var(--white-rgb), 0.06);
   border: 1px solid rgba(var(--white-rgb), 0.1);
+  cursor: pointer;
+  font: inherit;
   transition:
     transform var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-silk);
+    background var(--duration-fast) var(--ease-silk),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 .provider-chip:hover {
   background: rgba(var(--white-rgb), 0.12);
   transform: translateY(-2px);
+}
+/* Selected chip: the provider whose catalogue is expanded inline below. */
+.provider-chip--active {
+  background: rgba(var(--white-rgb), 0.16);
+  border-color: rgba(var(--white-rgb), 0.45);
+  box-shadow: 0 0 0 1px rgba(var(--white-rgb), 0.3), 0 6px 18px rgba(var(--black-rgb), 0.35);
 }
 .provider-chip:focus-visible {
   outline: 2px solid var(--focus-ring-color);
@@ -375,6 +386,50 @@ textarea:focus-visible {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* Inline provider expansion — clicking a chip shows that provider's
+   catalogue on home (two rails: movies + TV) instead of navigating to
+   the Movies/Series browse page. */
+.provider-inline {
+  padding: 0 0.5rem;
+}
+.provider-inline__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.75rem 0.25rem 0;
+}
+.provider-inline__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--white-rgb), 0.14);
+  background: rgba(var(--white-rgb), 0.06);
+  color: var(--white);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+.provider-inline__close:hover {
+  background: rgba(var(--white-rgb), 0.14);
+  border-color: rgba(var(--white-rgb), 0.3);
+}
+.provider-inline__close:active {
+  transform: scale(0.94);
+}
+.provider-inline__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.provider-inline__empty {
+  margin: 0.5rem 0.25rem 1rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 /* Feed terminator — the page ends here instead of growing a tail of rails. */
