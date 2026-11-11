@@ -35,6 +35,10 @@
       type="font/woff2"
       crossorigin
     />
+    <!-- The route-change loader GIF: warmed at head-parse so the very first
+         lazy-route navigation shows the animation instantly instead of
+         popping it in late (it is ~116KB and cache-immutable after that). -->
+    <link rel="preload" href="/brand/streamly-page-loader.gif" as="image" />
 
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
