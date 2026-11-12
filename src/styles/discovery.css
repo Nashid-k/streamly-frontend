@@ -480,3 +480,55 @@
     flex-wrap: wrap;
   }
 }
+
+/* ── Pinned filters (Cinejoy .pinned-filters) ─────────────────────────────
+   When the header's filter row scrolls past, a second mount of the same row
+   (`DiscoveryFilters`, portaled to <body> by DiscoveryPage `filtersDock`)
+   docks to the bottom-centre as a glass capsule.
+
+   Desktop only: below 1024px the mobile bottom nav owns that edge, so the dock
+   stays `display:none` there and the header row remains the only copy. */
+.discover-filter-slot {
+  min-width: 0;
+}
+.discover-filters-dock {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .discover-filters-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    z-index: 45;
+    display: flex;
+    width: max-content;
+    max-width: calc(100vw - 3rem);
+    transform: translateX(-50%);
+    padding: 6px 8px;
+    border-radius: var(--radius-full);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
+    box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+    animation: discover-filters-dock 0.35s var(--ease-tv) both;
+  }
+  /* Menus drop DOWN in the header but UP from the docking bar — a panel below
+     a 26px-from-the-floor bar would open off-screen. */
+  .discover-filters-dock .discovery-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+  }
+}
+@keyframes discover-filters-dock {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .discover-filters-dock {
+    animation: none;
+  }
+}
+html[data-reduce-motion="true"] .discover-filters-dock {
+  animation: none;
+}

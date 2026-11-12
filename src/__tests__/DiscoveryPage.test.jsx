@@ -276,3 +276,66 @@ describe("DiscoveryPage browse banner carry", () => {
     expect(document.querySelector(".hero-bg")).toBeNull();
   });
 });
+
+describe("DiscoveryPage pinned filters (Cinejoy .pinned-filters)", () => {
+  it("docks the row only after the header row scrolls past, and hands the tab order to the dock", async () => {
+    const discover = vi
+      .spyOn(movieService, "getDiscover")
+      .mockResolvedValue(makeMovies(3));
+    // Desktop is the only place the dock exists; the shared setup reports "no
+    // match" for every query, so this suite opts in explicitly.
+    vi.stubGlobal("matchMedia", (query) => ({
+      matches: query.includes("1024"),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
+    let onFilterEntry = null;
+    const OriginalObserver = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class MockObserver {
+      constructor(cb) {
+        this.cb = cb;
+      }
+      observe(el) {
+        // Several observers mount on this page (grid sentinel, cards); only the
+        // filter slot's entry drives the dock.
+        if (el.classList?.contains("discover-filter-slot")) onFilterEntry = this.cb;
+      }
+      disconnect() {}
+    };
+
+    try {
+      renderPage("/movies");
+      await waitFor(() => expect(discover).toHaveBeenCalled());
+      expect(document.querySelector(".discover-filters-dock")).toBeNull();
+      expect(onFilterEntry).toBeTypeOf("function");
+
+      // Scrolled past: the row's bottom edge is above the viewport.
+      act(() => onFilterEntry([{ isIntersecting: false, boundingClientRect: { bottom: -20 } }]));
+
+      const dock = document.querySelector(".discover-filters-dock");
+      expect(dock).not.toBeNull();
+      expect(dock.querySelectorAll('[aria-haspopup="listbox"]')).toHaveLength(6);
+      // The inline copy must not be a second stop in the tab order.
+      expect(document.querySelector(".discover-filter-slot .discover-filters")).toHaveAttribute(
+        "inert",
+      );
+
+      // Scrolling back up returns the row to the header.
+      act(() => onFilterEntry([{ isIntersecting: true, boundingClientRect: { bottom: 140 } }]));
+      expect(document.querySelector(".discover-filters-dock")).toBeNull();
+      expect(
+        document.querySelector(".discover-filter-slot .discover-filters"),
+      ).not.toHaveAttribute("inert");
+    } finally {
+      if (OriginalObserver === undefined) delete globalThis.IntersectionObserver;
+      else globalThis.IntersectionObserver = OriginalObserver;
+      vi.unstubAllGlobals();
+    }
+  });
+});

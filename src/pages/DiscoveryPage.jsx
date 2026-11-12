@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
@@ -175,6 +176,219 @@ function LandscapeCard({ item, badgeLabel, onOpen }) {
   );
 }
 
+// ── Filter row — header copy + docked copy ─────────────────────────────
+// One component, two mounts. Both read the same URL params through the same
+// handlers, so they can never disagree; while the dock is up the inline copy is
+// `inert`, so exactly one reachable set of filter buttons exists at a time.
+function DiscoveryFilters({
+  inert,
+  random,
+  setParam,
+  hasSortParam,
+  genreParam,
+  yearParam,
+  sortParam,
+  providerParam,
+  countryParam,
+  languageParam,
+  genreLabel,
+  yearLabel,
+  sortLabel,
+  providerLabel,
+  countryLabel,
+  languageLabel,
+  genreOptions,
+  providerOptions,
+  countryOptions,
+  yearOptions,
+  languageOptions,
+}) {
+  return (
+    <div
+      className="discover-filters flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto"
+      inert={inert}
+    >
+      <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
+        <RandomPill
+          ariaLabel={random.ariaLabel}
+          onClick={random.onClick}
+          busy={random.busy}
+          disabled={random.disabled}
+        />
+        <FilterPill label={genreLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__all"
+                label="All Genres"
+                selected={!genreParam}
+                onSelect={() => {
+                  setParam("genre", "");
+                  close();
+                }}
+              />
+              {genreOptions.map((g) => (
+                <MenuItem
+                  key={g.id}
+                  label={g.name}
+                  selected={String(g.id) === genreParam}
+                  onSelect={() => {
+                    setParam("genre", String(g.id));
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+        <FilterPill label={yearLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__all"
+                label="Any Year"
+                selected={!yearParam}
+                onSelect={() => {
+                  setParam("year", "");
+                  close();
+                }}
+              />
+              {yearOptions.map((y) => (
+                <MenuItem
+                  key={y}
+                  label={y}
+                  selected={y === yearParam}
+                  onSelect={() => {
+                    setParam("year", y);
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+      </div>
+      <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
+        <FilterPill label={sortLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__default"
+                label="Default"
+                selected={!hasSortParam}
+                onSelect={() => {
+                  setParam("sort", "");
+                  close();
+                }}
+              />
+              {SORT_OPTIONS.map((o) => (
+                <MenuItem
+                  key={o.value}
+                  label={o.label}
+                  selected={o.value === sortParam}
+                  onSelect={() => {
+                    setParam("sort", o.value);
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+        <FilterPill label={providerLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__any"
+                label="Any Provider"
+                selected={!providerParam}
+                onSelect={() => {
+                  setParam("provider", "");
+                  close();
+                }}
+              />
+              {providerOptions.map((p) => (
+                <MenuItem
+                  key={p.id}
+                  label={p.name}
+                  selected={String(p.id) === providerParam}
+                  icon={
+                    p.logoUrl ? (
+                      <img
+                        src={p.logoUrl}
+                        alt=""
+                        className="w-4 h-4 rounded object-contain bg-white/10"
+                        loading="lazy"
+                      />
+                    ) : null
+                  }
+                  onSelect={() => {
+                    setParam("provider", String(p.id));
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+
+        <FilterPill label={languageLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__any"
+                label="Any Language"
+                selected={!languageParam}
+                onSelect={() => {
+                  setParam("language", "");
+                  close();
+                }}
+              />
+              {languageOptions.map((l) => (
+                <MenuItem
+                  key={l.id}
+                  label={l.name}
+                  selected={l.id === languageParam}
+                  onSelect={() => {
+                    setParam("language", l.id);
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+        <FilterPill label={countryLabel}>
+          {({ close }) => (
+            <>
+              <MenuItem
+                key="__any"
+                label="Any Country"
+                selected={!countryParam}
+                onSelect={() => {
+                  setParam("country", "");
+                  close();
+                }}
+              />
+              {countryOptions.map((r) => (
+                <MenuItem
+                  key={r.code}
+                  label={r.name}
+                  selected={String(r.code) === countryParam}
+                  onSelect={() => {
+                    setParam("country", String(r.code));
+                    close();
+                  }}
+                />
+              ))}
+            </>
+          )}
+        </FilterPill>
+      </div>
+    </div>
+  );
+}
+
 // ── Month-grouped "Upcoming" rail ─────────────────────────────────────────
 // The full theatrical slate, not one sparse row: railItems (already sorted
 // soonest-first) group into per-month rails with a count pill and self-contained
@@ -235,6 +449,47 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const { openDetails, modalHost } = useDetailView();
   const preferences = useOptionalPreferences();
   const railRef = useRef(null);
+
+  /* ── Pinned filters (Cinejoy .pinned-filters) ──────────────────────────
+     Once the header's filter row scrolls above the viewport, the filter row
+     docks to the bottom-centre of the screen as a glass capsule (the
+     `streamly-update/` mock's `.pinned-filters`).
+
+     The header keeps its row in place — only the docked copy is fixed — so
+     docking never collapses the header or shifts the page. While the dock is
+     up the header copy is `inert`, so there is exactly one reachable set of
+     pills at any time.
+     Desktop only — the CSS dock applies from 1024px up (the mobile bottom nav
+     owns the bottom edge below that), so `desktop.matches` gates the state. */
+  const filterSlotRef = useRef(null);
+  const [filtersDock, setFiltersDock] = useState(false);
+
+  useEffect(() => {
+    const slot = filterSlotRef.current;
+    if (!slot || typeof IntersectionObserver === "undefined") return undefined;
+    const desktop =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(min-width: 1024px)")
+        : null;
+    // "Scrolled past", not merely "not intersecting": a row below the fold is
+    // also not intersecting, but nothing has been scrolled past yet.
+    let scrolledPast = false;
+    const apply = () => {
+      const stuck = scrolledPast && (!desktop || desktop.matches);
+      setFiltersDock((prev) => (prev === stuck ? prev : stuck));
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      scrolledPast =
+        !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+      apply();
+    });
+    observer.observe(slot);
+    desktop?.addEventListener?.("change", apply);
+    return () => {
+      observer.disconnect();
+      desktop?.removeEventListener?.("change", apply);
+    };
+  }, []);
 
   const genreParam = searchParams.get("genre") || null;
   const yearParam = searchParams.get("year") || null;
@@ -604,6 +859,36 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
   const ambientSrc = gridItems[0]?.backdropUrl || gridItems[0]?.posterUrl || railItems[0]?.backdropUrl || null;
 
+  /* One bundle feeds both mounts of the filter row (header + dock), so the two
+     can never drift apart. */
+  const filterBarProps = {
+    setParam,
+    hasSortParam: Boolean(searchParams.get("sort")),
+    genreParam,
+    yearParam,
+    sortParam,
+    providerParam,
+    countryParam,
+    languageParam,
+    genreLabel,
+    yearLabel,
+    sortLabel,
+    providerLabel,
+    countryLabel,
+    languageLabel,
+    genreOptions: genresQuery.data || [],
+    providerOptions: providersQuery.data || [],
+    countryOptions: regionsQuery.data || [],
+    yearOptions,
+    languageOptions: LANGUAGE_OPTIONS,
+    random: {
+      ariaLabel: cfg.randomAria,
+      onClick: handleRandom,
+      busy: randomPicking,
+      disabled: randomPool.length === 0,
+    },
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <SEO
@@ -629,185 +914,12 @@ export default function DiscoveryPage({ mode = "movies" }) {
                   stays available to assistive tech and the document outline. */}
               <h1 className="sr-only">{cfg.title}</h1>
 
-              {/* Filter pills */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto">
-                <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-                  <RandomPill
-                    ariaLabel={cfg.randomAria}
-                    onClick={handleRandom}
-                    busy={randomPicking}
-                    disabled={randomPool.length === 0}
-                  />
-                  <FilterPill label={genreLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__all"
-                          label="All Genres"
-                          selected={!genreParam}
-                          onSelect={() => {
-                            setParam("genre", "");
-                            close();
-                          }}
-                        />
-                        {(genresQuery.data || []).map((g) => (
-                          <MenuItem
-                            key={g.id}
-                            label={g.name}
-                            selected={String(g.id) === genreParam}
-                            onSelect={() => {
-                              setParam("genre", String(g.id));
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-                  <FilterPill label={yearLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__all"
-                          label="Any Year"
-                          selected={!yearParam}
-                          onSelect={() => {
-                            setParam("year", "");
-                            close();
-                          }}
-                        />
-                        {yearOptions.map((y) => (
-                          <MenuItem
-                            key={y}
-                            label={y}
-                            selected={y === yearParam}
-                            onSelect={() => {
-                              setParam("year", y);
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-                </div>
-                <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-                  <FilterPill label={sortLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__default"
-                          label="Default"
-                          selected={!searchParams.get("sort")}
-                          onSelect={() => {
-                            setParam("sort", "");
-                            close();
-                          }}
-                        />
-                        {SORT_OPTIONS.map((o) => (
-                          <MenuItem
-                            key={o.value}
-                            label={o.label}
-                            selected={o.value === sortParam}
-                            onSelect={() => {
-                              setParam("sort", o.value);
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-                  <FilterPill label={providerLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__any"
-                          label="Any Provider"
-                          selected={!providerParam}
-                          onSelect={() => {
-                            setParam("provider", "");
-                            close();
-                          }}
-                        />
-                        {(providersQuery.data || []).map((p) => (
-                          <MenuItem
-                            key={p.id}
-                            label={p.name}
-                            selected={String(p.id) === providerParam}
-                            icon={
-                              p.logoUrl ? (
-                                <img
-                                  src={p.logoUrl}
-                                  alt=""
-                                  className="w-4 h-4 rounded object-contain bg-white/10"
-                                  loading="lazy"
-                                />
-                              ) : null
-                            }
-                            onSelect={() => {
-                              setParam("provider", String(p.id));
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-
-                  <FilterPill label={languageLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__any"
-                          label="Any Language"
-                          selected={!languageParam}
-                          onSelect={() => {
-                            setParam("language", "");
-                            close();
-                          }}
-                        />
-                        {LANGUAGE_OPTIONS.map((l) => (
-                          <MenuItem
-                            key={l.id}
-                            label={l.name}
-                            selected={l.id === languageParam}
-                            onSelect={() => {
-                              setParam("language", l.id);
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-                  <FilterPill label={countryLabel}>
-                    {({ close }) => (
-                      <>
-                        <MenuItem
-                          key="__any"
-                          label="Any Country"
-                          selected={!countryParam}
-                          onSelect={() => {
-                            setParam("country", "");
-                            close();
-                          }}
-                        />
-                        {(regionsQuery.data || []).map((r) => (
-                          <MenuItem
-                            key={r.code}
-                            label={r.name}
-                            selected={String(r.code) === countryParam}
-                            onSelect={() => {
-                              setParam("country", String(r.code));
-                              close();
-                            }}
-                          />
-                        ))}
-                      </>
-                    )}
-                  </FilterPill>
-                </div>
+              {/* Filter pills — in the header, and the SAME component docks to
+                  the bottom of the screen once this row scrolls past (see
+                  `filtersDock`). `inert` while docked: the off-screen copy must
+                  not add a second set of filter buttons to the tab order. */}
+              <div ref={filterSlotRef} className="discover-filter-slot w-full xl:w-auto">
+                <DiscoveryFilters {...filterBarProps} inert={filtersDock || undefined} />
               </div>
             </div>
           </div>
@@ -993,6 +1105,17 @@ export default function DiscoveryPage({ mode = "movies" }) {
             />
           )}
         </section>
+
+        {/* Docked filter bar (Cinejoy .pinned-filters). Portaled to <body>
+            because the route wrapper carries a transform — `position: fixed`
+            inside it would anchor to the page instead of the viewport. */}
+        {filtersDock &&
+          createPortal(
+            <div className="discover-filters-dock" role="group" aria-label="Filters">
+              <DiscoveryFilters {...filterBarProps} />
+            </div>,
+            document.body,
+          )}
 
         {/* Netlix-style info modal host (one shared instance per page) */}
         {modalHost}

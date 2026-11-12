@@ -529,6 +529,13 @@ chips with individual remove, "Clear all", result count, **URL-synced** state; s
 the header, collapsing on scroll; responsive grid 3/4/5/6/7; keep filters + scroll on back;
 empty state with suggestions + reset; error state with retry; skeleton matches the grid.
 
+**Filter row docking added 2026-11-12.** The brief's "sticky under the header" is
+superseded on desktop: once the header's filter row scrolls past, it docks to the
+bottom-centre as a glass capsule (the `streamly-update/` mock's `.pinned-filters`),
+rendered from one `DiscoveryFilters` prop bundle and portaled to `<body>`; the
+inline copy goes `inert` while docked. See `task.md` (2026-11-12) for the audit of
+that mock — everything else in it was already implemented here, deeper.
+
 ### P3-1 — Header (`DONE`)
 `DiscoveryPage` already has a hero/header and a result surface; confirm a visible `h1` and a
 result count. **Verify:** one visible `h1` per page.
