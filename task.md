@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **Pinned filter dock double-border removal & frosted glass blur on dock and navbar — 2026-11-12 (branch `main`).**
+  - **Removed double border on pinned filters dock**: Removed outer border, padding, and background on `.pinned-filters.discover-filters-dock` so the outer container acts solely as a fixed translation/position wrapper (`background: transparent !important; border: none !important; padding: 0 !important; box-shadow: none !important;`). The inner `.filter-bar` remains the sole pill capsule with a single border (`1px solid var(--glass-border)`), 6px padding, and `radius-pill`. Consolidated duplicate conflicting dock declarations in `src/styles/discovery.css`.
+  - **Translucent blurred glass dock styling**: Replaced dark opaque background (`var(--glass-bg, rgba(20, 16, 32, 0.55))`) with translucent frosted glass (`rgba(255, 255, 255, 0.06)`, `backdrop-filter: blur(20px) saturate(1.4)`). Added `backdrop-filter: blur(8px)` to `.random-btn` to match `.filter-btn`.
+  - **Frosted glass blur applied to navbar & mobile nav**: Updated `.navbar` to `rgba(255, 255, 255, 0.06)` with `backdrop-filter: blur(20px) saturate(1.4)` and `.navbar.scrolled` to `rgba(255, 255, 255, 0.09)` with `backdrop-filter: blur(24px) saturate(1.5)` in `src/styles/header.css`. Updated `--glass-bg` in `src/styles/tokens.css` from `rgba(18, 18, 24, 0.72)` to `rgba(255, 255, 255, 0.06)`. Updated `.mobile-bottom-nav` background in `src/styles/responsive.css` to `rgba(255, 255, 255, 0.06)`.
+  - Gates: `npx oxlint` 0 errors; vitest 5 suites / 90 tests passed; `npm run build` exit 0 (1.87s).
+
 - [x] **`streamly-update/` Cinejoy Search page & Home page HTML mirror + card captions removed — 2026-11-12 (branch `main`).**
   - **Removed below-card text**: In `MovieCard.jsx`, removed permanent below-card metadata (`.movie-info` name, year, rating) since title, rating, year, and play disc display on hover inside the poster overlay curtain. Preserved `highlightQuery` query match `<mark>` rendering only during active searches.
   - **Search Page mirror (`search.html`)**: Aligned `SearchPage.jsx` and `search.css` to `search.html`: `.search-page` with 140px top padding and 40px gap; full `.search-hero` ("Discover something new" + "Search across all movies, TV shows & people"); 56px `.search-bar` pill with glass border and green focus glow; `.search-section-head` (18px, weight 600, text-muted, no accent bar); `.search-results-grid` with auto-fill 140px/200px and CSS `cardIn` stagger.

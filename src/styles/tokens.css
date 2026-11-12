@@ -190,7 +190,7 @@
   --focus-ring: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.22), 0 0 0 1px rgba(var(--accent-secondary-rgb), 0.48);
 
   /* ── Glass / Blur ──────────────────────────────────────── */
-  --glass-bg: rgba(18, 18, 24, 0.72);
+  --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.15);
   --glass-blur: blur(14px) saturate(140%);
 

@@ -143,6 +143,8 @@
   transition: max-width var(--duration-normal) var(--ease-out), background var(--duration-fast) var(--ease-out);
   max-width: 38px;
   white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .random-btn:hover {
   max-width: 160px;
@@ -262,6 +264,7 @@
 }
 
 /* === Pinned filters — floats at bottom-center === */
+.discover-filters-dock,
 .pinned-filters {
   position: fixed;
   bottom: 28px;
@@ -270,30 +273,52 @@
   z-index: 45;
   pointer-events: none;
   opacity: 0;
-  transition: transform 0.5s var(--ease, cubic-bezier(0.22, 1, 0.36, 1)), opacity 0.3s var(--ease, cubic-bezier(0.22, 1, 0.36, 1));
+  transition: transform var(--duration-slow) var(--ease-tv), opacity var(--duration-normal) var(--ease-out);
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  display: none;
 }
-.pinned-filters.is-stuck {
-  transform: translate(-50%, 0) scale(1);
-  pointer-events: auto;
-  opacity: 1;
+@media (min-width: 1024px) {
+  .discover-filters-dock,
+  .pinned-filters {
+    display: flex;
+  }
+  .discover-filters-dock.is-stuck,
+  .pinned-filters.is-stuck {
+    transform: translate(-50%, 0) scale(1);
+    pointer-events: auto;
+    opacity: 1;
+  }
 }
+.discover-filters-dock .filter-bar,
 .pinned-filters .filter-bar {
-  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
   border-radius: var(--radius-pill, 9999px);
   padding: 6px;
-  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-@media (max-width: 1023px) {
-  .pinned-filters {
-    display: none;
-  }
-}
+.discover-filters-dock .discovery-menu,
 .pinned-filters .discovery-menu {
   top: auto;
   bottom: calc(100% + 8px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .discover-filters-dock,
+  .pinned-filters {
+    transition: none;
+  }
+}
+html[data-reduce-motion="true"] .discover-filters-dock,
+html[data-reduce-motion="true"] .pinned-filters {
+  transition: none;
 }
 
 /* Poster grid: the brief's density ladder — 3 → 4 → 5 → 6 → 7 columns at
@@ -784,45 +809,4 @@
    stays `display:none` there and the header row remains the only copy. */
 .discover-filter-slot {
   min-width: 0;
-}
-.discover-filters-dock {
-  display: none;
-}
-@media (min-width: 1024px) {
-  .discover-filters-dock {
-    position: fixed;
-    left: 50%;
-    bottom: 26px;
-    z-index: 45;
-    display: flex;
-    width: max-content;
-    max-width: calc(100vw - 3rem);
-    transform: translateX(-50%);
-    padding: 6px 8px;
-    border-radius: var(--radius-full);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: blur(20px) saturate(1.4);
-    backdrop-filter: blur(20px) saturate(1.4);
-    box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
-    animation: discover-filters-dock 0.35s var(--ease-tv) both;
-  }
-  /* Menus drop DOWN in the header but UP from the docking bar — a panel below
-     a 26px-from-the-floor bar would open off-screen. */
-  .discover-filters-dock .discovery-menu {
-    top: auto;
-    bottom: calc(100% + 8px);
-  }
-}
-@keyframes discover-filters-dock {
-  from { opacity: 0; transform: translate(-50%, 14px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .discover-filters-dock {
-    animation: none;
-  }
-}
-html[data-reduce-motion="true"] .discover-filters-dock {
-  animation: none;
 }

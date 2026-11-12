@@ -152,13 +152,13 @@
   padding: 6px;
   max-width: fit-content;
   border-radius: var(--radius-full);
-  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
+  background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   transform: translateZ(0);
   will-change: transform;
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
   transition: transform var(--anim-hover-time) var(--anim-hover-ease),
               border-color var(--duration-fast) var(--ease-out),
               background-color var(--duration-fast) var(--ease-out),
@@ -166,11 +166,11 @@
 }
 .navbar.scrolled {
   transform: translateY(-4px) translateZ(0);
-  background-color: rgba(12, 12, 14, 0.85);
-  backdrop-filter: blur(24px) saturate(1.6);
-  -webkit-backdrop-filter: blur(24px) saturate(1.6);
-  border-color: rgba(var(--white-rgb), 0.14);
-  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+  background-color: rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.6);
 }
 @media (min-width: 1024px) {
   .navbar:not(.scrolled):hover {
