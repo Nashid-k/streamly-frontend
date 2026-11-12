@@ -476,27 +476,24 @@
   color: var(--white);
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
-  width: auto;
-  min-width: clamp(94px, 8vw, 116px);
-  height: clamp(38px, 3.2vw, 46px);
-  padding: 0 3px;
+  height: 52px;
+  padding: 0;
   overflow: hidden;
   box-sizing: border-box;
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   border-radius: var(--radius-full);
-  /* Cinejoy `.theme-btn-secondary`: white/10 glass, white hairline border */
   background-color: rgba(var(--white-rgb), 0.1);
-  border: 1px solid rgba(var(--white-rgb), 0.2);
-  backdrop-filter: blur(12px) saturate(135%);
-  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  border: 1px solid rgba(var(--white-rgb), 0.12);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
   transform: translateZ(0);
   box-shadow: 0 10px 30px rgba(var(--black-rgb), 0.35);
 }
 @media (hover: hover) and (pointer: fine) {
 .hero-action-pill:hover {
-  background-color: rgba(var(--white-rgb), 0.2);
-  border-color: rgba(var(--white-rgb), 0.3);
+  background-color: rgba(var(--white-rgb), 0.16);
+  border-color: rgba(var(--white-rgb), 0.22);
 }
 }
 .hero-action-pill > a {
@@ -522,9 +519,6 @@
   transform: translateZ(0);
   box-shadow: 0 8px 20px rgba(var(--black-rgb), 0.35);
   cursor: pointer;
-  /* Lift on the silk hover curve; colour shifts stay fast (a slow colour fade
-     reads as lag). :active below re-declares its own transition, so the press
-     snap keeps the token duration. */
   transition: transform var(--anim-hover-time) var(--anim-hover-ease), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -538,14 +532,11 @@
   transform: scale(0.92);
 }
 .hero-cta-secondary-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1 1 0;
-  width: auto;
-  max-width: 52px;
+  display: grid;
+  place-items: center;
+  width: 56px;
   height: 100%;
-  border-radius: 50%;
+  border-radius: 0;
   background: transparent;
   border: none;
   color: var(--white);
@@ -557,117 +548,98 @@
   background-color: rgba(var(--white-rgb), 0.14);
 }
 }
+.hero-cta-secondary-icon:active {
+  transform: scale(0.94);
+}
 .hero-cta-separator {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  color: rgba(var(--white-rgb), 0.35);
-  font-size: 1.3rem;
-  font-weight: 300;
-  line-height: 1;
-  margin: 0 2px;
+  width: 1px;
+  height: 22px;
+  align-self: center;
+  background: rgba(var(--white-rgb), 0.18);
+  font-size: 0;
+  line-height: 0;
   user-select: none;
 }
 
-/* ── Apple-style dot indicators — progress pill track with accent fill ── */
-.hero-dots--apple {
-  bottom: 1.5rem !important;
-  right: clamp(1.5rem, 5vw, 2.5rem);
+/* ── Cinejoy dot indicators — 8px dots expanding to 36px capsule with progress fill ── */
+.hero-dots--apple,
+.hero-dots,
+.hero__dots {
+  position: absolute !important;
+  right: var(--gutter, 64px) !important;
+  bottom: 120px !important;
   left: auto !important;
   transform: none !important;
   display: flex;
-  gap: 4px;
+  gap: 8px;
   align-items: center;
-  padding: 4px 8px;
-  /* The row reads as one control surface again (the old glass pill), so the
-     ticks + arrows do not float as loose marks over the artwork. */
-  background: transparent;
-  border: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-radius: var(--radius-full);
+  z-index: 3;
 }
-@media (max-width: 1200px) {
-  .hero-dots--apple {
-    right: auto !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    bottom: 1rem !important;
+@media (max-width: 900px) {
+  .hero-dots--apple,
+  .hero-dots,
+  .hero__dots {
+    display: none !important;
   }
 }
-/* Fixed-track markers (Phase C A/B): every dot is one permanent 52x7 slot, so a
-   featured rotation only swaps background colors instead of transitioning
-   `width` (which reflowed the pills row each cycle). Idle slots read wider and
-   airier than the old 18px pills - deliberate look change, cheap to revert. */
-/* One pill PER slide (never one continuous bar): each 48x44 button is the hit
-   area and its 7px bar is the visual, with a real gap between neighbours. */
 .hero-dot {
-  width: 48px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  background: none;
-  border: none;
-  appearance: none;
-  -webkit-appearance: none;
-  box-shadow: none;
-  cursor: pointer;
   position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full, 999px);
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  transition: width 0.4s var(--ease-out), background 0.3s var(--ease-out);
+  cursor: pointer;
   padding: 0;
   margin: 0;
-  border-radius: var(--radius-full);
-  transition: background var(--duration-fast) var(--ease-out);
-}
-.hero-dot__bar {
-  position: relative;
+  border: none;
   display: block;
-  width: 100%;
-  height: 7px;
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: rgba(var(--white-rgb), 0.28);
-  transition: background var(--duration-fast) var(--ease-out);
 }
-.hero-dot:hover .hero-dot__bar,
-.hero-dot:focus-visible .hero-dot__bar {
-  background: rgba(var(--white-rgb), 0.6);
-}
-@media (hover: hover) and (pointer: fine) {
-}
-.hero-dot--active .hero-dot__bar {
-  background: rgba(var(--white-rgb), 0.18);
+.hero-dot:hover {
+  background: rgba(255, 255, 255, 0.45);
 }
 .hero-dot--active {
-  box-shadow: none;
+  width: 36px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.hero-dot__bar {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full, 999px);
+  overflow: hidden;
+  background: transparent;
+  width: 100%;
+  height: 100%;
 }
 .hero-dot--active .dot-filler {
-  background: var(--accent-gradient, linear-gradient(90deg, var(--accent-color), #5ce21c));
+  position: absolute;
+  inset: 0;
+  background: var(--accent-color, #95ff50);
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: hero-progress 10s linear forwards;
+}
+@keyframes hero-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
-/* Manual paging row: two 44px arrows around the 44px ticks. It keeps the old
-   floating position (bottom-right, centred under 1200px) by inheriting the
-   `.hero-dots--apple` placement and only tightening the internal gaps. */
 .hero-nav {
-  gap: 4px;
-  padding: 4px 8px;
+  gap: 8px;
+  padding: 0;
 }
 .hero-dots__ticks {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-/* Below 480px the ticks tighten so the pill track never overflows; the row
-   stays swipeable and the dots remain the primary control. */
 @media (max-width: 480px) {
-  .hero-dot {
-    width: 44px;
-  }
-  .hero-dot__bar {
-    width: 36px;
-  }
   .hero-dots__ticks {
-    gap: 2px;
+    gap: 4px;
   }
 }
 /* Off-screen live region: the animated hero swaps its whole subtree, so the

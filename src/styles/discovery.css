@@ -2,6 +2,58 @@
    Scoped to .discovery-page so the shimmering green accent (var(--accent-color) = the
    Cinejoy brand green) never bleeds into the rest of the app. */
 
+/* ── Row section & Row head (Cinejoy parity) ────────────────────────── */
+.row-section {
+  padding: 28px 0;
+  position: relative;
+}
+.row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 var(--gutter, 24px);
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.row-head h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white, #ffffff);
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (min-width: 1024px) {
+  .row-head {
+    padding: 0 var(--gutter, 64px);
+  }
+}
+
+.sk-upcoming {
+  flex: 0 0 auto;
+  width: 264px;
+}
+.sk-upcoming__poster {
+  aspect-ratio: 16/9;
+  border-radius: var(--radius, 16px);
+}
+.sk-upcoming__cap {
+  margin-top: 10px;
+}
+.sk-upcoming__line {
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 3px;
+  width: 70%;
+}
+@media (min-width: 1024px) {
+  .sk-upcoming {
+    width: 316px;
+  }
+}
+
 /* ── Movies / Series discover header (Cinejoy parity) ───────────────── */
 .discover {
   padding: 36px 0 16px;

@@ -8,11 +8,15 @@
   inset: 0 0 auto 0;
   z-index: var(--z-sticky);
   display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: 2rem;
-  padding: var(--header-inset) clamp(0.75rem, 2vw, 1.25rem) 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px var(--gutter, 24px);
   pointer-events: none;
+}
+@media (min-width: 1024px) {
+  .header-row {
+    padding: 18px var(--gutter, 64px);
+  }
 }
 .header-row:hover,
 .header-row:has(:focus-visible) {
@@ -96,25 +100,26 @@
    Both it and the mark feed `--header-h`, so the island's footprint is
    declared once (tokens.css) and never drifts from what a page clears. */
 .back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-grid;
+  place-items: center;
   flex-shrink: 0;
-  width: var(--back-btn-h);
-  height: var(--back-btn-h);
-  border-radius: var(--radius-full);
-  background: transparent;
-  border: none;
-  color: rgba(var(--white-rgb), 0.8);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: var(--text-strong, #ffffff);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
   pointer-events: auto;
   margin-right: var(--spacing-sm);
-  transition: background-color var(--duration-normal) var(--ease-out), color var(--duration-normal) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  transition: background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
 }
 @media (hover: hover) and (pointer: fine) {
 .back-btn:hover {
-  background: rgba(var(--white-rgb), 0.08);
-  color: var(--white);
+  background: rgba(0, 0, 0, 0.6);
+  transform: scale(1.08);
 }
 }
 .back-btn:active {
@@ -143,35 +148,21 @@
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
-  padding: var(--nav-pad) 6px var(--nav-pad) var(--nav-pad);
+  gap: 4px;
+  padding: 6px;
   max-width: fit-content;
   border-radius: var(--radius-full);
-  /* Translucent glass in PURE CSS — no backdrop-filter. A blur() behind the
-     dock re-renders on every frame the page scrolls underneath it; instead a
-     translucent tint the artwork shows through, a static top sheen and
-     hairline edges sell the glass for the cost of one cheap layer. */
-  background-image: linear-gradient(
-    to bottom,
-    rgba(var(--white-rgb), 0.09),
-    rgba(var(--white-rgb), 0.02) 45%,
-    transparent 60%
-  );
-  background-color: rgba(12, 12, 14, 0.5);
+  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   transform: translateZ(0);
   will-change: transform;
-  border: 1px solid rgba(var(--white-rgb), 0.12);
-  box-shadow:
-    inset 0 1px 0 rgba(var(--white-rgb), 0.12),
-    inset 0 -1px 0 rgba(var(--white-rgb), 0.05),
-    0 8px 24px rgba(var(--black-rgb), 0.35);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
   transition: transform var(--anim-hover-time) var(--anim-hover-ease),
               border-color var(--duration-fast) var(--ease-out),
               background-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out);
-  /* Condense: the padded pill glides smoothly (transform only) and the
-     tint/shadow ease with the scroll state for a polished feel. */
 }
 .navbar.scrolled {
   transform: translateY(-4px) translateZ(0);
@@ -179,10 +170,7 @@
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
   border-color: rgba(var(--white-rgb), 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(var(--white-rgb), 0.14),
-    inset 0 -1px 0 rgba(var(--white-rgb), 0.06),
-    0 10px 36px rgba(var(--black-rgb), 0.4);
+  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
 }
 @media (min-width: 1024px) {
   .navbar:not(.scrolled):hover {
@@ -197,75 +185,62 @@
 .nav-cluster {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex: 0 1 auto;
   min-width: 0;
 }
-
-/* Gradient accent used by the footer wordmark */
 
 /* Cinejoy-style divider between the tabs and the utility icon cluster */
 .nav-separator {
   position: relative;
   z-index: 1;
   width: 1px;
-  height: 14px;
-  margin: 0 2px;
+  height: 22px;
+  margin: 0 6px;
   flex: 0 0 auto;
-  background: linear-gradient(to bottom, rgba(var(--white-rgb), 0), rgba(var(--white-rgb), 0.16), rgba(var(--white-rgb), 0));
+  background: var(--line, rgba(255, 255, 255, 0.10));
   border-radius: 1px;
 }
 
-/* ── Right nav links — Home as a solid white pill, rest as text ────────── */
+/* ── Right nav links ─────────────────────────────────────────────────── */
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
 }
 
 .nav-link {
   position: relative;
   z-index: 1;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  height: var(--nav-item-h);
-  /* Text-only tabs (2026-11-11): inactive tabs render their label alone and
-     the icon mounts beside it on the ACTIVE tab only (display rules below) —
-     the dock stays short instead of uniform 118px slots. The geometry change
-     is measured in measurePill's synchronous useLayoutEffect in the same
-     commit the class flips, so the pill glide never desyncs from the dock. */
-  padding: 0 10px;
-  font-size: 13px;
-  /* 600 is a frozen contract: motion.test pins it so the pill never reflows
-     between rest and active state. */
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 600;
-  color: rgba(var(--white-rgb), 0.6);
+  color: var(--text-muted, rgba(var(--white-rgb), 0.6));
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
-  /* The ink never crossfades. It stays white and `difference` resolves it to
-     black wherever the white pill is behind it, so the label is legible at
-     every pixel of the pill's travel. */
   mix-blend-mode: difference;
-  transition: background-color var(--duration-fast) var(--ease-out), transform var(--anim-hover-time) var(--anim-hover-ease);
+  transition: color var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
 @media (hover: hover) and (pointer: fine) {
 .nav-link:hover {
-  color: var(--white);
+  color: var(--text-strong, #ffffff);
 }
 }
 .nav-link:active {
   transform: scale(0.96);
 }
 
-/* Active state — the shared pill supplies the white field; the label stays
-   full-strength white so `difference` resolves it to pure black over the pill. */
+/* Active state */
 .nav-link--home {
-  gap: 5px;
-  padding: 0 10px;
+  gap: 8px;
+  padding: 0 16px;
 }
 .nav-link--active {
   color: #04120b !important;
@@ -286,8 +261,8 @@
 .nav-active-pill {
   position: absolute;
   left: 0;
-  top: var(--nav-pad);
-  bottom: var(--nav-pad);
+  top: 6px;
+  bottom: 6px;
   transform: translateX(var(--pill-x, 0px));
   width: var(--pill-w, 0px);
   border-radius: var(--radius-full);
@@ -331,16 +306,16 @@ html[data-reduce-motion="true"] .nav-active-pill {
    non-active label — no background chips on individual items, and the
    shared white active pill stays exactly as it is (black ink). */
 @media (hover: hover) and (pointer: fine) {
-.navbar:hover .nav-link:not(.nav-link--active) {
-  color: var(--white);
+.nav-link:hover {
+  color: var(--text-strong, #ffffff);
 }
-.navbar:hover .nav-icon-btn:not(.nav-icon-btn--active) {
-  color: var(--white);
+.nav-icon-btn:hover {
+  color: var(--text-strong, #ffffff);
+  background: rgba(255, 255, 255, 0.08);
 }
-.navbar:hover .nav-link--active,
-.navbar:hover .nav-icon-btn--active {
-  color: #04120b;
-  background: transparent;
+.nav-link--active:hover,
+.nav-icon-btn--active:hover {
+  color: #04120b !important;
 }
 }
 .nav-link:focus-visible,
@@ -413,21 +388,22 @@ html[data-reduce-motion="true"] .nav-active-pill {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--nav-item-h);
-  height: var(--nav-item-h);
-  border-radius: 50%;
-  color: rgba(var(--white-rgb), 0.8);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  color: var(--text-muted, rgba(var(--white-rgb), 0.6));
   background: transparent;
   border: none;
   cursor: pointer;
   text-decoration: none;
   mix-blend-mode: difference;
-  transition: background-color var(--duration-fast) var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
 }
 @media (hover: hover) and (pointer: fine) {
 .nav-icon-btn:hover {
-  color: var(--white);
+  color: var(--text-strong, #ffffff);
+  background: rgba(255, 255, 255, 0.08);
 }
 }
 .nav-icon-btn--active {

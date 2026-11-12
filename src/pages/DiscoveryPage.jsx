@@ -752,7 +752,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
         </section>
 
         {/* ── Editorial rail (Upcoming for movies / New Seasons Airing for series) ── */}
-        {!railQuery.isLoading && !railQuery.error && railItems.length > 0 && (
+        {(railQuery.isLoading || railItems.length > 0) && (
           <section className="row-section relative z-10" style={{ paddingTop: "8px" }}>
             <div className="row-head" style={{ marginBottom: "6px" }}>
               <h2>{cfg.railLabel}</h2>
@@ -770,14 +770,24 @@ export default function DiscoveryPage({ mode = "movies" }) {
                   paddingRight: "var(--gutter, 24px)",
                 }}
               >
-                {railItems.slice(0, 20).map((item) => (
-                  <UpcomingCard
-                    key={item.id}
-                    item={item}
-                    badgeLabel={cfg.railBadge(item)}
-                    onOpen={() => openDetails(item)}
-                  />
-                ))}
+                {railQuery.isLoading
+                  ? [...Array(6)].map((_, i) => (
+                      <div key={i} className="sk-upcoming upcoming-card" aria-hidden="true">
+                        <div className="upcoming-card__poster skeleton" style={{ aspectRatio: "16/9" }} />
+                        <div className="upcoming-card__caption">
+                          <div className="skeleton" style={{ height: "13px", width: "70%", borderRadius: "3px" }} />
+                          <div className="skeleton" style={{ height: "11px", width: "40%", borderRadius: "3px", marginTop: "5px" }} />
+                        </div>
+                      </div>
+                    ))
+                  : railItems.slice(0, 20).map((item) => (
+                      <UpcomingCard
+                        key={item.id}
+                        item={item}
+                        badgeLabel={cfg.railBadge(item)}
+                        onOpen={() => openDetails(item)}
+                      />
+                    ))}
               </div>
               {canRight && (
                 <RailArrow dir="right" onClick={() => scrollRail(1)} revealOnHover hoverClass="group-hover/row:opacity-100" />

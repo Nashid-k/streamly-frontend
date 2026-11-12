@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` Cinejoy navbar, banner dot animation, and row-head layout parity — 2026-11-12 (branch `main`).**
+  - **Row headings (Upcoming / Popular)**: Added `.row-head` (`padding: 0 var(--gutter)`, `margin-bottom: 14px`) and `.row-head h2` (`font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.01em`) in `discovery.css` matching `movies.html`. Updated editorial upcoming rail gate in `DiscoveryPage.jsx` so "Upcoming" heading and skeleton rail render immediately during initial query loading.
+  - **Banner progress dots**: Replaced wide 48px containers with 8px round circles (`rgba(255, 255, 255, 0.25)`) that expand into 36px active pills with 10s linear `hero-progress` green fill bar matching `movies.html`. Adjusted mobile media query to tighten tick gap to 4px without bloating dot width.
+  - **Banner action pill**: Styled `.hero-action-pill` to 52px height glass pill with 56px action buttons and 22px hairline divider.
+  - **Navbar UI/UX & animations**: Updated `.header-row` (`padding: 18px var(--gutter)`, `justify-content: space-between`), `.back-btn` (38px glass circle with 8px blur), `.navbar` (6px padding, 4px gap, 30px shadow), and decoupled hover states so individual nav links whiten on hover.
+  - Gates: `npx oxlint` 0 errors; vitest 7 suites / 94 tests passed; `npm run build` exit 0 (1.61s).
+
 - [x] **`streamly-update/` Cinejoy Movies & Series page parity — unified upcoming rail, `UpcomingCard`, `.random-btn`, 5-pill `.filter-bar` — 2026-11-12 (branch `main`).**
   - **Single upcoming rail**: Replaced stacked month sections (`UpcomingMonthRail`, `monthSections`, `seriesMonthSections`) with ONE horizontal rail (`.track.scroll-x`) displaying `UpcomingCard`s (16:9 aspect ratio, 264px / 316px desktop width, "Coming Soon" badge, calendar date overlay on hover, title & date subtitle) matching `movies.html` & `series.html`.
   - **Editorial discover header**: Cleaned `.discover` header with visible `discover-title` ("Movies" / "TV Series") and streamlined `.filter-bar` containing `.random-btn` (38px circle expanding to 160px on hover) + 5 filter pills (Genre, Year, Popular, Provider, Country — no Language or duplicate rows).

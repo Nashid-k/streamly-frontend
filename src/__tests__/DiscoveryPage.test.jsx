@@ -178,9 +178,9 @@ describe("DiscoveryPage upcoming rail", () => {
 
     renderPage("/movies");
 
-    await screen.findByRole("heading", { name: "Upcoming" });
+    expect(await screen.findByRole("heading", { name: "Upcoming" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "View details for Premiere This Month" }),
+      await screen.findByRole("button", { name: "View details for Premiere This Month" }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "View details for Premiere Next Month" }),
