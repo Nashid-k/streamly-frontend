@@ -142,9 +142,6 @@
   position: relative;
   margin-left: auto;
   pointer-events: auto;
-  isolation: isolate;
-  contain: layout paint;
-  overflow: hidden;
   z-index: var(--z-sticky);
   display: flex;
   align-items: center;
@@ -152,24 +149,20 @@
   padding: 6px;
   max-width: fit-content;
   border-radius: var(--radius-full);
-  background: var(--glass-bg);
+  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  transform: translateZ(0);
-  will-change: transform;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
-  transition: transform var(--anim-hover-time) var(--anim-hover-ease),
-              border-color var(--duration-fast) var(--ease-out),
+  transition: border-color var(--duration-fast) var(--ease-out),
               background-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out);
 }
 .navbar.scrolled {
-  transform: translateY(-4px) translateZ(0);
-  background: var(--glass-bg);
+  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-color: var(--glass-border);
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.12));
   box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
 }
 @media (min-width: 1024px) {

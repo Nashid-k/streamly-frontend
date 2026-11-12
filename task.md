@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **Cinejoy frosted glass blur fix for navbar and dock (`streamly-update/` parity) — 2026-11-12 (branch `main`).**
+  - **Restored live backdrop blurring on navbar (`src/styles/header.css`)**: Removed `contain: layout paint;`, `overflow: hidden;`, `isolation: isolate;`, and `transform: translateZ(0);` from `.navbar`. In Chromium, `contain: paint` forcibly disables backdrop pixel sampling, rendering glass containers completely clear/transparent without blur. Retained exact `backdrop-filter: blur(20px) saturate(1.4)`, `-webkit-backdrop-filter`, and `background: var(--glass-bg, rgba(20, 16, 32, 0.55))` matching `movies.html:44`.
+  - **Fixed pinned filters dock blurring (`src/styles/discovery.css`)**: Suppressed nested `backdrop-filter` on child buttons (`.filter-btn`, `.random-btn`) within `.pinned-filters .filter-bar` to eliminate Chromium nested-backdrop filter cancellation, ensuring the dock renders its deep 20px blur with 1.4 saturation.
+  - **Mobile bottom nav blur alignment (`src/styles/responsive.css`)**: Removed conflicting `transform: translateZ(0)` on `.mobile-bottom-nav`, matching `movies.html:53`.
+  - Gates: `npx oxlint` 0 errors; vitest 5 suites / 77 tests passed; `npm run build` exit 0 (2.66s).
+
 - [x] **`streamly-update/provider.html` Dedicated Provider Page & Browse Rail Navigation — 2026-11-12 (branch `main`).**
   - **Dedicated Provider page (`src/pages/ProviderPage.jsx`)**: Mirrored layout and structure from `streamly-update/provider.html`:
     - Dynamic hero with provider logo (72px, 84px desktop), title (clamp 2.4rem-3.6rem, 900 weight), and catalogue subtitle.

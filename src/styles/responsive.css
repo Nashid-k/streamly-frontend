@@ -132,13 +132,12 @@
     /* 70px instead of 62px: the dock now carries a label under each icon
        (Cinejoy's six-icon strip made Search and Settings guesswork). */
     height: 70px;
-    background: var(--glass-bg) !important;
+    background: var(--glass-bg, rgba(20, 16, 32, 0.55)) !important;
     backdrop-filter: blur(20px) saturate(1.4) !important;
     -webkit-backdrop-filter: blur(20px) saturate(1.4) !important;
-    transform: translateZ(0) !important;
-    border: 1px solid rgba(var(--white-rgb), 0.13);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
     border-radius: var(--radius-full);
-    box-shadow: 0 16px 48px rgba(var(--black-rgb), 0.7), inset 0 1px 0 rgba(var(--white-rgb), 0.14);
+    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
     z-index: var(--z-sticky);
     justify-content: space-around;
     align-items: center;
