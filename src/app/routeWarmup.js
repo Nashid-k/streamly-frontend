@@ -138,8 +138,8 @@ export function startRouteWarmup() {
   };
   // mouseover bubbles (mouseenter does not), so one document listener covers
   // every link; repeated hovers hit the promise map and cost a lookup.
-  document.addEventListener("mouseover", warmFromEvent);
-  document.addEventListener("focusin", warmFromEvent);
+  document.addEventListener("mouseover", warmFromEvent, { passive: true });
+  document.addEventListener("focusin", warmFromEvent, { passive: true });
 
   let cancelled = false;
   const warmAll = async () => {

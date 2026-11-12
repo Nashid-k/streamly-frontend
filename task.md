@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **Second performance audit & optimization — 2026-11-12 (branch `main`).**
+  - **Player Panel resize layout thrashing eliminated (`src/components/player/chrome/PlayerPanel.jsx`)**: Gated the window `resize` event listener to when `panel` is actually mounted (`if (!panel) return undefined`), and throttled `fitPaneRef.current(true)` through `requestAnimationFrame`. Previously, window resize while playing video executed multiple synchronous layout reads and DOM height mutations per frame.
+  - **Freed persistent hero compositor layers (`src/pages/HomePage.jsx`, `src/components/browse/BrowseBanner.jsx`)**: Removed static inline `willChange: "opacity"` on the hero container `<motion.div>` in Home and Browse banners. This prevented keeping the entire 100vw x 78vh banner permanently locked in dedicated GPU backing store after initial fade-in settled.
+  - **Eliminated search results compound animation stutter (`src/pages/SearchPage.jsx`)**: Removed redundant inline `style={{ animation: "cardIn 0.4s var(--ease) backwards" }}` from wrapper div. The inner `.search-results-grid .movie-card` already defines `cardIn` in `search.css`, which previously caused simultaneous double translateY(10px) translation jumps and opacity compounding on every card.
+  - **Passive pointer listeners for route prefetching (`src/app/routeWarmup.js`)**: Added `{ passive: true }` to document-level `mouseover` and `focusin` listeners, eliminating browser main-thread input-blocking warnings during link hover.
+  - Gates: `npx oxlint` 0 errors; vitest 4 suites passed; `npm run build` exit 0 (2.00s).
+
 - [x] **Comprehensive smoothness and animation performance audit & optimization — 2026-11-12 (branch `main`).**
   - **Eliminated forced layout thrashing in `useVirtualRenderAdapter.js`**: Migrated from `useLayoutEffect` to `useEffect` for element intersection checking. In `useLayoutEffect`, reading `getBoundingClientRect()` on mount for 100+ cards forced synchronous reflows and cascading re-renders during React commit phase; `useEffect` runs asynchronously after commit, allowing browser layout caching and batching state updates in a single pass.
   - **Eliminated horizontal rail card stagger stutter (`src/styles/rails.css`)**: Added `.movie-rail .movie-card { animation: none; }` to horizontal scroll tracks. Previously, every rail card executed `.movie-card` keyframe animation `cardEnter` with delayed nth-child stagger (up to 0.6s backwards delay), causing cards to appear delayed with vertical pop-in during horizontal scroll. Sections now reveal cleanly as a block via `FadeInSection`.

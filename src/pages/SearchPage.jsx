@@ -809,11 +809,7 @@ export default function SearchPage() {
           >
             <div className="search-results-grid movie-grid">
               {visibleResults.map((movie) => (
-                <div
-                  key={movie.id}
-                  data-search-result=""
-                  style={{ animation: "cardIn 0.4s var(--ease) backwards" }}
-                >
+                <div key={movie.id} data-search-result="">
                   <MovieCard movie={movie} highlightQuery={query} />
                 </div>
               ))}

@@ -843,7 +843,6 @@ export default function Home({ filter = "all", title }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: DURATION.MED, ease: EASE_OUT }}
-            style={{ willChange: "opacity" }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
             onClick={() => openDetails(activeFeaturedMovie)}

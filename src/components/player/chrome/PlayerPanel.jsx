@@ -161,10 +161,21 @@ export default function PlayerPanel({
     return undefined;
   }, [panel]);
   useEffect(() => {
-    const onResize = () => fitPaneRef.current(true);
+    if (!panel) return undefined;
+    let frameId = 0;
+    const onResize = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        fitPaneRef.current(true);
+        frameId = 0;
+      });
+    };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [panel]);
   // Re-arm "instant" when the sheet closes, so the next open snaps too.
   useEffect(() => {
     if (!panel) wasClosedRef.current = true;
