@@ -30,13 +30,15 @@ export default function BackToTop() {
 
   useEffect(() => {
     let interval = null;
+    let frameId = 0;
 
     // Re-evaluate while idle — e.g. the player opens/closes without a scroll
     // event. The check only runs while the button can actually be shown
     // (scrolled past threshold), so we never poll the DOM at the top.
     const startPlayerCheck = () => {
       if (window.scrollY > SCROLL_THRESHOLD) {
-        setVisible(!isPlayerActive());
+        const nextVisible = !isPlayerActive();
+        setVisible((prev) => (prev === nextVisible ? prev : nextVisible));
         if (!interval) {
           interval = window.setInterval(() => {
             if (window.scrollY <= SCROLL_THRESHOLD) {
@@ -45,11 +47,12 @@ export default function BackToTop() {
               setVisible(false);
               return;
             }
-            setVisible(!isPlayerActive());
+            const active = !isPlayerActive();
+            setVisible((prev) => (prev === active ? prev : active));
           }, 1500);
         }
       } else {
-        setVisible(false);
+        setVisible((prev) => (prev ? false : prev));
         if (interval) {
           window.clearInterval(interval);
           interval = null;
@@ -57,11 +60,18 @@ export default function BackToTop() {
       }
     };
 
-    const handleScroll = () => startPlayerCheck();
+    const handleScroll = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        startPlayerCheck();
+        frameId = 0;
+      });
+    };
     window.addEventListener("scroll", handleScroll, { passive: true });
     startPlayerCheck();
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      if (frameId) window.cancelAnimationFrame(frameId);
       if (interval) window.clearInterval(interval);
     };
   }, []);

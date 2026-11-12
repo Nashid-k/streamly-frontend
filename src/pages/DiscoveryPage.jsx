@@ -535,10 +535,19 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
   useEffect(() => {
     const key = mountScrollKeyRef.current;
-    const save = () => browseScrollMemory.set(key, window.scrollY);
+    let ticking = false;
+    const save = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          browseScrollMemory.set(key, window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
     window.addEventListener("scroll", save, { passive: true });
     return () => {
-      save();
+      browseScrollMemory.set(key, window.scrollY);
       window.removeEventListener("scroll", save);
     };
   }, []);

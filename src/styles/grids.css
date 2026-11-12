@@ -153,6 +153,8 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transform: translateZ(0);
+  backface-visibility: hidden;
   transition: filter var(--duration-normal) var(--ease-out), transform 0.5s var(--anim-hover-ease);
 }
 

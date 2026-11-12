@@ -270,7 +270,6 @@
   -webkit-filter: blur(18px) saturate(115%);
   opacity: 0.45;
   backface-visibility: hidden;
-  will-change: transform;
   pointer-events: none;
 }
 .ambient-top-glow {

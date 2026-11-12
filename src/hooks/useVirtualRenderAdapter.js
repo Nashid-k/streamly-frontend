@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 /* One IntersectionObserver per rootMargin, shared by every consumer, instead of
    one observer per card. A rail of 20 posters used to allocate 20 observers
@@ -45,7 +45,7 @@ export function useVirtualRenderAdapter(rootMargin = "200px") {
   // as the node exists also beats a mount effect that can miss the element.
   const ref = useCallback((node) => setNode(node), []);
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!node) return undefined;
 
     // Fast path: anything already inside the viewport paints immediately

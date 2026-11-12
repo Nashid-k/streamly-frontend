@@ -134,7 +134,6 @@ function Layout({ children }) {
               backfaceVisibility: "hidden",
               WebkitBackfaceVisibility: "hidden",
               transform: "translateZ(0)",
-              willChange: reduceMotion ? "auto" : "transform, opacity",
             }}
             onAnimationStart={() => {
               if (typeof window !== 'undefined') {

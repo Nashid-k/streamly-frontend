@@ -79,7 +79,12 @@ textarea:focus-visible {
   overscroll-behavior-x: contain;
   scroll-behavior: auto;
   contain: content;
-  will-change: scroll-position;
+}
+/* Horizontal rails reveal as a row block via FadeInSection — disable
+   individual cardEnter stagger delays so horizontal scrolling never
+   stutters or delays card reveals. */
+.movie-rail .movie-card {
+  animation: none;
 }
 @media (min-width: 640px) {
   .movie-rail {
