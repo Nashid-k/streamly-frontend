@@ -2,6 +2,8 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 
 const mockRemove = vi.fn();
@@ -75,5 +77,42 @@ describe("ContinueWatchingRail", () => {
       </MemoryRouter>
     );
     expect(container.firstChild).toBeNull();
+  });
+
+  it("keeps rail geometry in CSS instead of inline styles", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <ContinueWatchingRail items={items} />
+      </MemoryRouter>
+    );
+
+    expect(container.querySelector(".cw-rail")).not.toBeNull();
+
+    // Card width/gap/padding live in rails.css; JS only reports which edges
+    // need a fade, so the track must not carry an inline style at all.
+    const track = container.querySelector(".cw-rail__track");
+    expect(track).not.toBeNull();
+    expect(track).toHaveAttribute("data-fade");
+    expect(track.getAttribute("style")).toBeNull();
+
+    // The head control is a sized control class, not an ad-hoc utility box.
+    expect(screen.getByRole("button", { name: /edit list/i })).toHaveClass("cw-edit-btn");
+
+    // "See all" is translated, not the old hardcoded English default.
+    expect(screen.getByText("Show all")).toBeInTheDocument();
+  });
+
+  it("does not tuck the lead row under the hero", () => {
+    const rails = readFileSync(
+      join(process.cwd(), "src", "styles", "rails.css"),
+      "utf8"
+    );
+
+    // The old blanket `-40px` pull-up cancelled the feed gap for whichever row
+    // came first — Continue Watching — leaving its heading flush against the
+    // hero. The tuck is fluid now and the lead row opts out.
+    expect(rails).not.toContain("margin-top: -40px");
+    expect(rails).toContain(".home-rails-section > .home-rails-lead");
+    expect(rails).toContain("--rail-stack-gap");
   });
 });

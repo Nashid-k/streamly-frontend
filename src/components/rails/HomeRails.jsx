@@ -58,14 +58,12 @@ const HomeRails = React.memo(function HomeRails({
   const showSeries = filter !== "movies";
 
   return (
-    <section
-      ref={railsSentinelRef}
-      className="home-rails-section"
-      style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
-    >
-      {/* Continue Watching — resume-first, above the catalogue rows */}
+    <section ref={railsSentinelRef} className="home-rails-section">
+      {/* Continue Watching — resume-first, above the catalogue rows. Marked as
+          the lead row so rails.css does NOT pull it under the hero with the
+          catalogue rows' negative tuck: it owns its own top spacing. */}
       {!loading && continueWatching && continueWatching.length > 0 && (
-        <FadeInSection>
+        <FadeInSection className="home-rails-lead">
           <ErrorBoundary>
             <ContinueWatchingRail items={continueWatching} />
           </ErrorBoundary>
@@ -82,7 +80,7 @@ const HomeRails = React.memo(function HomeRails({
       )}
 
       {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
+        <div className="home-rails-skeleton">
           {[1, 2, 3, 4].map((rail) => <SkeletonRail key={rail} cards={8} />)}
         </div>
       ) : (

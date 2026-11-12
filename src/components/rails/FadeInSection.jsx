@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from "react";
    boolean. No IntersectionObserver (jsdom/tests, ancient browsers) = visible
    immediately, so content can never be stranded behind a reveal that never
    fires. `delay` maps to the same transition-delay the framer version used. */
-const FadeInSection = React.memo(function FadeInSection({ children, delay = 0, style }) {
+const FadeInSection = React.memo(function FadeInSection({ children, delay = 0, style, className = "" }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
 
@@ -33,7 +33,7 @@ const FadeInSection = React.memo(function FadeInSection({ children, delay = 0, s
   return (
     <div
       ref={ref}
-      className={`fade-in-section${visible ? " is-visible" : ""}`}
+      className={`fade-in-section${visible ? " is-visible" : ""}${className ? ` ${className}` : ""}`}
       style={{ ...style, transitionDelay: `${delay}s` }}
     >
       {children}

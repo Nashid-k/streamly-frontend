@@ -164,6 +164,12 @@
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
   --spacing-3xl: 5rem;
+  /* Rail rhythm. The Home feed used to hardcode a 40px column gap and a -40px
+     pull-up on the first row in JSX/CSS; both are fluid here so a 390px phone
+     and a 1920px monitor get their own breathing room. */
+  --rail-stack-gap: clamp(1.5rem, 2.6vw, 2.5rem);
+  --rail-hero-tuck: clamp(-2.5rem, -2vw, -0.75rem);
+  --rail-lead-pad: clamp(0.5rem, 1.2vw, 1.25rem);
 
   /* ── Border Radius ─────────────────────────────────────── */
   --radius-sm: 6px;

@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useI18n } from "../../i18n/index.jsx";
 
 /**
  * One row-head for every rail: a title on the left, a quiet "See all" on the
@@ -21,9 +22,13 @@ const SectionHeader = React.memo(function SectionHeader({
   title,
   seeAllTo,
   seeAllState,
-  seeAllLabel = "View All",
+  seeAllLabel,
   actions,
 }) {
+  // The label was a hardcoded English default, so every translated UI still
+  // showed "View All". `common.showAll` is the existing catalogue string.
+  const { t } = useI18n();
+  const label = seeAllLabel ?? t("common.showAll");
   return (
     <div className="row-head rail-head">
       <div className="rail-head__main">{title}</div>
@@ -36,7 +41,7 @@ const SectionHeader = React.memo(function SectionHeader({
               state={seeAllState}
               className="view-all rail-see-all"
             >
-              <span>{seeAllLabel}</span>
+              <span>{label}</span>
               <svg
                 className="icon"
                 width="16"

@@ -204,11 +204,31 @@ textarea:focus-visible {
   height: 24px;
 }
 
-.home-rails-section > :first-child,
+.home-rails-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rail-stack-gap);
+}
+.home-rails-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rail-stack-gap);
+}
+
+/* The first Home row rides up under the hero banner (Cinejoy). The tuck is
+   fluid: -40px on a wide desktop, -12px on a phone, so it never eats the space
+   a heading needs at small sizes.
+   Continue Watching is the exception — it is the personal lead row, sits
+   directly under the banner and keeps its own top spacing (`.home-rails-lead`)
+   instead of being pulled into the banner's bottom scrim. */
+.home-rails-section > :first-child:not(.home-rails-lead),
 .main > .row-section:first-of-type {
-  margin-top: -40px;
+  margin-top: var(--rail-hero-tuck);
   z-index: 5;
   position: relative;
+}
+.home-rails-section > .home-rails-lead {
+  padding-top: var(--rail-lead-pad);
 }
 .row-section {
   padding: 28px 0;
@@ -262,9 +282,183 @@ textarea:focus-visible {
 
 /* ── Browse by Providers — brand-color tiles ───────────────────────────── */
 
-/* ── Continue Watching rail — landscape cards + hover mini-player ──────── */
+/* ── Continue Watching rail — landscape cards + hover mini-player ────────
+   The row keeps the house rail geometry (head inset by --gutter, track inset
+   by --gutter) but every value is fluid: card width, card gap and fade width
+   scale with the viewport instead of switching at a single 768px breakpoint.
+   The rail head is a distinct component (.rail-head): its title truncates and
+   its controls keep their own hit area, so a long translated label ("Weiter­
+   schauen", "Продолжить просмотр") never pushes the edit/See all cluster
+   off-screen. */
+.cw-rail {
+  --cw-card-w: clamp(15rem, 40vw, 18rem); /* 240px phones → 288px desktop */
+  --cw-gap: clamp(0.75rem, 1.1vw, 1.125rem);
+  --cw-fade: clamp(16px, 2.2vw, 40px);
+  position: relative;
+  z-index: 10;
+}
 
-/* Hover mini-player — hosted in its own layer so overflow-x never clips it */
+.cw-rail .rail-head {
+  /* Baseline alignment is right for a plain heading, but this row carries a
+     button in the action slot; centring keeps the button and the title on one
+     optical line at every size. */
+  align-items: center;
+}
+.cw-rail .rail-head__main,
+.cw-rail .rail-head__main > a {
+  min-width: 0;
+}
+.cw-rail__title {
+  margin: 0;
+  /* The heading is a flex item beside the hover chevron: without an explicit
+     zero minimum it refuses to shrink and the ellipsis never engages. */
+  min-width: 0;
+  flex: 0 1 auto;
+  font-family: var(--font-display);
+  font-size: var(--rail-title-size, 1.25rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-display);
+  color: rgba(var(--white-rgb), 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+.cw-rail .rail-head__main > a:hover .cw-rail__title,
+.cw-rail .rail-head__main > a:focus-visible .cw-rail__title {
+  color: var(--white);
+}
+
+.cw-rail__track {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cw-gap);
+  /* Top pad is hover-scale clearance: cards grow 1.07x upward and the track
+     clips vertically, so 0 here would shave the top of a hovered card. */
+  padding: 1rem var(--gutter, 24px) 0.5rem;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: var(--gutter, 24px);
+  scrollbar-width: none;
+}
+.cw-rail__track::-webkit-scrollbar {
+  display: none;
+}
+.cw-rail__track[data-fade="both"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--cw-fade), #000 calc(100% - var(--cw-fade)), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--cw-fade), #000 calc(100% - var(--cw-fade)), transparent 100%);
+}
+.cw-rail__track[data-fade="start"] {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--cw-fade));
+  mask-image: linear-gradient(90deg, transparent 0, #000 var(--cw-fade));
+}
+.cw-rail__track[data-fade="end"] {
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - var(--cw-fade)), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - var(--cw-fade)), transparent 100%);
+}
+
+.cw-rail__card {
+  position: relative;
+  flex: none;
+  width: var(--cw-card-w);
+  scroll-snap-align: start;
+}
+.cw-rail__card:hover,
+.cw-rail__card:focus-within {
+  z-index: 30;
+}
+
+/* Edit toggle — a real 36px control (44px on touch), not the 28px glyph box
+   it used to be. The "Done" state keeps the same footprint so the head never
+   reflows when the mode flips. */
+.cw-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: rgba(var(--white-rgb), 0.55);
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cw-edit-btn:hover {
+    color: var(--white);
+    background: rgba(var(--white-rgb), 0.08);
+  }
+}
+.cw-edit-btn[aria-pressed="true"] {
+  color: var(--accent-color);
+  background: rgba(var(--accent-primary-rgb), 0.16);
+}
+.cw-edit-btn:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+.cw-edit-btn__icon {
+  width: 1rem;
+  height: 1rem;
+}
+.cw-edit-btn__label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0 0.125rem;
+}
+@media (pointer: coarse) {
+  .cw-edit-btn {
+    height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+/* Edit mode — remove button on each card */
+.cw-remove-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgba(220, 38, 38, 0.92);
+  color: var(--white);
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.8);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+.cw-remove-btn:hover {
+  background: #dc2626;
+}
+.cw-remove-btn:active {
+  transform: scale(0.9);
+}
+.cw-remove-btn:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .cw-remove-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
 
 /* Raw trailer player in the popup. The IFrame API mounts its <iframe> inside
    this oversized box, shifted so YouTube's edge chrome (title strip on top,

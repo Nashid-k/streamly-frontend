@@ -55,46 +55,32 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
   if (!items || items.length === 0) return null;
 
-  const maskStyle = {
-    maskImage:
-      canScrollLeft && canScrollRight
-        ? "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)"
-        : canScrollLeft
-        ? "linear-gradient(to right, transparent 0%, black 5%, black 100%, black 100%)"
+  // Which edges need the fade is state, not geometry: rails.css owns the
+  // gradient and its width (--cw-fade), so no pixel values live in JS.
+  const fade =
+    canScrollLeft && canScrollRight
+      ? "both"
+      : canScrollLeft
+        ? "start"
         : canScrollRight
-        ? "linear-gradient(to right, black 0%, black 95%, transparent 100%)"
-        : "none",
-    WebkitMaskImage:
-      canScrollLeft && canScrollRight
-        ? "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)"
-        : canScrollLeft
-        ? "linear-gradient(to right, transparent 0%, black 5%, black 100%, black 100%)"
-        : canScrollRight
-        ? "linear-gradient(to right, black 0%, black 95%, transparent 100%)"
-        : "none",
-    WebkitOverflowScrolling: "touch",
-    overscrollBehaviorX: "contain",
-  };
+          ? "end"
+          : "none";
 
   const editToggle = (
     <button
       type="button"
-      className={`text-white/50 hover:text-white transition-colors duration-300 flex items-center justify-center rounded-lg h-7 min-w-7 px-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
-        editMode ? "text-emerald-400 font-medium" : ""
-      }`}
+      className="cw-edit-btn"
       onClick={() => setEditMode((v) => !v)}
       aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
       title={editMode ? t("common.doneEditing") : t("common.editList")}
       aria-pressed={editMode}
     >
       {editMode ? (
-        <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
-          {t("common.done")}
-        </span>
+        <span className="cw-edit-btn__label">{t("common.done")}</span>
       ) : (
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
+          className="cw-edit-btn__icon"
           width="1em"
           height="1em"
           viewBox="0 0 512 512"
@@ -110,7 +96,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
   );
 
   return (
-    <div className="space-y-2 relative z-10 group/row">
+    <div className="cw-rail group/row">
       {/* ── Section Header — linked title left; edit toggle + quiet "See all" right. ── */}
       <SectionHeader
         actions={editToggle}
@@ -119,10 +105,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
             to="/continue-watching"
             className="group/title group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
           >
-            <h2
-              style={{ fontFamily: "var(--font-display)" }}
-              className="text-xl font-semibold text-white/90 group-hover/label:text-white shadow-black drop-shadow-md transition-all duration-300"
-            >
+            <h2 className="cw-rail__title">
               {t("home.rails.continueWatching")}
             </h2>
             <ChevronRight className="lucide-icon lucide lucide-chevron-right w-5 h-5 text-white/70 shrink-0 opacity-0 -translate-x-1 transition-all duration-300 group-hover/title:opacity-100 group-hover/title:translate-x-0 group-hover/label:text-white" />
@@ -155,15 +138,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
           />
         )}
 
-        <div
-          ref={scrollRef}
-          className="track scroll-x flex overflow-x-auto overflow-y-clip scrollbar-hide items-start"
-          style={{
-            ...maskStyle,
-            gap: "16px",
-            padding: "16px var(--gutter, 24px) 8px",
-          }}
-        >
+        <div ref={scrollRef} className="cw-rail__track" data-fade={fade}>
           {items.map((item) => {
             const pct = progressPct(item);
             const label = episodeLabel(item);
@@ -183,7 +158,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
               <div
                 key={item.id}
                 role="group"
-                className="relative flex-none w-60 md:w-72 group/card hover:z-30"
+                className="cw-rail__card group/card"
               >
                 <Link
                   to={editMode ? undefined : watchTo}
@@ -226,7 +201,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                   {/* Remove Button in Edit Mode */}
                   {editMode && (
                     <button
-                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-red-600/90 hover:bg-red-600 text-white flex items-center justify-center shadow-lg transition-transform active:scale-90 cursor-pointer"
+                      className="cw-remove-btn"
                       onClick={(e) => handleRemove(e, item)}
                       aria-label={`Remove ${item.title} from continue watching`}
                     >
