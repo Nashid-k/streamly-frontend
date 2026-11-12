@@ -7,6 +7,25 @@
   padding: 28px 0;
   position: relative;
 }
+.track {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: var(--gutter, 24px);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+.track > * {
+  scroll-snap-align: start;
+}
+.scroll-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
 .row-head {
   display: flex;
   align-items: baseline;

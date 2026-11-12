@@ -43,11 +43,11 @@ function AppRoutes() {
               />
               <Route
                 path="/series"
-                element={<DiscoveryPage mode="series" />}
+                element={<DiscoveryPage key="series" mode="series" />}
               />
               <Route
                 path="/movies"
-                element={<DiscoveryPage mode="movies" />}
+                element={<DiscoveryPage key="movies" mode="movies" />}
               />
               <Route path="/search" element={<SearchPage />} />
               <Route path="/provider/:providerId" element={<ProviderPage />} />

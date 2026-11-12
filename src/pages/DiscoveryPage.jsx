@@ -327,6 +327,10 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const { openDetails, modalHost } = useDetailView();
   const railRef = useRef(null);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [mode]);
+
   /* ── Pinned filters (Cinejoy .pinned-filters) ──────────────────────────
      Once the header's filter row scrolls above the viewport, the filter row
      docks to the bottom-centre of the screen as a glass capsule (the
@@ -772,7 +776,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
               )}
               <div
                 ref={railRef}
-                className="track scroll-x flex"
+                className="track scroll-x flex overflow-x-auto overflow-y-hidden"
                 style={{
                   gap: "14px",
                   paddingLeft: "var(--gutter, 24px)",
