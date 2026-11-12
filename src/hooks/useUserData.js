@@ -138,9 +138,13 @@ export function useMyList() {
     dispatch('aios_sync_mylist');
   }, []);
 
+  // O(1) membership: every mounted card asks this on every render, so a linear
+  // `myList.some()` scan here was O(cards x saved titles) per pass.
+  const myListIds = useMemo(() => new Set(myList.map((m) => m.id)), [myList]);
+
   const isInList = useCallback(
-    (id) => myList.some(m => m.id === id),
-    [myList],
+    (id) => myListIds.has(id),
+    [myListIds],
   );
 
   // Identity-stable on purpose: AuthContext spreads this object into the

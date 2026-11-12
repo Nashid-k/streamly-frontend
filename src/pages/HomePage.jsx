@@ -631,6 +631,17 @@ export default function Home({ filter = "all", title }) {
     totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
   const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
 
+  /* The ambient backdrop is deliberately NOT bound to the rotating slide.
+     `AmbientBackground` paints a full-viewport `filter: blur(18px)` raster, so
+     swapping its image every 10 s re-decoded and re-blurred the whole viewport
+     mid-scroll. It stays on the pool's first title for the visit; the hero
+     itself still crossfades per slide. */
+  const ambientSrc = useMemo(() => {
+    const first = finalPool[0];
+    if (!first) return null;
+    return first.backdropUrl || first.posterUrl || first.poster || null;
+  }, [finalPool]);
+
   /* Cross-route banner record (cinejoy parity): publish the on-screen featured
      slide so the browse pages can keep this exact banner when their media kind
      matches instead of skeleton-swapping it on navigation. */
@@ -764,15 +775,7 @@ export default function Home({ filter = "all", title }) {
 
   return (
     <div className="main-content main-content--has-hero main" style={{ paddingBottom: "120px" }}>
-      <AmbientBackground
-        src={
-          activeFeaturedMovie
-            ? activeFeaturedMovie.backdropUrl ||
-              activeFeaturedMovie.posterUrl ||
-              activeFeaturedMovie.poster
-            : null
-        }
-      />
+      <AmbientBackground src={ambientSrc} />
       <SEO title={title || "Discover Movies & TV Shows"} />
       <AnimatePresence mode="wait">
         {loading && !activeFeaturedMovie ? (

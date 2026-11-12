@@ -1,4 +1,5 @@
 import { Snowfall as FallingSnow } from "falling-snow/react";
+import { useLocation } from "react-router-dom";
 import { useOptionalPreferences } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
 import { resolveSeasonalEffect } from "../utils/seasonal";
@@ -10,20 +11,37 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    covers every route. Whether snow is live is decided solely by the shared
    resolver (utils/seasonal): calendar winter (Nov 1 -> Feb 28/29) under the
    default theme, the Christmas / Winter theme under a manual pick, and never
-   at all when Dynamic is off; gated by the `snowfall` preference. Intensity
-   reduced for performance: lower count, gentler speed/wind/sway, lighter
-   depth. */
+   at all when Dynamic is off; gated by the `snowfall` preference.
+
+   Cost control: the renderer is a full-viewport canvas cleared and redrawn
+   every animation frame, so the flake count is the whole bill. 18 desktop /
+   10 mobile still reads as snow; the old 70/30 was an 8 MP clear plus 70 blits
+   60 times a second, forever. It is also suspended over /watch (playback is
+   the one place the compositor must stay free) and on low-core/low-memory
+   devices, where a decorative overlay must never outrank a frame. */
 export default function Snowfall() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
   const month = new Date().getMonth();
+  const { pathname } = useLocation();
   const effect = resolveSeasonalEffect({
     dynamic: prefs?.dynamic !== false,
     theme: prefs?.theme,
     month,
   });
-  const enabled = effect === "snow" && prefs?.snowfall !== false && !reduceMotion;
+
+  const lowPower =
+    typeof navigator !== "undefined" &&
+    (navigator.hardwareConcurrency <= 4 ||
+      (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
+
+  const enabled =
+    effect === "snow" &&
+    prefs?.snowfall !== false &&
+    !reduceMotion &&
+    !lowPower &&
+    !pathname.startsWith("/watch/");
 
   if (!enabled) return null;
 
@@ -33,7 +51,7 @@ export default function Snowfall() {
     <FallingSnow
       fullScreen
       flake="mixed"
-      count={isMobile ? 30 : 70}
+      count={isMobile ? 10 : 18}
       speed={0.6}
       wind={0.15}
       size={[2, 10]}

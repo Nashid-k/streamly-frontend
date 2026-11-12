@@ -149,9 +149,12 @@
   padding: 6px;
   max-width: fit-content;
   border-radius: var(--radius-full);
-  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  /* Flat translucent fill instead of a 20px backdrop blur.
+     The ambient blobs behind the header animate continuously, so blurring the
+     backdrop here re-sampled and re-blurred the whole island on EVERY frame —
+     even at idle. The opacity below reads the same over the dark stage
+     gradient; blur is now reserved for transient surfaces (menus, modals). */
+  background: var(--header-fill, rgba(12, 10, 20, 0.82));
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
   box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
   transition: border-color var(--duration-fast) var(--ease-out),
@@ -159,9 +162,7 @@
               box-shadow var(--duration-fast) var(--ease-out);
 }
 .navbar.scrolled {
-  background: var(--glass-bg, rgba(20, 16, 32, 0.55));
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  background: var(--header-fill, rgba(12, 10, 20, 0.82));
   border-color: var(--glass-border, rgba(255, 255, 255, 0.12));
   box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
 }
@@ -172,9 +173,9 @@
 }
 
 /* Right zone — nav links + icons grouped together inside the pill.
-   Deliberately NOT a stacking context: labels invert against the white pill
-   with mix-blend-mode, so nothing between the links and `.navbar` may isolate
-   them (see `.nav-link`). Links/buttons raise themselves above the pill. */
+   No mix-blend-mode here: blending five text nodes against a translucent
+   backdrop forced the whole island to re-composite every frame while the
+   ambient blobs drift behind it. The active pill paints its own dark ink. */
 .nav-cluster {
   display: flex;
   align-items: center;
@@ -217,7 +218,6 @@
   text-decoration: none;
   border-radius: var(--radius-full);
   letter-spacing: -0.01em;
-  mix-blend-mode: difference;
   transition: color var(--duration-fast) var(--ease-out);
   white-space: nowrap;
 }
@@ -237,7 +237,6 @@
 }
 .nav-link--active {
   color: #04120b !important;
-  mix-blend-mode: normal !important;
 }
 .nav-link--active .nav-link-icon {
   color: #04120b !important;
@@ -389,7 +388,6 @@ html[data-reduce-motion="true"] .nav-active-pill {
   border: none;
   cursor: pointer;
   text-decoration: none;
-  mix-blend-mode: difference;
   transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
 }
@@ -401,10 +399,8 @@ html[data-reduce-motion="true"] .nav-active-pill {
 }
 .nav-icon-btn--active {
   color: #04120b !important;
-  mix-blend-mode: normal !important;
 }
-/* A photo cannot invert: over a white pill it would turn into a negative.
-   Keep the avatar glyph normal; the pill still reads behind it. */
+/* The avatar is a photo: it keeps its natural colours on the accent pill. */
 .nav-icon-btn--avatar {
   mix-blend-mode: normal;
 }

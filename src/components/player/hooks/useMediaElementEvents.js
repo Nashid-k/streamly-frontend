@@ -1,6 +1,17 @@
 import { useEffect } from "react";
 import { HOLD_SPEED } from "../../../constants/playerUi";
 
+// Structural equality for TimeRanges snapshots. The player stores them as
+// [start, end] pairs; identical snapshots must keep the previous reference so
+// React can bail out of the re-render.
+function rangesEqual(a, b) {
+  if (!Array.isArray(a) || a.length !== b.length) return false;
+  for (let i = 0; i < b.length; i += 1) {
+    if (a[i][0] !== b[i][0] || a[i][1] !== b[i][1]) return false;
+  }
+  return true;
+}
+
 // The video element is the honest stall detector and the single source of truth
 // for the HUD's state. All of it lives here now: the event -> state mirror.
 export default function useMediaElementEvents({
@@ -77,7 +88,11 @@ export default function useMediaElementEvents({
         const ranges = [];
         const b = video.buffered;
         for (let i = 0; i < b.length; i += 1) ranges.push([b.start(i), b.end(i)]);
-        setBufferedRanges(ranges);
+        // Buffered ranges usually do not change between timeupdate ticks (the
+        // same few seconds are already downloaded). Returning the previous
+        // array lets React bail out instead of re-rendering the shell for a
+        // value that is identical in every element.
+        setBufferedRanges((prev) => (rangesEqual(prev, ranges) ? prev : ranges));
       } catch {
         // buffered unreadable yet
       }

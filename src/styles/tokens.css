@@ -195,6 +195,9 @@
   --glass-bg: rgba(20, 16, 32, 0.55);
   --glass-border: rgba(255, 255, 255, 0.12);
   --glass-blur: blur(20px) saturate(1.4);
+  /* Always-on header/dock chrome: opaque enough to read without a backdrop
+     filter. Blur is reserved for transient surfaces (menus, modals, sheets). */
+  --header-fill: rgba(12, 10, 20, 0.82);
 
   /* ── Typography ────────────────────────────────────────── */
   /* The scale's floor is 12px (--text-2xs). Nothing informational may render
@@ -449,8 +452,10 @@ body {
     "Inter",
     -apple-system,
     sans-serif;
-  background: var(--stage-gradient);
-  background-attachment: fixed;
+  /* The stage gradient lives on the fixed `body::before` layer below. A
+     gradient painted directly on <body> with `background-attachment: fixed`
+     cannot be composited: every scroll frame repaints the whole viewport. */
+  background-color: var(--stage-bottom);
   color: var(--text-primary);
   line-height: 1.6;
   /* Ratings, runtimes, counts and episode numbers must not reflow as digits
@@ -480,7 +485,7 @@ body::before {
     radial-gradient(45% 40% at 90% 8%, rgba(92, 226, 28, 0.11), transparent 60%),
     radial-gradient(60% 50% at 78% 95%, rgba(96, 165, 250, 0.09), transparent 62%),
     radial-gradient(40% 35% at 25% 88%, rgba(167, 139, 250, 0.07), transparent 60%),
-    #050505;
+    var(--stage-gradient);
 }
 
 button,
@@ -623,9 +628,10 @@ a {
   }
 }
 
-/* === Scroll progress bar (Cinejoy-style) =============================
-   CSS scroll-driven animation — zero JS, compositor-only. Falls back
-   gracefully on browsers that don't support animation-timeline:scroll(). */
+/* === Scroll progress bar (Cinejoy-style) === */
+/* One definition only. The bar animates `transform: scaleX()` against the
+   scroll timeline, so it stays on the compositor; the old duplicate block
+   animated `width` (a layout property) and silently overrode this one. */
 .scroll-progress {
   position: fixed;
   top: 0;
@@ -636,8 +642,8 @@ a {
   width: 100%;
   transform-origin: left center;
   transform: scaleX(0);
-  pointer-events: none;
   box-shadow: 0 0 8px rgba(149, 255, 80, 0.5);
+  pointer-events: none;
   /* CSS scroll-driven animation — no JS needed */
   animation: scroll-progress-track linear;
   animation-timeline: scroll(root block);
@@ -670,25 +676,7 @@ a {
 }
 
 /* === Scroll progress bar (Cinejoy-style) === */
-.scroll-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 2px;
-  background: var(--accent-color);
-  z-index: calc(var(--z-sticky) + 10);
-  width: 0;
-  transition: width .1s linear;
-  box-shadow: 0 0 8px rgba(149,255,80,.5);
-  pointer-events: none;
-  animation: scroll-progress-track linear;
-  animation-timeline: scroll(root);
-  animation-range: 0% 100%;
-}
-@keyframes scroll-progress-track {
-  from { width: 0%; }
-  to { width: 100%; }
-}
+/* (Single definition lives above, next to its keyframes.) */
 
 @media (min-width: 1024px) {
   :root {
@@ -696,13 +684,10 @@ a {
   }
 }
 
-/* === Page transitions (Cinejoy parity) === */
-body {
-  animation: pageEnter 0.4s var(--ease, cubic-bezier(.22, 1, .36, 1));
-}
-@keyframes pageEnter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* Route enter/leave is owned by the framer `ROUTE_VARIANTS` in
+   src/app/Layout.jsx. The old `body { animation: pageEnter }` duplicated it
+   AND gave <body> a 400 ms transform, which made the body a containing block
+   for every `position: fixed` child (header islands, scroll progress, dock)
+   on every load. Removed with its duplicate keyframes. */
 
 

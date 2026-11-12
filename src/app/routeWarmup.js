@@ -153,8 +153,15 @@ export function startRouteWarmup() {
     }
     if (!cancelled) logDebug("routeWarmup", "All route chunks warmed during idle.");
   };
+  // Give the live page first claim on the network/main thread: the hero image,
+  // the first rails and their fonts are what LCP and the first interaction
+  // depend on. Speculative chunks start once the page has settled.
+  const WARM_START_DELAY_MS = 1500;
   const kick = () => {
-    if (!cancelled) warmAll();
+    if (cancelled) return;
+    window.setTimeout(() => {
+      if (!cancelled) warmAll();
+    }, WARM_START_DELAY_MS);
   };
   if (document.readyState === "complete") kick();
   else window.addEventListener("load", kick, { once: true });

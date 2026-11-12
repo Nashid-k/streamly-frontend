@@ -66,11 +66,12 @@ if (import.meta.env.PROD) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HelmetProvider>
-      {/* PersistQueryClientProvider hydrates the catalogue cache from
-          localStorage BEFORE first paint (src/queryCachePersister.js), so a
-          reload / tab reopen paints routes from the persisted entries and
-          lets staleness rules decide background refreshes. The library-wipe
-          contract (AuthContext) also removes the persisted copy. */}
+      {/* PersistQueryClientProvider restores the catalogue cache from
+          localStorage on mount (src/queryCachePersister.js). Queries wait for
+          that restore before subscribing, so a reload paints persisted
+          entries instead of skeletons. Writes are idle-scheduled, never
+          synchronous-on-change. The library-wipe contract (AuthContext) also
+          removes the persisted copy. */}
       <PersistQueryClientProvider client={queryClient} persistOptions={persistQueryCacheOptions}>
         <AuthProvider>
           <PreferencesProvider>

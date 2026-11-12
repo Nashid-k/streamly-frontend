@@ -819,16 +819,29 @@ describe("navigation moves one pill, never the dock", () => {
     expect(headerJsx).toMatch(/metaKey \|\| e\.ctrlKey/);
   });
 
-  it("keeps the ink in one place and lets difference resolve it over the pill", () => {
-    expect(block(headerCss, ".nav-link")).toMatch(/mix-blend-mode:\s*difference/);
-    expect(block(headerCss, ".nav-icon-btn")).toMatch(/mix-blend-mode:\s*difference/);
+  it("paints the active ink explicitly instead of blending the whole dock", () => {
+    // 2026-11-12 perf contract: `mix-blend-mode: difference` on the nav links
+    // forced the always-on header island to re-composite every frame while the
+    // ambient blobs drift behind it. The active pill now carries its own dark
+    // ink, so no element in the dock may blend.
+    expect(headerCss).not.toMatch(/mix-blend-mode:\s*difference/);
+    expect(headerCss).not.toMatch(/mix-blend-mode:\s*(?:screen|multiply|overlay|plus-lighter)/);
+    expect(block(headerCss, ".nav-link")).not.toMatch(/mix-blend-mode/);
+    expect(block(headerCss, ".nav-icon-btn")).not.toMatch(/mix-blend-mode:\s*difference/);
     // Cinejoy active pill is #95ff50; active items use #04120b directly over it
     expect(block(headerCss, ".nav-link--active")).toMatch(/color:\s*#04120b/);
     expect(block(headerCss, ".nav-icon-btn--active")).toMatch(/color:\s*#04120b/);
-    // Opacity on the blended element would isolate it from the pill behind it;
-    // the nav cluster must not create a stacking context either.
     expect(block(headerCss, ".nav-link")).not.toMatch(/opacity:/);
-    expect(block(headerCss, ".nav-cluster")).not.toMatch(/z-index:/);
+  });
+
+  it("keeps the always-on header island free of backdrop-filter", () => {
+    // A backdrop filter on permanent chrome re-blurs the animated ambient
+    // layer on every frame, idle included. Blur is only for transient
+    // surfaces (menus, modals, sheets).
+    expect(block(headerCss, ".navbar")).not.toMatch(/backdrop-filter/);
+    expect(block(headerCss, ".navbar.scrolled")).not.toMatch(/backdrop-filter/);
+    expect(block(headerCss, ".navbar")).toMatch(/background:\s*var\(--header-fill/);
+    expect(tokensCss).toMatch(/--header-fill:/);
   });
 
   it("drives the pill via CSS custom properties so geometry settles are instant, not glides", () => {
@@ -875,7 +888,11 @@ describe("navigation moves one pill, never the dock", () => {
   });
 
   it("applies the same ink rule to the mobile bottom nav", () => {
-    expect(block(responsiveCss, ".bottom-nav-item")).toMatch(/mix-blend-mode:\s*difference/);
+    // Same perf contract as the desktop island: the dock never blends and
+    // never blurs the page behind it.
+    expect(block(responsiveCss, ".bottom-nav-item")).not.toMatch(/mix-blend-mode/);
+    expect(block(responsiveCss, ".mobile-bottom-nav")).not.toMatch(/backdrop-filter/);
+    expect(block(responsiveCss, ".mobile-bottom-nav")).toMatch(/var\(--header-fill/);
     expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*#04120b/);
     expect(mobileJsx).not.toMatch(/var\(--black\)/);
   });

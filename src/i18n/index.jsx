@@ -1,9 +1,8 @@
-import { createContext, useContext, useEffect, useMemo } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { en } from "./en.js";
-import { es, fr, de, it, pt } from "./latin.js";
-import { ja, ko, hi, ar } from "./script.js";
 import { useOptionalPreferences } from "../context/preferences";
 import { SUPPORTED_LANGUAGE_CODES } from "../constants/settings";
+import { logError } from "../utils/debugLogger";
 
 /* ── Streamly i18n ────────────────────────────────────────────────────────
    Lightweight, dependency-free translation layer. The catalogs in
@@ -11,11 +10,24 @@ import { SUPPORTED_LANGUAGE_CODES } from "../constants/settings";
    falls back to `en` instead of blanking the UI. `defaultLanguage` (Settings →
    Subtitles) is the single source of truth; the provider mirrors it into
    <html lang> + dir (rtl for Arabic). Outside a provider useI18n() resolves to
-   English, which is what keeps isolated tests/stories stable. */
+   English, which is what keeps isolated tests/stories stable.
+
+   Only English ships in the entry chunk. The other nine catalogs are one
+   dynamic import away per script family (latin / script) and load the first
+   time that language is selected — until they arrive `t()` serves English
+   instead of blanks, so a slow chunk can never break the UI. */
 
 const SUPPORTED_LANGUAGES = SUPPORTED_LANGUAGE_CODES;
 
-const DICTIONARIES = { en, es, fr, de, it, pt, ja, ko, hi, ar };
+const LATIN_CODES = new Set(["es", "fr", "de", "it", "pt"]);
+const SCRIPT_CODES = new Set(["ja", "ko", "hi", "ar"]);
+
+const DICTIONARIES = { en };
+
+const CATALOG_LOADERS = {
+  latin: () => import("./latin.js"),
+  script: () => import("./script.js"),
+};
 
 /* Merge the additive accountExtra leaf (cloud-data deletion strings) into
    settings.account for every catalog; other languages fall back to English for
@@ -55,6 +67,12 @@ function makeT(lang = "en") {
   };
 }
 
+function catalogBucketFor(lang) {
+  if (LATIN_CODES.has(lang)) return "latin";
+  if (SCRIPT_CODES.has(lang)) return "script";
+  return null;
+}
+
 const I18nContext = createContext(null);
 
 /**
@@ -73,12 +91,42 @@ export function I18nProvider({ children }) {
   const lang =
     prefs && SUPPORTED_LANGUAGES.includes(prefs.defaultLanguage) ? prefs.defaultLanguage : "en";
   const dir = LANG_DIR[lang] || "ltr";
+  // Bumps when a lazily imported catalog lands, so `t()` is rebuilt against it.
+  const [catalogVersion, setCatalogVersion] = useState(0);
+
+  useEffect(() => {
+    if (DICTIONARIES[lang]) return undefined;
+    const bucket = catalogBucketFor(lang);
+    const load = bucket ? CATALOG_LOADERS[bucket] : null;
+    if (!load) return undefined;
+
+    let cancelled = false;
+    load()
+      .then((mod) => {
+        for (const [code, catalog] of Object.entries(mod)) {
+          if (SUPPORTED_LANGUAGES.includes(code)) DICTIONARIES[code] = catalog;
+        }
+        if (!cancelled) setCatalogVersion((version) => version + 1);
+      })
+      .catch((error) => {
+        logError("i18n", `Could not load the "${bucket}" language catalog.`, error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lang]);
 
   useEffect(() => {
     // Ownership of <html lang> stays with PreferencesContext; we only manage dir.
     document.documentElement.dir = dir;
   }, [dir]);
 
-  const value = useMemo(() => ({ lang, dir, t: makeT(lang) }), [lang, dir]);
+  const value = useMemo(
+    () => ({ lang, dir, t: makeT(lang) }),
+    // catalogVersion is a dependency so a freshly imported catalog is picked up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [lang, dir, catalogVersion],
+  );
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
