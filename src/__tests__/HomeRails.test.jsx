@@ -82,8 +82,8 @@ describe("HomeRails", () => {
   it("renders the catalogue rows in the agreed order", async () => {
     renderRails();
 
-    expect(await screen.findByText("Trending Film")).toBeInTheDocument();
-    expect(screen.getByText("Trending Show")).toBeInTheDocument();
+    expect((await screen.findAllByText("Trending Film")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Trending Show").length).toBeGreaterThan(0);
     // The provider rails paint their dropdown head only once their first page
     // lands (before that they are a skeleton).
     expect(await screen.findByText("Movies on")).toBeInTheDocument();
@@ -91,17 +91,16 @@ describe("HomeRails", () => {
     const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     const at = (text) => heads.indexOf(text);
 
-    expect(at("Movies on")).toBeGreaterThanOrEqual(0);
-    expect(at("Movies on")).toBeLessThan(at("TV Series on"));
-    // The viewer's own rows lead; the catalogue's trending rows follow them.
-    expect(at("TV Series on")).toBeLessThan(at("Because you watched"));
+    expect(at("Because you watched")).toBeGreaterThanOrEqual(0);
     expect(at("Because you watched")).toBeLessThan(at("Trending Movies"));
     expect(at("Trending Movies")).toBeLessThan(at("Trending Series"));
+    expect(at("Trending Series")).toBeLessThan(at("Movies on"));
+    expect(at("Movies on")).toBeLessThan(at("TV Series on"));
   });
 
-  it("no longer renders a Top 10 row or the provider chip row", () => {
+  it("renders the Browse by Provider rail and no longer renders Top 10", () => {
     renderRails();
     expect(screen.queryByText(/top 10/i)).toBeNull();
-    expect(screen.queryByText(/browse by provider/i)).toBeNull();
+    expect(screen.getByText(/browse by provider/i)).toBeInTheDocument();
   });
 });

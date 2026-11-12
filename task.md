@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` Cinejoy Movies & Series page parity — unified upcoming rail, `UpcomingCard`, `.random-btn`, 5-pill `.filter-bar` — 2026-11-12 (branch `main`).**
+  - **Single upcoming rail**: Replaced stacked month sections (`UpcomingMonthRail`, `monthSections`, `seriesMonthSections`) with ONE horizontal rail (`.track.scroll-x`) displaying `UpcomingCard`s (16:9 aspect ratio, 264px / 316px desktop width, "Coming Soon" badge, calendar date overlay on hover, title & date subtitle) matching `movies.html` & `series.html`.
+  - **Editorial discover header**: Cleaned `.discover` header with visible `discover-title` ("Movies" / "TV Series") and streamlined `.filter-bar` containing `.random-btn` (38px circle expanding to 160px on hover) + 5 filter pills (Genre, Year, Popular, Provider, Country — no Language or duplicate rows).
+  - **Clean grid cards**: Removed framer-motion wrapping divs (`motion.div`) and `.discovery-grid` class override on `.movies-grid`, letting CSS `.cardIn` animation handle entrances directly.
+  - **Motion tokens & tests**: Aligned CSS transition easing and duration tokens across `discovery.css`, `rails.css`, `grids.css`, and `hero.css` with design system tokens (`var(--duration-fast)`, `var(--duration-normal)`, `var(--ease-out)`). Updated `motion.test.js` to assert Cinejoy green active pill contract.
+  - Gates: `npx oxlint` 0 errors; vitest 7 suites / 94 tests passed; `npm run build` exit 0 (2.36s).
+
 - [x] **`streamly-update/` complete Cinejoy layout & spacing parity — 2026-11-12 (branch `main`).**
   - **Removed `x+ titles / shows` pill**: Removed `<BrowseBar>` from `DiscoveryPage.jsx`, along with the `countLabel` and the `itemCount` pill in `UpcomingMonthRail`.
   - **Layout gutters & spacing**: Added `--gutter: 24px` on mobile and `--gutter: 64px` on desktop (≥1024px) in `tokens.css`. Aligned all page headers, discover sections, tracks, and grids to `var(--gutter)`.

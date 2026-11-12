@@ -822,17 +822,13 @@ describe("navigation moves one pill, never the dock", () => {
   it("keeps the ink in one place and lets difference resolve it over the pill", () => {
     expect(block(headerCss, ".nav-link")).toMatch(/mix-blend-mode:\s*difference/);
     expect(block(headerCss, ".nav-icon-btn")).toMatch(/mix-blend-mode:\s*difference/);
-    // White is the source colour difference needs: over the white pill it
-    // resolves to black, over the frosted track it stays near-white.
-    // The ink is the --white token now (P0-8) and the parentheses are escaped:
-    // unescaped they make the regex match a malformed string instead of the CSS.
-    expect(block(headerCss, ".nav-link--active")).toMatch(/color:\s*var\(--white\)/);
-    expect(block(headerCss, ".nav-icon-btn--active")).toMatch(/color:\s*var\(--white\)/);
+    // Cinejoy active pill is #95ff50; active items use #04120b directly over it
+    expect(block(headerCss, ".nav-link--active")).toMatch(/color:\s*#04120b/);
+    expect(block(headerCss, ".nav-icon-btn--active")).toMatch(/color:\s*#04120b/);
     // Opacity on the blended element would isolate it from the pill behind it;
     // the nav cluster must not create a stacking context either.
     expect(block(headerCss, ".nav-link")).not.toMatch(/opacity:/);
     expect(block(headerCss, ".nav-cluster")).not.toMatch(/z-index:/);
-    expect(block(headerCss, ".nav-link--active")).not.toMatch(/color:\s*var\(--black\)/);
   });
 
   it("drives the pill via CSS custom properties so geometry settles are instant, not glides", () => {
@@ -880,8 +876,7 @@ describe("navigation moves one pill, never the dock", () => {
 
   it("applies the same ink rule to the mobile bottom nav", () => {
     expect(block(responsiveCss, ".bottom-nav-item")).toMatch(/mix-blend-mode:\s*difference/);
-    expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*var\(--white\)/);
-    expect(responsiveCss).not.toMatch(/\.bottom-nav-item\.active svg\s*\{[^}]*color:\s*var\(--black\)/);
+    expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*#04120b/);
     expect(mobileJsx).not.toMatch(/var\(--black\)/);
   });
 });

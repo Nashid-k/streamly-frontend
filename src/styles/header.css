@@ -339,7 +339,7 @@ html[data-reduce-motion="true"] .nav-active-pill {
 }
 .navbar:hover .nav-link--active,
 .navbar:hover .nav-icon-btn--active {
-  color: var(--white);
+  color: #04120b;
   background: transparent;
 }
 }

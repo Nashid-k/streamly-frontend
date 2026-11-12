@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
@@ -27,7 +27,6 @@ import { pickImageWidth } from "../utils/artwork";
 import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
 import { logEmptyData, reportQueryError } from "../utils/debugLogger";
-import { DURATION, EASE_OUT } from "../constants/motion";
 import { StreamlyLoader } from "../components/StreamlyLoader";
 
 /* Back-navigation memory for the grid. Filters already live in the URL; the
@@ -84,101 +83,66 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
       aria-disabled={disabled || undefined}
       disabled={disabled}
       onClick={onClick}
-      className={`shrink-0 flex items-center h-[38px] overflow-hidden bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 ease-out backdrop-blur-md group ${
-        busy
-          ? "max-w-[130px] cursor-wait"
-          : disabled
-            ? "opacity-40 cursor-not-allowed"
-            : "max-w-[38px] hover:max-w-[130px]"
-      }`}
+      className={`random-btn ${busy ? "cursor-wait" : ""}`}
+      style={busy ? { maxWidth: "160px" } : undefined}
     >
-      <span className="flex items-center justify-center w-9 h-9 shrink-0">
-        {busy ? (
-          <StreamlyLoader size={16} label="" />
-        ) : (
-          <Dices
-            size={16}
-            className="text-white/50 group-hover:text-white transition-colors duration-300"
-          />
-        )}
-      </span>
-      <span className="pr-3.5 text-sm font-medium whitespace-nowrap text-white/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-75">
-        Random
-      </span>
+      {busy ? (
+        <StreamlyLoader size={16} label="" />
+      ) : (
+        <Dices size={16} className="icon" />
+      )}
+      <span className="label">Random</span>
     </button>
   );
 }
 
-// ── Landscape editorial card (rail) ───────────────────────────────────────
-// w-[70vw] mobile → 264px → 316px desktop, aspect-video, with the spotlight
-// badge, hover veil, encoded overlay (title + "Ep X · Mon DD") and below-card
-// meta for non-hover devices.
-function LandscapeCard({ item, badgeLabel, onOpen }) {
+// ── Upcoming card (rail) — Cinejoy parity ─────────────────────────────
+function UpcomingCard({ item, badgeLabel = "Coming Soon", onOpen }) {
   const preferences = useOptionalPreferences();
-  const imgUrl = CdnImageAdapter.getUrl(item.backdropUrl || item.posterUrl, pickImageWidth("rail", preferences));
-  const nextEpisode = item.nextEpisode || {};
-  const episodeLabel =
-    nextEpisode.episode != null ? `Ep ${nextEpisode.episode}` : null;
+  const imgUrl = CdnImageAdapter.getUrl(
+    item.backdropUrl || item.posterUrl,
+    pickImageWidth("rail", preferences),
+  );
   const dateLabel =
-    item.relLabel || item.formattedRelease || item.releaseDay || "";
+    item.relLabel || item.formattedRelease || item.releaseDay || item.releaseDate || "";
 
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={`View details for ${item.title}`}
-      className="relative flex-none snap-start w-[70vw] max-w-[280px] sm:w-[264px] sm:max-w-none lg:w-[316px] group/card cursor-pointer origin-center transition-transform duration-500 ease-out hover:scale-105 hover:z-50 text-left"
+      className="upcoming-card text-left"
     >
-      <div className="relative isolate aspect-video overflow-hidden rounded-xl bg-white/5 shadow-xl shadow-black/40">
+      <div className="upcoming-card__poster">
         {imgUrl ? (
           <img
             src={imgUrl}
-            alt=""
+            alt={item.title}
             loading="lazy"
             decoding="async"
-            className="block w-full h-full object-cover transition-all duration-300 lg:group-hover/card:brightness-50"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-white/[0.04] to-white/[0.08] text-white/25 text-2xl font-extrabold">
+          <div className="w-full h-full flex items-center justify-center bg-white/5 text-white/25 text-2xl font-extrabold">
             {(item.title || "?").trim().charAt(0).toUpperCase()}
           </div>
         )}
-        {/* Cinejoy spotlight veil + badge */}
-        <div className="card-hover-veil" aria-hidden="true" />
-        <span className="spotlight-badge" aria-hidden="true">
-          {badgeLabel}
-        </span>
-        {/* Desktop-only encoded overlay */}
-        <div className="hidden lg:flex absolute inset-0 flex-col items-center justify-center px-4 pointer-events-none transition-all duration-300 transform opacity-0 translate-y-4 group-hover/card:opacity-100 group-hover/card:translate-y-0">
-          <h3 className="font-bold text-white text-sm leading-tight line-clamp-2 drop-shadow-md text-center">
-            {item.title}
-          </h3>
-          <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-white/80 font-medium">
-            <CalendarDays size={12} className="text-white/70" />
-            {episodeLabel && <span>{episodeLabel}</span>}
-            <span>{dateLabel}</span>
-          </p>
+        <span className="upcoming-card__badge">{badgeLabel}</span>
+        <div className="upcoming-card__date-overlay">
+          <CalendarDays size={18} className="icon text-white" />
+          <span className="date">{dateLabel}</span>
         </div>
       </div>
-      {/* Below-card meta — no hover on touch devices */}
-      <div className="lg:hidden mt-2 pb-1 space-y-0.5">
-        <h3 className="font-medium text-white text-xs leading-tight line-clamp-1">
-          {item.title}
-        </h3>
-        <p className="flex items-center gap-1 text-xs text-white/60">
-          <CalendarDays size={10} className="text-white/40" />
-          {episodeLabel && <span>{episodeLabel}</span>}
-          <span>{dateLabel}</span>
+      <div className="upcoming-card__caption">
+        <h3>{item.title}</h3>
+        <p className="date-sub">
+          <CalendarDays size={11} className="icon shrink-0" /> {dateLabel}
         </p>
       </div>
     </button>
   );
 }
 
-// ── Filter row — header copy + docked copy ─────────────────────────────
-// One component, two mounts. Both read the same URL params through the same
-// handlers, so they can never disagree; while the dock is up the inline copy is
-// `inert`, so exactly one reachable set of filter buttons exists at a time.
+// ── Filter bar — header copy + docked copy ────────────────────────────
 function DiscoveryFilters({
   inert,
   random,
@@ -189,247 +153,168 @@ function DiscoveryFilters({
   sortParam,
   providerParam,
   countryParam,
-  languageParam,
   genreLabel,
   yearLabel,
   sortLabel,
   providerLabel,
   countryLabel,
-  languageLabel,
   genreOptions,
   providerOptions,
   countryOptions,
   yearOptions,
-  languageOptions,
 }) {
   return (
     <div
-      className="discover-filters flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full xl:w-auto"
+      className="discover-filters filter-bar"
       inert={inert}
     >
-      <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-        <RandomPill
-          ariaLabel={random.ariaLabel}
-          onClick={random.onClick}
-          busy={random.busy}
-          disabled={random.disabled}
-        />
-        <FilterPill label={genreLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__all"
-                label="All Genres"
-                selected={!genreParam}
-                onSelect={() => {
-                  setParam("genre", "");
-                  close();
-                }}
-              />
-              {genreOptions.map((g) => (
-                <MenuItem
-                  key={g.id}
-                  label={g.name}
-                  selected={String(g.id) === genreParam}
-                  onSelect={() => {
-                    setParam("genre", String(g.id));
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-        <FilterPill label={yearLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__all"
-                label="Any Year"
-                selected={!yearParam}
-                onSelect={() => {
-                  setParam("year", "");
-                  close();
-                }}
-              />
-              {yearOptions.map((y) => (
-                <MenuItem
-                  key={y}
-                  label={y}
-                  selected={y === yearParam}
-                  onSelect={() => {
-                    setParam("year", y);
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-      </div>
-      <div className="filter-row flex items-center sm:justify-start gap-2 sm:gap-3 flex-wrap">
-        <FilterPill label={sortLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__default"
-                label="Default"
-                selected={!hasSortParam}
-                onSelect={() => {
-                  setParam("sort", "");
-                  close();
-                }}
-              />
-              {SORT_OPTIONS.map((o) => (
-                <MenuItem
-                  key={o.value}
-                  label={o.label}
-                  selected={o.value === sortParam}
-                  onSelect={() => {
-                    setParam("sort", o.value);
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-        <FilterPill label={providerLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__any"
-                label="Any Provider"
-                selected={!providerParam}
-                onSelect={() => {
-                  setParam("provider", "");
-                  close();
-                }}
-              />
-              {providerOptions.map((p) => (
-                <MenuItem
-                  key={p.id}
-                  label={p.name}
-                  selected={String(p.id) === providerParam}
-                  icon={
-                    p.logoUrl ? (
-                      <img
-                        src={p.logoUrl}
-                        alt=""
-                        className="w-4 h-4 rounded object-contain bg-white/10"
-                        loading="lazy"
-                      />
-                    ) : null
-                  }
-                  onSelect={() => {
-                    setParam("provider", String(p.id));
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-
-        <FilterPill label={languageLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__any"
-                label="Any Language"
-                selected={!languageParam}
-                onSelect={() => {
-                  setParam("language", "");
-                  close();
-                }}
-              />
-              {languageOptions.map((l) => (
-                <MenuItem
-                  key={l.id}
-                  label={l.name}
-                  selected={l.id === languageParam}
-                  onSelect={() => {
-                    setParam("language", l.id);
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-        <FilterPill label={countryLabel}>
-          {({ close }) => (
-            <>
-              <MenuItem
-                key="__any"
-                label="Any Country"
-                selected={!countryParam}
-                onSelect={() => {
-                  setParam("country", "");
-                  close();
-                }}
-              />
-              {countryOptions.map((r) => (
-                <MenuItem
-                  key={r.code}
-                  label={r.name}
-                  selected={String(r.code) === countryParam}
-                  onSelect={() => {
-                    setParam("country", String(r.code));
-                    close();
-                  }}
-                />
-              ))}
-            </>
-          )}
-        </FilterPill>
-      </div>
-    </div>
-  );
-}
-
-// ── Month-grouped "Upcoming" rail ─────────────────────────────────────────
-// The full theatrical slate, not one sparse row: railItems (already sorted
-// soonest-first) group into per-month rails with a count pill and self-contained
-// fade-in arrows. Series mode reuses the same rails for its release calendar.
-function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
-  const reduceMotion = useReducedMotion();
-  const railRef = useRef(null);
-  // House arrow hook: same 4px threshold, rAF-coalesced and no-op-guarded
-  // instead of two raw setState-per-scroll-event booleans.
-  const { canScrollLeft: canLeft, canScrollRight: canRight } = useRailArrows(railRef, { threshold: 4 });
-
-  const scrollRail = (dir) => {
-    railRef.current?.scrollBy({ left: dir * 420, behavior: reduceMotion ? "auto" : "smooth" });
-  };
-
-  return (
-    <section className="row-section relative z-10" style={{ paddingTop: "8px" }}>
-      <div className="row-head" style={{ marginBottom: "6px" }}>
-        <h2>{heading}</h2>
-      </div>
-      <div className="relative group/row mt-2">
-        {canLeft && (
-          <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
-        )}
-        <div
-          ref={railRef}
-          className="discovery-rail-mask flex gap-3 sm:gap-4 overflow-x-auto overflow-y-clip pt-4 pb-12 px-4 md:px-8 scroll-pl-4 md:scroll-pl-8 snap-x snap-mandatory sm:snap-none scrollbar-hide items-start isolate"
-        >
-          {items.map((item) => (
-            <LandscapeCard
-              key={item.id}
-              item={item}
-              badgeLabel="Coming Soon"
-              onOpen={() => onOpen(item)}
+      <RandomPill
+        ariaLabel={random.ariaLabel}
+        onClick={random.onClick}
+        busy={random.busy}
+        disabled={random.disabled}
+      />
+      <FilterPill label={genreLabel} active={Boolean(genreParam)}>
+        {({ close }) => (
+          <>
+            <MenuItem
+              key="__all"
+              label="All Genres"
+              selected={!genreParam}
+              onSelect={() => {
+                setParam("genre", "");
+                close();
+              }}
             />
-          ))}
-        </div>
-        {canRight && (
-          <RailArrow dir="right" onClick={() => scrollRail(1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
+            {genreOptions.map((g) => (
+              <MenuItem
+                key={g.id}
+                label={g.name}
+                selected={String(g.id) === genreParam}
+                onSelect={() => {
+                  setParam("genre", String(g.id));
+                  close();
+                }}
+              />
+            ))}
+          </>
         )}
-      </div>
-    </section>
+      </FilterPill>
+      <FilterPill label={yearLabel} active={Boolean(yearParam)}>
+        {({ close }) => (
+          <>
+            <MenuItem
+              key="__all"
+              label="Any Year"
+              selected={!yearParam}
+              onSelect={() => {
+                setParam("year", "");
+                close();
+              }}
+            />
+            {yearOptions.map((y) => (
+              <MenuItem
+                key={y}
+                label={y}
+                selected={y === yearParam}
+                onSelect={() => {
+                  setParam("year", y);
+                  close();
+                }}
+              />
+            ))}
+          </>
+        )}
+      </FilterPill>
+      <FilterPill label={sortLabel} active={hasSortParam}>
+        {({ close }) => (
+          <>
+            <MenuItem
+              key="__default"
+              label="Default"
+              selected={!hasSortParam}
+              onSelect={() => {
+                setParam("sort", "");
+                close();
+              }}
+            />
+            {SORT_OPTIONS.map((o) => (
+              <MenuItem
+                key={o.value}
+                label={o.label}
+                selected={o.value === sortParam}
+                onSelect={() => {
+                  setParam("sort", o.value);
+                  close();
+                }}
+              />
+            ))}
+          </>
+        )}
+      </FilterPill>
+      <FilterPill label={providerLabel} active={Boolean(providerParam)}>
+        {({ close }) => (
+          <>
+            <MenuItem
+              key="__any"
+              label="Any Provider"
+              selected={!providerParam}
+              onSelect={() => {
+                setParam("provider", "");
+                close();
+              }}
+            />
+            {providerOptions.map((p) => (
+              <MenuItem
+                key={p.id}
+                label={p.name}
+                selected={String(p.id) === providerParam}
+                icon={
+                  p.logoUrl ? (
+                    <img
+                      src={p.logoUrl}
+                      alt=""
+                      className="w-4 h-4 rounded object-contain bg-white/10"
+                      loading="lazy"
+                    />
+                  ) : null
+                }
+                onSelect={() => {
+                  setParam("provider", String(p.id));
+                  close();
+                }}
+              />
+            ))}
+          </>
+        )}
+      </FilterPill>
+      <FilterPill label={countryLabel} active={Boolean(countryParam)}>
+        {({ close }) => (
+          <>
+            <MenuItem
+              key="__any"
+              label="Any Country"
+              selected={!countryParam}
+              onSelect={() => {
+                setParam("country", "");
+                close();
+              }}
+            />
+            {countryOptions.map((r) => (
+              <MenuItem
+                key={r.code}
+                label={r.name}
+                selected={String(r.code) === countryParam}
+                onSelect={() => {
+                  setParam("country", String(r.code));
+                  close();
+                }}
+              />
+            ))}
+          </>
+        )}
+      </FilterPill>
+    </div>
   );
 }
 
@@ -440,7 +325,6 @@ export default function DiscoveryPage({ mode = "movies" }) {
   const reduceMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const { openDetails, modalHost } = useDetailView();
-  const preferences = useOptionalPreferences();
   const railRef = useRef(null);
 
   /* ── Pinned filters (Cinejoy .pinned-filters) ──────────────────────────
@@ -607,45 +491,6 @@ export default function DiscoveryPage({ mode = "movies" }) {
     // date for it yet.
     return isSeries ? buildAiringRail(data, 120) : buildUpcoming(data, 365);
   }, [railQuery.data, isSeries]);
-
-  // Series release-calendar rail. Movies get their slate via
-  // loadUpcomingFilmSlate; series need their own first-air-date sweep.
-  const seriesUpcomingQuery = useQuery({
-    queryKey: ["discover-series-upcoming", cfg.mediaType],
-    queryFn: () => movieService.getTvUpcoming(120),
-    enabled: isSeries,
-    staleTime: 1000 * 60 * 10,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const seriesUpcomingItems = useMemo(
-    () => (isSeries ? buildUpcoming(seriesUpcomingQuery.data || [], 120) : []),
-    [seriesUpcomingQuery.data, isSeries],
-  );
-
-  // One rail, this month only: the old grouping emitted a rail per month
-  // ("Coming This Month", then "November 2026", "December 2026" …) and the
-  // browse pages only need the current calendar month's premieres.
-  const groupByMonth = (items) => {
-    const now = new Date();
-    const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const monthItems = items.filter(
-      (item) => String(item.releaseDate || "").slice(0, 7) === curKey,
-    );
-    if (monthItems.length === 0) return [];
-    return [{ key: curKey, heading: "Coming This Month", itemCount: monthItems.length, items: monthItems }];
-  };
-
-  const monthSections = useMemo(() => {
-    if (isSeries) return [];
-    return groupByMonth(railItems);
-  }, [railItems, isSeries]);
-
-  const seriesMonthSections = useMemo(
-    () => (isSeries ? groupByMonth(seriesUpcomingItems) : []),
-    [seriesUpcomingItems, isSeries],
-  );
 
   const gridItems = useMemo(
     () => (gridQuery.data?.pages || []).flat(),
@@ -900,50 +745,33 @@ export default function DiscoveryPage({ mode = "movies" }) {
         <section className="discover" data-discover>
           <div className="discover-head">
             <h1 className="discover-title">{cfg.title}</h1>
-            <div ref={filterSlotRef} className="filter-bar">
+            <div ref={filterSlotRef} className="discover-filter-slot">
               <DiscoveryFilters {...filterBarProps} inert={filtersDock || undefined} />
             </div>
           </div>
         </section>
 
-        {/* ── Editorial rail ──────────────────────────────────────────── */}
-        {!railQuery.isLoading &&
-          !railQuery.error &&
-          !isSeries &&
-          monthSections.length > 0 && (
-            <div className="space-y-6">
-              {monthSections.map((section) => (
-                <UpcomingMonthRail
-                  key={section.key}
-                  heading={section.heading}
-                  itemCount={section.itemCount}
-                  items={section.items}
-                  onOpen={openDetails}
-                />
-              ))}
-            </div>
-          )}
-
-        {!railQuery.isLoading && !railQuery.error && isSeries && railItems.length > 0 && (
+        {/* ── Editorial rail (Upcoming for movies / New Seasons Airing for series) ── */}
+        {!railQuery.isLoading && !railQuery.error && railItems.length > 0 && (
           <section className="row-section relative z-10" style={{ paddingTop: "8px" }}>
             <div className="row-head" style={{ marginBottom: "6px" }}>
               <h2>{cfg.railLabel}</h2>
             </div>
-            <div className="relative group/row mt-2">
-              {/* Left arrow — only shows when content is hidden to the left */}
+            <div className="track-wrap relative group/row">
               {canLeft && (
                 <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
               )}
               <div
                 ref={railRef}
-                className="discovery-rail-mask track scroll-x flex gap-3 sm:gap-4 overflow-x-auto overflow-y-clip pt-4 pb-12 snap-x snap-mandatory sm:snap-none scrollbar-hide items-start isolate"
+                className="track scroll-x flex"
                 style={{
+                  gap: "14px",
                   paddingLeft: "var(--gutter, 24px)",
                   paddingRight: "var(--gutter, 24px)",
                 }}
               >
-                {railItems.map((item) => (
-                  <LandscapeCard
+                {railItems.slice(0, 20).map((item) => (
+                  <UpcomingCard
                     key={item.id}
                     item={item}
                     badgeLabel={cfg.railBadge(item)}
@@ -951,31 +779,12 @@ export default function DiscoveryPage({ mode = "movies" }) {
                   />
                 ))}
               </div>
-              {/* Right arrow — reveals on hover over the row */}
               {canRight && (
                 <RailArrow dir="right" onClick={() => scrollRail(1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
               )}
             </div>
           </section>
         )}
-
-        {/* ── Series release calendar: Coming This Month ────────────────── */}
-        {!seriesUpcomingQuery.isLoading &&
-          !seriesUpcomingQuery.error &&
-          isSeries &&
-          seriesMonthSections.length > 0 && (
-            <div className="space-y-6">
-              {seriesMonthSections.map((section) => (
-                <UpcomingMonthRail
-                  key={section.key}
-                  heading={section.heading}
-                  itemCount={section.itemCount}
-                  items={section.items}
-                  onOpen={openDetails}
-                />
-              ))}
-            </div>
-          )}
 
         {/* ── Poster grid (Popular / Top Rated / Newest) ─────────────── */}
         <section className="row-section relative z-10" style={{ padding: "0 0 60px" }}>
@@ -984,7 +793,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
           </div>
           <ErrorBoundary>
             {gridLoading ? (
-              <div className="movies-grid discovery-grid">
+              <div className="movies-grid">
                 {[...Array(12)].map((_, i) => (
                   <MovieCardSkeleton key={i} />
                 ))}
@@ -1046,16 +855,9 @@ export default function DiscoveryPage({ mode = "movies" }) {
               />
             ) : (
               <>
-                <div className="movies-grid discovery-grid">
-                  {gridItems.map((movie, idx) => (
-                    <motion.div
-                      key={movie.id}
-                      initial={reduceMotion ? false : { opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: DURATION.MED, delay: (idx % 8) * 0.025, ease: EASE_OUT }}
-                    >
-                      <MovieCard movie={movie} />
-                    </motion.div>
+                <div className="movies-grid">
+                  {gridItems.map((movie) => (
+                    <MovieCard key={movie.id} movie={movie} />
                   ))}
                 </div>
                 {/* Scroll sentinel — the next page loads as this nears the
@@ -1088,7 +890,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
             inside it would anchor to the page instead of the viewport. */}
         {filtersDock &&
           createPortal(
-            <div className="discover-filters-dock" role="group" aria-label="Filters">
+            <div className="pinned-filters discover-filters-dock is-stuck" role="group" aria-label="Filters">
               <DiscoveryFilters {...filterBarProps} />
             </div>,
             document.body,

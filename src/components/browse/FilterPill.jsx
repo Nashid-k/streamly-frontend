@@ -7,7 +7,7 @@ import { ChevronDown } from "lucide-react";
    function produces so every pill (Genre, Year, Sort, Provider, Country)
    shares the same shell and styling. Shared by the Movies/Series browse
    pages (DiscoveryPage) and My List (WatchlistPage). */
-function FilterPill({ label, children }) {
+function FilterPill({ label, active = false, children }) {
   const [open, setOpen] = useState(false);
   const [alignRight, setAlignRight] = useState(false);
   const rootRef = useRef(null);
@@ -60,12 +60,13 @@ function FilterPill({ label, children }) {
         aria-expanded={open}
         aria-label={`Filter by ${label}`}
         onClick={() => setOpen((o) => !o)}
-        className="group flex items-center justify-between gap-2 w-full md:w-auto px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md min-w-0 md:min-w-[140px]"
+        className="filter-btn group"
       >
-        <span className="truncate text-sm font-medium text-white/80">{label}</span>
+        {active && <span className="dot" />}
+        <span className="truncate text-sm font-medium text-white/90">{label}</span>
         <ChevronDown
           size={14}
-          className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white transition-colors"
+          className="icon"
         />
       </button>
       {open && (
@@ -74,7 +75,7 @@ function FilterPill({ label, children }) {
           aria-label={label}
           className={`discovery-menu absolute top-[calc(100%+8px)] ${
             alignRight ? "right-0" : "left-0"
-          } z-[70] w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2`}
+          } z-[70] w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto rounded-2xl border border-white/15 shadow-2xl p-2 bg-[#120f1d]/95 backdrop-blur-xl`}
         >
           {children({ close: closeMenu })}
         </div>

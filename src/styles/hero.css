@@ -460,7 +460,7 @@
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 14px 30px -8px rgba(149, 255, 80, 0.5);
-  transition: transform 0.18s var(--ease-out), background-color 0.2s, box-shadow 0.2s;
+  transition: transform var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
   user-select: none;
 }
 @media (hover: hover) and (pointer: fine) {
