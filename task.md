@@ -17,6 +17,14 @@
 
  ## Done (in order)
 
+- [x] **Diagnose and fix provider page disappearance and app UI/UX issues — 2026-11-12 (branch `main`).**
+  - **Provider 404 resolution fix (`src/pages/ProviderPage.jsx`)**: Added robust resolver parsing path prefixes (`/provider/`), numeric IDs, stripped names, and 30+ canonical alias variants (`prime`, `max`, `peacock`, `crunchyroll`, `starz`, `amc`, `mgm`, `tubi`, `pluto`, etc.). Previously, navigating to slugs like `/provider/prime-video` or `/provider/max` failed matching and rendered 404 "Provider not found", causing the provider logo and catalog to disappear.
+  - **Seeded all 17 streaming provider catalogs (`src/data/providerCatalog.js`)**: Extracted and seeded full curated fallback titles for all 17 providers (176 titles) from `streamly-update/provider.html` (previously only 7 were present; Apple TV, Peacock, Crunchyroll, Starz, AMC+, MGM+, YouTube Premium, YouTube, Tubi, Pluto TV were missing). In environments where TMDB direct queries 401 or return empty, titles now populate instantly.
+  - **Provider tab bleed fix & empty tab switch (`src/pages/ProviderPage.jsx`)**: Added `useEffect` resetting tab to `"movies"` when provider changes, preventing navigating into an empty tab (e.g. Starz has movies but 0 series in curated catalog). Added tab-swap action button when an active tab has 0 titles but the sibling tab has items.
+  - **Hero back affordance & mobile clearance (`src/pages/ProviderPage.jsx`, `src/styles/provider.css`)**: Added `.provider-back-btn` frosted glass chevron back button in provider hero. Added `@media (max-width: 768px)` rules ensuring 84px top clearance below fixed header and 96px + safe-area bottom clearance above the floating mobile dock.
+  - **App UI/UX improvements (`src/pages/CategoryPage.jsx`)**: Replaced hard page reload `window.location.assign("/")` with client-side router navigation `navigate("/")` in empty category state.
+  - Gates: `npx oxlint` 0 errors; vitest 124 suites / 1472 tests passed; `npm run build` exit 0 (1.99s).
+
 - [x] **Second performance audit & optimization — 2026-11-12 (branch `main`).**
   - **Player Panel resize layout thrashing eliminated (`src/components/player/chrome/PlayerPanel.jsx`)**: Gated the window `resize` event listener to when `panel` is actually mounted (`if (!panel) return undefined`), and throttled `fitPaneRef.current(true)` through `requestAnimationFrame`. Previously, window resize while playing video executed multiple synchronous layout reads and DOM height mutations per frame.
   - **Freed persistent hero compositor layers (`src/pages/HomePage.jsx`, `src/components/browse/BrowseBanner.jsx`)**: Removed static inline `willChange: "opacity"` on the hero container `<motion.div>` in Home and Browse banners. This prevented keeping the entire 100vw x 78vh banner permanently locked in dedicated GPU backing store after initial fade-in settled.

@@ -60,5 +60,26 @@ describe("ProviderPage", () => {
     expect(screen.getByText("Provider not found")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Back to Home/i })).toBeInTheDocument();
   });
+
+  it("resolves slug aliases and renders curated catalog for Peacock (id 386)", async () => {
+    movieService.getDiscover.mockResolvedValue([]);
+
+    renderProviderPage("/provider/peacock");
+
+    expect(screen.getByRole("heading", { name: "Peacock Premium" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
+    // Curated catalog has 8 movies for Peacock
+    const moviesTab = screen.getByRole("tab", { name: /^Movies/i });
+    expect(moviesTab).toBeInTheDocument();
+    expect(moviesTab).toHaveTextContent("8");
+  });
+
+  it("resolves prime-video slug to Amazon Prime Video with curated catalog", async () => {
+    movieService.getDiscover.mockResolvedValue([]);
+
+    renderProviderPage("/provider/prime-video");
+
+    expect(screen.getByRole("heading", { name: "Amazon Prime Video" })).toBeInTheDocument();
+  });
 });
 

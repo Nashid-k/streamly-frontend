@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import useFeedSentinel from "../hooks/useFeedSentinel";
 import { DURATION, EASE_OUT } from "../constants/motion";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { motion } from "framer-motion";
@@ -20,6 +20,7 @@ export default function CategoryPage() {
   // name into a space, and throw an URIError on a malformed escape like
   // "/category/%E0" — an uncaught crash, then a full ErrorBoundary fallback.
   const { name } = useParams();
+  const navigate = useNavigate();
   const categoryName = name;
 
   const seo = (
@@ -155,7 +156,7 @@ export default function CategoryPage() {
             <button
               type="button"
               className="btn-primary"
-              onClick={() => window.location.assign("/")}
+              onClick={() => navigate("/")}
               style={{ padding: "0.65rem 1.5rem", borderRadius: "var(--radius-full)", cursor: "pointer" }}
             >
               Explore Trending Titles

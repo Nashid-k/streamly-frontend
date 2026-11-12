@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Film, Home, Grid } from "lucide-react";
+import { Film, Home, Grid, ChevronLeft } from "lucide-react";
 import { BROWSE_PROVIDERS } from "../data/homeRailDomains";
 import { CURATED_PROVIDER_TITLES } from "../data/providerCatalog";
 import { movieService } from "../api/movieService";
@@ -10,6 +10,7 @@ import AmbientBackground from "../components/AmbientBackground";
 import { reportQueryError } from "../utils/debugLogger";
 
 export default function ProviderPage() {
+  const navigate = useNavigate();
   const params = useParams();
   const [searchParams] = useSearchParams();
   const rawId = params.providerId || params.id || searchParams.get("id");
@@ -21,18 +22,76 @@ export default function ProviderPage() {
     window.scrollTo(0, 0);
   }, [rawId]);
 
-  // Lookup provider in BROWSE_PROVIDERS
+  // Robust provider resolution: supports numeric IDs, raw slugs, alias variants, and `/provider/X` pathing
   const provider = useMemo(() => {
     if (!rawId) return null;
-    return (
-      BROWSE_PROVIDERS.find(
-        (p) =>
-          String(p.id) === String(rawId) ||
-          p.name.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-            String(rawId).toLowerCase().replace(/[^a-z0-9]/g, ""),
-      ) || null
+
+    const clean = String(rawId)
+      .trim()
+      .replace(/^\/?provider\/?/i, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+    if (!clean) return null;
+
+    // 1. Direct numeric ID match
+    const byId = BROWSE_PROVIDERS.find((p) => String(p.id) === clean);
+    if (byId) return byId;
+
+    // 2. Exact stripped name match
+    const byName = BROWSE_PROVIDERS.find(
+      (p) => p.name.toLowerCase().replace(/[^a-z0-9]/g, "") === clean,
     );
+    if (byName) return byName;
+
+    // 3. Known aliases & common abbreviations
+    const aliasMap = {
+      netflix: 8,
+      prime: 9,
+      primevideo: 9,
+      amazon: 9,
+      amazonprime: 9,
+      amazonprimevideo: 9,
+      disney: 337,
+      disneyplus: 337,
+      appletvplus: 350,
+      appletv: 2,
+      appleplus: 350,
+      hulu: 15,
+      max: 1899,
+      hbomax: 1899,
+      hbo: 1899,
+      paramount: 2303,
+      paramountplus: 2303,
+      peacock: 386,
+      peacockpremium: 386,
+      crunchyroll: 283,
+      starz: 43,
+      amc: 526,
+      amcplus: 526,
+      mgm: 34,
+      mgmplus: 34,
+      youtubepremium: 188,
+      ytpremium: 188,
+      youtube: 192,
+      yt: 192,
+      tubi: 73,
+      tubitv: 73,
+      pluto: 300,
+      plutotv: 300,
+    };
+    const targetId = aliasMap[clean];
+    if (targetId) {
+      return BROWSE_PROVIDERS.find((p) => p.id === targetId) || null;
+    }
+
+    return null;
   }, [rawId]);
+
+  // Reset tab to movies when navigating to a new provider
+  useEffect(() => {
+    setTab("movies");
+  }, [provider?.id]);
 
   // Set document title
   useEffect(() => {
@@ -116,8 +175,8 @@ export default function ProviderPage() {
           <p style={{ color: "var(--text-muted)" }}>
             We couldn't find that provider. Try another from the home page.
           </p>
-          <Link className="btn btn--primary" to="/" style={{ marginTop: 20 }}>
-            <Home className="icon" size={18} style={{ marginRight: 8 }} /> Back to Home
+          <Link className="btn-primary" to="/" style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: "var(--radius-full)" }}>
+            <Home size={18} /> Back to Home
           </Link>
         </div>
       </div>
@@ -130,6 +189,14 @@ export default function ProviderPage() {
 
       {/* Hero Header */}
       <div className="provider-hero">
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
+          className="provider-back-btn"
+          aria-label="Back"
+        >
+          <ChevronLeft size={22} />
+        </button>
         <div className="provider-hero__logo">
           <img src={provider.logo} alt={provider.name} loading="eager" decoding="async" />
         </div>
@@ -178,7 +245,27 @@ export default function ProviderPage() {
       ) : activeItems.length === 0 ? (
         <div className="provider-empty">
           <Film className="icon" size={48} />
-          No titles available for this provider yet.
+          <p style={{ margin: "0 0 12px" }}>No {tab === "movies" ? "movies" : "series"} available for {provider.name} yet.</p>
+          {tab === "series" && movies.length > 0 && (
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+              onClick={() => setTab("movies")}
+            >
+              Switch to Movies ({movies.length})
+            </button>
+          )}
+          {tab === "movies" && series.length > 0 && (
+            <button
+              type="button"
+              className="btn-primary"
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+              onClick={() => setTab("series")}
+            >
+              Switch to Series ({series.length})
+            </button>
+          )}
         </div>
       ) : (
         <div className="provider-grid" id="provider-grid">

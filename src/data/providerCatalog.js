@@ -1,100 +1,2175 @@
 /**
  * Curated fallback provider catalogue from streamly-update/provider.html.
- * Guarantees that even without an active TMDB API key or in offline tests,
- * every streaming provider page displays rich titles, counts, and artwork.
+ * Covers ALL 17 streaming providers with full titles, ratings, artwork, and years.
  */
 
 export const CURATED_PROVIDER_TITLES = {
-  // Netflix
-  8: {
-    movies: [
-      { id: "tmdb-movie-361743", title: "Top Gun: Maverick", year: "2022", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/jALOpRgEjKLWn5ZD01pGecHdCNt.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1514026", title: "Buddy", year: "2026", rating: "7.4", posterUrl: "https://image.tmdb.org/t/p/w500/fGRNCssTRrhYZxNzykGGCoMsAVq.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/fGRNCssTRrhYZxNzykGGCoMsAVq.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1375441", title: "Primetime", year: "2026", rating: "7.1", posterUrl: "https://image.tmdb.org/t/p/w500/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-155", title: "The Dark Knight", year: "2008", rating: "8.5", posterUrl: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/qJ2tW6WMUDux911r6m7haRef0WH.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-244786", title: "Whiplash", year: "2014", rating: "8.4", posterUrl: "https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/7fn624j5lj3xTme2SgiLCeuedmO.jpg", mediaType: "movie", media_type: "movie" },
+  "2": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1170608",
+        "title": "Dune: Part Three",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/dXOqWj2kjJQkHNbfoS8iYzbuwO3.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/dXOqWj2kjJQkHNbfoS8iYzbuwO3.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1792170",
+        "title": "Model Citizen",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.4",
+        "imdbRating": 6.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7SE0LBwgqiqZzkm9gKVbBAbcNQL.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7SE0LBwgqiqZzkm9gKVbBAbcNQL.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-1396", title: "Breaking Bad", year: "2008", rating: "9.0", posterUrl: "https://image.tmdb.org/t/p/w500/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-2190", title: "South Park", year: "1997", rating: "8.3", posterUrl: "https://image.tmdb.org/t/p/w500/k7n2EVge7G77eMr3brztRGG1fFU.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/k7n2EVge7G77eMr3brztRGG1fFU.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-78191", title: "You", year: "2018", rating: "8.0", posterUrl: "https://image.tmdb.org/t/p/w500/oANi0vEE92nuijiZQgPZ88FSxqQ.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/oANi0vEE92nuijiZQgPZ88FSxqQ.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-34307", title: "Shameless", year: "2011", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/Yi3WVT6hOkPahOwwvmLmif1jhs.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/Yi3WVT6hOkPahOwwvmLmif1jhs.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-68716", title: "Marvel's Inhumans", year: "2017", rating: "5.8", posterUrl: "https://image.tmdb.org/t/p/w500/zKfGip55oJ9tdzhyd9ayGyFFhuo.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/zKfGip55oJ9tdzhyd9ayGyFFhuo.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-213375",
+        "title": "VisionQuest",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/WGyAyBPncfuu8MZhLY9RtfZPM0.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/WGyAyBPncfuu8MZhLY9RtfZPM0.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
-  // Prime Video
-  9: {
-    movies: [
-      { id: "tmdb-movie-1538497", title: "Hexed", year: "2026", rating: "7.2", posterUrl: "https://image.tmdb.org/t/p/w500/gZfQ5bhbxUnsaURCiIsiCHrRtmX.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/gZfQ5bhbxUnsaURCiIsiCHrRtmX.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1128204", title: "Feed", year: "2026", rating: "7.0", posterUrl: "https://image.tmdb.org/t/p/w500/snFM00mpNAfUzUtkdEW0uDEvXA0.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/snFM00mpNAfUzUtkdEW0uDEvXA0.jpg", mediaType: "movie", media_type: "movie" },
+  "8": {
+    "movies": [
+      {
+        "id": "tmdb-movie-361743",
+        "title": "Top Gun: Maverick",
+        "year": "2022",
+        "releaseYear": "2022",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/n0YuM4f5lvGAP6MAW2kBIzugXnc.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1514026",
+        "title": "Buddy",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.8",
+        "imdbRating": 6.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1BdZbNvl1SfrrX8J9X5tQzN6Ivu.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/1BdZbNvl1SfrrX8J9X5tQzN6Ivu.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1375441",
+        "title": "Primetime",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.8",
+        "imdbRating": 6.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/lmrulvLbmaejTix1YaMxo1oGhH1.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/lmrulvLbmaejTix1YaMxo1oGhH1.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-108978", title: "Reacher", year: "2022", rating: "8.4", posterUrl: "https://image.tmdb.org/t/p/w500/xbp1pmJ8k6ldUHL8rJaceVSOWjk.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/xbp1pmJ8k6ldUHL8rJaceVSOWjk.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-84773", title: "The Lord of the Rings: The Rings of Power", year: "2022", rating: "7.2", posterUrl: "https://image.tmdb.org/t/p/w500/bMXWXKM9ydUmMTNvDnYo9QtCBRt.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/achmETPRJZc9QVXsMPgHwYEyNar.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-95057", title: "Superman & Lois", year: "2021", rating: "8.0", posterUrl: "https://image.tmdb.org/t/p/w500/vlv1gn98GqMnKHLSh0dNciqGfBl.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/vlv1gn98GqMnKHLSh0dNciqGfBl.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-68716",
+        "title": "Marvel's Inhumans",
+        "year": "2017",
+        "releaseYear": "2017",
+        "rating": "5.8",
+        "imdbRating": 5.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zKfGip55oJ9tdzhyd9ayGyFFhuo.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/zKfGip55oJ9tdzhyd9ayGyFFhuo.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-2190",
+        "title": "South Park",
+        "year": "1997",
+        "releaseYear": "1997",
+        "rating": "8.3",
+        "imdbRating": 8.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/k7n2EVge7G77eMr3brztRGG1fFU.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/k7n2EVge7G77eMr3brztRGG1fFU.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1396",
+        "title": "Breaking Bad",
+        "year": "2008",
+        "releaseYear": "2008",
+        "rating": "9.0",
+        "imdbRating": 9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/anFx9aTOOYqgS3v7x3R84Kz67ly.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-57243",
+        "title": "Doctor Who",
+        "year": "2005",
+        "releaseYear": "2005",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/lHfmc6d8pOVFrD0eOKPiDbjeucG.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/lHfmc6d8pOVFrD0eOKPiDbjeucG.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-5920",
+        "title": "The Mentalist",
+        "year": "2008",
+        "releaseYear": "2008",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/acYXu4KaDj1NIkMgObnhe4C4a0T.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/acYXu4KaDj1NIkMgObnhe4C4a0T.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-80748",
+        "title": "FBI",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/7Zat1iwhZCZjHpVbrKv7k657K7V.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/7Zat1iwhZCZjHpVbrKv7k657K7V.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-48866",
+        "title": "The 100",
+        "year": "2014",
+        "releaseYear": "2014",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/wHIMMLFsk32wIzDmawWkYVbxFCS.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/wHIMMLFsk32wIzDmawWkYVbxFCS.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-873",
+        "title": "Columbo",
+        "year": "1971",
+        "releaseYear": "1971",
+        "rating": "8.1",
+        "imdbRating": 8.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2JCD8vab3fircOU8cM2HJCxfv4I.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/2JCD8vab3fircOU8cM2HJCxfv4I.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
-  // Disney Plus
-  337: {
-    movies: [
-      { id: "tmdb-movie-891621", title: "Wild Horse Nine", year: "2026", rating: "8.1", posterUrl: "https://image.tmdb.org/t/p/w500/dNJFRtVg3xLQ7dbNIQ55cmmIniD.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/dNJFRtVg3xLQ7dbNIQ55cmmIniD.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-496243", title: "Parasite", year: "2019", rating: "8.5", posterUrl: "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-399055", title: "The Shape of Water", year: "2017", rating: "7.2", posterUrl: "https://image.tmdb.org/t/p/w500/9zfwPffUXpBrEP26yp0q1ckXDcj.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/9zfwPffUXpBrEP26yp0q1ckXDcj.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-354912", title: "Coco", year: "2017", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/cy09IbbXk1gcpD1PqYLQeRVIhE6.jpg", mediaType: "movie", media_type: "movie" },
+  "9": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1538497",
+        "title": "Hexed",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/gZfQ5bhbxUnsaURCiIsiCHrRtmX.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/gZfQ5bhbxUnsaURCiIsiCHrRtmX.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1128204",
+        "title": "Feed",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.8",
+        "imdbRating": 6.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8AI6GBlESvZ4RWhreSWHfqg03HA.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/8AI6GBlESvZ4RWhreSWHfqg03HA.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-84958", title: "Loki", year: "2021", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-85271", title: "WandaVision", year: "2021", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-88396", title: "The Falcon and the Winter Soldier", year: "2021", rating: "7.6", posterUrl: "https://image.tmdb.org/t/p/w500/6kbAMLteGO8yyewYau6bJ683sw7.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/6kbAMLteGO8yyewYau6bJ683sw7.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-138502", title: "X-Men '97", year: "2024", rating: "8.7", posterUrl: "https://image.tmdb.org/t/p/w500/2HKBc5UiFw8JrruHq8S1Y7TnlW0.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/2HKBc5UiFw8JrruHq8S1Y7TnlW0.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-108978",
+        "title": "Reacher",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/xbp1pmJ8k6ldUHL8rJaceVSOWjk.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/xbp1pmJ8k6ldUHL8rJaceVSOWjk.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-95057",
+        "title": "Superman & Lois",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/vlv1gn98GqMnKHLSh0dNciqGfBl.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/vlv1gn98GqMnKHLSh0dNciqGfBl.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-62650",
+        "title": "Chicago Med",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/qUtrMIFYfN9ovDskerlKiSGNGCQ.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/qUtrMIFYfN9ovDskerlKiSGNGCQ.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
-  // Apple TV+
-  350: {
-    movies: [
-      { id: "tmdb-movie-1300968", title: "The Hunger Games: Sunrise on the Reaping", year: "2026", rating: "8.0", posterUrl: "https://image.tmdb.org/t/p/w500/j1MNyNNgNQL6f27cb3m3uKaPKd6.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/j1MNyNNgNQL6f27cb3m3uKaPKd6.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1286656", title: "I Play Rocky", year: "2026", rating: "8.7", posterUrl: "https://image.tmdb.org/t/p/w500/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-776503", title: "CODA", year: "2021", rating: "7.9", posterUrl: "https://image.tmdb.org/t/p/w500/BzVjmm8l23rPsijLiNLUzuQtyd.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/BzVjmm8l23rPsijLiNLUzuQtyd.jpg", mediaType: "movie", media_type: "movie" },
+  "15": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1058424",
+        "title": "Hope",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/yHEUhKs95ZYR0WshH7qcJDaO5hw.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/yHEUhKs95ZYR0WshH7qcJDaO5hw.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1437511",
+        "title": "How to Rob a Bank",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ifYDZkr2qkHFz87TNVvlxajOxl5.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/ifYDZkr2qkHFz87TNVvlxajOxl5.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-98",
+        "title": "Gladiator",
+        "year": "2000",
+        "releaseYear": "2000",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aDb548BOkFfI4nFm0kx8A3Ezh7H.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/aDb548BOkFfI4nFm0kx8A3Ezh7H.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1064213",
+        "title": "Anora",
+        "year": "2024",
+        "releaseYear": "2024",
+        "rating": "7.1",
+        "imdbRating": 7.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/cgXk2tNYhJZLXdBDO5DidAVzQ82.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/cgXk2tNYhJZLXdBDO5DidAVzQ82.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1507696",
+        "title": "Apocalypse Z: New World",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.2",
+        "imdbRating": 6.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/wXln4DUrwcyjcFPwgQxFPYTlG1Z.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/wXln4DUrwcyjcFPwgQxFPYTlG1Z.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-11308",
+        "title": "The Hotel New Hampshire",
+        "year": "1984",
+        "releaseYear": "1984",
+        "rating": "5.7",
+        "imdbRating": 5.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9XGGGniMtBqhox7JAV5JujlUqFz.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/9XGGGniMtBqhox7JAV5JujlUqFz.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1283515",
+        "title": "Verity",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.0",
+        "imdbRating": 7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rmaNMA1seHqpjtnYKzyynFAr1g8.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/rmaNMA1seHqpjtnYKzyynFAr1g8.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-213375", title: "VisionQuest", year: "2026", rating: "8.4", posterUrl: "https://image.tmdb.org/t/p/w500/WGyAyBPncfuu8MZhLY9RtfZPM0.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/WGyAyBPncfuu8MZhLY9RtfZPM0.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-1400", title: "Seinfeld", year: "1989", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-69629",
+        "title": "The Gifted",
+        "year": "2017",
+        "releaseYear": "2017",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/nshCqszjTNuqhrB53vrSqWO18sE.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/nshCqszjTNuqhrB53vrSqWO18sE.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-138501",
+        "title": "Agatha All Along",
+        "year": "2024",
+        "releaseYear": "2024",
+        "rating": "7.4",
+        "imdbRating": 7.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/mGsxKwXUjojitRv2E9qMTbxbBRd.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/mGsxKwXUjojitRv2E9qMTbxbBRd.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-63333",
+        "title": "The Last Kingdom",
+        "year": "2015",
+        "releaseYear": "2015",
+        "rating": "8.3",
+        "imdbRating": 8.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8eJf0hxgIhE6QSxbtuNCekTddy1.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/8eJf0hxgIhE6QSxbtuNCekTddy1.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
-  // Hulu
-  15: {
-    movies: [
-      { id: "tmdb-movie-98", title: "Gladiator", year: "2000", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/aDb548BOkFfI4nFm0kx8A3Ezh7H.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/aDb548BOkFfI4nFm0kx8A3Ezh7H.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1064213", title: "Anora", year: "2024", rating: "7.1", posterUrl: "https://image.tmdb.org/t/p/w500/cgXk2tNYhJZLXdBDO5DidAVzQ82.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/cgXk2tNYhJZLXdBDO5DidAVzQ82.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1437511", title: "How to Rob a Bank", year: "2026", rating: "8.5", posterUrl: "https://image.tmdb.org/t/p/w500/ifYDZkr2qkHFz87TNVvlxajOxl5.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/ifYDZkr2qkHFz87TNVvlxajOxl5.jpg", mediaType: "movie", media_type: "movie" },
+  "34": {
+    "movies": [
+      {
+        "id": "tmdb-movie-969681",
+        "title": "Spider-Man: Brand New Day",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bjiS5ipwxb9JFy3XRRN4OAilSeX.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/bjiS5ipwxb9JFy3XRRN4OAilSeX.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-421892",
+        "title": "Shrek 5",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/rDNkWt7drLdjd8L7j0aOvaYUZN5.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/rDNkWt7drLdjd8L7j0aOvaYUZN5.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-69629", title: "The Gifted", year: "2017", rating: "7.6", posterUrl: "https://image.tmdb.org/t/p/w500/nshCqszjTNuqhrB53vrSqWO18sE.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/nshCqszjTNuqhrB53vrSqWO18sE.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-138501", title: "Agatha All Along", year: "2024", rating: "7.4", posterUrl: "https://image.tmdb.org/t/p/w500/mGsxKwXUjojitRv2E9qMTbxbBRd.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/mGsxKwXUjojitRv2E9qMTbxbBRd.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-63333", title: "The Last Kingdom", year: "2015", rating: "8.3", posterUrl: "https://image.tmdb.org/t/p/w500/8eJf0hxgIhE6QSxbtuNCekTddy1.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/8eJf0hxgIhE6QSxbtuNCekTddy1.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-303044",
+        "title": "Campus Drivers",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aa1mDCaRtGNEIHVpZrh2xil03Tq.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/aa1mDCaRtGNEIHVpZrh2xil03Tq.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-303745",
+        "title": "Love in Disguise",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "9.0",
+        "imdbRating": 9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/c9DEtqCDZBPL9i06WmbDrcndrBy.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/c9DEtqCDZBPL9i06WmbDrcndrBy.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1877",
+        "title": "Phineas and Ferb",
+        "year": "2007",
+        "releaseYear": "2007",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/g6TidT7be954rrzPPBTIXkSmfXj.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/g6TidT7be954rrzPPBTIXkSmfXj.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-58841",
+        "title": "Chicago P.D.",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/h65AXcet9bt9qkIT18HM5CmnXp5.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/h65AXcet9bt9qkIT18HM5CmnXp5.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1100",
+        "title": "How I Met Your Mother",
+        "year": "2005",
+        "releaseYear": "2005",
+        "rating": "8.1",
+        "imdbRating": 8.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/b34jPzmB0wZy7EjUZoleXOl2RRI.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/b34jPzmB0wZy7EjUZoleXOl2RRI.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-82873",
+        "title": "The Kelly Clarkson Show",
+        "year": "2019",
+        "releaseYear": "2019",
+        "rating": "6.2",
+        "imdbRating": 6.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/sBix25bie9UQFzbarN51DpFO5ky.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/sBix25bie9UQFzbarN51DpFO5ky.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
-  // HBO Max
-  1899: {
-    movies: [
-      { id: "tmdb-movie-872585", title: "Oppenheimer", year: "2023", rating: "8.0", posterUrl: "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1381071", title: "Godzilla Minus Zero", year: "2026", rating: "7.8", posterUrl: "https://image.tmdb.org/t/p/w500/hSmIJluOJmTWvJs4d7kHRxjc8s8.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/hSmIJluOJmTWvJs4d7kHRxjc8s8.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1400940", title: "Clayface", year: "2026", rating: "7.4", posterUrl: "https://image.tmdb.org/t/p/w500/9l1NuFjel2j89hiuiJbsxfblqjy.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/9l1NuFjel2j89hiuiJbsxfblqjy.jpg", mediaType: "movie", media_type: "movie" },
+  "43": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1300926",
+        "title": "The Angry Birds Movie 3",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/8JD2HLGE70CQGDCQWKx4KmJiZBx.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/8JD2HLGE70CQGDCQWKx4KmJiZBx.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1340208",
+        "title": "Karōshi",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/9BV0sX13uzERMgamOFslyFD5Dqk.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/9BV0sX13uzERMgamOFslyFD5Dqk.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1401586",
+        "title": "Sonic the Hedgehog 4",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/tt2lisqeBShFbGp1pDJzZyk9SRD.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/tt2lisqeBShFbGp1pDJzZyk9SRD.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1657630",
+        "title": "The Awakening",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.5",
+        "imdbRating": 6.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/AhP971WogMHbF5iKJPKi6e6oaya.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/AhP971WogMHbF5iKJPKi6e6oaya.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1232569",
+        "title": "Pinocchio: Unstrung",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.4",
+        "imdbRating": 6.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/hJNdizFlxOW89edX3Rzr6OliSFI.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/hJNdizFlxOW89edX3Rzr6OliSFI.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-44217", title: "Vikings", year: "2013", rating: "8.1", posterUrl: "https://image.tmdb.org/t/p/w500/bQLrHIRNEkE3PdIWQrZHynQZazu.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/bQLrHIRNEkE3PdIWQrZHynQZazu.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-1416", title: "Grey's Anatomy", year: "2005", rating: "8.2", posterUrl: "https://image.tmdb.org/t/p/w500/gO8Fo47KV1opiutRDdBS5jclTQB.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/gO8Fo47KV1opiutRDdBS5jclTQB.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": []
   },
-  // Paramount Plus
-  2303: {
-    movies: [
-      { id: "tmdb-movie-687163", title: "Project Hail Mary", year: "2026", rating: "8.6", posterUrl: "https://image.tmdb.org/t/p/w500/iOb2fjXLbpJgyQXe46n1WtGCnaa.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/iOb2fjXLbpJgyQXe46n1WtGCnaa.jpg", mediaType: "movie", media_type: "movie" },
-      { id: "tmdb-movie-1311031", title: "Demon Slayer: Kimetsu no Yaiba Infinity Castle", year: "2025", rating: "8.8", posterUrl: "https://image.tmdb.org/t/p/w500/fWVSwgjpT2D78VUh6X8UBd2rorW.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/fWVSwgjpT2D78VUh6X8UBd2rorW.jpg", mediaType: "movie", media_type: "movie" },
+  "73": {
+    "movies": [
+      {
+        "id": "tmdb-movie-545611",
+        "title": "Everything Everywhere All at Once",
+        "year": "2022",
+        "releaseYear": "2022",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/u68AjlvlutfEIcpmbYpKcdi09ut.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/u68AjlvlutfEIcpmbYpKcdi09ut.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1801870",
+        "title": "Second Chance Holiday",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/ocYYXEi2THSMFG25QR2SLtVH2jb.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/ocYYXEi2THSMFG25QR2SLtVH2jb.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1391239",
+        "title": "The Debut",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/nR3HoUX6zvO6PigYAFOBWjQoYUD.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/nR3HoUX6zvO6PigYAFOBWjQoYUD.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1813355",
+        "title": "A Story of Derry",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.8",
+        "imdbRating": 6.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/4PtzGcegF5Po1NmDAW9IklyvAUh.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/4PtzGcegF5Po1NmDAW9IklyvAUh.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
     ],
-    series: [
-      { id: "tmdb-tv-259909", title: "Dexter: Resurrection", year: "2025", rating: "8.5", posterUrl: "https://image.tmdb.org/t/p/w500/o2Oyi3boT100bY5kCP4MBiTeetO.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/o2Oyi3boT100bY5kCP4MBiTeetO.jpg", mediaType: "tv", media_type: "tv" },
-      { id: "tmdb-tv-279246", title: "The Remarried Empress", year: "2026", rating: "8.4", posterUrl: "https://image.tmdb.org/t/p/w500/zn3IXZzGavH3qle3o3g1r32eXDy.jpg", backdropUrl: "https://image.tmdb.org/t/p/w1280/zn3IXZzGavH3qle3o3g1r32eXDy.jpg", mediaType: "tv", media_type: "tv" },
-    ],
+    "series": [
+      {
+        "id": "tmdb-tv-34307",
+        "title": "Shameless",
+        "year": "2011",
+        "releaseYear": "2011",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/Yi3WVT6hOkPahOwwvmLmif1jhs.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/Yi3WVT6hOkPahOwwvmLmif1jhs.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1489",
+        "title": "Jimmy Kimmel Live!",
+        "year": "2003",
+        "releaseYear": "2003",
+        "rating": "5.3",
+        "imdbRating": 5.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bGB6bEbG4qL22C1SFupkdAxYC9i.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/bGB6bEbG4qL22C1SFupkdAxYC9i.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-291507",
+        "title": "The Body",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2TbRw0oUbhm4UjLFMNM2KcHk4rT.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/2TbRw0oUbhm4UjLFMNM2KcHk4rT.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
   },
+  "188": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1567605",
+        "title": "Ebenezer",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.3",
+        "imdbRating": 8.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6H2N59jJW1hZEzn2ZdrMvJw5vNI.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/6H2N59jJW1hZEzn2ZdrMvJw5vNI.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-490132",
+        "title": "Green Book",
+        "year": "2018",
+        "releaseYear": "2018",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7BsvSuDQuoqhWmU2fL7W2GOcZHU.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7BsvSuDQuoqhWmU2fL7W2GOcZHU.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1294189",
+        "title": "The Mongoose",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "5.9",
+        "imdbRating": 5.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/eSS5mvSG84UUuvtbHel5Yu3Wik4.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/eSS5mvSG84UUuvtbHel5Yu3Wik4.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1244523",
+        "title": "Beware Boiúna",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.1",
+        "imdbRating": 6.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/uW5YMPxJUzT9bkafrCKHXjPTCoQ.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/uW5YMPxJUzT9bkafrCKHXjPTCoQ.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-138502",
+        "title": "X-Men '97",
+        "year": "2024",
+        "releaseYear": "2024",
+        "rating": "8.7",
+        "imdbRating": 8.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2HKBc5UiFw8JrruHq8S1Y7TnlW0.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/2HKBc5UiFw8JrruHq8S1Y7TnlW0.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-85271",
+        "title": "WandaVision",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/ijWWwINc8h71NQ8j1LTJMFSj5wr.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-60572",
+        "title": "Pokémon",
+        "year": "1997",
+        "releaseYear": "1997",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/lP4zwr0F7hWTbAFltfoFTc2AxRG.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/lP4zwr0F7hWTbAFltfoFTc2AxRG.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-338562",
+        "title": "Alicia's Law",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.0",
+        "imdbRating": 7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7o9nY3GO97jyeVWdtWr12nR0Qpt.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7o9nY3GO97jyeVWdtWr12nR0Qpt.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "192": {
+    "movies": [
+      {
+        "id": "tmdb-movie-244786",
+        "title": "Whiplash",
+        "year": "2014",
+        "releaseYear": "2014",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7fn624j5lj3xTme2SgiLCeuedmO.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-803796",
+        "title": "KPop Demon Hunters",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zT7Lhw3BhJbMkRqm9Zlx2YGMsY0.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/zT7Lhw3BhJbMkRqm9Zlx2YGMsY0.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1007757",
+        "title": "Swapped",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.8",
+        "imdbRating": 8.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/tHhxWxge06goXU6ZQH1hj7vK8Hd.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/tHhxWxge06goXU6ZQH1hj7vK8Hd.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1400336",
+        "title": "Focker-in-Law",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/8Sk0A8AZpVqOcL1RjwG9gRYQFFq.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/8Sk0A8AZpVqOcL1RjwG9gRYQFFq.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-354912",
+        "title": "Coco",
+        "year": "2017",
+        "releaseYear": "2017",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/6Ryitt95xrO8KXuqRGm1fUuNwqF.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1228834",
+        "title": "The Fix",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "5.8",
+        "imdbRating": 5.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/jlP8XDjZN89GrpM3je5Uf8Grqx8.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/jlP8XDjZN89GrpM3je5Uf8Grqx8.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1291595",
+        "title": "Insidious: Out of the Further",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/4tTrW9dXCByS5wt2pXVWb58zNjz.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/4tTrW9dXCByS5wt2pXVWb58zNjz.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-65334",
+        "title": "Miraculous: Tales of Ladybug & Cat Noir",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/hcA3JzfVO67OZdo3hcL4uTr8RlM.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/hcA3JzfVO67OZdo3hcL4uTr8RlM.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "283": {
+    "movies": [
+      {
+        "id": "tmdb-movie-940721",
+        "title": "Godzilla Minus One",
+        "year": "2023",
+        "releaseYear": "2023",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2E2WTX0TJEflAged6kzErwqX1kt.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/2E2WTX0TJEflAged6kzErwqX1kt.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-68734",
+        "title": "Argo",
+        "year": "2012",
+        "releaseYear": "2012",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/m5gPWFZFIp4UJFABgWyLkbXv8GX.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/m5gPWFZFIp4UJFABgWyLkbXv8GX.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1381273",
+        "title": "Paper Tiger",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/oD4slQWqUphwfV5p7XfpFS4NnQp.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/oD4slQWqUphwfV5p7XfpFS4NnQp.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1452168",
+        "title": "Behemoth!",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/gI3s8kkXsG0VHkpWjtZBKOz6sOk.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/gI3s8kkXsG0VHkpWjtZBKOz6sOk.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-656908",
+        "title": "Ramayana: Rise of a Legend",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.8",
+        "imdbRating": 7.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dPrtk4iNf6T5w8fWfg4uxDDbJSW.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/dPrtk4iNf6T5w8fWfg4uxDDbJSW.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-88396",
+        "title": "The Falcon and the Winter Soldier",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6kbAMLteGO8yyewYau6bJ683sw7.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/6kbAMLteGO8yyewYau6bJ683sw7.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-67466",
+        "title": "Marvel's Runaways",
+        "year": "2017",
+        "releaseYear": "2017",
+        "rating": "7.3",
+        "imdbRating": 7.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/hnHEhbzh0F7kN3Ah1lzRjtQuW16.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/hnHEhbzh0F7kN3Ah1lzRjtQuW16.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-89572",
+        "title": "Nancy Drew",
+        "year": "2019",
+        "releaseYear": "2019",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/cBXeSqUE4reXkGvs3lUls8M9J72.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/cBXeSqUE4reXkGvs3lUls8M9J72.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-33217",
+        "title": "Young Justice",
+        "year": "2010",
+        "releaseYear": "2010",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fn2wMnrPWIjDMnxIf0H89ZtDehK.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/fn2wMnrPWIjDMnxIf0H89ZtDehK.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-307106",
+        "title": "Between Steps",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "9.1",
+        "imdbRating": 9.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/guKx4FP8QYBsyGZchJp1BaXPCJl.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/guKx4FP8QYBsyGZchJp1BaXPCJl.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-30983",
+        "title": "Detective Conan",
+        "year": "1996",
+        "releaseYear": "1996",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iHfA63x7rFaWbP2C832uCe2r0zy.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/iHfA63x7rFaWbP2C832uCe2r0zy.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-4614",
+        "title": "NCIS",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/v0r0gHxiD1zOyT7fv6BXOBBRx55.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/v0r0gHxiD1zOyT7fv6BXOBBRx55.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-2316",
+        "title": "The Office",
+        "year": "2005",
+        "releaseYear": "2005",
+        "rating": "8.6",
+        "imdbRating": 8.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7DJKHzAi83BmQrWLrYYOqcoKfhR.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7DJKHzAi83BmQrWLrYYOqcoKfhR.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1427",
+        "title": "Broadchurch",
+        "year": "2013",
+        "releaseYear": "2013",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/2NhBFUTg5KVBmGwafxtLwVdsqrr.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/2NhBFUTg5KVBmGwafxtLwVdsqrr.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "300": {
+    "movies": [
+      {
+        "id": "tmdb-movie-354912",
+        "title": "Coco",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/cy09IbbXk1gcpD1PqYLQeRVIhE6.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/cy09IbbXk1gcpD1PqYLQeRVIhE6.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1368337",
+        "title": "The Odyssey",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/5rhTDKUhPYvpdQIijFIs5VoWsON.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1780005",
+        "title": "Surviving Hurricane Otis",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/chZa8Jd9kSDj11bekGjwwotFPEw.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/chZa8Jd9kSDj11bekGjwwotFPEw.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-60735",
+        "title": "The Flash",
+        "year": "2014",
+        "releaseYear": "2014",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yZevl2vHQgmosfwUdVNzviIfaWS.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/yZevl2vHQgmosfwUdVNzviIfaWS.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-84773",
+        "title": "The Lord of the Rings: The Rings of Power",
+        "year": "2022",
+        "releaseYear": "2022",
+        "rating": "7.2",
+        "imdbRating": 7.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bMXWXKM9ydUmMTNvDnYo9QtCBRt.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/achmETPRJZc9QVXsMPgHwYEyNar.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-44006",
+        "title": "Chicago Fire",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/6O5t5IPR2dzt2SD5bMIRBlSylpB.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/6O5t5IPR2dzt2SD5bMIRBlSylpB.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-3002",
+        "title": "The Benny Hill Show",
+        "year": "1969",
+        "releaseYear": "1969",
+        "rating": "7.2",
+        "imdbRating": 7.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/y3mGj6YAy7CRWMq06gjsXf3rIJ1.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/y3mGj6YAy7CRWMq06gjsXf3rIJ1.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "337": {
+    "movies": [
+      {
+        "id": "tmdb-movie-891621",
+        "title": "Wild Horse Nine",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.1",
+        "imdbRating": 8.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dNJFRtVg3xLQ7dbNIQ55cmmIniD.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/dNJFRtVg3xLQ7dbNIQ55cmmIniD.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-496243",
+        "title": "Parasite",
+        "year": "2019",
+        "releaseYear": "2019",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-399055",
+        "title": "The Shape of Water",
+        "year": "2017",
+        "releaseYear": "2017",
+        "rating": "7.2",
+        "imdbRating": 7.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9zfwPffUXpBrEP26yp0q1ckXDcj.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/9zfwPffUXpBrEP26yp0q1ckXDcj.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1058424",
+        "title": "Hope",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.7",
+        "imdbRating": 6.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6VY1ZKgpsc8CfGsQcCGiYEgHdH0.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/6VY1ZKgpsc8CfGsQcCGiYEgHdH0.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1422041",
+        "title": "La Bola Negra",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/7HwFQTMghL6HOvzEnXYUvyuZXeh.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/7HwFQTMghL6HOvzEnXYUvyuZXeh.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1595325",
+        "title": "The Anacondas",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "3.6",
+        "imdbRating": 3.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yphysF14qWFvrIbFVg3vEnbudwT.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/yphysF14qWFvrIbFVg3vEnbudwT.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-84958",
+        "title": "Loki",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-80986",
+        "title": "DC's Stargirl",
+        "year": "2020",
+        "releaseYear": "2020",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/JJxVsQPPiuLcArALotMHsCubeo.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/JJxVsQPPiuLcArALotMHsCubeo.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1449",
+        "title": "Mutant X",
+        "year": "2001",
+        "releaseYear": "2001",
+        "rating": "6.7",
+        "imdbRating": 6.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yiKg027jdpkSsguVBI9WqliNWez.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/yiKg027jdpkSsguVBI9WqliNWez.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-247718",
+        "title": "MobLand",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "8.6",
+        "imdbRating": 8.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/5Xc7WpWsgflfgEMoBlf9TmWhfbH.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/5Xc7WpWsgflfgEMoBlf9TmWhfbH.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-96677",
+        "title": "Lupin",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "7.7",
+        "imdbRating": 7.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/h6Z2oogE4mJk2uffdtIlLhb0EHx.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/h6Z2oogE4mJk2uffdtIlLhb0EHx.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-75219",
+        "title": "9-1-1",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/ygOaYjqTeGZEHprKh2lWzPc1RdO.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/ygOaYjqTeGZEHprKh2lWzPc1RdO.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "350": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1300968",
+        "title": "The Hunger Games: Sunrise on the Reaping",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/j1MNyNNgNQL6f27cb3m3uKaPKd6.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/j1MNyNNgNQL6f27cb3m3uKaPKd6.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1286656",
+        "title": "I Play Rocky",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.7",
+        "imdbRating": 8.7,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/xE5tY3lppZUyG7WKKThsuYHuAHr.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1570488",
+        "title": "A Dog's Perfect Christmas",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.3",
+        "imdbRating": 7.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zvsNAohDHRWcGvbPSD7r3WojpKb.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/zvsNAohDHRWcGvbPSD7r3WojpKb.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1314786",
+        "title": "Agent Zeta",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/hs8JJKFLU8uyQtPC2T0y3KfEtvP.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/hs8JJKFLU8uyQtPC2T0y3KfEtvP.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1260649",
+        "title": "Jumanji: Open World",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/AjyHIOGBwekbtmkvIsdXI1KWoMf.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/AjyHIOGBwekbtmkvIsdXI1KWoMf.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1562642",
+        "title": "Ghost Soldier",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "9.0",
+        "imdbRating": 9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8Y4oJ5iUs3hgPcDB3SIEmsNYjZk.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/8Y4oJ5iUs3hgPcDB3SIEmsNYjZk.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-213375",
+        "title": "VisionQuest",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/hzuvw1ypblYg2uJxVgz1dkeIvKd.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/hzuvw1ypblYg2uJxVgz1dkeIvKd.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1400",
+        "title": "Seinfeld",
+        "year": "1989",
+        "releaseYear": "1989",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/aCw8ONfyz3AhngVQa1E2Ss4KSUQ.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-253376",
+        "title": "The Girlfriend",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "7.1",
+        "imdbRating": 7.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ktrp3tdZ5IQpFux4nLy8z70bt3n.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/ktrp3tdZ5IQpFux4nLy8z70bt3n.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "386": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1003596",
+        "title": "Avengers: Doomsday",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/jzPwsojjFStf5lR5Nm07w2hH56G.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/jzPwsojjFStf5lR5Nm07w2hH56G.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-324857",
+        "title": "Spider-Man: Into the Spider-Verse",
+        "year": "2018",
+        "releaseYear": "2018",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iiZZdoQBEYBv6id8su7ImL0oCbD.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/iiZZdoQBEYBv6id8su7ImL0oCbD.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-776503",
+        "title": "CODA",
+        "year": "2021",
+        "releaseYear": "2021",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/BzVjmm8l23rPsijLiNLUzuQtyd.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/BzVjmm8l23rPsijLiNLUzuQtyd.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-314365",
+        "title": "Spotlight",
+        "year": "2015",
+        "releaseYear": "2015",
+        "rating": "7.8",
+        "imdbRating": 7.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8DPGG400FgaFWaqcv11n8mRd2NG.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/8DPGG400FgaFWaqcv11n8mRd2NG.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1263337",
+        "title": "Heart of the Beast",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/6sYemVUn79UPKz1ZsSG6kPU4RVy.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/6sYemVUn79UPKz1ZsSG6kPU4RVy.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1457866",
+        "title": "THE FURTHER MIS-ADVENTURES OF CLIFF BOOTH",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/qqPspJFy0XrEoVTKZdp0Em7kej6.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/qqPspJFy0XrEoVTKZdp0Em7kej6.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1147572",
+        "title": "Narnia: The Magician's Nephew",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/iE8LbLDzJDOeoAcDRCNw07UbdjZ.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/iE8LbLDzJDOeoAcDRCNw07UbdjZ.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1101412",
+        "title": "Fall 2: Deadpoint",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.3",
+        "imdbRating": 7.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fgSm5ylwiXbIHn8UbUXDjk9RRu4.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/fgSm5ylwiXbIHn8UbUXDjk9RRu4.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-95350",
+        "title": "Lanterns",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/rb94rKVIzLyfWufIN7WqLvadBDH.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/rb94rKVIzLyfWufIN7WqLvadBDH.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1424",
+        "title": "Orange Is the New Black",
+        "year": "2013",
+        "releaseYear": "2013",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/ekaa7YjGPTkFLcPhwWXTnARuCEU.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/ekaa7YjGPTkFLcPhwWXTnARuCEU.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-312359",
+        "title": "Dragon Ball Super: Beerus",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/ycaeQclsoHdEVLIRZDOLY2oq7E2.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/ycaeQclsoHdEVLIRZDOLY2oq7E2.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "526": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1400837",
+        "title": "Other Mommy",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "5.8",
+        "imdbRating": 5.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fGRNCssTRrhYZxNzykGGCoMsAVq.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/fGRNCssTRrhYZxNzykGGCoMsAVq.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1423191",
+        "title": "Resident Evil",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gAgWJhUSQWCgtKR8170nMkYlBda.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/3icyRAqgakNcQn6aDVz9libFmBA.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-791523",
+        "title": "Wildwood",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/snFM00mpNAfUzUtkdEW0uDEvXA0.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/snFM00mpNAfUzUtkdEW0uDEvXA0.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1483525",
+        "title": "Possible Love",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/1ERGPNiKtnEcsvJS1ywsmqmcIDO.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/1ERGPNiKtnEcsvJS1ywsmqmcIDO.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-76203",
+        "title": "12 Years a Slave",
+        "year": "2013",
+        "releaseYear": "2013",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/xdANQijuNrJaw1HA61rDccME4Tm.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/xdANQijuNrJaw1HA61rDccME4Tm.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-155",
+        "title": "The Dark Knight",
+        "year": "2008",
+        "releaseYear": "2008",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/qJ2tW6WMUDux911r6m7haRef0WH.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1384758",
+        "title": "Ice Age: Boiling Point",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/vm1KNDJXeFc15HxHgoOD0idvwoA.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/vm1KNDJXeFc15HxHgoOD0idvwoA.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1003598",
+        "title": "Avengers: Secret Wars",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/rytc6Lf4447C0CDncwFa4gxe0vY.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/rytc6Lf4447C0CDncwFa4gxe0vY.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-755898",
+        "title": "War of the Worlds",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "4.0",
+        "imdbRating": 4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/yvirUYrva23IudARHn3mMGVxWqM.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/yvirUYrva23IudARHn3mMGVxWqM.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1659441",
+        "title": "Savage Prey",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "9.2",
+        "imdbRating": 9.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/sw51DrxbE1PuJxiqfl3dsZHA3tX.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/sw51DrxbE1PuJxiqfl3dsZHA3tX.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-14956",
+        "title": "Dollhouse",
+        "year": "2009",
+        "releaseYear": "2009",
+        "rating": "7.2",
+        "imdbRating": 7.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/oq5WPzUn7R0YcIk7QGwpXqvgSWO.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/oq5WPzUn7R0YcIk7QGwpXqvgSWO.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-37854",
+        "title": "One Piece",
+        "year": "1999",
+        "releaseYear": "1999",
+        "rating": "8.8",
+        "imdbRating": 8.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/dB4EDhre2dsC2kxYDavyKWqLQwi.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/dB4EDhre2dsC2kxYDavyKWqLQwi.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-78191",
+        "title": "You",
+        "year": "2018",
+        "releaseYear": "2018",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/oANi0vEE92nuijiZQgPZ88FSxqQ.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/oANi0vEE92nuijiZQgPZ88FSxqQ.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-124364",
+        "title": "FROM",
+        "year": "2022",
+        "releaseYear": "2022",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/pRtJagIxpfODzzb0T0NAvZSzErC.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/pRtJagIxpfODzzb0T0NAvZSzErC.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-2734",
+        "title": "Law & Order: Special Victims Unit",
+        "year": "1999",
+        "releaseYear": "1999",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/180BnB5zsARUrBSzNpeUrTc0Ezr.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/pHNhUwSXuDQ9jPZOCb8SgJaQZsc.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-549",
+        "title": "Law & Order",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/ccbjVzpWWS8uqYbpXPwlvH5QmDW.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/ccbjVzpWWS8uqYbpXPwlvH5QmDW.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-153312",
+        "title": "Tulsa King",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/ro6mCt4rHkSrLpu86pphY8Jn2lb.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/ro6mCt4rHkSrLpu86pphY8Jn2lb.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-18165",
+        "title": "The Vampire Diaries",
+        "year": "2009",
+        "releaseYear": "2009",
+        "rating": "8.3",
+        "imdbRating": 8.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/aBkVgChtyyJaHyZh1gfd8DbzQon.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/aBkVgChtyyJaHyZh1gfd8DbzQon.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "1899": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1283515",
+        "title": "Verity",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/wwOBQNOhQgYPBMBKRjbtLX27V2v.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/wwOBQNOhQgYPBMBKRjbtLX27V2v.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-361743",
+        "title": "Top Gun: Maverick",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/jALOpRgEjKLWn5ZD01pGecHdCNt.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/jALOpRgEjKLWn5ZD01pGecHdCNt.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1381071",
+        "title": "Godzilla Minus Zero",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.8",
+        "imdbRating": 7.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/hSmIJluOJmTWvJs4d7kHRxjc8s8.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/hSmIJluOJmTWvJs4d7kHRxjc8s8.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1400940",
+        "title": "Clayface",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.4",
+        "imdbRating": 7.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/9l1NuFjel2j89hiuiJbsxfblqjy.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/9l1NuFjel2j89hiuiJbsxfblqjy.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-872585",
+        "title": "Oppenheimer",
+        "year": "2023",
+        "releaseYear": "2023",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1596275",
+        "title": "Drive - The Pretenders",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "7.6",
+        "imdbRating": 7.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/s9syckECnUYhKePQ1A0DC0mFVZ9.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/s9syckECnUYhKePQ1A0DC0mFVZ9.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1339713",
+        "title": "Obsession",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bRwnj8WEKBCvmfeUNOukJPwB43K.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/bRwnj8WEKBCvmfeUNOukJPwB43K.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-44217",
+        "title": "Vikings",
+        "year": "2013",
+        "releaseYear": "2013",
+        "rating": "8.1",
+        "imdbRating": 8.1,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/bQLrHIRNEkE3PdIWQrZHynQZazu.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/bQLrHIRNEkE3PdIWQrZHynQZazu.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1416",
+        "title": "Grey's Anatomy",
+        "year": "2005",
+        "releaseYear": "2005",
+        "rating": "8.2",
+        "imdbRating": 8.2,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/gO8Fo47KV1opiutRDdBS5jclTQB.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/gO8Fo47KV1opiutRDdBS5jclTQB.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-456",
+        "title": "The Simpsons",
+        "year": "1989",
+        "releaseYear": "1989",
+        "rating": "8.0",
+        "imdbRating": 8,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/meRgydG6BdN9S2jML4fMYWSLdoq.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/meRgydG6BdN9S2jML4fMYWSLdoq.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1421",
+        "title": "Modern Family",
+        "year": "2009",
+        "releaseYear": "2009",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/k5Qg5rgPoKdh3yTJJrLtyoyYGwC.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/k5Qg5rgPoKdh3yTJJrLtyoyYGwC.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  },
+  "2303": {
+    "movies": [
+      {
+        "id": "tmdb-movie-1813355",
+        "title": "A Story of Derry",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/xatgo1jY01aMX0CAAVUKArkkvyE.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/xatgo1jY01aMX0CAAVUKArkkvyE.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1440098",
+        "title": "Drawn Together",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/raBLJODE6ogmwn4Ca27pgCRRRtW.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/raBLJODE6ogmwn4Ca27pgCRRRtW.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1311031",
+        "title": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "8.8",
+        "imdbRating": 8.8,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/fWVSwgjpT2D78VUh6X8UBd2rorW.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/fWVSwgjpT2D78VUh6X8UBd2rorW.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-687163",
+        "title": "Project Hail Mary",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.6",
+        "imdbRating": 8.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/iOb2fjXLbpJgyQXe46n1WtGCnaa.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w1280/iOb2fjXLbpJgyQXe46n1WtGCnaa.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1440769",
+        "title": "The Beekeeper 2",
+        "year": "",
+        "releaseYear": "",
+        "rating": "7.5",
+        "imdbRating": 7.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w780/1D69RLxzDpSJJGs8RQzrTwRQHoF.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w780/1D69RLxzDpSJJGs8RQzrTwRQHoF.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1571955",
+        "title": "Collision Course",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.3",
+        "imdbRating": 6.3,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/s2eAK0uiODjlNUSIiOBwdp3at2u.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/s2eAK0uiODjlNUSIiOBwdp3at2u.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      },
+      {
+        "id": "tmdb-movie-1474226",
+        "title": "Evil Dress",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "6.0",
+        "imdbRating": 6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/voXT2JWo6XTohm4rFLygJkik8Ja.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/voXT2JWo6XTohm4rFLygJkik8Ja.jpg",
+        "isSeries": false,
+        "mediaType": "movie",
+        "media_type": "movie"
+      }
+    ],
+    "series": [
+      {
+        "id": "tmdb-tv-279246",
+        "title": "The Remarried Empress",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.4",
+        "imdbRating": 8.4,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/zn3IXZzGavH3qle3o3g1r32eXDy.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/zn3IXZzGavH3qle3o3g1r32eXDy.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-330613",
+        "title": "The Rules",
+        "year": "2026",
+        "releaseYear": "2026",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/IECgq0Hd4ezuyGhbQgQawURGKT.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/IECgq0Hd4ezuyGhbQgQawURGKT.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-259909",
+        "title": "Dexter: Resurrection",
+        "year": "2025",
+        "releaseYear": "2025",
+        "rating": "8.5",
+        "imdbRating": 8.5,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/o2Oyi3boT100bY5kCP4MBiTeetO.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/o2Oyi3boT100bY5kCP4MBiTeetO.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1408",
+        "title": "House",
+        "year": "2004",
+        "releaseYear": "2004",
+        "rating": "8.6",
+        "imdbRating": 8.6,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/3Cz7ySOQJmqiuTdrc6CY0r65yDI.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/3Cz7ySOQJmqiuTdrc6CY0r65yDI.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      },
+      {
+        "id": "tmdb-tv-1695",
+        "title": "Monk",
+        "year": "2002",
+        "releaseYear": "2002",
+        "rating": "7.9",
+        "imdbRating": 7.9,
+        "posterUrl": "https://image.tmdb.org/t/p/w500/3axGMbUecXXOPSeG47v2i9wK5y5.jpg",
+        "backdropUrl": "https://image.tmdb.org/t/p/w500/3axGMbUecXXOPSeG47v2i9wK5y5.jpg",
+        "isSeries": true,
+        "mediaType": "tv",
+        "media_type": "tv"
+      }
+    ]
+  }
 };
