@@ -1,12 +1,12 @@
-/* Hero Section — Full-width edge-to-edge, starts right below navbar */
+/* Hero Section — Full-width edge-to-edge, starts right below navbar (Cinejoy parity: 92vh, min 580px) */
 .hero-container {
   position: relative;
   left: 50%;
   width: 100vw;
   margin-left: -50vw;
-  height: min(78vh, 850px);
-  min-height: 480px;
-  max-height: 850px;
+  height: 92vh;
+  min-height: 580px;
+  max-height: 940px;
   border-radius: 0;
   overflow: hidden;
   margin-top: 0;
@@ -353,12 +353,12 @@
      stops alone melt the seam for any background image. */
 }
 
-/* ── Apple-variant content panel ── */
+/* ── Apple-variant content panel (Cinejoy parity) ── */
 .hero-content--apple {
-  padding-bottom: 3.5rem !important;
-  padding: clamp(1.5rem, 3vw, 3.5rem) !important;
-  padding-left: clamp(1rem, 5vw, 3.75rem) !important;
-  max-width: 680px;
+  padding-bottom: 96px !important;
+  padding-left: var(--gutter, 24px) !important;
+  padding-right: var(--gutter, 24px) !important;
+  max-width: 640px;
 }
 
 /* Eyebrow row — platform icon + genre tags */

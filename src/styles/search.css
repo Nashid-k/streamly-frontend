@@ -3,10 +3,10 @@
 /* Restored Global UI Elements (Desktop + Mobile) */
 .hero-dots {
   position: absolute;
-  bottom: 2rem;
-  right: 4rem;
+  bottom: 120px;
+  right: var(--gutter, 64px);
   display: flex;
-  gap: 6px;
+  gap: 8px;
   z-index: 10;
   align-items: center;
 }

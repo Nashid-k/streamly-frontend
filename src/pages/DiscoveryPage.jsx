@@ -20,7 +20,6 @@ import SEO from "../components/SEO";
 import RailArrow from "../components/RailArrow";
 import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
-import BrowseBar from "../components/browse/BrowseBar";
 import BrowseBanner from "../components/browse/BrowseBanner";
 import useDetailView from "../hooks/useDetailView";
 import { useOptionalPreferences } from "../context/preferences";
@@ -405,17 +404,11 @@ function UpcomingMonthRail({ heading, itemCount, items, onOpen }) {
   };
 
   return (
-    <section className="relative z-10 mt-2">
-      <div className="flex items-center gap-3 px-4 md:px-8">
-        <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
-          {heading}
-        </h2>
-        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
-          <CalendarDays size={11} className="text-white/45" />
-          {itemCount}
-        </span>
+    <section className="row-section relative z-10" style={{ paddingTop: "8px" }}>
+      <div className="row-head" style={{ marginBottom: "6px" }}>
+        <h2>{heading}</h2>
       </div>
-      <div className="relative group/row mt-6">
+      <div className="relative group/row mt-2">
         {canLeft && (
           <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
         )}
@@ -853,9 +846,6 @@ export default function DiscoveryPage({ mode = "movies" }) {
     ? "Streamly couldn't reach the catalog right now. Try again, or come back in a moment."
     : null;
   const railEmpty = !railQuery.isLoading && !railQuery.error && railItems.length === 0;
-  // `+` while more pages exist: the grid is paginated, so the honest count is
-  // "at least this many" until the last page lands.
-  const countLabel = `${gridItems.length}${hasNextPage ? "+" : ""} ${isSeries ? "shows" : "titles"}`;
 
   const ambientSrc = gridItems[0]?.backdropUrl || gridItems[0]?.posterUrl || railItems[0]?.backdropUrl || null;
 
@@ -906,40 +896,22 @@ export default function DiscoveryPage({ mode = "movies" }) {
           <BrowseBanner pool={bannerPool} loading={gridLoading} mediaType={cfg.mediaType} />
         </ErrorBoundary>
 
-        {/* ── Header ─────────────────────────────────────────────────── */}
-        <header className="relative mx-auto max-w-[1600px] pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-5 sm:pt-6 pb-2 px-3 sm:px-6 md:px-8 space-y-4 sm:space-y-5">
-            <div className="flex flex-col xl:flex-row gap-10 xl:gap-8 items-start xl:items-end justify-between">
-              {/* The banner's wordmark is the visible title; the page heading
-                  stays available to assistive tech and the document outline. */}
-              <h1 className="sr-only">{cfg.title}</h1>
-
-              {/* Filter pills — in the header, and the SAME component docks to
-                  the bottom of the screen once this row scrolls past (see
-                  `filtersDock`). `inert` while docked: the off-screen copy must
-                  not add a second set of filter buttons to the tab order. */}
-              <div ref={filterSlotRef} className="discover-filter-slot w-full xl:w-auto">
-                <DiscoveryFilters {...filterBarProps} inert={filtersDock || undefined} />
-              </div>
+        {/* ── Discover section (Cinejoy layout parity) ───────────────── */}
+        <section className="discover" data-discover>
+          <div className="discover-head">
+            <h1 className="discover-title">{cfg.title}</h1>
+            <div ref={filterSlotRef} className="filter-bar">
+              <DiscoveryFilters {...filterBarProps} inert={filtersDock || undefined} />
             </div>
           </div>
-        </header>
-
-        {/* ── Sticky status bar — count, active-filter chips, Clear all ── */}
-        <BrowseBar
-          loading={gridLoading}
-          countLabel={gridError ? "Results unavailable" : countLabel}
-          chips={activeChips}
-          onRemove={(key) => setParam(key, "")}
-          onClearAll={clearAllFilters}
-        />
+        </section>
 
         {/* ── Editorial rail ──────────────────────────────────────────── */}
         {!railQuery.isLoading &&
           !railQuery.error &&
           !isSeries &&
           monthSections.length > 0 && (
-            <div className="space-y-10 mt-2">
+            <div className="space-y-6">
               {monthSections.map((section) => (
                 <UpcomingMonthRail
                   key={section.key}
@@ -953,20 +925,22 @@ export default function DiscoveryPage({ mode = "movies" }) {
           )}
 
         {!railQuery.isLoading && !railQuery.error && isSeries && railItems.length > 0 && (
-          <section className="relative z-10 mt-2">
-            <div className="flex items-center justify-between px-4 md:px-8 mb-[-12px]">
-              <h2 className="text-lg sm:text-xl font-semibold text-white/90 drop-shadow-md">
-                {cfg.railLabel}
-              </h2>
+          <section className="row-section relative z-10" style={{ paddingTop: "8px" }}>
+            <div className="row-head" style={{ marginBottom: "6px" }}>
+              <h2>{cfg.railLabel}</h2>
             </div>
-            <div className="relative group/row mt-6">
+            <div className="relative group/row mt-2">
               {/* Left arrow — only shows when content is hidden to the left */}
               {canLeft && (
                 <RailArrow dir="left" onClick={() => scrollRail(-1)} revealOnHover hoverClass="group-hover/row:opacity-100" />
               )}
               <div
                 ref={railRef}
-                className="discovery-rail-mask flex gap-3 sm:gap-4 overflow-x-auto overflow-y-clip pt-4 pb-12 px-4 md:px-8 scroll-pl-4 md:scroll-pl-8 snap-x snap-mandatory sm:snap-none scrollbar-hide items-start isolate"
+                className="discovery-rail-mask track scroll-x flex gap-3 sm:gap-4 overflow-x-auto overflow-y-clip pt-4 pb-12 snap-x snap-mandatory sm:snap-none scrollbar-hide items-start isolate"
+                style={{
+                  paddingLeft: "var(--gutter, 24px)",
+                  paddingRight: "var(--gutter, 24px)",
+                }}
               >
                 {railItems.map((item) => (
                   <LandscapeCard
@@ -990,7 +964,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
           !seriesUpcomingQuery.error &&
           isSeries &&
           seriesMonthSections.length > 0 && (
-            <div className="space-y-10 mt-2">
+            <div className="space-y-6">
               {seriesMonthSections.map((section) => (
                 <UpcomingMonthRail
                   key={section.key}
@@ -1003,11 +977,14 @@ export default function DiscoveryPage({ mode = "movies" }) {
             </div>
           )}
 
-        {/* ── Poster grid ─────────────────────────────────────────────── */}
-        <section className="px-4 md:px-8 mt-4 relative z-10">
+        {/* ── Poster grid (Popular / Top Rated / Newest) ─────────────── */}
+        <section className="row-section relative z-10" style={{ padding: "0 0 60px" }}>
+          <div className="row-head">
+            <h2>{sortParam === "top_rated" ? "Top Rated" : sortParam === "newest" ? "Newest" : "Popular"}</h2>
+          </div>
           <ErrorBoundary>
             {gridLoading ? (
-              <div className="discovery-grid">
+              <div className="movies-grid discovery-grid">
                 {[...Array(12)].map((_, i) => (
                   <MovieCardSkeleton key={i} />
                 ))}
@@ -1069,7 +1046,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
               />
             ) : (
               <>
-                <div className="discovery-grid">
+                <div className="movies-grid discovery-grid">
                   {gridItems.map((movie, idx) => (
                     <motion.div
                       key={movie.id}

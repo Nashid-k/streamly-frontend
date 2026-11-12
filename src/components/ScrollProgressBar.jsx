@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 /**
  * ScrollProgressBar — fixed 2px accent bar at the top of the viewport.
  * Uses scroll-driven animation via CSS (animation-timeline: scroll) where

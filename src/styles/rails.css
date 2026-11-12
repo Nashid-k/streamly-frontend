@@ -93,16 +93,14 @@ textarea:focus-visible {
   display: none;
 }
 
-/* Row head: rivo.st's `<div class="gutter mb-1 flex items-end justify-between
-   gap-4">` with a `See all` link on the far right. The chevron next to a linked
-   row title only exists on hover there (`-translate-x-1 opacity-0` -> settled),
-   so the row head states where it goes without spending static width on it. */
+/* Row head: Cinejoy style with padding 0 var(--gutter) */
 .rail-head {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.25rem;
+  gap: 12px;
+  padding: 0 var(--gutter, 24px);
+  margin-bottom: 14px;
 }
 .rail-head__main {
   min-width: 0;
@@ -117,30 +115,23 @@ textarea:focus-visible {
 }
 .rail-see-all {
   flex-shrink: 0;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   line-height: 1.25rem;
-  color: rgba(var(--white-rgb), 0.5);
+  color: rgba(var(--white-rgb), 0.6);
   transition: color var(--duration-fast) var(--ease-tv);
 }
 .rail-see-all:hover,
 .rail-see-all:focus-visible {
   color: #fff;
 }
-/* Rail section title accent bar */
-.movie-rail-wrapper > div:first-child h3 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+
+.row-section {
+  padding: 28px 0;
+  position: relative;
 }
-.movie-rail-wrapper > div:first-child h3::before {
-  content: "";
-  display: inline-block;
-  width: 3px;
-  height: 1.1em;
-  border-radius: 3px;
-  background: var(--accent-gradient, linear-gradient(to bottom, var(--accent-color), #5ce21c));
-  flex-shrink: 0;
+.row-section--provider {
+  padding-top: 36px;
 }
 
 /* Desktop scroll snap on rails (mobile reinforces with scroll-snap-stop: always inside media query).
@@ -150,6 +141,16 @@ textarea:focus-visible {
    is already near an edge. */
 .movie-rail {
   scroll-snap-type: x proximity;
+  scroll-padding-left: var(--gutter, 24px);
+  gap: 16px;
+  padding: 16px var(--gutter, 24px) 8px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+}
+@media (min-width: 1024px) {
+  .movie-rail {
+    gap: 18px;
+  }
 }
 .movie-rail > * {
   scroll-snap-align: start;

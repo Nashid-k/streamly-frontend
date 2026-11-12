@@ -2,6 +2,78 @@
    Scoped to .discovery-page so the shimmering green accent (var(--accent-color) = the
    Cinejoy brand green) never bleeds into the rest of the app. */
 
+/* ── Movies / Series discover header (Cinejoy parity) ───────────────── */
+.discover {
+  padding: 36px 0 16px;
+  position: relative;
+}
+.discover-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 var(--gutter, 24px);
+}
+.discover-title {
+  font-size: clamp(2.4rem, 5vw, 3.4rem);
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  color: var(--white, #ffffff);
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  margin: 0;
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-full, 9999px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s, border-color 0.2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.filter-btn .icon,
+.filter-btn svg {
+  width: 14px;
+  height: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.2s;
+}
+.filter-btn[aria-expanded="true"] .icon,
+.filter-btn[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.filter-btn .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  margin-right: 2px;
+}
+.discover-head.is-stuck .filter-bar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* Poster grid: the brief's density ladder — 3 → 4 → 5 → 6 → 7 columns at
    390 / 768 / 1024 / 1440 / 1920, with a looser row gap that gives the
    hover-encoded cards breathing room. */

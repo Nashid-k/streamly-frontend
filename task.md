@@ -17,6 +17,16 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` complete Cinejoy layout & spacing parity — 2026-11-12 (branch `main`).**
+  - **Removed `x+ titles / shows` pill**: Removed `<BrowseBar>` from `DiscoveryPage.jsx`, along with the `countLabel` and the `itemCount` pill in `UpcomingMonthRail`.
+  - **Layout gutters & spacing**: Added `--gutter: 24px` on mobile and `--gutter: 64px` on desktop (≥1024px) in `tokens.css`. Aligned all page headers, discover sections, tracks, and grids to `var(--gutter)`.
+  - **Card & rail dimensions**: Updated `.movie-rail-item` and `.card` to 140px on mobile and 200px on desktop (matching `streamly-update`). Poster aspect ratio 2/3 with 10px radius (`--radius-card: 10px`).
+  - **Hero height & spacing**: Updated `.hero-container` to `92vh; min-height: 580px; max-height: 940px` and `.hero-content--apple` to `padding-bottom: 96px; padding-left: var(--gutter); padding-right: var(--gutter); max-width: 640px`. Positioned `.hero-dots` at `bottom: 120px; right: var(--gutter)`.
+  - **Discover section**: Replaced header with `.discover` + `.discover-head` + `.discover-title` (`clamp(2.4rem, 5vw, 3.4rem)`) + `.filter-bar`.
+  - **Grids & section headers**: Applied `.movies-grid` (auto-fill 140px / 200px desktop, gap 16px / 18px desktop) and `.row-head` (`h2: 22px, font-weight: 700`) across movies, series, and search pages.
+  - **Page transition**: Added `pageEnter` on `body` (0.4s translateY 6px -> 0).
+  - Gates: `npx oxlint` 0 errors; vitest 39 tests passed; `npm run build` exit 0 (1.85s).
+
 - [x] **`streamly-update/` complete Cinejoy parity — Browse by Provider rail, card captions, green active nav pill, white hover play disc — 2026-11-12 (branch `main`).**
   - **Browse by Provider rail**: Created `src/components/rails/BrowseByProviderRail.jsx` with all 17 streaming providers from `streamly-update/index.html` (Netflix, Prime Video, Disney+, Apple TV+, Apple TV, Hulu, HBO Max, Paramount+, Peacock, Crunchyroll, Starz, AMC+, MGM+, YouTube Premium, YouTube, Tubi, Pluto TV) with 64x64/80x80 logos, smooth horizontal scroll, rail arrows, scale hover, and links to filtered discover. Integrated into `HomeRails.jsx` directly below Continue Watching.
   - **Home rail order matching `streamly-update`**: Reordered `HomeRails.jsx` to match `index.html`: Continue Watching → Browse by Provider → Because you watched → Trending Movies → Trending Series → Provider Rails ("Movies on <provider>" / "TV Series on <provider>") → My List → Rotating domain rails.

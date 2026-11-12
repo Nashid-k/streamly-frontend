@@ -147,6 +147,7 @@
   /* The one number a page top needs: island height + breathing room. */
   --header-clearance: calc(var(--header-h) + var(--header-gap));
   --content-gutter: clamp(1rem, 3.2vw, 4rem);
+  --gutter: 24px;
   /* Legacy alias — .brand-mark still sizes itself from this. */
   --brand-h: var(--header-mark-h);
 
@@ -170,16 +171,12 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
-  /* ── Poster/card geometry (Phase 0) ──────────────────────
-     ONE radius for the poster artwork and the card shell that wraps it. These
-     disagreed before (shell 16px via --radius-xl, artwork 0.95rem = 15.2px,
-     skeleton 0.95rem), so a card's inner corner and outer corner were computed
-     from different values. Cards read sharper than the 16px panel scale on
-     purpose: 12px keeps the gallery feel while still separating a poster from
-     its neighbours. */
-  --radius-card: 0.75rem;   /* 12px — poster, card shell, card skeleton */
+  /* ── Poster/card geometry (Cinejoy parity) ───────────────
+     10px border radius matches streamly-update --radius-sm: 10px. */
+  --radius-card: 10px;   /* 10px — poster, card shell, card skeleton */
   --radius-chip: 0.375rem;  /* 6px — filter/status chips */
-  --radius-panel: 1rem;     /* 16px — popovers, dialogs, sheets */
+  --radius-panel: 16px;     /* 16px — popovers, dialogs, sheets */
+  --ease: cubic-bezier(.22, 1, .36, 1);
 
   /* ── Focus ─────────────────────────────────────────────── */
   /* One focus recipe for the whole app. Previously the outline colour was
@@ -690,4 +687,20 @@ a {
   from { width: 0%; }
   to { width: 100%; }
 }
+
+@media (min-width: 1024px) {
+  :root {
+    --gutter: 64px;
+  }
+}
+
+/* === Page transitions (Cinejoy parity) === */
+body {
+  animation: pageEnter 0.4s var(--ease, cubic-bezier(.22, 1, .36, 1));
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 
