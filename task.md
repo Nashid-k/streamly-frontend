@@ -17,6 +17,14 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` full UI sync — animations, navbar blur, scroll progress bar, hero stagger — 2026-11-12 (branch `main`).**
+  - **Navbar blur**: `.navbar` and `.navbar.scrolled` updated in `header.css` to include `backdrop-filter: blur(20px) saturate(1.4)` and `-webkit-backdrop-filter`. Mobile bottom nav in `responsive.css` updated to `blur(20px) saturate(1.4)`.
+  - **Scroll progress bar**: Created `src/components/ScrollProgressBar.jsx` (rendered in `Layout.jsx` right after `Header`). Styled via `.scroll-progress` in `tokens.css` with CSS scroll-driven animation (`animation-timeline: scroll(root block)`).
+  - **Hero reveal stagger**: Added `heroReveal` keyframes and 5 child stagger delays to `hero.css` and `tokens.css`.
+  - **Card enter animation**: Added `cardEnter` keyframes and 12 child stagger delays to `grids.css` and `tokens.css`.
+  - **Search accent**: Updated search input focus border and glow in `search.css` to use Cinejoy accent green (`--accent-primary-rgb` / `#95ff50`).
+  - Gates: `npm run lint` 0 errors; vitest passed; `npm run build` exit 0 (1.80s).
+
 - [x] **`streamly-update/` mock audited — the one real delta (pinned filter bar) ported to Movies/Series — 2026-11-12 (branch `main`).**
   - **What the folder is**: three standalone HTML files (`index.html`, `movies.html`, `series.html`) — a static Cinejoy-style mock with inline `DATA`/`SLIDES` arrays, hand-written CSS and vanilla-JS renderers that `innerHTML` escaped strings. Same accent (`#95ff50`), same glass nav islands, same token names as `tokens.css`: it is a *simplified snapshot of this app's own design*, not a newer branch of it. Its home order (provider chip row + trending above the provider rails) is the order we replaced on 2026-11-12, so nothing was taken from it structurally.
   - **Verified as already deeper here**: hero (dual-frame crossfade, `dot-filler` dwell progress, dominant-art ambient wash via the blurred backdrop rather than a canvas average — no CORS risk), rail arrows + `See all`, card hover (the CSS "cinematic curtain" with the play disc supersedes the mock's overlay), shimmer skeletons whose shapes match the final rows, mobile bottom nav, route transitions, Random pill, Upcoming rail, filter pills/chips. The mock's per-card `cardIn` stagger is deliberately *not* ported — `MovieRail` documents why per-card entrances were removed in favour of one block fade.

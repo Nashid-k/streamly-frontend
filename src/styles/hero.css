@@ -53,6 +53,16 @@
     radial-gradient(ellipse at 30% 90%, rgba(var(--black-rgb),0.4) 0%, transparent 50%);
 }
 
+/* === Hero content reveal — Cinejoy stagger ========================== */
+.hero-content > * {
+  animation: heroReveal 0.7s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) backwards;
+}
+.hero-content > *:nth-child(1) { animation-delay: 0.15s; }
+.hero-content > *:nth-child(2) { animation-delay: 0.25s; }
+.hero-content > *:nth-child(3) { animation-delay: 0.35s; }
+.hero-content > *:nth-child(4) { animation-delay: 0.45s; }
+.hero-content > *:nth-child(5) { animation-delay: 0.55s; }
+
 .hero-content {
   padding-bottom: clamp(1.8rem, 3.5vh, 3rem) !important;
   position: absolute;
@@ -64,6 +74,20 @@
   max-width: min(780px, 66vw);
   z-index: 2;
 }
+
+/* === Hero content reveal (Cinejoy-style stagger) === */
+@keyframes heroReveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-content > * {
+  animation: heroReveal 0.7s var(--ease-out) backwards;
+}
+.hero-content > *:nth-child(1) { animation-delay: 0.15s; }
+.hero-content > *:nth-child(2) { animation-delay: 0.25s; }
+.hero-content > *:nth-child(3) { animation-delay: 0.35s; }
+.hero-content > *:nth-child(4) { animation-delay: 0.45s; }
+.hero-content > *:nth-child(5) { animation-delay: 0.55s; }
 
 .hero-title {
   /* Text fallback for titles TMDB has no wordmark for — keep it as loud as

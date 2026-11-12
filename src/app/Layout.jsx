@@ -5,6 +5,7 @@ import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
+import ScrollProgressBar from "../components/ScrollProgressBar";
 import MobileBottomNav from "./MobileBottomNav";
 import Snowfall from "../components/Snowfall";
 import FallingLeaves from "../components/FallingLeaves";
@@ -109,6 +110,7 @@ function Layout({ children }) {
         Skip to content
       </a>
       <Header />
+      <ScrollProgressBar />
       <Snowfall />
       <FallingLeaves />
       <SpringBlossoms />

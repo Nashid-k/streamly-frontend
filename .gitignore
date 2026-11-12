@@ -53,3 +53,6 @@ NEW PLAYER UI-UX.html
 .agents/
 .claude/
 skills-lock.json
+
+streamly-update/
+.vitest/

@@ -463,7 +463,7 @@ body::after {
 }
 
 .search-panel:focus-within .search-panel__input {
-  border-color: rgba(251, 113, 133, 0.58);
+  border-color: rgba(var(--accent-primary-rgb), 0.65);
   background: rgba(var(--white-rgb), 0.085);
   box-shadow: var(--focus-ring), 0 20px 50px -34px var(--accent-glow, rgba(149, 255, 80, 0.45));
 }

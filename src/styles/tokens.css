@@ -624,3 +624,70 @@ a {
   }
 }
 
+/* === Scroll progress bar (Cinejoy-style) =============================
+   CSS scroll-driven animation — zero JS, compositor-only. Falls back
+   gracefully on browsers that don't support animation-timeline:scroll(). */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent-color);
+  z-index: calc(var(--z-sticky) + 10);
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(149, 255, 80, 0.5);
+  /* CSS scroll-driven animation — no JS needed */
+  animation: scroll-progress-track linear;
+  animation-timeline: scroll(root block);
+  animation-range: 0% 100%;
+}
+@keyframes scroll-progress-track {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* === Page enter/leave transitions (Cinejoy-style) ===================== */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pageLeave {
+  to { opacity: 0; transform: translateY(-6px); }
+}
+
+/* === Hero content reveal (Cinejoy-style stagger) ====================== */
+@keyframes heroReveal {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === Card enter animation (Cinejoy-style) ============================= */
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* === Scroll progress bar (Cinejoy-style) === */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent-color);
+  z-index: calc(var(--z-sticky) + 10);
+  width: 0;
+  transition: width .1s linear;
+  box-shadow: 0 0 8px rgba(149,255,80,.5);
+  pointer-events: none;
+  animation: scroll-progress-track linear;
+  animation-timeline: scroll(root);
+  animation-range: 0% 100%;
+}
+@keyframes scroll-progress-track {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
