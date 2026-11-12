@@ -77,9 +77,9 @@ function MobileBottomNav() {
             left: 0,
             top: "5px",
             bottom: "5px",
-            borderRadius: "var(--radius-full)",
-            background: "var(--white)",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.35), 0 0 16px 1px rgba(255,255,255,0.18)",
+            borderRadius: "var(--radius-pill)",
+            background: "var(--accent-color, #95ff50)",
+            boxShadow: "0 4px 14px -3px rgba(149, 255, 80, 0.5)",
             pointerEvents: "none",
             zIndex: 0,
           }}

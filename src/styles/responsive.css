@@ -177,9 +177,11 @@
     border-radius: var(--radius-pill);
     box-shadow: 0 4px 14px -3px rgba(149, 255, 80, 0.5);
     font-weight: 700;
+    mix-blend-mode: normal !important;
   }
   .bottom-nav-item.active svg {
     color: #04120b !important;
+    mix-blend-mode: normal !important;
   }
   .bottom-nav-label {
     display: block;
@@ -194,7 +196,9 @@
     opacity: 0.9;
   }
   .bottom-nav-item.active .bottom-nav-label {
+    color: #04120b !important;
     opacity: 1;
+    mix-blend-mode: normal !important;
   }
   .bottom-nav-item--avatar {
     mix-blend-mode: normal;
@@ -426,10 +430,13 @@
     filter: brightness(0.88) contrast(1.08) !important;
   }
 
-  /* 2. Massive, native-app edge-to-edge Hero */
+  /* 2. Massive, native-app edge-to-edge Hero across all pages (Home, Movies, Series) */
   .hero-container,
+  .hero-container--browse,
   .skeleton-hero {
     height: 85vh !important;
+    min-height: 450px !important;
+    max-height: none !important;
     mask-image: linear-gradient(
       to bottom,
       black 55%,
@@ -445,7 +452,10 @@
   }
 
   /* 3. Pull content up out of the faded bottom */
-  .hero-content {
+  .hero-content,
+  .hero-content--apple,
+  .hero-container--browse .hero-content,
+  .hero-container--browse .hero-content--apple {
     padding-bottom: 8rem !important;
     background: transparent !important;
   }

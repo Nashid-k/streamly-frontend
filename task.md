@@ -17,6 +17,11 @@
 
  ## Done (in order)
 
+- [x] **Fix mobile series/movies banner framing and mobile navbar active styling — 2026-11-12 (branch `main`).**
+  - **Mobile Browse banner parity (`src/styles/hero.css`, `src/styles/responsive.css`)**: Scoped desktop compact banner constraints (`min(62vh, 620px)`) to `@media (min-width: 769px)` in `hero.css`. On mobile (`max-width: 768px`), aligned `.hero-container--browse` with `.hero-container` to use full native-app `height: 85vh !important; min-height: 450px !important;` and `padding-bottom: 8rem !important;`, eliminating the half-screen ambient blur and lifting title and CTA controls out of the bottom mask.
+  - **Mobile bottom nav active styling fix (`src/styles/responsive.css`, `src/app/MobileBottomNav.jsx`)**: Added `mix-blend-mode: normal !important;` to `.bottom-nav-item.active`, `.bottom-nav-item.active svg`, and `.bottom-nav-item.active .bottom-nav-label` so active dark text (`#04120b`) does not difference-blend into invisible green on top of `#95ff50`. Synced sliding `.bottom-nav-pill` in `MobileBottomNav.jsx` with `var(--accent-color, #95ff50)` and `radius-pill`, resolving the double-pill / color inversion collapse on mobile.
+  - Gates: `npx oxlint` 0 errors; vitest 3 suites / 64 tests passed; `npm run build` exit 0 (1.98s).
+
 - [x] **Restore banner sizing and viewport clamping matching commit 97dfafd — 2026-11-12 (branch `main`).**
   - **Restored banner geometry (`src/styles/hero.css`)**: Reverted `.hero-container` from oversized `92vh; min-height: 580px; max-height: 940px` back to `height: min(78vh, 850px); min-height: 480px; max-height: 850px` matching commit `97dfafd`.
   - **Restored content panel padding (`src/styles/hero.css`)**: Replaced hardcoded `padding-bottom: 96px !important` on `.hero-content--apple` with `padding-bottom: 3.5rem !important; padding: clamp(1.5rem, 3vw, 3.5rem) !important; padding-left: clamp(1rem, 5vw, 3.75rem) !important; max-width: 680px`.
