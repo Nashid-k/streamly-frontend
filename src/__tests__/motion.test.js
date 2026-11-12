@@ -879,4 +879,10 @@ describe("navigation moves one pill, never the dock", () => {
     expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*#04120b/);
     expect(mobileJsx).not.toMatch(/var\(--black\)/);
   });
+
+  it("keeps mobile hero and browse banners full-bleed with symmetric negative margin", () => {
+    expect(responsiveCss).toMatch(/margin-left:\s*-50vw\s*!important/);
+    expect(responsiveCss).not.toMatch(/margin-left:\s*calc\(50%\s*-\s*50vw\)/);
+    expect(tokensCss).toMatch(/--radius-pill:\s*9999px/);
+  });
 });

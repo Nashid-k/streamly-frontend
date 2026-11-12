@@ -171,6 +171,7 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-full: 9999px;
+  --radius-pill: 9999px;
   /* ── Poster/card geometry (Cinejoy parity) ───────────────
      10px border radius matches streamly-update --radius-sm: 10px. */
   --radius-card: 10px;   /* 10px — poster, card shell, card skeleton */
