@@ -203,7 +203,7 @@ hex (`#ffff00`, `#00ffff`, `#ff00ff`, theme accents) is deliberately kept: those
 | P2-4 | Hero autoplay 8s, pause on hover/focus/hidden/RM | `DONE` |
 | P2-5 | Continue Watching first rail, progress, row head | `DONE` (2026-11-11) |
 | P2-6 | Featured collection wide editorial card | `DONE` |
-| P2-7 | Top 10 oversized numerals + "Today" context | `DONE` |
+| P2-7 | Top 10 oversized numerals + "Today" context | `SUPERSEDED 2026-11-12` — the Top 10 row was removed from the app entirely (user direction); `Top10Rail.jsx` is deleted, so `P2-7` has no surface left |
 | P2-8 | ≤3 algorithmic + 3–4 curated rails, cap ~8, Explore all | `DONE` |
 | P2-9 | Poster card metadata/progress/quick actions/hover | `DONE` |
 | P2-10 | Provider row (48–56px logos, All providers) | `DONE` |
@@ -272,9 +272,9 @@ What actually changed, with the anchors a reviewer can check:
 | P2-3 | Hero pool capped at **six** slides (`HomePage.finalPool`); ticks are now `<button>`s with a 44px hit area (`.hero-dot` + `.hero-dot__bar`), flanked by 44px prev/next arrows (`.hero-arrow`) in a `role="group"` row, plus an off-screen `.hero-live` `aria-live="polite"` region announcing `Title, featured title N of M`. Manual jumps stamp `lastManualRef` so the rotation timer skips one 8s dwell, preserving the logo-load window that motivated the old no-paging rule. `HomePage.test.jsx` updated (see §18 note). |
 | P2-4 | Autoplay **8000 ms**, and the tick now bails on `document.hidden` in addition to hover/focus (both already set `isHeroHoveredRef`). |
 | P2-6 | New `src/components/rails/FeaturedCollection.jsx`: wide card from the first category with a landscape frame, linking to the existing `/category/:name` with router state. No new query, no new route. |
-| P2-8 | Algorithmic rails cut to three (trending / because-you-watched / top rated — Airing, Popular Now and Now Playing removed), editorial rows capped at three, genre rails capped at three, category rails capped at three, and the feed now ends in an **Explore all** → `/movies` terminator. |
+| P2-8 | Algorithmic rails cut to three (trending / because-you-watched / top rated — Airing, Popular Now and Now Playing removed), editorial rows capped at three, genre rails capped at three, category rails capped at three, and the feed now ends in an **Explore all** → `/movies` terminator. **Home order superseded 2026-11-12 (user direction):** see §7 note — the feed is now Trending Movies → Trending Series → two provider rails → personal rows → ten rotating domain rails → "Explore all", with no Top 10, editorial, genre or static Top Rated row. |
 | P2-9 | Verified rather than rewritten: the poster card already carries the rating badge, the progress bar, layout-stable hover actions and `alt={movie.title}`. |
-| P2-10 | New `src/components/rails/ProviderRow.jsx` reusing the existing `["discover-providers", "movie"]` key and `/movies?provider=<id>`; 56px chips, "All providers" → `/movies`. |
+| P2-10 | New `src/components/rails/ProviderRow.jsx` reusing the existing `["discover-providers", "movie"]` key and `/movies?provider=<id>`; 56px chips, "All providers" → `/movies`. **Replaced 2026-11-12 (user direction):** the chip row became two dropdown rails — `Movies on <provider>` and `TV Series on <provider>` (`ProviderRail.jsx` + shared `RailMenu.jsx`), defaulting to Netflix; `ProviderRow.jsx` is deleted. |
 | P2-11 | ~~`src/components/rails/GenreTiles.jsx`: up to 10 tiles, one per genre from the existing `["discover-genres", "movie"]` query, each linking to `/movies?genre=<id>` (the filter DiscoveryPage already reads), plus "See all genres" → `/movies`. The three capped genre rails stay above it as the art-led layer.~~ **Superseded 2026-11-12 (user direction):** the genre rails (`GenreShowcase`) and the genre tiles were removed from the home feed entirely — `HomeRails` now ends after the three category rails + "Explore all", and both component files are deleted. Genres stay reachable from Browse's `?genre=<id>` chips. |
 
 ---
@@ -428,6 +428,15 @@ colour change. Minor; align the number or record the deviation.
 
 Brief order: hero → Continue Watching → featured collection → Top 10 → ≤3 algorithmic →
 3–4 curated → providers → genres/collections → cap ~8 rails with "Explore all".
+
+**Home order superseded 2026-11-12 (user direction).** The live order is now:
+hero → Continue Watching → Movies on `<provider>` → TV Series on `<provider>` →
+Because you watched → My List → Trending Movies → Trending Series → ten
+**rotating** domain rails (date-seeded, different every day, stable within a
+session) → "Explore all". Top 10 is gone from the app; the curated/editorial,
+genre and static Top Rated rows are gone from home; the art-led ground they
+covered is now the recipe pool in `src/data/homeRailDomains.js`. The contract is
+documented in `architecture.md` §3; treat this section as history.
 
 ### P2-1 — Hero art resolution (`DONE`)
 **Current:** hero renders `srcSet={CdnImageAdapter.getSrcSet(heroArtSrc, "backdrop")}` and

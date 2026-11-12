@@ -29,6 +29,7 @@ import {
 } from './detail';
 import {
   getDiscover,
+  getDiscoverRail,
   getGenres,
   getWatchProviders,
   getRegions,
@@ -59,6 +60,7 @@ export const movieService = {
   getAiringThisWeek,
   getRegionalAiring,
   getDiscover,
+  getDiscoverRail,
   getGenres,
   getWatchProviders,
   getRegions,

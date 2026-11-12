@@ -33,9 +33,10 @@ persistence is MongoDB (Atlas) reached exclusively from those functions.
 ## 3. Top 5 features (ranked — build/protect in this order)
 
 1. **Home discovery (hero + rails)** — `src/pages/HomePage.jsx`. Trending hero
-   rotation, Top 10, Trending/Airing/Popular/Top Rated/Now Playing rails,
-   genre showcase, Continue Watching first. If this is empty, nothing else
-   matters.
+   rotation, then Continue Watching → Movies on `<provider>` → TV Series on
+   `<provider>` (service dropdowns) → Because you watched → My List → Trending
+   Movies → Trending Series → ten date-rotated domain rails. No Top 10 row and
+   no genre showcase. If this is empty, nothing else matters.
 2. **Title details + playback** — `src/pages/TitleDetailsPage.jsx` +
    `src/components/NativePlayerView.jsx` (being replaced by the PLAYER V2
    rewrite, §6). Metadata, cast, seasons/episodes, trailer curation, 8 iframe

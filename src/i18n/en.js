@@ -75,6 +75,9 @@ export const en = {
     },
     rails: {
       trending: "Trending Now",
+      /* The home feed's first two rails. */
+      trendingMovies: "Trending Movies",
+      trendingSeries: "Trending Series",
       continueWatching: "Continue Watching",
       myList: "My List",
       upcoming: "Upcoming",

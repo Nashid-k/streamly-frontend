@@ -233,17 +233,17 @@ textarea:focus-visible {
   display: none;
 }
 
-/* Because-you-watched rail head — cinejoy.pk's `because-selector`: the plain
+/* Because-you-watched rail head — cinejoy.pk's `rail-menu`: the plain
    label, then the anchor title as a bold underlined button that opens a
    dark-glass listbox of previously watched titles (the panel shell and
    scrollbar come from `.discovery-menu`). */
-.because-selector {
+.rail-menu {
   display: flex;
   align-items: baseline;
   gap: 6px;
   min-width: 0;
 }
-.because-selector__label {
+.rail-menu__label {
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: var(--weight-display);
@@ -253,11 +253,11 @@ textarea:focus-visible {
   flex-shrink: 0;
   margin: 0;
 }
-.because-selector__anchor {
+.rail-menu__anchor {
   position: relative;
   min-width: 0;
 }
-.because-selector__trigger {
+.rail-menu__trigger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -273,7 +273,7 @@ textarea:focus-visible {
   color: var(--white);
   cursor: pointer;
 }
-.because-selector__title {
+.rail-menu__value {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -283,23 +283,27 @@ textarea:focus-visible {
   text-decoration-color: rgba(var(--white-rgb), 0.4);
   transition: text-decoration-color var(--duration-fast) var(--ease-tv);
 }
-.because-selector__trigger:hover .because-selector__title,
-.because-selector__trigger:focus-visible .because-selector__title {
+.rail-menu__value--static {
+  text-decoration: none;
+  color: var(--white);
+}
+.rail-menu__trigger:hover .rail-menu__value,
+.rail-menu__trigger:focus-visible .rail-menu__value {
   text-decoration-color: rgba(var(--white-rgb), 0.85);
 }
-.because-selector__chevron {
+.rail-menu__chevron {
   flex-shrink: 0;
   color: rgba(var(--white-rgb), 0.5);
   transition: transform var(--duration-fast) var(--ease-tv), color var(--duration-fast) var(--ease-tv);
 }
-.because-selector__chevron--open {
+.rail-menu__chevron--open {
   transform: rotate(180deg);
 }
-.because-selector__trigger:hover .because-selector__chevron,
-.because-selector__trigger:focus-visible .because-selector__chevron {
+.rail-menu__trigger:hover .rail-menu__chevron,
+.rail-menu__trigger:focus-visible .rail-menu__chevron {
   color: var(--white);
 }
-.because-selector__menu {
+.rail-menu__menu {
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -312,7 +316,7 @@ textarea:focus-visible {
   border-radius: var(--radius-panel);
   padding: 4px;
 }
-.because-selector__item {
+.rail-menu__item {
   display: block;
   width: 100%;
   text-align: left;
@@ -330,112 +334,20 @@ textarea:focus-visible {
   text-overflow: ellipsis;
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
 }
-.because-selector__item:hover {
+.rail-menu__item:hover {
   background: rgba(var(--white-rgb), 0.1);
   color: var(--white);
 }
-.because-selector__item--active {
+.rail-menu__item--active {
   background: rgba(var(--white-rgb), 0.05);
   color: var(--white);
 }
 
 
-/* ── Browse by Provider (brief §6.7) ──────────────────────────────────────
-   64px logo chips on neutral surfaces, horizontally scrollable, no glass. */
-.provider-row {
-  position: relative;
-}
-.provider-row__track {
-  display: flex;
-  gap: 12px;
-  padding: 0 0.5rem 0.5rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-.provider-row__track::-webkit-scrollbar {
-  display: none;
-}
-.provider-chip {
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  padding: 0;
-  border-radius: 8px;
-  overflow: hidden;
-  background: rgba(var(--white-rgb), 0.06);
-  border: 1px solid rgba(var(--white-rgb), 0.1);
-  cursor: pointer;
-  font: inherit;
-  transition:
-    transform var(--duration-fast) var(--ease-out),
-    background var(--duration-fast) var(--ease-silk),
-    border-color var(--duration-fast) var(--ease-out),
-    box-shadow var(--duration-fast) var(--ease-out);
-}
-.provider-chip:hover {
-  background: rgba(var(--white-rgb), 0.12);
-  transform: translateY(-2px);
-}
-/* Selected chip: the provider whose catalogue is expanded inline below. */
-.provider-chip--active {
-  background: rgba(var(--white-rgb), 0.16);
-  border-color: rgba(var(--white-rgb), 0.45);
-  box-shadow: 0 0 0 1px rgba(var(--white-rgb), 0.3), 0 6px 18px rgba(var(--black-rgb), 0.35);
-}
-.provider-chip:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
-  outline-offset: 2px;
-}
-.provider-chip__logo {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* Inline provider expansion — clicking a chip shows that provider's
-   catalogue on home (two rails: movies + TV) instead of navigating to
-   the Movies/Series browse page. */
-.provider-inline {
-  padding: 0 0.5rem;
-}
-.provider-inline__bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0.75rem 0.25rem 0;
-}
-.provider-inline__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid rgba(var(--white-rgb), 0.14);
-  background: rgba(var(--white-rgb), 0.06);
-  color: var(--white);
-  cursor: pointer;
-  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
-}
-.provider-inline__close:hover {
-  background: rgba(var(--white-rgb), 0.14);
-  border-color: rgba(var(--white-rgb), 0.3);
-}
-.provider-inline__close:active {
-  transform: scale(0.94);
-}
-.provider-inline__loading {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-.provider-inline__empty {
-  margin: 0.5rem 0.25rem 1rem;
+/* Provider rail with nothing to show for the selected service: the head stays
+   (so the picker is still usable) and one quiet line stands in for the row. */
+.rail-empty {
+  margin: 0.75rem 0.25rem 0;
   color: var(--text-secondary);
   font-size: var(--text-sm);
 }

@@ -228,8 +228,9 @@ src/
 │   │                                  UpNextCard, SubtitleOverlay)
 │   ├── browse/                      ← FilterPill, MenuItem, SearchField, PillAction
 │   ├── detail/                      ← SeasonDropdown, ProductionCompaniesBlock
-│   ├── rails/                       ← FadeInSection, MovieRail, Top10Rail,
-│   │                                  EditorialRails
+│   ├── rails/                       ← FadeInSection, MovieRail, RailMenu
+│   │                                  (row-head dropdown), BecauseSelector,
+│   │                                  ProviderRail, RotatingRails, HomeRails
 │   ├── overlays/                    ← CollectionNameDialog, AddTitlesDialog
 │   ├── settings/                    ← LanguageFlag, Toggle, SegmentControl,
 │   │                                  SettingRow, ServerOrderList
@@ -247,7 +248,8 @@ src/
 │   └── EmptyState.jsx / SectionHeader.jsx / HeroTitleLogo.jsx / RatingsCluster.jsx /
 │       RatingsTable.jsx / CountdownBadge.jsx / LeavingSoonBanner.jsx / SEO.jsx
 └── pages/
-    ├── HomePage.jsx                 ← Landing: hero, category rails, Top 10
+    ├── HomePage.jsx                 ← Landing: hero, trending + provider rail
+    │                                  order, rotating domain rails
     ├── TitleDetailsPage.jsx         ← Player + metadata, season/episode picker
     ├── DiscoveryPage.jsx            ← /movies & /series browsing (hero + rails)
     ├── SearchPage.jsx               ← Search results with filters

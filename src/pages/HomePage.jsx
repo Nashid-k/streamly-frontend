@@ -20,7 +20,6 @@ import useDetailView from "../hooks/useDetailView";
 import { useNearViewport } from "../hooks/useNearViewport";
 import RatingsCluster from "../components/RatingsCluster";
 
-import { buildUpcomingThisWeek } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { setBannerMemory } from "../utils/bannerMemory";
 import { useI18n } from "../i18n/index.jsx";
@@ -58,12 +57,10 @@ const REGIONAL_LANGUAGE_CODES = {
   telugu: "te",
 };
 
-export default function Home({
-  filter = "all",
-  title,
-}) {
+// `title` is the route's document title (SEO) — the feed's section heading is
+// gone, so it no longer doubles as one.
+export default function Home({ filter = "all", title }) {
   const { t } = useI18n();
-  const sectionTitle = title || t("home.rails.trending");
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
@@ -97,37 +94,6 @@ export default function Home({
     queryFn: () => movieService.getCategories("all"),
   });
 
-  const { data: airingData, error: airingError } = useQuery({
-    queryKey: ["airing-this-week"],
-    queryFn: () => movieService.getAiringThisWeek("all"),
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: trendingData, error: trendingError } = useQuery({
-    queryKey: ["trending-this-week"],
-    queryFn: () => movieService.getTrendingThisWeek("all"),
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: top10Data, error: top10Error } = useQuery({
-    queryKey: ["top10"],
-    queryFn: () => movieService.getTop10("all"),
-    staleTime: 1000 * 60 * 5,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: topRatedData, error: topRatedError } = useQuery({
-    queryKey: ["topRated"],
-    queryFn: () => movieService.getTopRated(),
-    staleTime: 1000 * 60 * 10,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
 
   // Regional (Tamil/Hindi/Malayalam/Telugu) feeds, merged into the hero banner
   // pool and the Airing rail so those keep their global breadth. Each is a /discover sweep,
@@ -176,14 +142,10 @@ export default function Home({
   useEffect(() => {
     if (featuredQueryError) reportQueryError("HomePage", ["featuredMovies"], featuredQueryError, { filter });
     if (categoriesQueryError) reportQueryError("HomePage", ["categories"], categoriesQueryError, { filter });
-    if (airingError) reportQueryError("HomePage", ["airing-this-week"], airingError, { filter });
-    if (trendingError) reportQueryError("HomePage", ["trending-this-week"], trendingError, { filter });
-    if (top10Error) reportQueryError("HomePage", ["top10"], top10Error, { filter });
-    if (topRatedError) reportQueryError("HomePage", ["topRated"], topRatedError, { filter });
     if (regionalUpcomingError) reportQueryError("HomePage", ["upcoming-regional"], regionalUpcomingError, { filter });
     if (regionalAiringError) reportQueryError("HomePage", ["airing-regional"], regionalAiringError, { filter });
     if (newReleasesError) reportQueryError("HomePage", ["new-releases"], newReleasesError, { filter });
-  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, topRatedError, regionalUpcomingError, regionalAiringError, newReleasesError, filter]);
+  }, [featuredQueryError, categoriesQueryError, regionalUpcomingError, regionalAiringError, newReleasesError, filter]);
 
   useEffect(() => {
     if (loading) return;
@@ -410,7 +372,6 @@ export default function Home({
     }
   }, [rawCategories, filter, activeGenre]);
 
-  // Shared predicates for the Top 10 / Trending / Airing rails
   const isSeriesMovie = isSeriesLike;
 
   const applyPageFilter = (list) => {
@@ -420,95 +381,25 @@ export default function Home({
     return Array.isArray(list) ? list : [];
   };
 
-
-  const trendingThisWeek = useMemo(
-    () => applyPageFilter(asArray(trendingData)).slice(0, 20),
+  // The home feed opens with the two trending rows. They come from the two
+  // `/trending/{movie,tv}/week` feeds `getCategories` already returns (the same
+  // payload the hero pool reads), so the first two rails cost no extra request.
+  // Matched by name with an index fallback: the service owns those names today,
+  // but a rename there must not silently blank the top of the page.
+  const trendingMovies = useMemo(() => {
+    const cat =
+      rawCategories.find((c) => /movie/i.test(c?.name || "")) || rawCategories[0];
+    return applyPageFilter(asArray(cat?.movies)).slice(0, 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [trendingData, filter],
-  );
+  }, [rawCategories, filter]);
 
-  const airingThisWeek = useMemo(() => {
-    // Global /tv/on_the_air and regional on-the-air series interleaved, deduped by
-    // id. Global is capped at 15 slots so a full 20-row feed cannot crowd the
-    // regional series out of the rail.
-    const regional = applyPageFilter(asArray(regionalAiringData));
-    const merged = [
-      ...applyPageFilter(asArray(airingData)).slice(0, 20 - Math.min(regional.length, 8)),
-      ...regional,
-    ];
-    const seen = new Set();
-    const deduped = [];
-    for (const m of merged) {
-      if (!m || !m.id || seen.has(m.id)) continue;
-      seen.add(m.id);
-      deduped.push(m);
-    }
-    return deduped.slice(0, 20);
+  const trendingSeries = useMemo(() => {
+    const cat =
+      rawCategories.find((c) => /tv|series|show/i.test(c?.name || "")) ||
+      rawCategories[1];
+    return applyPageFilter(asArray(cat?.movies)).slice(0, 20);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, regionalAiringData, filter]);
-
-  const topRated = useMemo(
-    () => applyPageFilter(asArray(topRatedData)).slice(0, 20),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [topRatedData, filter],
-  );
-
-  // Upcoming premieres (movies with a future release date + series the backend
-  // flags isUpcoming, soonest first, never padded with already-released titles).
-  // The "Coming this week" rail is gone from the home feed — this pool survives
-  // only as the final pad for the Top 10 rail when the backend rank list is short.
-  const upcomingReleases = useMemo(() => {
-    const pool = [
-      ...asArray(airingData),
-      ...asArray(trendingData),
-      ...asArray(top10Data),
-      ...asArray(featuredData),
-      ...asArray(regionalUpcomingData),
-      ...asArray(rawCategories).flatMap((c) => (Array.isArray(c.movies) ? c.movies : [])),
-    ];
-    const hasArtwork = (m) => m && (m.posterUrl || m.backdropUrl);
-    const built = applyPageFilter(buildUpcomingThisWeek(pool))
-      .filter((m) => !isSeriesMovie(m) || m.isUpcoming === true)
-      .filter(hasArtwork);
-    // Regional premieres get a guaranteed share: a pure date-sort + slice(0, 12)
-    // lets nearer global dates crowd Tamil/Hindi/Malayalam/Telugu theatrical
-    // releases out of the rail entirely.
-    const regionalIds = new Set(asArray(regionalUpcomingData).map((m) => m.id));
-    const regionalTitles = [];
-    const globalTitles = [];
-    for (const m of built) {
-      (regionalIds.has(m.id) ? regionalTitles : globalTitles).push(m);
-    }
-    // Guaranteed regional prefix, then the REST of the regional slate (the old
-    // slice(0, 4) discarded every regional premiere past the fourth because the
-    // other pools carry no releaseDate, so `built` is regional-only here), then
-    // any global premieres, up to a full rail of 12.
-    const guaranteedRegional = regionalTitles.slice(0, Math.min(4, regionalTitles.length));
-    const remainingRegional = regionalTitles.slice(guaranteedRegional.length);
-    return [...guaranteedRegional, ...remainingRegional, ...globalTitles].slice(0, 12);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [airingData, trendingData, top10Data, featuredData, regionalUpcomingData, rawCategories, filter]);
-
-  // Top 10 — backend rank first, padded to a full 10 per tab (the per-page-type
-  // backend list can be short). Padding comes from tab-filtered
-  // trending/airing/upcoming, deduped by id so real ranks keep leading and the
-  // rank badges always count 1–10.
-  const top10Movies = useMemo(() => {
-    const ranked = applyPageFilter(asArray(top10Data)).slice(0, 10);
-    if (ranked.length >= 10) return ranked;
-
-    const seen = new Set(ranked.map((m) => m.id));
-    const padded = [...ranked];
-    for (const m of [...trendingThisWeek, ...airingThisWeek, ...upcomingReleases]) {
-      if (m && m.id && !seen.has(m.id)) {
-        seen.add(m.id);
-        padded.push(m);
-        if (padded.length >= 10) break;
-      }
-    }
-    return padded;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [top10Data, filter, trendingThisWeek, airingThisWeek, upcomingReleases]);
+  }, [rawCategories, filter]);
 
   const lastWatched =
     continueWatching && continueWatching.length > 0
@@ -1205,16 +1096,12 @@ export default function Home({
       <HomeRails
         loading={loading}
         filter={filter}
-        activeGenre={activeGenre}
         railsSentinelRef={railsSentinelRef}
-        sectionTitle={sectionTitle}
-        categories={categories}
+        trendingMovies={trendingMovies}
+        trendingSeries={trendingSeries}
         becauseAnchor={becauseAnchor}
         onBecauseAnchorChange={setPickedAnchorId}
         recommendations={recommendations}
-        top10Movies={top10Movies}
-        trendingThisWeek={trendingThisWeek}
-        topRated={topRated}
       />
 
       {/* Streamly-style info modal — Detail View Type governs whether the

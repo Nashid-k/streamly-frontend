@@ -42,6 +42,74 @@ export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy =
   }
 };
 
+// Rotating home "domain" rail — the one generic discover call the home feed's
+// tail rows use. Kept separate from `getDiscover` so the browse filter contract
+// (genre / year / provider / country) stays exactly as-is: this variant also
+// understands OR'd genre ids, vote floors and ceilings, a rating floor, a
+// runtime window and a release-date range, which is what the domain recipes in
+// src/data/homeRailDomains.js describe.
+export const getDiscoverRail = async ({
+  mediaType = 'movie',
+  genreIds = [],
+  sortBy = 'popular',
+  minVotes,
+  maxVotes,
+  minRating,
+  fromYear,
+  toYear,
+  language,
+  runtimeGte,
+  runtimeLte,
+  page = 1,
+} = {}) => {
+  const mt = mediaType === 'tv' ? 'tv' : 'movie';
+  const genres = (Array.isArray(genreIds) ? genreIds : []).filter(Boolean);
+  try {
+    const params = {
+      include_adult: 'false',
+      include_video: 'false',
+      page: String(page),
+      sort_by:
+        sortBy === 'top_rated' ? 'vote_average.desc'
+          : sortBy === 'newest'
+            ? (mt === 'movie' ? 'primary_release_date.desc' : 'first_air_date.desc')
+            : 'popularity.desc',
+    };
+    // Pipes mean OR — a recipe listing two genres wants either, not both.
+    if (genres.length > 0) params.with_genres = genres.join('|');
+    if (minVotes) params['vote_count.gte'] = String(minVotes);
+    if (maxVotes) params['vote_count.lte'] = String(maxVotes);
+    if (minRating) params['vote_average.gte'] = String(minRating);
+    if (language) params.with_original_language = String(language);
+    if (runtimeGte) params['with_runtime.gte'] = String(runtimeGte);
+    if (runtimeLte) params['with_runtime.lte'] = String(runtimeLte);
+    const dateKey = mt === 'movie' ? 'primary_release_date' : 'first_air_date';
+    if (fromYear) params[`${dateKey}.gte`] = `${fromYear}-01-01`;
+    if (toYear) params[`${dateKey}.lte`] = `${toYear}-12-31`;
+    const data = await tmdb(`/discover/${mt}`, params);
+    const out = (data.results || []).map(r => normalizeResult({ ...r, media_type: mt }));
+    warnIfEmpty('getDiscoverRail', out, {
+      mt,
+      genres: genres.join('|'),
+      sortBy,
+      fromYear,
+      toYear,
+      language,
+    });
+    return out;
+  } catch (error) {
+    logServiceError('getDiscoverRail', error, {
+      mt,
+      genres: genres.join('|'),
+      sortBy,
+      fromYear,
+      toYear,
+      language,
+    });
+    throw error;
+  }
+};
+
 export const getGenres = async (mediaType = 'movie') => {
   const mt = mediaType === 'tv' ? 'tv' : 'movie';
   try {

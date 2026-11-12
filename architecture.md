@@ -35,7 +35,7 @@ Firebase SDK in the bundle.
 
 | User action | Route | Loader (React Query key → service) | DB / store |
 |---|---|---|---|
-| Open app | `/` | `featuredMovies` → `getFeaturedMovies` (`/trending/all/week` only — the hero paints from list data, and each wordmark is resolved lazily and cached through `titleLogo:<id>` → `getTitleLogo` (`/{movie\|tv}/<id>/images`), with the styled text title as the fallback); `categories` → `getCategories` (`/trending/movie|tv/week`); `top10`, `trending-this-week`, `airing-this-week`, `popular`, `topRated`, `nowPlaying`; regional Indian feeds merged into the Upcoming (`upcoming-regional` → `getRegionalUpcoming`, `/discover/movie` for `with_original_language=ta|hi|ml|te` + `region=IN`, future window) and Airing (`airing-regional` → `getRegionalAiring`, `/discover/tv` air-date window + per-title `next_episode_to_air`) rails | network only |
+| Open app | `/` | `featuredMovies` → `getFeaturedMovies` (`/trending/all/week` only — the hero paints from list data, and each wordmark is resolved lazily and cached through `titleLogo:<id>` → `getTitleLogo` (`/{movie\|tv}/<id>/images`), with the styled text title as the fallback); `categories` → `getCategories` (`/trending/movie|tv/week`) — its two feeds are ALSO the home feed's first two rails (Trending Movies / Trending Series), so they cost no extra request; `home-provider-rail:<movie\|tv>:<providerId>` → `getDiscover` with `providerId` (the "Movies on X" / "TV Series on X" dropdown rows); `home-rail:<day>:<recipe>` → `getDiscoverRail` (the ten rotating domain rows, date-seeded); regional Indian feeds feed the hero pool (`upcoming-regional` → `getRegionalUpcoming`, `/discover/movie` for `with_original_language=ta|hi|ml|te`, future window) and (`airing-regional` → `getRegionalAiring`, `/discover/tv` air-date window + per-title `next_episode_to_air`) | network only |
 | Movies / Shows tabs | `/movies`, `/series` | same as `/`, client-filtered by `isSeries`; the top `discover-rail` merges `getRegionalUpcoming(365)` into the movies slate and `getRegionalAiring(10)` into the series rail | network only |
 | Search | `/search?q=` | `search:<q>` → `searchMovies` (`/search/multi`, movie+tv only) | + `aios_search_history` (local) |
 | Genre | `/genre/:genre` | `genre-search:<genre>` → `searchMovies` + `selectGenreResults` | network only |
@@ -634,8 +634,9 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `player/chrome/`, and the transient HUDs (`*HUD`, `index.js`)),
   feature-grouped subfolders (`browse/` — `FilterPill`, `MenuItem`, `SearchField`,
   `PillAction`; `detail/` — `SeasonDropdown`,
-  `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `Top10Rail`,
-  `EditorialRails`; `overlays/` — `CollectionNameDialog`, `AddTitlesDialog`;
+  `ProductionCompaniesBlock`; `rails/` — `FadeInSection`, `MovieRail`, `RailMenu`
+  (shared row-head dropdown), `BecauseSelector`, `ProviderRail`,
+  `RotatingRails`, `HomeRails`; `overlays/` — `CollectionNameDialog`, `AddTitlesDialog`;
   `settings/` — `LanguageFlag`, `Toggle`, `SegmentControl`, `SettingRow`,
   `ServerOrderList`), modals (`TitleInfoModal`, `GlobalShortcuts`), and
   primitives (`Button`, `Chip`, `Toast`, `ConfirmDialog`, `Loader`, `EmptyState`,
@@ -749,6 +750,21 @@ into each function through the import graph instead of deploying them as
   the one cross-origin exception (stale-while-revalidate, for offline viewing).
   `src/__tests__/serviceWorker.test.js` imports the real file with stubbed
    `self`/`caches` and pins that routing, so the invariant is enforced, not assumed.
+
+**Home feed order (frozen product contract, 2026-11-12):** Continue Watching →
+Movies on `<provider>` → TV Series on `<provider>` → Because you watched →
+My List → Trending Movies → Trending Series → ten rotating domain rails →
+"Explore all" (the viewer's own rows lead; the catalogue rails follow). There is no Top 10 row anywhere in the app, no genre showcase and
+no static Top Rated row. The provider lists live in
+`src/data/homeRailDomains.js` (`STREAMING_PROVIDERS`, TMDB watch-provider ids for
+the US catalogue) and the rotating recipes live in the same module: a
+`mulberry32` PRNG seeded by the local date (`homeRailDayKey`) shuffles them and
+picks ten, alternating film/series, so the tail of the page is stable for a whole
+day and different the next one — it never re-orders mid-session. Each recipe is
+declarative (`genreIds`, `minVotes`, `decade`/`recentYears`, `language`,
+`runtimeGte`, `sortBy`) and is resolved by `movieService.getDiscoverRail`, which
+keeps the browse filter contract of `getDiscover` untouched. Rail rows fetch only
+when they come near the viewport and hide themselves below six titles.
 
 ## 4. Six architecture decisions + why
 

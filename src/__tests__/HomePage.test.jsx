@@ -59,6 +59,10 @@ function stubHomeService({ featured = [MOVIE], reject = false, stubFeatured = tr
   const empty = () => Promise.resolve([]);
   for (const method of [
     "getCategories",
+    // The provider rails and the rotating rail tail are their own discover
+    // calls; empty them so the hero assertions stay offline.
+    "getDiscover",
+    "getDiscoverRail",
     "getAiringThisWeek",
     "getTrendingThisWeek",
     "getTop10",
@@ -124,9 +128,16 @@ describe("HomePage hero", () => {
     renderHome();
 
     // The hero renders the title LOGO (no visible <h1> by design), so the
-    // overview is the reliable text handle for "this title is the hero".
+    // overview is the reliable text handle for "this title is the hero". The
+    // timeout is generous for the same reason as the artwork test below: the
+    // suite runs 120+ jsdom environments in parallel and the home page now also
+    // mounts the provider rails and the rotating tail.
     expect(
-      await screen.findByText(/an insomniac office worker forms an underground fight club/i),
+      await screen.findByText(
+        /an insomniac office worker forms an underground fight club/i,
+        {},
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument();
   });
 
@@ -208,7 +219,11 @@ describe("HomePage hero", () => {
     // The active slide alone would not catch this (the leak can sit on slide 2+),
     // so this inspects the whole POOL via the slide dots.
     const { unmount } = renderHome({ filter: "movies" });
-    await screen.findByText(/an insomniac office worker forms an underground fight club/i);
+    await screen.findByText(
+      /an insomniac office worker forms an underground fight club/i,
+      {},
+      { timeout: 5000 },
+    );
     revealHeroControls();
 
     expect(
@@ -217,7 +232,11 @@ describe("HomePage hero", () => {
     unmount();
 
     renderHome({ filter: "series" });
-    await screen.findByText(/noble families vie for control of the iron throne/i);
+    await screen.findByText(
+      /noble families vie for control of the iron throne/i,
+      {},
+      { timeout: 5000 },
+    );
     revealHeroControls();
 
     expect(
