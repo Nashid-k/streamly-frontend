@@ -972,7 +972,7 @@ export default function Home({ filter = "all", title }) {
                     {cwResumeEntry ? t("home.hero.resume") : t("home.hero.play")}
                   </motion.button>
 
-                  <div className="hero-action-pill inline-flex items-center shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                  <div className="hero-action-pill inline-flex items-stretch shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}

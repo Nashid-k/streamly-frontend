@@ -447,7 +447,7 @@
   gap: 10px;
   width: auto;
   min-width: 140px;
-  height: clamp(42px, 3.6vw, 52px);
+  height: 52px;
   padding: 0 28px;
   border-radius: var(--radius-full);
   border: none;
@@ -462,6 +462,7 @@
   box-shadow: 0 14px 30px -8px rgba(149, 255, 80, 0.5);
   transition: transform var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
   user-select: none;
+  box-sizing: border-box;
 }
 @media (hover: hover) and (pointer: fine) {
 .hero-cta-play:hover {
@@ -487,7 +488,6 @@
   border: 1px solid rgba(var(--white-rgb), 0.12);
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
-  transform: translateZ(0);
   box-shadow: 0 10px 30px rgba(var(--black-rgb), 0.35);
 }
 @media (hover: hover) and (pointer: fine) {

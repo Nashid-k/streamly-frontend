@@ -97,13 +97,6 @@
   /* Hero content — tighten up on short but wide viewports (scaled laptops) */
 }
 
-@media (max-height: 680px) and (min-width: 1024px) {
-  /* Short laptop viewports (e.g. 1366×768 or scaled 1080p) */
-  .hero-cta-play {
-    height: clamp(34px, 2.8vw, 40px) !important;
-  }
-
-}
 
 /* ═══════════════════════════════════════════════════════════
    MOBILE & TABLET ERGONOMICS OVERHAUL

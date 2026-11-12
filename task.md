@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **Banner Play button and Action Pill height alignment (52px `streamly-update/` parity) — 2026-11-12 (branch `main`).**
+  - **Matched button heights (`src/styles/hero.css`)**: Updated `.hero-cta-play` height from `clamp(42px, 3.6vw, 52px)` to constant `52px` with `box-sizing: border-box`, identical to `.hero-action-pill` (52px) and `streamly-update/movies.html:72` (`.btn` 52px).
+  - **Removed conflicting legacy laptop override (`src/styles/player.css`)**: Deleted `@media (max-height: 680px) and (min-width: 1024px)` rule that clamped `.hero-cta-play` to 34px-40px without altering the adjacent 52px action pill.
+  - **Action pill flex alignment (`HomePage.jsx`, `BrowseBanner.jsx`)**: Updated `.hero-action-pill` wrapper to `items-stretch` so internal icon buttons consistently fill the full 52px height.
+  - Gates: `npx oxlint` 0 errors; vitest 3 suites / 64 tests passed; `npm run build` exit 0 (1.69s).
+
 - [x] **Cinejoy frosted glass blur fix for navbar and dock (`streamly-update/` parity) — 2026-11-12 (branch `main`).**
   - **Restored live backdrop blurring on navbar (`src/styles/header.css`)**: Removed `contain: layout paint;`, `overflow: hidden;`, `isolation: isolate;`, and `transform: translateZ(0);` from `.navbar`. In Chromium, `contain: paint` forcibly disables backdrop pixel sampling, rendering glass containers completely clear/transparent without blur. Retained exact `backdrop-filter: blur(20px) saturate(1.4)`, `-webkit-backdrop-filter`, and `background: var(--glass-bg, rgba(20, 16, 32, 0.55))` matching `movies.html:44`.
   - **Fixed pinned filters dock blurring (`src/styles/discovery.css`)**: Suppressed nested `backdrop-filter` on child buttons (`.filter-btn`, `.random-btn`) within `.pinned-filters .filter-bar` to eliminate Chromium nested-backdrop filter cancellation, ensuring the dock renders its deep 20px blur with 1.4 saturation.
