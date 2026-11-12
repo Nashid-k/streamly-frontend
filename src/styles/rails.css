@@ -94,6 +94,7 @@ textarea:focus-visible {
 }
 
 /* Row head: Cinejoy style with padding 0 var(--gutter) */
+.row-head,
 .rail-head {
   display: flex;
   align-items: baseline;
@@ -101,6 +102,12 @@ textarea:focus-visible {
   gap: 12px;
   padding: 0 var(--gutter, 24px);
   margin-bottom: 14px;
+}
+@media (min-width: 1024px) {
+  .row-head,
+  .rail-head {
+    padding: 0 var(--gutter, 64px);
+  }
 }
 .rail-head__main {
   min-width: 0;
@@ -113,19 +120,91 @@ textarea:focus-visible {
   gap: 0.5rem;
   flex-shrink: 0;
 }
-.rail-see-all {
+.row-head .view-all,
+.rail-head .rail-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
   font-size: 14px;
   font-weight: 500;
   line-height: 1.25rem;
-  color: rgba(var(--white-rgb), 0.6);
-  transition: color var(--duration-fast) var(--ease-tv);
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+  transition: color var(--duration-fast) var(--ease-out);
+  padding-left: 8px;
+  text-decoration: none;
 }
-.rail-see-all:hover,
-.rail-see-all:focus-visible {
+.row-head .view-all:hover,
+.rail-head .rail-see-all:hover,
+.rail-head .rail-see-all:focus-visible {
   color: #fff;
 }
+.row-head .view-all svg,
+.rail-head .rail-see-all svg {
+  width: 16px;
+  height: 16px;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.row-head .view-all:hover svg,
+.rail-head .rail-see-all:hover svg {
+  transform: translateX(3px);
+}
 
+/* Cinejoy 44px circular glass rail arrows */
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: var(--text-strong, #fff);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out),
+              background var(--duration-fast) var(--ease-out);
+}
+@media (min-width: 1024px) {
+  .arrow {
+    display: flex;
+  }
+}
+.track-wrap:hover .arrow,
+.movie-rail-wrapper:hover .arrow,
+.group\/row:hover .arrow,
+.row-section:hover .arrow {
+  opacity: 1;
+}
+.arrow:hover {
+  background: rgba(0, 0, 0, 0.85);
+  transform: translateY(-50%) scale(1.08);
+  color: #fff;
+}
+.arrow--left {
+  left: 12px;
+}
+.arrow--right {
+  right: 12px;
+}
+.arrow svg {
+  width: 24px;
+  height: 24px;
+}
+
+.home-rails-section > :first-child,
+.main > .row-section:first-of-type {
+  margin-top: -40px;
+  z-index: 5;
+  position: relative;
+}
 .row-section {
   padding: 28px 0;
   position: relative;

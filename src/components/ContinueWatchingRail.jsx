@@ -157,8 +157,12 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto overflow-y-clip py-3 px-2 scrollbar-hide items-start"
-          style={maskStyle}
+          className="track scroll-x flex overflow-x-auto overflow-y-clip scrollbar-hide items-start"
+          style={{
+            ...maskStyle,
+            gap: "16px",
+            padding: "16px var(--gutter, 24px) 8px",
+          }}
         >
           {items.map((item) => {
             const pct = progressPct(item);

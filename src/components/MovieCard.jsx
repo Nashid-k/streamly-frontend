@@ -60,8 +60,9 @@ const MovieCard = memo(function MovieCard({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
-  // Title and metadata caption always visible below poster (Cinejoy card__caption parity)
-  const showBelowMeta = true;
+  // Below-card metadata removed per user request (shows on hover).
+  // Kept only when highlightQuery exists so search term <mark> highlighting in .movie-title works.
+  const showBelowMeta = Boolean(highlightQuery);
 
 
   // Hover/focus no longer drive any animation state (that is CSS in

@@ -17,6 +17,12 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` Cinejoy Search page & Home page HTML mirror + card captions removed — 2026-11-12 (branch `main`).**
+  - **Removed below-card text**: In `MovieCard.jsx`, removed permanent below-card metadata (`.movie-info` name, year, rating) since title, rating, year, and play disc display on hover inside the poster overlay curtain. Preserved `highlightQuery` query match `<mark>` rendering only during active searches.
+  - **Search Page mirror (`search.html`)**: Aligned `SearchPage.jsx` and `search.css` to `search.html`: `.search-page` with 140px top padding and 40px gap; full `.search-hero` ("Discover something new" + "Search across all movies, TV shows & people"); 56px `.search-bar` pill with glass border and green focus glow; `.search-section-head` (18px, weight 600, text-muted, no accent bar); `.search-results-grid` with auto-fill 140px/200px and CSS `cardIn` stagger.
+  - **Home Page rails & gutters mirror (`index.html`)**: Removed inline `paddingLeft: "0.25rem"` from `SectionHeader.jsx` and inline padding from `ContinueWatchingRail.jsx`, `BrowseByProviderRail.jsx`, and `MovieRail.jsx` so all tracks and row headers align strictly with `--gutter` (24px mobile, 64px desktop). First rail lifts by `-40px` over hero bottom gradient. Added `.arrow` 44px circular glass steppers with backdrop blur and hover pop. Added "View All" link with right arrow in `SectionHeader`.
+  - Gates: `npx oxlint` 0 errors; vitest 6 suites / 90 tests passed; `npm run build` exit 0 (2.18s).
+
 - [x] **`streamly-update/` Cinejoy navbar, banner dot animation, and row-head layout parity — 2026-11-12 (branch `main`).**
   - **Row headings (Upcoming / Popular)**: Added `.row-head` (`padding: 0 var(--gutter)`, `margin-bottom: 14px`) and `.row-head h2` (`font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.01em`) in `discovery.css` matching `movies.html`. Updated editorial upcoming rail gate in `DiscoveryPage.jsx` so "Upcoming" heading and skeleton rail render immediately during initial query loading.
   - **Banner progress dots**: Replaced wide 48px containers with 8px round circles (`rgba(255, 255, 255, 0.25)`) that expand into 36px active pills with 10s linear `hero-progress` green fill bar matching `movies.html`. Adjusted mobile media query to tighten tick gap to 4px without bloating dot width.

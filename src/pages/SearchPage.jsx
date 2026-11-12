@@ -484,7 +484,7 @@ export default function SearchPage() {
   }, [trendingQuery.error]);
 
   return (
-    <div className="main-content content-page content-page--search">
+    <div className="main-content content-page content-page--search search-page">
       <SEO
         title={query ? `Search: ${query}` : "Search"}
         description="Search thousands of movies and TV shows across every major streaming service."
@@ -501,18 +501,16 @@ export default function SearchPage() {
       />
       {/* ── Cinejoy-style search hero ── */}
       <section className={`search-hero${query ? " search-hero--compact" : ""}`}>
-        {!query && (
-          <div className="search-hero__text text-center mb-2">
-            <h1 className="search-hero__title">Discover something new</h1>
-            <p className="search-hero__subtitle text-white/60 text-sm md:text-base mt-2">
-              Search across all movies, TV shows &amp; people
-            </p>
-          </div>
-        )}
+        <div className="search-hero__text text-center mb-2">
+          <h1 className="search-hero__title">Discover something new</h1>
+          <p className="search-hero__subtitle text-white/60 text-sm md:text-base mt-2">
+            Search across all movies, TV shows &amp; people
+          </p>
+        </div>
 
         {/* Search input — live, dynamic search */}
         <form
-          className={`search-panel ${query ? "" : "search-panel--hero"}`}
+          className={`search-bar search-panel ${query ? "" : "search-panel--hero"}`}
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
@@ -521,12 +519,12 @@ export default function SearchPage() {
         >
             <Search
               size={20}
-              className="search-panel__icon"
+              className="search-bar__icon search-panel__icon"
               aria-hidden="true"
             />
             <input
               ref={searchInputRef}
-              className="search-panel__input"
+              className="search-bar__input search-panel__input"
               type="text"
               value={localQuery}
               onChange={(e) => {
@@ -566,7 +564,7 @@ export default function SearchPage() {
             {localQuery && (
               <button
                 type="button"
-                className="search-panel__clear"
+                className="search-bar__clear search-panel__clear is-visible"
                 aria-label="Clear search"
                 onClick={() => {
                   lastPushedRef.current = "";
@@ -686,12 +684,12 @@ export default function SearchPage() {
         ) : !query ? (
           /* Landing — Cinejoy-style "Trending Today" grid */
           <section className="search-trending" aria-label="Trending Today">
-            <div className="search-trending__head">
+            <div className="search-section-head search-trending__head">
               <h2>{t("search.trendingToday")}</h2>
             </div>
 
             {trendingQuery.isLoading ? (
-              <div className="movie-grid">
+              <div className="search-results-grid movie-grid">
                 {[...Array(10)].map((_, i) => (
                   <MovieCardSkeleton key={i} />
                 ))}
@@ -714,20 +712,9 @@ export default function SearchPage() {
                 description="Check back soon — trending titles will appear here."
               />
             ) : (
-              <div className="movie-grid">
-                {trendingTitles.map((movie, idx) => (
-                  <motion.div
-                    key={movie.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      duration: DURATION.MED,
-                      delay: (idx % 10) * 0.05,
-                      ease: EASE_OUT,
-                    }}
-                  >
-                    <MovieCard movie={movie} />
-                  </motion.div>
+              <div className="search-results-grid movie-grid">
+                {trendingTitles.map((movie) => (
+                  <MovieCard key={movie.id} movie={movie} />
                 ))}
               </div>
             )}
@@ -820,21 +807,15 @@ export default function SearchPage() {
             aria-label={`${filteredAndSortedList.length} results for "${query}"`}
             onKeyDown={handleResultsKeyDown}
           >
-            <div className="movie-grid">
-              {visibleResults.map((movie, idx) => (
-                <motion.div
+            <div className="search-results-grid movie-grid">
+              {visibleResults.map((movie) => (
+                <div
                   key={movie.id}
                   data-search-result=""
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: DURATION.MED,
-                    delay: (idx % 10) * 0.05,
-                    ease: EASE_OUT,
-                  }}
+                  style={{ animation: "cardIn 0.4s var(--ease) backwards" }}
                 >
                   <MovieCard movie={movie} highlightQuery={query} />
-                </motion.div>
+                </div>
               ))}
             </div>
             <div ref={searchEndRef} className="h-px" aria-hidden="true" />

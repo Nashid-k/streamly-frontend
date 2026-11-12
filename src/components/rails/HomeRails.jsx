@@ -60,6 +60,7 @@ const HomeRails = React.memo(function HomeRails({
   return (
     <section
       ref={railsSentinelRef}
+      className="home-rails-section"
       style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}
     >
       {/* Continue Watching — resume-first, above the catalogue rows */}

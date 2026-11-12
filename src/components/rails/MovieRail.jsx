@@ -150,18 +150,14 @@ const MovieRail = React.memo(
 
             <div
               ref={railRef}
-              className="movie-rail"
+              className="movie-rail track scroll-x"
               onScroll={handleScroll}
               style={{
                 display: "flex",
-                gap: "1.5rem",
                 WebkitOverflowScrolling: "touch",
                 overscrollBehaviorX: "contain",
                 overflowX: "auto",
                 scrollbarWidth: "none",
-                /* Block padding lives in rails.css (RIVO's py-6 / sm:py-8); only
-                   the lateral inset is inline, so the CSS step can apply. */
-                paddingInline: "0.5rem",
               }}
             >
               {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount                ).map((movie) => (

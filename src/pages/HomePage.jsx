@@ -763,7 +763,7 @@ export default function Home({ filter = "all", title }) {
   }, [featuredIndex, goToSlide]);
 
   return (
-    <div className="main-content main-content--has-hero" style={{ paddingBottom: "2rem" }}>
+    <div className="main-content main-content--has-hero main" style={{ paddingBottom: "120px" }}>
       <AmbientBackground
         src={
           activeFeaturedMovie

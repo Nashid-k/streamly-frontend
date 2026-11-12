@@ -51,11 +51,13 @@ const BrowseByProviderRail = memo(function BrowseByProviderRail() {
 
         <div
           ref={scrollRef}
-          className="track scroll-x flex gap-4 md:gap-5 overflow-x-auto overflow-y-hidden py-3 px-1 scroll-smooth"
+          className="track scroll-x flex overflow-x-auto overflow-y-hidden scroll-smooth"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            gap: "20px",
+            padding: "16px var(--gutter, 24px) 8px",
           }}
         >
           {BROWSE_PROVIDERS.map((p) => (

@@ -21,12 +21,11 @@ const SectionHeader = React.memo(function SectionHeader({
   title,
   seeAllTo,
   seeAllState,
-  seeAllLabel = "See all",
+  seeAllLabel = "View All",
   actions,
-  padded = true,
 }) {
   return (
-    <div className="rail-head" style={padded ? { paddingLeft: "0.25rem" } : undefined}>
+    <div className="row-head rail-head">
       <div className="rail-head__main">{title}</div>
       {actions || seeAllTo ? (
         <div className="rail-head__actions">
@@ -35,10 +34,24 @@ const SectionHeader = React.memo(function SectionHeader({
             <Link
               to={seeAllTo}
               state={seeAllState}
-              className="rail-see-all"
-              style={{ textDecoration: "none" }}
+              className="view-all rail-see-all"
             >
-              {seeAllLabel}
+              <span>{seeAllLabel}</span>
+              <svg
+                className="icon"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
             </Link>
           ) : null}
         </div>
