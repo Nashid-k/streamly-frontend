@@ -17,6 +17,19 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/provider.html` Dedicated Provider Page & Browse Rail Navigation — 2026-11-12 (branch `main`).**
+  - **Dedicated Provider page (`src/pages/ProviderPage.jsx`)**: Mirrored layout and structure from `streamly-update/provider.html`:
+    - Dynamic hero with provider logo (72px, 84px desktop), title (clamp 2.4rem-3.6rem, 900 weight), and catalogue subtitle.
+    - Segmented tab toggle (`.provider-toggle-row`) for Movies and Series with active accent pill, count pill badges, and seamless tab switching.
+    - Responsive grid (`.provider-grid`) matching `provider.html`: 2 cols mobile, 3 at 640px, 4 at 768px, 5 at 1024px, 6 at 1280px.
+    - Ambient dynamic background (`AmbientBackground`) deriving glow from active provider catalog titles.
+    - Curated fallback catalogue (`src/data/providerCatalog.js`) extracted directly from `provider.html` for 7 top streaming platforms (Netflix, Prime Video, Disney+, Apple TV+, Hulu, Max, Paramount+).
+    - Provider 404 state with "Back to Home" button for invalid provider IDs.
+  - **Routing & Warmup**: Added routes `/provider/:providerId` and `/provider` in `src/app/routes.jsx`, registered loader in `src/app/routeLoaders.js`, added warmup entries in `src/app/routeWarmup.js` (`WARM_ORDER`, `EXACT`, `PREFIX`).
+  - **Browse By Provider rail (`BrowseByProviderRail.jsx`)**: Updated card navigation links from `/movies?provider=${p.id}` to dedicated `/provider/${p.id}`.
+  - **Styles (`src/styles/provider.css`)**: Imported in `main.jsx`; contains exact tokens and rules from `provider.html` (hero layout, toggle pills, responsive grid breakpoints, animations, empty state).
+  - Gates: `npx oxlint` 0 errors; vitest 3 suites / 59 tests passed; `npm run build` exit 0 (1.75s).
+
 - [x] **`streamly-update/` exact navbar, bottom dock, random buttons & pinned filters parity — 2026-11-12 (branch `main`).**
   - **Design tokens parity**: Restored `--glass-bg: rgba(20, 16, 32, 0.55)`, `--glass-border: rgba(255, 255, 255, 0.12)`, `--line: rgba(255, 255, 255, 0.10)`, and `--glass-blur: blur(20px) saturate(1.4)` exactly as declared in `streamly-update/movies.html` line 17.
   - **Navbar exact styles (`movies.html:44`)**: `.navbar` and `.navbar.scrolled` use `background: var(--glass-bg)`, `backdrop-filter: blur(20px) saturate(1.4)`, `border: 1px solid var(--glass-border)`, and `box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6)`.

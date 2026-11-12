@@ -19,6 +19,7 @@ const ExploreCollectionsPage = lazy(pageLoaders.exploreCollections);
 const PublicCollectionPage = lazy(pageLoaders.publicCollection);
 const HistoryPage = lazy(pageLoaders.history);
 const SettingsPage = lazy(pageLoaders.settings);
+const ProviderPage = lazy(pageLoaders.provider);
 const NotFoundPage = lazy(pageLoaders.notFound);
 // Not lazy, unlike its neighbours: this page is the first paint after clicking a
 // link in an email, and a second Suspense flash before "Confirm my email" is
@@ -49,6 +50,8 @@ function AppRoutes() {
                 element={<DiscoveryPage mode="movies" />}
               />
               <Route path="/search" element={<SearchPage />} />
+              <Route path="/provider/:providerId" element={<ProviderPage />} />
+              <Route path="/provider" element={<ProviderPage />} />
               <Route path="/category/:name" element={<CategoryPage />} />
               <Route path="/genre/:genre" element={<GenrePage />} />
               <Route path="/watch/:id/:slug?" element={<TitleDetails />} />

@@ -21,6 +21,7 @@ describe("routeLoaderForPath", () => {
     expect(routeLoaderForPath("/settings")).toBe(pageLoaders.settings);
     expect(routeLoaderForPath("/explore/collections")).toBe(pageLoaders.exploreCollections);
     expect(routeLoaderForPath("/collections/abc123")).toBe(pageLoaders.publicCollection);
+    expect(routeLoaderForPath("/provider/8")).toBe(pageLoaders.provider);
   });
 
   it("treats a trailing slash as the same route (only the root keeps it)", () => {

@@ -63,7 +63,7 @@ const BrowseByProviderRail = memo(function BrowseByProviderRail() {
           {BROWSE_PROVIDERS.map((p) => (
             <Link
               key={p.id}
-              to={`/movies?provider=${p.id}`}
+              to={`/provider/${p.id}`}
               className="provider flex-none w-[76px] lg:w-[92px] flex flex-col items-center gap-2 group cursor-pointer text-decoration-none select-none"
               aria-label={p.name}
               title={p.name}

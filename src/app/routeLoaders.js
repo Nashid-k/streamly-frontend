@@ -17,5 +17,6 @@ export const pageLoaders = {
   publicCollection: () => import("../pages/PublicCollectionPage"),
   history: () => import("../pages/HistoryPage"),
   settings: () => import("../pages/SettingsPage"),
+  provider: () => import("../pages/ProviderPage"),
   notFound: () => import("../pages/NotFoundPage"),
 };

@@ -29,6 +29,7 @@ const EXACT = {
   "/continue-watching": pageLoaders.history,
   "/settings": pageLoaders.settings,
   "/explore/collections": pageLoaders.exploreCollections,
+  "/provider": pageLoaders.provider,
 };
 const PREFIX = [
   ["/category/", pageLoaders.category],
@@ -36,6 +37,7 @@ const PREFIX = [
   ["/watch/", pageLoaders.titleDetails],
   ["/person/", pageLoaders.personDetails],
   ["/collections/", pageLoaders.publicCollection],
+  ["/provider/", pageLoaders.provider],
 ];
 
 export function routeLoaderForPath(pathname) {
@@ -65,6 +67,7 @@ export const WARM_ORDER = [
   pageLoaders.category,
   pageLoaders.genre,
   pageLoaders.personDetails,
+  pageLoaders.provider,
   pageLoaders.publicCollection,
   pageLoaders.exploreCollections,
   pageLoaders.notFound,
