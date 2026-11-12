@@ -4,7 +4,13 @@
   position: relative;
   z-index: 10;
 }
+.provider-content {
+  position: relative;
+  z-index: 2;
+}
 .provider-hero {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 18px;
@@ -44,7 +50,7 @@
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.6);
   flex-shrink: 0;
-  animation: heroReveal 0.5s var(--ease-out) backwards;
+  animation: heroReveal 0.5s var(--ease-out) both;
 }
 @media (min-width: 1024px) {
   .provider-hero__logo {
@@ -63,13 +69,15 @@
   letter-spacing: -0.025em;
   color: var(--text-strong, #ffffff);
   text-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
-  animation: heroReveal 0.5s var(--ease-out) 0.1s backwards;
+  animation: heroReveal 0.5s var(--ease-out) 0.1s both;
   margin: 0;
 }
 .provider-toggle-row {
+  position: relative;
+  z-index: 2;
   padding: 0 var(--gutter, 24px);
   margin-bottom: 24px;
-  animation: heroReveal 0.5s var(--ease-out) 0.2s backwards;
+  animation: heroReveal 0.5s var(--ease-out) 0.2s both;
 }
 .provider-toggle {
   display: inline-flex;
@@ -112,6 +120,8 @@
   color: rgba(4, 18, 11, 0.7);
 }
 .provider-empty {
+  position: relative;
+  z-index: 2;
   padding: 80px var(--gutter, 24px);
   text-align: center;
   color: var(--text-muted, rgba(255, 255, 255, 0.6));
@@ -124,8 +134,14 @@
   color: var(--text-faint, rgba(255, 255, 255, 0.45));
   display: block;
 }
+.provider-page .skeleton-grid {
+  position: relative;
+  z-index: 2;
+}
 /* Responsive grid (2/3/4/5/6 cols) */
 .provider-grid {
+  position: relative;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px 12px;

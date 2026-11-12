@@ -167,17 +167,19 @@ export default function ProviderPage() {
     return (
       <div className="provider-page">
         <AmbientBackground fallback />
-        <div className="provider-empty">
-          <Grid className="icon" size={48} />
-          <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-strong)", marginBottom: 8 }}>
-            Provider not found
-          </h1>
-          <p style={{ color: "var(--text-muted)" }}>
-            We couldn't find that provider. Try another from the home page.
-          </p>
-          <Link className="btn-primary" to="/" style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: "var(--radius-full)" }}>
-            <Home size={18} /> Back to Home
-          </Link>
+        <div className="provider-content">
+          <div className="provider-empty">
+            <Grid className="icon" size={48} />
+            <h1 style={{ fontSize: "2rem", fontWeight: 800, color: "var(--text-strong)", marginBottom: 8 }}>
+              Provider not found
+            </h1>
+            <p style={{ color: "var(--text-muted)" }}>
+              We couldn't find that provider. Try another from the home page.
+            </p>
+            <Link className="btn-primary" to="/" style={{ marginTop: 20, display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 22px", borderRadius: "var(--radius-full)" }}>
+              <Home size={18} /> Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -187,93 +189,95 @@ export default function ProviderPage() {
     <div className="provider-page">
       <AmbientBackground src={ambientSrc} fallback />
 
-      {/* Hero Header */}
-      <div className="provider-hero">
-        <button
-          type="button"
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
-          className="provider-back-btn"
-          aria-label="Back"
-        >
-          <ChevronLeft size={22} />
-        </button>
-        <div className="provider-hero__logo">
-          <img src={provider.logo} alt={provider.name} loading="eager" decoding="async" />
-        </div>
-        <h1 className="provider-hero__name">{provider.name}</h1>
-      </div>
-
-      {/* Tab toggle */}
-      <div className="provider-toggle-row">
-        <div className="provider-toggle" role="tablist">
+      <div className="provider-content">
+        {/* Hero Header */}
+        <div className="provider-hero">
           <button
             type="button"
-            role="tab"
-            aria-selected={tab === "movies"}
-            className={tab === "movies" ? "is-active" : ""}
-            onClick={() => setTab("movies")}
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
+            className="provider-back-btn"
+            aria-label="Back"
           >
-            Movies
-            <span className="count">{movies.length}</span>
+            <ChevronLeft size={22} />
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "series"}
-            className={tab === "series" ? "is-active" : ""}
-            onClick={() => setTab("series")}
-          >
-            Series
-            <span className="count">{series.length}</span>
-          </button>
+          <div className="provider-hero__logo">
+            <img src={provider.logo} alt={provider.name} loading="eager" decoding="async" />
+          </div>
+          <h1 className="provider-hero__name">{provider.name}</h1>
         </div>
-      </div>
 
-      {/* Grid or Skeleton */}
-      {isLoading ? (
-        <div className="skeleton-grid" style={{ padding: "0 var(--gutter, 24px) 60px" }}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="sk-card">
-              <div className="skeleton sk-card__poster" />
-              <div className="sk-card__cap">
-                <div className="skeleton sk-card__line" />
-                <div className="skeleton sk-card__line sk-card__line--short" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : activeItems.length === 0 ? (
-        <div className="provider-empty">
-          <Film className="icon" size={48} />
-          <p style={{ margin: "0 0 12px" }}>No {tab === "movies" ? "movies" : "series"} available for {provider.name} yet.</p>
-          {tab === "series" && movies.length > 0 && (
+        {/* Tab toggle */}
+        <div className="provider-toggle-row">
+          <div className="provider-toggle" role="tablist">
             <button
               type="button"
-              className="btn-primary"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+              role="tab"
+              aria-selected={tab === "movies"}
+              className={tab === "movies" ? "is-active" : ""}
               onClick={() => setTab("movies")}
             >
-              Switch to Movies ({movies.length})
+              Movies
+              <span className="count">{movies.length}</span>
             </button>
-          )}
-          {tab === "movies" && series.length > 0 && (
             <button
               type="button"
-              className="btn-primary"
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+              role="tab"
+              aria-selected={tab === "series"}
+              className={tab === "series" ? "is-active" : ""}
               onClick={() => setTab("series")}
             >
-              Switch to Series ({series.length})
+              Series
+              <span className="count">{series.length}</span>
             </button>
-          )}
+          </div>
         </div>
-      ) : (
-        <div className="provider-grid" id="provider-grid">
-          {activeItems.map((item, index) => (
-            <MovieCard key={item.id || item.imdbId || index} movie={item} />
-          ))}
-        </div>
-      )}
+
+        {/* Grid or Skeleton */}
+        {isLoading ? (
+          <div className="skeleton-grid" style={{ padding: "0 var(--gutter, 24px) 60px" }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="sk-card">
+                <div className="skeleton sk-card__poster" />
+                <div className="sk-card__cap">
+                  <div className="skeleton sk-card__line" />
+                  <div className="skeleton sk-card__line sk-card__line--short" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : activeItems.length === 0 ? (
+          <div className="provider-empty">
+            <Film className="icon" size={48} />
+            <p style={{ margin: "0 0 12px" }}>No {tab === "movies" ? "movies" : "series"} available for {provider.name} yet.</p>
+            {tab === "series" && movies.length > 0 && (
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+                onClick={() => setTab("movies")}
+              >
+                Switch to Movies ({movies.length})
+              </button>
+            )}
+            {tab === "movies" && series.length > 0 && (
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: "var(--radius-full)", cursor: "pointer" }}
+                onClick={() => setTab("series")}
+              >
+                Switch to Series ({series.length})
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="provider-grid" id="provider-grid">
+            {activeItems.map((item, index) => (
+              <MovieCard key={item.id || item.imdbId || index} movie={item} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
