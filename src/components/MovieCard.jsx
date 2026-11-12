@@ -60,12 +60,8 @@ const MovieCard = memo(function MovieCard({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
-  // Touch devices never see the hover curtain, so metadata moves below the
-  // poster (Cinejoy-style "mobile card meta"). Desktop keeps the curtain-only
-  // look — EXCEPT when a search query is being highlighted, because a <mark>
-  // nobody can see is not a highlight. Search results therefore always print
-  // their title, which is also what every other streaming search does.
-  const showBelowMeta = isTouchDevice || Boolean(highlightQuery);
+  // Title and metadata caption always visible below poster (Cinejoy card__caption parity)
+  const showBelowMeta = true;
 
 
   // Hover/focus no longer drive any animation state (that is CSS in

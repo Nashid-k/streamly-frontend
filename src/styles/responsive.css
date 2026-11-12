@@ -173,9 +173,14 @@
     color: var(--white);
   }
   .bottom-nav-item.active {
-    color: var(--white);
-    background: transparent;
-    box-shadow: none;
+    color: #04120b !important;
+    background: var(--accent-color, #95ff50);
+    border-radius: var(--radius-pill);
+    box-shadow: 0 4px 14px -3px rgba(149, 255, 80, 0.5);
+    font-weight: 700;
+  }
+  .bottom-nav-item.active svg {
+    color: #04120b !important;
   }
   .bottom-nav-label {
     display: block;

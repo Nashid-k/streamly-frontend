@@ -268,7 +268,11 @@
   padding: 0 10px;
 }
 .nav-link--active {
-  color: var(--white);
+  color: #04120b !important;
+  mix-blend-mode: normal !important;
+}
+.nav-link--active .nav-link-icon {
+  color: #04120b !important;
 }
 
 /* Cinejoy .nav-pill - ONE shared highlight that glides between items.
@@ -287,8 +291,8 @@
   transform: translateX(var(--pill-x, 0px));
   width: var(--pill-w, 0px);
   border-radius: var(--radius-full);
-  background: var(--white);
-  box-shadow: 0 2px 8px rgba(var(--black-rgb), 0.35), 0 0 16px 1px rgba(var(--white-rgb), 0.18);
+  background: var(--accent-color, #95ff50);
+  box-shadow: 0 6px 18px -6px rgba(149, 255, 80, 0.6);
   z-index: 0;
   pointer-events: none;
   opacity: 0;
@@ -427,7 +431,8 @@ html[data-reduce-motion="true"] .nav-active-pill {
 }
 }
 .nav-icon-btn--active {
-  color: var(--white);
+  color: #04120b !important;
+  mix-blend-mode: normal !important;
 }
 /* A photo cannot invert: over a white pill it would turn into a negative.
    Keep the avatar glyph normal; the pill still reads behind it. */

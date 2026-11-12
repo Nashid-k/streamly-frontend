@@ -502,7 +502,12 @@ export default function SearchPage() {
       {/* ── Cinejoy-style search hero ── */}
       <section className={`search-hero${query ? " search-hero--compact" : ""}`}>
         {!query && (
-          <h1 className="search-hero__title">What would you like to watch?</h1>
+          <div className="search-hero__text text-center mb-2">
+            <h1 className="search-hero__title">Discover something new</h1>
+            <p className="search-hero__subtitle text-white/60 text-sm md:text-base mt-2">
+              Search across all movies, TV shows &amp; people
+            </p>
+          </div>
         )}
 
         {/* Search input — live, dynamic search */}
@@ -540,7 +545,7 @@ export default function SearchPage() {
                   setSuggestIndex(-1);
                 }
               }}
-              placeholder={t("search.placeholder")}
+              placeholder={t("search.placeholder") || "Search movies, TV shows & people..."}
               aria-label={t("nav.search")}
               role="combobox"
               aria-expanded={suggestVisible}

@@ -124,11 +124,11 @@
      focus rings, but every FILLED button wears the same white surface (the home
      banner's Play pill), so all CTAs read as one family and no accent theme can
      re-tint them. Reference these instead of restating rgba(242,242,242,.96). */
-  --btn-bg: rgba(242, 242, 242, 0.96);
-  --btn-bg-hover: #ffffff;
-  --btn-ink: #000000;
-  --btn-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --btn-shadow-hover: 0 14px 36px rgba(0, 0, 0, 0.5);
+  --btn-bg: var(--accent-color, #95ff50);
+  --btn-bg-hover: #b3ff7a;
+  --btn-ink: #04120b;
+  --btn-shadow: 0 14px 30px -8px rgba(149, 255, 80, 0.5);
+  --btn-shadow-hover: 0 16px 36px -6px rgba(149, 255, 80, 0.65);
   --error-color: var(--danger);
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-medium: rgba(255, 255, 255, 0.1);

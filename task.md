@@ -17,6 +17,16 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` complete Cinejoy parity — Browse by Provider rail, card captions, green active nav pill, white hover play disc — 2026-11-12 (branch `main`).**
+  - **Browse by Provider rail**: Created `src/components/rails/BrowseByProviderRail.jsx` with all 17 streaming providers from `streamly-update/index.html` (Netflix, Prime Video, Disney+, Apple TV+, Apple TV, Hulu, HBO Max, Paramount+, Peacock, Crunchyroll, Starz, AMC+, MGM+, YouTube Premium, YouTube, Tubi, Pluto TV) with 64x64/80x80 logos, smooth horizontal scroll, rail arrows, scale hover, and links to filtered discover. Integrated into `HomeRails.jsx` directly below Continue Watching.
+  - **Home rail order matching `streamly-update`**: Reordered `HomeRails.jsx` to match `index.html`: Continue Watching → Browse by Provider → Because you watched → Trending Movies → Trending Series → Provider Rails ("Movies on <provider>" / "TV Series on <provider>") → My List → Rotating domain rails.
+  - **Active nav indicator**: Updated `.nav-active-pill` and `.mobile-bottom-nav .bottom-nav-item.active` to Cinejoy green `var(--accent-color, #95ff50)` with `#04120b` text/icon and green drop glow.
+  - **Card captions permanent**: Set `showBelowMeta = true` in `MovieCard.jsx` so title and metadata (★ rating + year) render underneath cards on desktop matching `.card__caption`.
+  - **Card hover & white play disc**: Updated card hover to `scale(1.06)` with poster dimming `brightness(0.5)`, scale `1.04`, and 48px circular white play disc (`#ffffff` with `#04120b` play icon) with white drop shadow.
+  - **Search page parity**: Updated `SearchPage.jsx` hero title to "Discover something new", subtitle "Search across all movies, TV shows & people", placeholder, and focus glow.
+  - **Scroll progress bar & animations**: Fixed 2px accent bar, `heroReveal` stagger, and `cardEnter` stagger.
+  - Gates: `npx oxlint` 0 errors; vitest 22 tests passed (HomePage, HomeRails, SearchPage, MovieCard); `npm run build` exit 0 (2.16s).
+
 - [x] **`streamly-update/` full UI sync — animations, navbar blur, scroll progress bar, hero stagger — 2026-11-12 (branch `main`).**
   - **Navbar blur**: `.navbar` and `.navbar.scrolled` updated in `header.css` to include `backdrop-filter: blur(20px) saturate(1.4)` and `-webkit-backdrop-filter`. Mobile bottom nav in `responsive.css` updated to `blur(20px) saturate(1.4)`.
   - **Scroll progress bar**: Created `src/components/ScrollProgressBar.jsx` (rendered in `Layout.jsx` right after `Header`). Styled via `.scroll-progress` in `tokens.css` with CSS scroll-driven animation (`animation-timeline: scroll(root block)`).

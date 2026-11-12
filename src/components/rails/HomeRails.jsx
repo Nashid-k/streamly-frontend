@@ -7,6 +7,7 @@ import FadeInSection from "./FadeInSection";
 import MovieRail from "./MovieRail";
 import BecauseSelector from "./BecauseSelector";
 import ProviderRail from "./ProviderRail";
+import BrowseByProviderRail from "./BrowseByProviderRail";
 import RotatingRails from "./RotatingRails";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n/index.jsx";
@@ -70,29 +71,22 @@ const HomeRails = React.memo(function HomeRails({
         </FadeInSection>
       )}
 
+      {/* Browse by Provider rail — 17 streaming services with logos */}
+      {!loading && (
+        <FadeInSection>
+          <ErrorBoundary>
+            <BrowseByProviderRail />
+          </ErrorBoundary>
+        </FadeInSection>
+      )}
+
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "2.5rem" }}>
           {[1, 2, 3, 4].map((rail) => <SkeletonRail key={rail} cards={8} />)}
         </div>
       ) : (
         <>
-          {/* 1–2. Provider rails — each head is a service dropdown */}
-          {showMovies && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <ProviderRail mediaType="movie" />
-              </ErrorBoundary>
-            </FadeInSection>
-          )}
-          {showSeries && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <ProviderRail mediaType="tv" />
-              </ErrorBoundary>
-            </FadeInSection>
-          )}
-
-          {/* 3. Because you watched — personalized ranker, anchor picker head */}
+          {/* 1. Because you watched — personalized ranker, anchor picker head */}
           {becauseAnchor && recommendations?.length > 0 && (
             <FadeInSection>
               <ErrorBoundary>
@@ -114,18 +108,7 @@ const HomeRails = React.memo(function HomeRails({
             </FadeInSection>
           )}
 
-          {/* 4. My List */}
-          {myList && myList.length > 0 && filter === "all" && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <MovieRail
-                  category={{ name: t("home.rails.myList"), movies: myList }}
-                />
-              </ErrorBoundary>
-            </FadeInSection>
-          )}
-
-          {/* 5. Trending Movies */}
+          {/* 2. Trending Movies */}
           {showMovies && trendingMovies.length > 0 && (
             <FadeInSection>
               <ErrorBoundary>
@@ -139,7 +122,7 @@ const HomeRails = React.memo(function HomeRails({
             </FadeInSection>
           )}
 
-          {/* 6. Trending Series */}
+          {/* 3. Trending Series */}
           {showSeries && trendingSeries.length > 0 && (
             <FadeInSection>
               <ErrorBoundary>
@@ -148,6 +131,33 @@ const HomeRails = React.memo(function HomeRails({
                     name: t("home.rails.trendingSeries"),
                     movies: trendingSeries,
                   }}
+                />
+              </ErrorBoundary>
+            </FadeInSection>
+          )}
+
+          {/* 4–5. Provider rails — each head is a service dropdown */}
+          {showMovies && (
+            <FadeInSection>
+              <ErrorBoundary>
+                <ProviderRail mediaType="movie" />
+              </ErrorBoundary>
+            </FadeInSection>
+          )}
+          {showSeries && (
+            <FadeInSection>
+              <ErrorBoundary>
+                <ProviderRail mediaType="tv" />
+              </ErrorBoundary>
+            </FadeInSection>
+          )}
+
+          {/* 6. My List */}
+          {myList && myList.length > 0 && filter === "all" && (
+            <FadeInSection>
+              <ErrorBoundary>
+                <MovieRail
+                  category={{ name: t("home.rails.myList"), movies: myList }}
                 />
               </ErrorBoundary>
             </FadeInSection>

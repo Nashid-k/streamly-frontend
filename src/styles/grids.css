@@ -146,6 +146,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: filter 0.3s, transform 0.5s var(--anim-hover-ease);
 }
 
 /* ── Cinematic curtain — pure CSS hover/focus choreography ────────────────
@@ -204,22 +205,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  border: 1px solid rgba(var(--white-rgb), 0.28);
+  width: 48px;
+  height: 48px;
+  border: none;
   border-radius: 50%;
-  background: rgba(9, 9, 11, 0.6);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  color: var(--white);
+  background: var(--white);
+  color: #04120b;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55);
-  transition: transform var(--duration-fast) var(--ease-out), background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+  box-shadow: 0 8px 20px -4px rgba(255, 255, 255, 0.4);
+  transition: transform var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
 }
 .card-play-disc__btn:hover {
-  background: rgba(9, 9, 11, 0.78);
-  border-color: rgba(var(--white-rgb), 0.45);
   transform: scale(1.08);
+  box-shadow: 0 10px 24px -2px rgba(255, 255, 255, 0.5);
 }
 .card-play-disc__btn:active {
   transform: scale(0.92);
@@ -245,9 +243,13 @@
 
 @media (hover: hover) and (pointer: fine) {
   .movie-card:hover {
-    transform: scale(1.035);
+    transform: scale(1.06);
     z-index: 20;
     transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+  }
+  .movie-card:hover .movie-poster {
+    filter: brightness(0.5);
+    transform: scale(1.04);
   }
   .movie-card:hover .card-veil {
     opacity: 1;
@@ -332,18 +334,24 @@
 }
 
 .movie-info {
-  padding: 0 4px 0.35rem;
+  margin-top: 10px;
+  padding: 0 2px;
 }
 .movie-title {
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: 13px;
   letter-spacing: -0.01em;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text-primary);
+  color: rgba(var(--white-rgb), 0.92);
   transition: color var(--duration-fast) var(--ease-out);
+}
+@media (min-width: 1024px) {
+  .movie-title {
+    font-size: 14px;
+  }
 }
 .movie-card:hover .movie-title {
   color: var(--white);
@@ -359,10 +367,20 @@
 }
 .movie-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
+}
+.movie-meta-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent-color, #95ff50);
+  font-weight: 600;
+}
+.movie-meta-year {
+  color: var(--text-muted, rgba(255, 255, 255, 0.6));
 }
 
 /* Neutralize platform colors for premium look */
