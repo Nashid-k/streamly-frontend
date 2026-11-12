@@ -190,9 +190,10 @@
   --focus-ring: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.22), 0 0 0 1px rgba(var(--accent-secondary-rgb), 0.48);
 
   /* ── Glass / Blur ──────────────────────────────────────── */
-  --glass-bg: rgba(255, 255, 255, 0.06);
-  --glass-border: rgba(255, 255, 255, 0.15);
-  --glass-blur: blur(14px) saturate(140%);
+  --line: rgba(255, 255, 255, 0.10);
+  --glass-bg: rgba(20, 16, 32, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-blur: blur(20px) saturate(1.4);
 
   /* ── Typography ────────────────────────────────────────── */
   /* The scale's floor is 12px (--text-2xs). Nothing informational may render

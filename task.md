@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **`streamly-update/` exact navbar, bottom dock, random buttons & pinned filters parity — 2026-11-12 (branch `main`).**
+  - **Design tokens parity**: Restored `--glass-bg: rgba(20, 16, 32, 0.55)`, `--glass-border: rgba(255, 255, 255, 0.12)`, `--line: rgba(255, 255, 255, 0.10)`, and `--glass-blur: blur(20px) saturate(1.4)` exactly as declared in `streamly-update/movies.html` line 17.
+  - **Navbar exact styles (`movies.html:44`)**: `.navbar` and `.navbar.scrolled` use `background: var(--glass-bg)`, `backdrop-filter: blur(20px) saturate(1.4)`, `border: 1px solid var(--glass-border)`, and `box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6)`.
+  - **Pinned filters dock exact styles (`movies.html:261`)**: Outer container `.pinned-filters` has transparent background, no border, no padding. Dock capsule `.pinned-filters .filter-bar` uses exact `background: var(--glass-bg)`, `backdrop-filter: blur(20px) saturate(1.4)`, `border: 1px solid var(--glass-border)`, `border-radius: var(--radius-pill)`, `padding: 6px`, and `box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7)`.
+  - **Random and filter buttons (`movies.html:181, 186`)**: `.random-btn` and `.filter-btn` use `background: rgba(255, 255, 255, 0.05)`, `border: 1px solid var(--glass-border)`, and `backdrop-filter: blur(8px)`.
+  - Gates: `npx oxlint` 0 errors; vitest 5 suites / 90 tests passed; `npm run build` exit 0 (2.04s).
+
 - [x] **Pinned filter dock double-border removal & frosted glass blur on dock and navbar — 2026-11-12 (branch `main`).**
   - **Removed double border on pinned filters dock**: Removed outer border, padding, and background on `.pinned-filters.discover-filters-dock` so the outer container acts solely as a fixed translation/position wrapper (`background: transparent !important; border: none !important; padding: 0 !important; box-shadow: none !important;`). The inner `.filter-bar` remains the sole pill capsule with a single border (`1px solid var(--glass-border)`), 6px padding, and `radius-pill`. Consolidated duplicate conflicting dock declarations in `src/styles/discovery.css`.
   - **Translucent blurred glass dock styling**: Replaced dark opaque background (`var(--glass-bg, rgba(20, 16, 32, 0.55))`) with translucent frosted glass (`rgba(255, 255, 255, 0.06)`, `backdrop-filter: blur(20px) saturate(1.4)`). Added `backdrop-filter: blur(8px)` to `.random-btn` to match `.filter-btn`.
