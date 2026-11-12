@@ -17,6 +17,13 @@
 
  ## Done (in order)
 
+- [x] **Restore banner sizing and viewport clamping matching commit 97dfafd — 2026-11-12 (branch `main`).**
+  - **Restored banner geometry (`src/styles/hero.css`)**: Reverted `.hero-container` from oversized `92vh; min-height: 580px; max-height: 940px` back to `height: min(78vh, 850px); min-height: 480px; max-height: 850px` matching commit `97dfafd`.
+  - **Restored content panel padding (`src/styles/hero.css`)**: Replaced hardcoded `padding-bottom: 96px !important` on `.hero-content--apple` with `padding-bottom: 3.5rem !important; padding: clamp(1.5rem, 3vw, 3.5rem) !important; padding-left: clamp(1rem, 5vw, 3.75rem) !important; max-width: 680px`.
+  - **Height-based responsive clamping (`src/styles/hero.css`)**: Ensured `.hero-content--apple` responds to `@media (max-height: 800px)` (clamped to `min(72vh, 520px)`, `padding-bottom: 1.5rem`) and `@media (max-height: 650px)` (`70vh`, `min-height: 380px`, `padding-bottom: 1.25rem`), preventing banner content from collapsing under or clipping outside short laptop displays.
+  - **Banner dots baseline alignment (`src/styles/hero.css`)**: Realigned `.hero-dots--apple`, `.hero-dots`, `.hero__dots` from bottom 120px to `bottom: clamp(1.5rem, 3.5vh, 2.5rem) !important; right: clamp(1.5rem, 5vw, 2.5rem) !important`, centered at `bottom: 1rem` on viewports ≤1200px, and `bottom: 1.5rem !important` in `.hero-container--browse`.
+  - Gates: `npx oxlint` 0 errors; vitest 4 suites / 90 tests passed; `npm run build` exit 0 (2.48s).
+
 - [x] **Banner Play button and Action Pill height alignment (52px `streamly-update/` parity) — 2026-11-12 (branch `main`).**
   - **Matched button heights (`src/styles/hero.css`)**: Updated `.hero-cta-play` height from `clamp(42px, 3.6vw, 52px)` to constant `52px` with `box-sizing: border-box`, identical to `.hero-action-pill` (52px) and `streamly-update/movies.html:72` (`.btn` 52px).
   - **Removed conflicting legacy laptop override (`src/styles/player.css`)**: Deleted `@media (max-height: 680px) and (min-width: 1024px)` rule that clamped `.hero-cta-play` to 34px-40px without altering the adjacent 52px action pill.

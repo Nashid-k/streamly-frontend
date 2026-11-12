@@ -1,12 +1,12 @@
-/* Hero Section — Full-width edge-to-edge, starts right below navbar (Cinejoy parity: 92vh, min 580px) */
+/* Hero Section — Full-width edge-to-edge, starts right below navbar (restored 20-commit parity: min(78vh, 850px)) */
 .hero-container {
   position: relative;
   left: 50%;
   width: 100vw;
   margin-left: -50vw;
-  height: 92vh;
-  min-height: 580px;
-  max-height: 940px;
+  height: min(78vh, 850px);
+  min-height: 480px;
+  max-height: 850px;
   border-radius: 0;
   overflow: hidden;
   margin-top: 0;
@@ -75,20 +75,6 @@
   z-index: 2;
 }
 
-/* === Hero content reveal (Cinejoy-style stagger) === */
-@keyframes heroReveal {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.hero-content > * {
-  animation: heroReveal 0.7s var(--ease-out) backwards;
-}
-.hero-content > *:nth-child(1) { animation-delay: 0.15s; }
-.hero-content > *:nth-child(2) { animation-delay: 0.25s; }
-.hero-content > *:nth-child(3) { animation-delay: 0.35s; }
-.hero-content > *:nth-child(4) { animation-delay: 0.45s; }
-.hero-content > *:nth-child(5) { animation-delay: 0.55s; }
-
 .hero-title {
   /* Text fallback for titles TMDB has no wordmark for — keep it as loud as
      the logo it replaces. */
@@ -134,7 +120,8 @@
     height: min(72vh, 520px) !important;
     min-height: 420px !important;
   }
-  .hero-content {
+  .hero-content,
+  .hero-content--apple {
     padding-bottom: 1.5rem !important;
     padding-left: clamp(1.5rem, 3.5vw, 3.5rem) !important;
     max-width: min(680px, 64vw) !important;
@@ -143,7 +130,8 @@
     font-size: clamp(2rem, 4.2vw, 3rem) !important;
     margin-bottom: 0.5rem !important;
   }
-  .hero-desc {
+  .hero-desc,
+  .hero-desc--apple {
     font-size: 0.88rem !important;
     line-height: 1.5 !important;
     margin-bottom: 0.75rem !important;
@@ -161,7 +149,8 @@
     height: 70vh !important;
     min-height: 380px !important;
   }
-  .hero-content {
+  .hero-content,
+  .hero-content--apple {
     padding-bottom: 1.25rem !important;
   }
   .hero-desc,
@@ -353,12 +342,12 @@
      stops alone melt the seam for any background image. */
 }
 
-/* ── Apple-variant content panel (Cinejoy parity) ── */
+/* ── Apple-variant content panel (restored 20-commit parity) ── */
 .hero-content--apple {
-  padding-bottom: 96px !important;
-  padding-left: var(--gutter, 24px) !important;
-  padding-right: var(--gutter, 24px) !important;
-  max-width: 640px;
+  padding-bottom: 3.5rem !important;
+  padding: clamp(1.5rem, 3vw, 3.5rem) !important;
+  padding-left: clamp(1rem, 5vw, 3.75rem) !important;
+  max-width: 680px;
 }
 
 /* Eyebrow row — platform icon + genre tags */
@@ -569,14 +558,24 @@
 .hero-dots,
 .hero__dots {
   position: absolute !important;
-  right: var(--gutter, 64px) !important;
-  bottom: 120px !important;
+  right: clamp(1.5rem, 5vw, 2.5rem) !important;
+  bottom: clamp(1.5rem, 3.5vh, 2.5rem) !important;
   left: auto !important;
   transform: none !important;
   display: flex;
   gap: 8px;
   align-items: center;
   z-index: 3;
+}
+@media (max-width: 1200px) {
+  .hero-dots--apple,
+  .hero-dots,
+  .hero__dots {
+    right: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    bottom: 1rem !important;
+  }
 }
 @media (max-width: 900px) {
   .hero-dots--apple,
@@ -680,6 +679,11 @@
 }
 .hero-container--browse .hero-content--apple {
   padding-bottom: 2.5rem !important;
+}
+.hero-container--browse .hero-dots--apple,
+.hero-container--browse .hero-dots,
+.hero-container--browse .hero__dots {
+  bottom: 1.5rem !important;
 }
 
 
