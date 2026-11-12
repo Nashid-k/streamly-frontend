@@ -107,6 +107,14 @@ textarea:focus-visible {
 .rail-head__main {
   min-width: 0;
 }
+/* Row-level controls (Continue Watching's edit toggle) sit on the far side of
+   the title, in the same line as "See all" — never in a second row below. */
+.rail-head__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
 .rail-see-all {
   flex-shrink: 0;
   font-size: 0.875rem;
@@ -455,59 +463,4 @@ textarea:focus-visible {
 .home-explore-all__link:focus-visible {
   background: rgba(var(--white-rgb), 0.1);
   border-color: rgba(var(--white-rgb), 0.3);
-}
-/* ── Genre tiles (brief P2-11) ────────────────────────────────────────────
-   One entry point per genre, sized for scanning rather than browsing art. */
-.genre-tiles__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 10px;
-  margin: 0;
-  padding: 0 0.25rem;
-  list-style: none;
-}
-.genre-tile {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 56px;
-  padding: 0 16px;
-  border-radius: var(--radius-card);
-  border: 1px solid rgba(var(--white-rgb), 0.08);
-  background: linear-gradient(
-    135deg,
-    rgba(var(--white-rgb), 0.07) 0%,
-    rgba(var(--white-rgb), 0.03) 100%
-  );
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  text-decoration: none;
-  transition:
-    background var(--duration-fast) var(--ease-silk),
-    border-color var(--duration-fast) var(--ease-silk),
-    transform var(--duration-fast) var(--ease-out);
-}
-.genre-tile:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(var(--accent-primary-rgb), 0.16) 0%,
-    rgba(var(--white-rgb), 0.05) 100%
-  );
-  border-color: rgba(var(--accent-primary-rgb), 0.4);
-  transform: translateY(-2px);
-}
-.genre-tile:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
-  outline-offset: 2px;
-}
-.genre-tile__arrow {
-  color: rgba(var(--white-rgb), 0.5);
-  font-size: var(--text-sm);
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-.genre-tile:hover .genre-tile__arrow {
-  transform: translateX(2px);
-  color: var(--accent-color);
 }

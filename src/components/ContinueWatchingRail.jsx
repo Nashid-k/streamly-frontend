@@ -76,10 +76,44 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
     overscrollBehaviorX: "contain",
   };
 
+  const editToggle = (
+    <button
+      type="button"
+      className={`text-white/50 hover:text-white transition-colors duration-300 flex items-center justify-center rounded-lg h-7 min-w-7 px-1 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${
+        editMode ? "text-emerald-400 font-medium" : ""
+      }`}
+      onClick={() => setEditMode((v) => !v)}
+      aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
+      title={editMode ? t("common.doneEditing") : t("common.editList")}
+      aria-pressed={editMode}
+    >
+      {editMode ? (
+        <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
+          {t("common.done")}
+        </span>
+      ) : (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-4 h-4"
+          width="1em"
+          height="1em"
+          viewBox="0 0 512 512"
+          aria-hidden="true"
+        >
+          <path
+            fill="currentColor"
+            d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"
+          />
+        </svg>
+      )}
+    </button>
+  );
+
   return (
     <div className="space-y-2 relative z-10 group/row">
-      {/* ── Section Header — shared row head: linked title left, quiet "See all" right. ── */}
+      {/* ── Section Header — linked title left; edit toggle + quiet "See all" right. ── */}
       <SectionHeader
+        actions={editToggle}
         title={
           <Link
             to="/continue-watching"
@@ -96,37 +130,6 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
         }
         seeAllTo="/continue-watching"
       />
-
-      {/* ── Edit-mode toggle — secondary action, kept out of the two-child row head. ── */}
-      <div className="px-1 flex items-center">
-        <button
-          className={`text-white/50 hover:text-white transition-colors duration-300 p-1 flex items-center gap-1.5 rounded-lg ${
-            editMode ? "text-emerald-400 font-medium" : ""
-          }`}
-          onClick={() => setEditMode((v) => !v)}
-          aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
-        >
-          {editMode ? (
-            <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold">
-              {t("common.done")}
-            </span>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              width="1em"
-              height="1em"
-              viewBox="0 0 512 512"
-              aria-hidden="true"
-            >
-              <path
-                fill="currentColor"
-                d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
 
       {/* ── Rail with Left/Right Arrows ── */}
       <div className="relative">

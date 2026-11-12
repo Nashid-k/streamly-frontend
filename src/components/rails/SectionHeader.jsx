@@ -12,26 +12,36 @@ import { Link } from "react-router-dom";
  * linked <h2> with a hover chevron, or an <h3> carrying a gradient span.
  * Omitting `seeAllTo` renders the title alone (no empty flex slot) — Top 10 has
  * no destination to link to, and inventing a route for a link is not allowed.
+ *
+ * `actions` is for row-level controls that belong on the far side of the title
+ * (e.g. Continue Watching's edit toggle), so a rail never stacks a control row
+ * underneath its head.
  */
 const SectionHeader = React.memo(function SectionHeader({
   title,
   seeAllTo,
   seeAllState,
   seeAllLabel = "See all",
+  actions,
   padded = true,
 }) {
   return (
     <div className="rail-head" style={padded ? { paddingLeft: "0.25rem" } : undefined}>
       <div className="rail-head__main">{title}</div>
-      {seeAllTo ? (
-        <Link
-          to={seeAllTo}
-          state={seeAllState}
-          className="rail-see-all"
-          style={{ textDecoration: "none" }}
-        >
-          {seeAllLabel}
-        </Link>
+      {actions || seeAllTo ? (
+        <div className="rail-head__actions">
+          {actions}
+          {seeAllTo ? (
+            <Link
+              to={seeAllTo}
+              state={seeAllState}
+              className="rail-see-all"
+              style={{ textDecoration: "none" }}
+            >
+              {seeAllLabel}
+            </Link>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

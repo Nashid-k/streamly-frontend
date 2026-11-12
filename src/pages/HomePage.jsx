@@ -17,12 +17,9 @@ import { progressPct } from "../utils/resumeProgress";
 import AmbientBackground from "../components/AmbientBackground";
 import HeroTitleLogo from "../components/HeroTitleLogo";
 import useDetailView from "../hooks/useDetailView";
-import useIsTouch from "../hooks/useIsTouch";
 import { useNearViewport } from "../hooks/useNearViewport";
-import useFeedSentinel from "../hooks/useFeedSentinel";
 import RatingsCluster from "../components/RatingsCluster";
 
-import RailArrow from "../components/RailArrow";
 import { buildUpcomingThisWeek } from "../utils/releaseCalendar";
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { setBannerMemory } from "../utils/bannerMemory";
@@ -70,9 +67,7 @@ export default function Home({
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
-  const [visibleCatCount, setVisibleCatCount] = useState(4);
   const [activeGenre, setActiveGenre] = useState("All");
-  const [activePlatform, setActivePlatform] = useState("all");
   const { continueWatching, isInList, toggleMyList } = useAppAuth();
 
   // Every details affordance routes through one gateway: Detail View Type "page"
@@ -126,25 +121,9 @@ export default function Home({
     refetchOnWindowFocus: false,
   });
 
-  const { data: popularData, error: popularError } = useQuery({
-    queryKey: ["popular"],
-    queryFn: () => movieService.getPopular(),
-    staleTime: 1000 * 60 * 10,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
   const { data: topRatedData, error: topRatedError } = useQuery({
     queryKey: ["topRated"],
     queryFn: () => movieService.getTopRated(),
-    staleTime: 1000 * 60 * 10,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  const { data: nowPlayingData, error: nowPlayingError } = useQuery({
-    queryKey: ["nowPlaying"],
-    queryFn: () => movieService.getNowPlaying(),
     staleTime: 1000 * 60 * 10,
     retry: false,
     refetchOnWindowFocus: false,
@@ -200,13 +179,11 @@ export default function Home({
     if (airingError) reportQueryError("HomePage", ["airing-this-week"], airingError, { filter });
     if (trendingError) reportQueryError("HomePage", ["trending-this-week"], trendingError, { filter });
     if (top10Error) reportQueryError("HomePage", ["top10"], top10Error, { filter });
-    if (popularError) reportQueryError("HomePage", ["popular"], popularError, { filter });
     if (topRatedError) reportQueryError("HomePage", ["topRated"], topRatedError, { filter });
-    if (nowPlayingError) reportQueryError("HomePage", ["nowPlaying"], nowPlayingError, { filter });
     if (regionalUpcomingError) reportQueryError("HomePage", ["upcoming-regional"], regionalUpcomingError, { filter });
     if (regionalAiringError) reportQueryError("HomePage", ["airing-regional"], regionalAiringError, { filter });
     if (newReleasesError) reportQueryError("HomePage", ["new-releases"], newReleasesError, { filter });
-  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, popularError, topRatedError, nowPlayingError, regionalUpcomingError, regionalAiringError, newReleasesError, filter]);
+  }, [featuredQueryError, categoriesQueryError, airingError, trendingError, top10Error, topRatedError, regionalUpcomingError, regionalAiringError, newReleasesError, filter]);
 
   useEffect(() => {
     if (loading) return;
@@ -234,32 +211,17 @@ export default function Home({
     [featuredData],
   );
 
-  // Category reveal feed: one IO sentinel (useFeedSentinel) grows the slice
-  // instead of a throttled scroll handler re-firing every 200ms. +4 for the
-  // dynamic rails that are not part of rawCategories.
-  const catEndRef = useRef(null);
-  const maxCategories = (rawCategories?.length || 0) + 4;
-  const growCategories = useCallback(() => {
-    setVisibleCatCount((prev) => Math.min(prev + 3, maxCategories));
-  }, [maxCategories]);
-  useFeedSentinel({
-    endRef: catEndRef,
-    hasMore: visibleCatCount < maxCategories,
-    grow: growCategories,
-  });
+  // The home feed shows a fixed three category rails (below), so there is no
+  // lazy end-of-feed sentinel to grow any more — the page terminates at the
+  // "Explore all" link instead of scrolling forever.
 
-  const [isHeroHovered, setIsHeroHovered] = useState(false);
   const isHeroHoveredRef = useRef(false);
-  const isCoarse = useIsTouch();
   /* The banner's Info button always opens the in-place info modal, whatever the
      Detail View Type is — that setting governs card clicks, not this button. */
 
-
   useEffect(() => {
-    // Reset visible count and featured index when the filter changes
-    setVisibleCatCount(4);
+    // Reset the genre tab and featured index when the filter changes
     setActiveGenre("All");
-    setActivePlatform("all");
     setFeaturedIndex(0);
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [filter]);
@@ -297,7 +259,7 @@ export default function Home({
     // Dynamic discovery rails: New & Popular plus anime split into Movies vs TV
     // Shows, interleaved with the regional rails below.
     let dynamicRails = [];
-    if (activeGenre === "All" && activePlatform === "all") {
+    if (activeGenre === "All") {
       if (filter === "all") {
         // New & Popular — newest releases first, highest-rated within a year.
         // normalizeResult emits `year` (string); `releaseYear` only appears on
@@ -446,7 +408,7 @@ export default function Home({
       logError("HomePage", "categories memo failed — rails fall back to empty.", e, { filter });
       return [];
     }
-  }, [rawCategories, filter, activeGenre, activePlatform]);
+  }, [rawCategories, filter, activeGenre]);
 
   // Shared predicates for the Top 10 / Trending / Airing rails
   const isSeriesMovie = isSeriesLike;
@@ -485,25 +447,10 @@ export default function Home({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [airingData, regionalAiringData, filter]);
 
-  const popularNow = useMemo(
-    () => applyPageFilter(asArray(popularData)).slice(0, 20),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [popularData, filter],
-  );
-
   const topRated = useMemo(
     () => applyPageFilter(asArray(topRatedData)).slice(0, 20),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [topRatedData, filter],
-  );
-
-  const nowPlaying = useMemo(
-    () =>
-      applyPageFilter(
-        asArray(nowPlayingData).map((m) => ({ ...m, isSeries: false })),
-      ).slice(0, 20),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [nowPlayingData, filter],
   );
 
   // Upcoming premieres (movies with a future release date + series the backend
@@ -1009,13 +956,12 @@ export default function Home({
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
             onClick={() => openDetails(activeFeaturedMovie)}
-            onMouseEnter={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
-            onMouseLeave={() => { isHeroHoveredRef.current = false; setIsHeroHovered(false); }}
-            onFocus={() => { isHeroHoveredRef.current = true; setIsHeroHovered(true); }}
+            onMouseEnter={() => { isHeroHoveredRef.current = true; }}
+            onMouseLeave={() => { isHeroHoveredRef.current = false; }}
+            onFocus={() => { isHeroHoveredRef.current = true; }}
             onBlur={(event) => {
               if (event.currentTarget.contains(event.relatedTarget)) return;
               isHeroHoveredRef.current = false;
-              setIsHeroHovered(false);
             }}
             onKeyDown={(event) => {
               // Manual switching is disabled (see the removed arrows above) so the
@@ -1261,19 +1207,14 @@ export default function Home({
         filter={filter}
         activeGenre={activeGenre}
         railsSentinelRef={railsSentinelRef}
-        catEndRef={catEndRef}
         sectionTitle={sectionTitle}
         categories={categories}
-        visibleCatCount={visibleCatCount}
         becauseAnchor={becauseAnchor}
         onBecauseAnchorChange={setPickedAnchorId}
         recommendations={recommendations}
         top10Movies={top10Movies}
         trendingThisWeek={trendingThisWeek}
-        airingThisWeek={airingThisWeek}
-        popularNow={popularNow}
         topRated={topRated}
-        nowPlaying={nowPlaying}
       />
 
       {/* Streamly-style info modal — Detail View Type governs whether the

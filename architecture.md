@@ -620,7 +620,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
 - `src/pages/` — one file per route (see table). Pages own query keys and
   log every `error` + empty-data state via `reportQueryError`/`logEmptyData`.
 - `src/components/` — reusable UI (`@/components`). `index.js` categorized barrel. Rail primitives
-  (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `GenreShowcase`, `LeavingSoonBanner`),
+  (`CastRail`, `DiscoveryRails`, `ContinueWatchingRail`, `LeavingSoonBanner`),
   cards (`MovieCard`), player subsystem (`PlayerPreview`,
   `ProviderEmbedPlayer` — the provider-embed iframe player,
   `YoutubeRawTrailer`, `NativePlayerView` — the native playback engine, and

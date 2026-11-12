@@ -275,7 +275,7 @@ What actually changed, with the anchors a reviewer can check:
 | P2-8 | Algorithmic rails cut to three (trending / because-you-watched / top rated — Airing, Popular Now and Now Playing removed), editorial rows capped at three, genre rails capped at three, category rails capped at three, and the feed now ends in an **Explore all** → `/movies` terminator. |
 | P2-9 | Verified rather than rewritten: the poster card already carries the rating badge, the progress bar, layout-stable hover actions and `alt={movie.title}`. |
 | P2-10 | New `src/components/rails/ProviderRow.jsx` reusing the existing `["discover-providers", "movie"]` key and `/movies?provider=<id>`; 56px chips, "All providers" → `/movies`. |
-| P2-11 | `src/components/rails/GenreTiles.jsx`: up to 10 tiles, one per genre from the existing `["discover-genres", "movie"]` query, each linking to `/movies?genre=<id>` (the filter DiscoveryPage already reads), plus "See all genres" → `/movies`. The three capped genre rails stay above it as the art-led layer. |
+| P2-11 | ~~`src/components/rails/GenreTiles.jsx`: up to 10 tiles, one per genre from the existing `["discover-genres", "movie"]` query, each linking to `/movies?genre=<id>` (the filter DiscoveryPage already reads), plus "See all genres" → `/movies`. The three capped genre rails stay above it as the art-led layer.~~ **Superseded 2026-11-12 (user direction):** the genre rails (`GenreShowcase`) and the genre tiles were removed from the home feed entirely — `HomeRails` now ends after the three category rails + "Explore all", and both component files are deleted. Genres stay reachable from Browse's `?genre=<id>` chips. |
 
 ---
 

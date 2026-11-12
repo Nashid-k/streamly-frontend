@@ -2,20 +2,19 @@ import React from "react";
 import { Link } from "react-router-dom";
 import ErrorBoundary from "../ErrorBoundary";
 import ContinueWatchingRail from "../ContinueWatchingRail";
-import GenreShowcase from "../GenreShowcase";
 import SkeletonRail from "../SkeletonRail";
 import FadeInSection from "./FadeInSection";
 import MovieRail from "./MovieRail";
 import BecauseSelector from "./BecauseSelector";
 import Top10Rail from "./Top10Rail";
 import EditorialRails from "./EditorialRails";
-import GenreTiles from "./GenreTiles";
 import ProviderRow from "./ProviderRow";
 import { useAppAuth } from "../../context/auth";
 import { useI18n } from "../../i18n/index.jsx";
 
 /* Everything BELOW the hero: Continue Watching, Browse-by-Provider,
-   Because-you-watched and the category rails. It is memoised on purpose — the hero owns its rotation and
+   Because-you-watched and the category rails. No genre rows live here — the
+   home feed terminates after three category rails plus "Explore all". It is memoised on purpose — the hero owns its rotation and
    hover state back in HomePage, and every tick of that state used to re-render
    this whole subtree (a dozen rails × a row of cards each) on the main thread
    every 10 seconds and on every banner hover. All inputs are useMemo'd query
@@ -28,10 +27,8 @@ const HomeRails = React.memo(function HomeRails({
   filter,
   activeGenre,
   railsSentinelRef,
-  catEndRef,
   sectionTitle,
   categories,
-  visibleCatCount,
   becauseAnchor,
   onBecauseAnchorChange,
   recommendations,
@@ -48,7 +45,7 @@ const HomeRails = React.memo(function HomeRails({
       {!loading && continueWatching && continueWatching.length > 0 && (
         <FadeInSection style={{ marginTop: "clamp(1.75rem, 3.5vw, 2.75rem)" }}>
           <ErrorBoundary>
-            <ContinueWatchingRail railIndex={0} items={continueWatching} />
+            <ContinueWatchingRail items={continueWatching} />
           </ErrorBoundary>
         </FadeInSection>
       )}
@@ -172,21 +169,9 @@ const HomeRails = React.memo(function HomeRails({
               </FadeInSection>
             )}
 
-            {/* 11. Genre showcase — Streamly/Prime-style rows (tab-aware) */}
-            <ErrorBoundary>
-              <GenreShowcase filter={filter} activeGenre={activeGenre} />
-            </ErrorBoundary>
-
-            {/* 11b. Genre entry points — one tile per genre, real filter links */}
-            {activeGenre === "All" && (
-              <ErrorBoundary>
-                <GenreTiles />
-              </ErrorBoundary>
-            )}
-
-            {/* 12. Category rails — capped at three so the page terminates
+            {/* 11. Category rails — capped at three so the page terminates
                 (brief: ~8 rails, not an infinite feed). */}
-            {categories.slice(0, Math.min(visibleCatCount, 3)).map((category, catIdx) => (
+            {categories.slice(0, 3).map((category, catIdx) => (
               <FadeInSection key={catIdx} delay={0.1}>
                 <ErrorBoundary key={category.id || catIdx}>
                   <MovieRail railIndex={catIdx + 9} category={category} />
@@ -199,9 +184,6 @@ const HomeRails = React.memo(function HomeRails({
                 Explore all
               </Link>
             </div>
-            {/* End sentinel: HomePage's useFeedSentinel grows this feed when
-                it sits inside the viewport margin. */}
-            <div ref={catEndRef} className="h-px" aria-hidden="true" />
           </>
         )}
       </section>
