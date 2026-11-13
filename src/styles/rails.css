@@ -111,6 +111,22 @@ textarea:focus-visible {
     padding: 0 var(--gutter, 64px);
   }
 }
+/* The track must use the SAME gutter as the head above it. The side pad used to
+   live only in a later stylesheet (settings.css), so any change in sheet order —
+   or a stale cached rails/settings pair — dropped it to 0 and started every
+   row's first card flush at the viewport edge while its heading stayed inset
+   (the reported Home "Because you watched" misalignment). Pinning it here, next
+   to the head and with wrapper specificity, means the two cannot diverge. */
+.movie-rail-wrapper .movie-rail {
+  padding-left: var(--gutter, 24px);
+  padding-right: var(--gutter, 24px);
+}
+@media (min-width: 1024px) {
+  .movie-rail-wrapper .movie-rail {
+    padding-left: var(--gutter, 64px);
+    padding-right: var(--gutter, 64px);
+  }
+}
 .rail-head__main {
   min-width: 0;
 }

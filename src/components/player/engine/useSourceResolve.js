@@ -450,13 +450,6 @@ export default function useSourceResolve({
       // should say THAT instead of a bare "no stream".
       let anyUpstreamQuota = false;
 
-      // A manual pick that the backend served from a DIFFERENT row. The text is
-      // computed at resolve time but only announced when this source COMMITS:
-      // announcing it before the playability probe claimed a server had no
-      // stream even when the retry landed back on that same server and it
-      // played (user report: "Server X has no stream" while Server X loaded).
-      let fallthroughNote = null;
-
       // The position a re-run of THIS effect must resume at. Seeded from the
       // reload carry (server/source pick, manual retry) and then kept honest by
       // the fatal-latch below, so a MID-PLAY failover to another source picks
@@ -500,13 +493,17 @@ export default function useSourceResolve({
         // because it may fall through when the picked backend has no source.
         // Map it onto its real row so the label, the Servers-menu highlight and
         // any token-refresh retry all speak about the server actually playing.
-        // A manual pick that fell through says so, instead of silently playing a
-        // different server behind the viewer's back.
+        //
+        // The re-derivation stays SILENT on purpose. A `prefer` fall-through is
+        // the backend's own fast failover, and one attempt missing a title is
+        // not proof the row is dead — the same row often serves the next
+        // attempt. The old note ("Server X has no stream — playing Server Y")
+        // therefore landed while the picked server was about to load, which
+        // read as a false alarm (user report: "shows server x has no streaming
+        // … but server x loads"). The menu highlight is the honest signal: it
+        // already moves to the row that is actually playing.
         const servedKey = sourceByServer(resolved?.server)?.key || null;
         if (servedKey && servedKey !== def.key) {
-          if (requestedServerRef.current && requestedServerRef.current !== servedKey) {
-            fallthroughNote = `${sourceLabel(requestedServerRef.current)} has no stream — playing ${sourceLabel(servedKey)}`;
-          }
           def = sourceByServer(resolved.server);
         }
         let variants = resolved?.variants || [];
@@ -965,9 +962,6 @@ export default function useSourceResolve({
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
-          // The fall-through is only true once this source is the one that
-          // committed. Failed probe/parse attempts above never announce it.
-          if (fallthroughNote) setSwitchingNote(fallthroughNote);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;

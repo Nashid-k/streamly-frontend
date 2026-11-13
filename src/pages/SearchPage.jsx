@@ -803,7 +803,6 @@ export default function SearchPage() {
         ) : (
           <section
             ref={resultsRef}
-            className="mt-6"
             aria-label={`${filteredAndSortedList.length} results for "${query}"`}
             onKeyDown={handleResultsKeyDown}
           >

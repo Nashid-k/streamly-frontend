@@ -390,17 +390,19 @@ describe("player Servers menu", () => {
     // Server 2 is ZXC Orion — both multi-audio, so "Multi audio" belongs on rows
     // 1 and 2. Six rows: RIVO plus the provider's live roster
     // (Orion/Valstrax/Atlas/Ursa/Alatreon), in the provider's own order — so
-    // Server 3 is Valstrax and Server 4 is Atlas, the other multi-audio ZXC row.
-    // VidSrc, NHD, VidRack and Daedalus were removed after re-measuring dead.
-    // Alatreon was probed too and serves NO alternate audio, so it stays
-    // "Original audio".
+    // Server 3 is Valstrax and Server 4 is Atlas.
+    // Only Orion advertises "Multi Audio Support" in the provider roster, so it
+    // is the ONLY ZXC row that promises dubs; Atlas/Valstrax/Ursa/Alatreon are
+    // original-audio rows (an Atlas "Multi audio" tag listed a menu that could
+    // never be filled). VidSrc, NHD, VidRack and Daedalus were removed after
+    // re-measuring dead.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     expect(rows.length).toBe(6);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Multi audio"],
       ["Server 3", "Original audio"],
-      ["Server 4", "Multi audio"],
+      ["Server 4", "Original audio"],
       ["Server 5", "Original audio"],
       ["Server 6", "Original audio"],
     ];

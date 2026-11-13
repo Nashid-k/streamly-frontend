@@ -349,7 +349,9 @@ body::after {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.6rem;
-  margin-top: 1.4rem;
+  /* The stack gap on .content-page__inner owns the rhythm: an extra top margin
+     pushed the chips 22px further from the hero than the results below them. */
+  margin-top: 0;
 }
 
 .search-toolbar__filters {
@@ -736,7 +738,9 @@ body::after {
 /* ── Cinejoy search page styles (mirroring search.html) ─────────────────── */
 .search-page {
   min-height: 100vh;
-  padding: 140px var(--gutter, 24px) 60px !important;
+  /* Bottom pad clears the fixed mobile dock (plus the home-indicator inset), or
+     the last result row is unreachable behind it. */
+  padding: 140px var(--gutter, 24px) calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -744,16 +748,18 @@ body::after {
 }
 @media (min-width: 1024px) {
   .search-page {
-    padding: 140px var(--gutter, 64px) 60px !important;
+    padding: 140px var(--gutter, 64px) calc(6rem + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 /* .search-page is a centred flex column, so this child has no stretch width.
    Left auto, the toolbar and result grid size themselves off a shrink-to-fit
    box and sit narrower than the page (the "results are not placed right"
-   report). Pin the inner stack to the page width, capped like the grid. */
+   report). It must span the page's own gutter-to-gutter width — the same box
+   the Movies/Series grid occupies — with no second max-width: an inner 1400px
+   cap inside a 1466px content box inset the results another ~33px, so they
+   did not line up with the page or with the rest of the app. */
 .search-page > .content-page__inner {
   width: 100%;
-  max-width: 1400px;
   margin: 0 auto;
 }
 .search-hero {
@@ -847,10 +853,11 @@ body::after {
 }
 .search-section-head {
   width: 100%;
-  max-width: 1400px;
   margin: 0 auto;
-  text-align: center;
-  margin-bottom: -8px;
+  /* Left-aligned over the grid it labels, like every other section head in the
+     app; a centred heading above a left-aligned grid read as misplaced. */
+  text-align: left;
+  margin-bottom: 0;
 }
 .search-section-head h2 {
   font-size: 18px !important;
@@ -859,7 +866,9 @@ body::after {
   letter-spacing: -0.01em !important;
   display: flex !important;
   align-items: center !important;
-  justify-content: center !important;
+  /* Starts where the grid below starts. The h2 is a full-width flex box, so
+     `text-align` on the head alone would not move it. */
+  justify-content: flex-start !important;
   margin: 0 !important;
 }
 .search-section-head h2::before,
@@ -877,7 +886,6 @@ body::after {
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
   gap: 16px !important;
   width: 100% !important;
-  max-width: 1400px !important;
   margin: 0 auto !important;
 }
 @media (min-width: 1024px) {

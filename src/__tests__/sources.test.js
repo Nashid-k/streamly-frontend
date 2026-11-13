@@ -35,6 +35,29 @@ describe("PLAYER_SOURCES", () => {
     expect(PLAYER_SOURCES[0].key).toBe(DEFAULT_SOURCE_KEY);
     expect(sourceLabel(DEFAULT_SOURCE_KEY)).toBe("Server 1");
   });
+
+  /* The ZXC rows are the provider's own roster, in the provider's own order
+     (api/stream.js ZXC_ROSTER_SEED): Orion, Valstrax, Atlas, Ursa, Alatreon.
+     Only Orion ships multi audio ("Multi Audio Support" in the roster), so a
+     row tagged multi-audio promises dub tracks the Audio menu cannot list —
+     Atlas carried that wrong tag. The multi-audio rows (RIVO's Server 1 and
+     ZXC Orion) therefore lead the menu, in that order. */
+  it("mirrors the provider roster order and tags multi audio only where it exists", () => {
+    const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
+    expect(zxcRows.map((row) => row.server)).toEqual([
+      "orion",
+      "valstrax",
+      "atlas",
+      "ursa",
+      "alatreon",
+    ]);
+    expect(zxcRows.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.server)).toEqual([
+      "orion",
+    ]);
+    // The two multi-audio rows are the first two entries the Servers menu shows.
+    expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-orion"]);
+    expect(PLAYER_SOURCES[0].tag).toMatch(/multi audio/i);
+  });
 });
 
 describe("sourceByServer", () => {

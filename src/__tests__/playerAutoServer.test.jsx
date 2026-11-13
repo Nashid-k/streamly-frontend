@@ -181,7 +181,9 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
 /* Manual picks send `prefer` (not `server`): the picked backend is tried first
    and, when it has no source, the SAME round trip walks the health-ordered
    rotation. The response echoes whichever backend really served it, so the
-   player re-derives the real row and tells the viewer a fallback happened. */
+   player re-derives the real row (the Servers menu then names the row that is
+   actually playing) — silently, because one miss on the picked row is not
+   proof it is dead and alarming the viewer was a false report. */
 describe("manual server pick prefers then falls back fast", () => {
   const openServers = () => {
     fireEvent.click(screen.getByRole("button", { name: /^settings$/i }));
@@ -204,12 +206,13 @@ describe("manual server pick prefers then falls back fast", () => {
     expect(pick.auto).toBeUndefined();
   });
 
-  it("announces a picked server's fall-through only after the fallback commits", async () => {
+  it("never announces a picked row as stream-less when the backend serves another row", async () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
     // The picked row will be Server 4, but the backend serves ZXC Orion (Server
-    // 2) anyway — the exact "no source on the server I picked" case.
+    // 2) instead — a `prefer` fall-through, which is the backend's fast failover
+    // and not proof the picked row is dead.
     hlsState.server = "orion";
     hlsState.deferProbe = true; // hold the probe so the stage stays observable
 
@@ -218,18 +221,20 @@ describe("manual server pick prefers then falls back fast", () => {
     const server4 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 4"));
     fireEvent.click(server4);
 
-    // The resolve has answered with Orion, but nothing has committed yet: the
-    // old code claimed "Server 4 has no stream" at resolve time, then a retry
-    // could land back on Server 4 and play — a false report while the loader
-    // was still up. The note must not exist before the fallback commits.
+    // While the stage is up (resolve answered, nothing committed) a "Server 4
+    // has no stream — playing Server 2" note used to appear even though Server 4
+    // often serves the very next attempt. No alarm may be shown at any point:
+    // the viewer picked a server and the player is still working on it.
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
     expect(screen.queryByText(/has no stream/i)).toBeNull();
 
-    // Release the probe: the fallback commit is when the note becomes true.
     hlsState.deferProbe = false;
     hlsState.releaseProbe?.();
-    await waitFor(() => expect(screen.getByText(/Server 4 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
-    expect(screen.getByText(/playing Server 2/i)).toBeInTheDocument();
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(1), { timeout: 5000 });
+    expect(screen.queryByText(/has no stream/i)).toBeNull();
+
+    // What plays is the row the backend actually served, not the picked one.
+    expect(hlsState.loadSourceCalls[1]).toContain("orion");
   });
 
   it("uses the same ring loader on a server switch (no second, larger loader)", async () => {

@@ -1,7 +1,13 @@
-const CACHE_NAME = 'streamly-v19.7';
+/* Cache-bucket version. Bump it whenever the SHELL (HTML + unhashed assets)
+   changes in a way a returning viewer must not keep: the install/activate path
+   deletes every other streamly-* bucket, and boot.js wipes the old ones on the
+   matching `_sv` bump, so an update-skipped client cannot keep rendering a
+   previous bundle. v19.8: the old player loader GIF, the pre-fix rail/search
+   layout sheets and the resolve-time "Server X has no stream" note are gone. */
+const CACHE_NAME = 'streamly-v19.8';
 // Separate long-lived image cache — stale-while-revalidate so images load
 // from disk in <10ms on repeat visits, then silently refresh in background.
-const IMAGE_CACHE = 'streamly-images-v19.7';
+const IMAGE_CACHE = 'streamly-images-v19.8';
 
 self.addEventListener('install', (event) => {
   // Pre-cache core shell so navigations always have index.html

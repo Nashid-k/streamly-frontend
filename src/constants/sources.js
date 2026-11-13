@@ -151,7 +151,10 @@ export const PLAYER_SOURCES = [
      (Orion → Valstrax → Atlas → Ursa → Alatreon; api/stream.js
      ZXC_ROSTER_SEED). That order is also the menu order and the
      auto-rotation's tie-break, so a row's number here never disagrees
-     with the order the backend actually tries. */
+     with the order the backend actually tries. Multi-audio is decided by
+     the provider's roster descriptions, and ONLY Orion ships it
+     ("Multi Audio Support"); the rest are original-audio rows, so their
+     tags must not promise dubs the Audio menu will not list. */
   {
     key: "zxc-valstrax",
     label: "Server 3",
@@ -163,7 +166,7 @@ export const PLAYER_SOURCES = [
   {
     key: "zxc-atlas",
     label: "Server 4",
-    tag: "Multi audio · up to 1080p",
+    tag: "Original audio · up to 1080p",
     provider: "ZXC Atlas",
     server: "atlas",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
