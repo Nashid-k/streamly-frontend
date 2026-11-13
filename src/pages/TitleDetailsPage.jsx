@@ -74,6 +74,7 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // hard override that forces the embed.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 const ProviderEmbedPlayer = lazy(() => import("../components/ProviderEmbedPlayer"));
+const AtlanticEmbedPlayer = lazy(() => import("../components/AtlanticEmbedPlayer"));
 import { PROVIDER_EMBED_PLAYBACK } from "../constants/playback";
 import { getZxcCapabilities } from "../api/streamResolve";
 import ErrorBoundary from "../components/ErrorBoundary";
@@ -238,6 +239,7 @@ export default function TitleDetails() {
 
 
   const [isPlaying, setIsPlaying] = useState(false);
+const [playingOnAtlantic, setPlayingOnAtlantic] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const unreleasedPanelRef = useRef(null);
@@ -1080,8 +1082,6 @@ export default function TitleDetails() {
                     movie,
                     isTvContent ? selectedSeason : null,
                     isTvContent ? episodeToPlay : null,
-                    // Keep the stored resume point for the episode about to play;
-                    // a fresh episode (or no progress) starts at 0.
                     startPlaybackTimestamp(continueEntryForMovie, {
                       isTv: isTvContent,
                       season: selectedSeason,
@@ -1095,6 +1095,20 @@ export default function TitleDetails() {
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
               >
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
+              </button>
+
+              {/* Atlantic — 4K-capable embed (multi-provider aggregator) */}
+              <button
+                type="button"
+                disabled={unreleased}
+                aria-disabled={unreleased}
+                onClick={() => {
+                  setPlayingOnAtlantic(true);
+                  if (isTvContent) setPlayingEpisode(episodeToPlay);
+                }}
+                className="relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border border-white/20 bg-transparent text-white hover:bg-white/10 active:scale-95"
+              >
+                <Play className="w-5 h-5 mr-1.5 fill-current" /> Play in 4K (Atlantic)
               </button>
 
               {/* Real ratings (IMDb + Rotten Tomatoes + TMDB) — surfaced next to
@@ -2277,7 +2291,21 @@ export default function TitleDetails() {
                         justifyContent: "center",
                       }}
                     >
-                      {PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
+                      {playingOnAtlantic ? (
+                        <AtlanticEmbedPlayer
+                          type={isTvContent ? "tv" : "movie"}
+                          id={numericId}
+                          season={selectedSeason}
+                          episode={isTvContent ? playingEpisode : 1}
+                          title={movie?.title || movie?.name || "Title"}
+                          subtitle={
+                            isTvContent
+                              ? `S${selectedSeason}:E${playingEpisode}`
+                              : releaseYear(movie)
+                          }
+                          onClose={() => setPlayingOnAtlantic(false)}
+                        />
+                      ) : PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
                         <ProviderEmbedPlayer
                           type={isTvContent ? "tv" : "movie"}
                           id={numericId}
