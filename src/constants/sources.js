@@ -179,14 +179,6 @@ export const PLAYER_SOURCES = [
     server: "alatreon",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "alatreon" }, o),
   },
-  {
-    key: "zxc-daedalus",
-    label: "Server 7",
-    tag: "Original audio · up to 1080p",
-    provider: "ZXC Daedalus",
-    server: "daedalus",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "daedalus" }, o),
-  },
 ];
 
 
