@@ -6,7 +6,7 @@ import { normalizeResult, REGIONAL_PRIMARY_LANGUAGES } from './normalize';
 
 // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
 // new filters (provider, country) land in exactly one place.
-export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country, languageId, page = 1 } = {}) => {
+export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy = 'popular', region, providerId, country, languageId, companyId, page = 1 } = {}) => {
   const mt = mediaType === 'tv' ? 'tv' : 'movie';
   try {
     const params = {
@@ -24,6 +24,10 @@ export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy =
     if (year) params[mt === 'movie' ? 'primary_release_year' : 'first_air_date_year'] = String(year);
     if (country) params.with_origin_country = String(country);
       if (languageId) params.with_original_language = String(languageId);
+    // "More from <studio>" — the details page's company rail. Works for both
+    // media types (TMDB indexes production companies on TV too), so a Marvel
+    // film and a Marvel series both resolve their own studio row.
+    if (companyId) params.with_companies = String(companyId);
     if (providerId) {
       // Provider filtering always needs the region TMDB watches in; default
       // to the chosen region, the passed country, else US.
@@ -34,10 +38,10 @@ export const getDiscover = async ({ mediaType = 'movie', genreId, year, sortBy =
     }
     const data = await tmdb(`/discover/${mt}`, params);
     const out = (data.results || []).map(r => normalizeResult({ ...r, media_type: mt }));
-    warnIfEmpty('getDiscover', out, { mt, genreId, year, sortBy, region, providerId, country, page });
+    warnIfEmpty('getDiscover', out, { mt, genreId, year, sortBy, region, providerId, country, companyId, page });
     return out;
   } catch (error) {
-    logServiceError('getDiscover', error, { mt, genreId, year, sortBy, region, providerId, country, page });
+    logServiceError('getDiscover', error, { mt, genreId, year, sortBy, region, providerId, country, companyId, page });
     throw error;
   }
 };

@@ -34,7 +34,10 @@ import { logDebug, logError, logWarn } from "./utils/debugLogger";
 export const PERSIST_STORAGE_KEY = "streamly_rq_cache";
 
 /** Versioned buster: bumping this drops the persisted cache of old builds. */
-const CACHE_BUSTER = "streamly-rq-v1";
+// v2: details payloads gained `collection` (franchise membership). Without the
+// bump, a details entry cached earlier the same day stays "fresh" for 24h and
+// the new "Part of …" rail would silently be missing for those titles.
+const CACHE_BUSTER = "streamly-rq-v2";
 
 /** Hard ceiling: persisted entries older than 24 h are dropped on restore. */
 export const PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;

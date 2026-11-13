@@ -609,10 +609,15 @@ textarea:focus-visible {
   padding: 4px;
 }
 .rail-menu__item {
-  display: block;
+  /* Flex (not block) so an optional brand logo and the name sit on one line:
+     the provider picker lists services, and a wall of text with no marks reads
+     as a settings list rather than a brand picker. */
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
-  padding: 10px 16px;
+  padding: 10px 14px;
   background: none;
   border: none;
   border-radius: 8px;
@@ -623,8 +628,21 @@ textarea:focus-visible {
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   transition: background var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out);
+}
+/* 20px tile: TMDB provider marks are square-ish with transparency, so a
+   contained fit keeps every brand optically the same size. */
+.rail-menu__logo {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 5px;
+}
+.rail-menu__item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .rail-menu__item:hover {
   background: rgba(var(--white-rgb), 0.1);

@@ -58,6 +58,7 @@ import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import SeasonDropdown from "../components/detail/SeasonDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
+import DetailTitleRail from "../components/detail/DetailTitleRail";
 
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday, LOCAL_RELEASE } from "../utils/timezone";
@@ -426,6 +427,81 @@ export default function TitleDetails() {
     (movie?.type === "tv") ||
     (movie?.seasonsCount && Number(movie.seasonsCount) > 0 && !String(movie?.id || id).startsWith("tmdb-movie-")),
   );
+
+  /* ── Franchise membership ("Part of <collection>") ──────────────────────
+     TMDB ships `belongs_to_collection` on the details payload; the parts
+     themselves are a second request keyed by that collection id. This is the
+     row the reference site (cinejoy.pk) renders directly after Trailers, and
+     it is only worth a row when the franchise has more than this one title.
+     Either request failing leaves the page exactly as it was (no empty row,
+     no banner) — a missing franchise is not a broken page. */
+  const collectionId = movie?.collection?.id || null;
+  const {
+    data: collectionData,
+    error: collectionError,
+  } = useQuery({
+    queryKey: ["collection", collectionId],
+    queryFn: () => movieService.getCollection(collectionId),
+    enabled: Boolean(collectionId),
+    retry: false,
+    refetchOnWindowFocus: false,
+    // A franchise's membership is as immutable as the details themselves.
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+  useEffect(() => {
+    if (collectionError) {
+      reportQueryError("TitleDetails", ["collection", collectionId], collectionError, { collectionId });
+    }
+  }, [collectionError, collectionId]);
+
+  const collectionParts = useMemo(() => {
+    const parts = Array.isArray(collectionData?.parts) ? collectionData.parts : EMPTY_ARRAY;
+    return parts.length > 1 ? parts : EMPTY_ARRAY;
+  }, [collectionData]);
+  const collectionName = collectionData?.name || movie?.collection?.name || "Collection";
+
+  /* ── "More from <studio>" ───────────────────────────────────────────────
+     The same studio-wide row the reference site's provider pages imply, built
+     from the primary production company (its own id, discovered through
+     /discover with_companies — movies and series both work). A company with
+     two titles is not a row, so the rail only exists once the sweep returns a
+     real catalogue with the current title removed. */
+  const company = useMemo(() => {
+    const list = Array.isArray(movie?.productionCompanies) ? movie.productionCompanies : EMPTY_ARRAY;
+    // A logo makes the heading read as a studio banner; fall back to any row
+    // with an id rather than dropping the feature for a logo-less company.
+    return list.find((c) => c && c.id && c.logoUrl) || list.find((c) => c && c.id) || null;
+  }, [movie]);
+
+  const {
+    data: companyTitles,
+    error: companyTitlesError,
+  } = useQuery({
+    queryKey: ["company-titles", company?.id, isTvContent ? "tv" : "movie"],
+    queryFn: () =>
+      movieService.getDiscover({
+        mediaType: isTvContent ? "tv" : "movie",
+        companyId: company.id,
+        sortBy: "popular",
+      }),
+    enabled: Boolean(company?.id),
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 60 * 6,
+  });
+  useEffect(() => {
+    if (companyTitlesError) {
+      reportQueryError("TitleDetails", ["company-titles", company?.id], companyTitlesError, {
+        companyId: company?.id ?? null,
+      });
+    }
+  }, [companyTitlesError, company?.id]);
+
+  const studioTitles = useMemo(() => {
+    const list = Array.isArray(companyTitles) ? companyTitles : EMPTY_ARRAY;
+    const others = list.filter((t) => String(t.id) !== String(movie?.id));
+    return others.length >= 4 ? others.slice(0, 18) : EMPTY_ARRAY;
+  }, [companyTitles, movie?.id]);
   const availableSeasons = isTvContent
     ? (movie?.seasons?.length
       ? movie.seasons
@@ -480,6 +556,10 @@ export default function TitleDetails() {
     } else {
       if (runtimeLabel) rows.push({ label: "Runtime", value: runtimeLabel, extra: endsAt ? `\u2022 Ends ${endsAt}` : null });
       if (movie?.releaseDate) rows.push({ label: "Release Date", value: formatTMDBDate(movie.releaseDate, dateOpts, undefined, releasePlatform) });
+      // The franchise this film belongs to, named in the info table the way the
+      // reference site does — the rail below shows the parts, this row keeps the
+      // name where the other facts already are.
+      if (movie?.collection?.name) rows.push({ label: "Collection", value: movie.collection.name });
     }
     return rows;
   }, [isTvContent, runtimeLabel, endsAt, movie, releasePlatform]);
@@ -1952,6 +2032,41 @@ export default function TitleDetails() {
       )}
 
 
+      {/* ── Part of <franchise> ────────────────────────────────────────────────
+          Release-ordered parts of the franchise this title belongs to, placed
+          where cinejoy.pk places it (after Trailers, before suggestions): the
+          viewer just decided they are interested in THIS story, so the other
+          chapters are the next question. The current title keeps its card and
+          is marked "You're here" — a franchise rail without its entry point
+          reads as if that part were missing. */}
+      {collectionParts.length > 1 && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          {...L.Reveal}
+        >
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-2">
+            <motion.h2
+              className="text-xl lg:text-2xl font-bold text-white/90"
+              style={{ margin: 0 }}
+              {...L.Reveal}
+            >
+              Part of <span className="text-white">{collectionName}</span>
+            </motion.h2>
+            <span className="text-xs lg:text-sm font-medium text-white/45">
+              {collectionParts.length} titles · release order
+            </span>
+          </div>
+          <ErrorBoundary>
+            <DetailTitleRail
+              titles={collectionParts}
+              currentId={movie.id}
+              badgeLabel="You’re here"
+              ariaLabel={`Titles in ${collectionName}`}
+            />
+          </ErrorBoundary>
+        </motion.section>
+      )}
+
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
@@ -1995,6 +2110,49 @@ export default function TitleDetails() {
             <div ref={similarEndRef} className="h-px" aria-hidden="true" />
             </ErrorBoundary>
           )}
+        </motion.section>
+      )}
+
+      {/* ── More from <studio> ─────────────────────────────────────────────────
+          The company behind the title, discovered by its own id: a Marvel
+          Studios page, a YRF page, a Netflix-series page. Requirement for the
+          row is a real catalogue (>= 4 other titles), so small production
+          houses never get a stub strip. */}
+      {studioTitles.length > 0 && company && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          {...L.Reveal}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
+            {company.logoUrl ? (
+              <img
+                className="detail-rail__brand"
+                src={company.logoUrl}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
+            <motion.h2
+              className="text-xl lg:text-2xl font-bold text-white/90"
+              style={{ margin: 0 }}
+              {...L.Reveal}
+            >
+              More from {company.name}
+            </motion.h2>
+          </div>
+          <ErrorBoundary>
+            <DetailTitleRail
+              titles={studioTitles}
+              currentId={movie.id}
+              badgeLabel="You’re here"
+              ariaLabel={`More from ${company.name}`}
+            />
+          </ErrorBoundary>
         </motion.section>
       )}
 

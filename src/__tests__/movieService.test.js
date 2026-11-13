@@ -367,5 +367,70 @@ it("normalizes production companies with rich logo metadata", async () => {
     expect(items[4].releaseDate).toBe("2026-11-01");
     expect(items[5].releaseDate).toBe("2027-01-05");
   });
+
+  it("surfaces the franchise a details payload belongs to", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 7,
+          title: "Chapter One",
+          belongs_to_collection: {
+            id: 86311,
+            name: "The Avengers Collection",
+            poster_path: "/avengers-poster.jpg",
+            backdrop_path: "/avengers-backdrop.jpg",
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, false));
+    vi.stubGlobal("fetch", fetch);
+
+    const title = await movieService.getMovieDetails("movie-7");
+
+    // The details page renders this as its "Part of …" rail; a series has no
+    // collection at all, so the field is null rather than undefined-shaped.
+    expect(title.collection).toEqual({
+      id: 86311,
+      name: "The Avengers Collection",
+      posterUrl: "https://image.tmdb.org/t/p/w500/avengers-poster.jpg",
+      backdropUrl: "https://image.tmdb.org/t/p/w780/avengers-backdrop.jpg",
+    });
+  });
+
+  it("getCollection returns the parts in release order with playable ids", async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      jsonResponse({
+        id: 86311,
+        name: "The Avengers Collection",
+        // TMDB's array order is not chronological — the rail must be.
+        parts: [
+          { id: 3, title: "Endgame", poster_path: "/e.jpg", release_date: "2019-04-26", vote_average: 8.3 },
+          { id: 1, title: "Assemble", poster_path: "/a.jpg", release_date: "2012-05-04", vote_average: 7.7 },
+          { id: 2, title: "Age of Ultron", poster_path: "/u.jpg", release_date: "2015-05-01", vote_average: 7.3 },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const collection = await movieService.getCollection(86311);
+
+    expect(String(fetch.mock.calls[0][0])).toContain("/collection/86311");
+    expect(collection.name).toBe("The Avengers Collection");
+    expect(collection.parts.map((p) => p.title)).toEqual(["Assemble", "Age of Ultron", "Endgame"]);
+    expect(collection.parts.map((p) => p.id)).toEqual(["movie-1", "movie-2", "movie-3"]);
+    expect(collection.parts[0].releaseDate).toBe("2012-05-04");
+  });
+
+  it("getDiscover filters by company for the \"More from <studio>\" row", async () => {
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ results: [] }));
+    vi.stubGlobal("fetch", fetch);
+
+    await movieService.getDiscover({ mediaType: "movie", companyId: 420, sortBy: "popular" });
+
+    const url = String(fetch.mock.calls[0][0]);
+    expect(url).toContain("/discover/movie");
+    expect(url).toContain("with_companies=420");
+  });
 });
 

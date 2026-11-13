@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../../api/movieService";
 import { asArray } from "../../utils";
 import { reportQueryError } from "../../utils/debugLogger";
-import { STREAMING_PROVIDERS } from "../../data/homeRailDomains";
+import { STREAMING_PROVIDERS, BROWSE_PROVIDERS } from "../../data/homeRailDomains";
 import { useI18n } from "../../i18n/index.jsx";
 import MovieRail from "./MovieRail";
 import RailMenu from "./RailMenu";
@@ -20,6 +20,16 @@ import SkeletonRail from "../SkeletonRail";
    parameter Browse's `?provider=` filter uses), so switching service is one
    cached query — `placeholderData` keeps the previous row on screen while the
    new one lands. */
+/* The picker shows each service's own mark. Logos live once, in the Browse-by-
+   Provider rail's data (BROWSE_PROVIDERS, keyed by the same TMDB provider id),
+   so the two provider surfaces can never disagree about a brand. */
+const PROVIDER_LOGOS = new Map(BROWSE_PROVIDERS.map((p) => [p.id, p.logo]));
+const PICKER_ITEMS = STREAMING_PROVIDERS.map((p) => ({
+  id: p.id,
+  label: p.name,
+  logo: PROVIDER_LOGOS.get(p.id) || null,
+}));
+
 function ProviderRail({ mediaType = "movie" }) {
   const { t } = useI18n();
   const [providerId, setProviderId] = useState(STREAMING_PROVIDERS[0].id);
@@ -65,7 +75,7 @@ function ProviderRail({ mediaType = "movie" }) {
       valueLabel={provider.name}
       ariaLabel={title}
       activeId={provider.id}
-      items={STREAMING_PROVIDERS.map((p) => ({ id: p.id, label: p.name }))}
+      items={PICKER_ITEMS}
       onPick={setProviderId}
     />
   );

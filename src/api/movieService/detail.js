@@ -52,6 +52,23 @@ export const getMovieDetails = async (id) => {
     writers: (credits.crew || []).filter(c => c.department === 'Writing').map(c => c.name),
     budget: detail.budget || 0,
     revenue: detail.revenue || 0,
+    /* Franchise membership. TMDB only ships this on movies — a series has no
+       collection — and the details page turns it into the "Part of <name>"
+       rail (the ordered parts of the franchise), the same way the reference
+       site (cinejoy.pk) does. Kept as its own field so every consumer reads the
+       franchise without re-parsing `belongs_to_collection`. */
+    collection: detail.belongs_to_collection
+      ? {
+        id: detail.belongs_to_collection.id,
+        name: detail.belongs_to_collection.name || "Collection",
+        posterUrl: detail.belongs_to_collection.poster_path
+          ? `https://image.tmdb.org/t/p/w500${detail.belongs_to_collection.poster_path}`
+          : null,
+        backdropUrl: detail.belongs_to_collection.backdrop_path
+          ? `https://image.tmdb.org/t/p/w780${detail.belongs_to_collection.backdrop_path}`
+          : null,
+      }
+      : null,
     productionCompanies: (detail.production_companies || []).map(p => ({
       id: p.id,
       name: p.name,
@@ -111,6 +128,37 @@ export const getMovieDetails = async (id) => {
   };
   } catch (error) {
     logServiceError('getMovieDetails', error, { id });
+    throw error;
+  }
+};
+
+/* A franchise's ordered parts. TMDB's /collection/{id} returns every member
+   with its own poster/date/score, which is exactly what the details page's
+   "Part of <collection>" rail renders. Parts are sorted by RELEASE DATE, not by
+   TMDB's array order: the collection payload lists them alphabetically-ish and
+   a franchise rail only makes sense in viewing order. `releaseDate` is kept on
+   each item because normalizeResult already derives `year` from it. */
+export const getCollection = async (collectionId) => {
+  try {
+    const data = await tmdb(`/collection/${collectionId}`);
+    const parts = (data.parts || [])
+      .filter((p) => p && p.id)
+      .map((p) => ({
+        ...normalizeResult({ ...p, media_type: "movie" }),
+        releaseDate: p.release_date || null,
+      }))
+      .sort((a, b) => String(a.releaseDate || "9999").localeCompare(String(b.releaseDate || "9999")));
+    if (parts.length === 0) {
+      logEmptyData("movieService", `getCollection: TMDB returned no parts for collection ${collectionId}.`, { collectionId });
+    }
+    return {
+      id: data.id || Number(collectionId),
+      name: data.name || "",
+      overview: data.overview || "",
+      parts,
+    };
+  } catch (error) {
+    logServiceError("getCollection", error, { collectionId });
     throw error;
   }
 };

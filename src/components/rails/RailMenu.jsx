@@ -6,6 +6,10 @@ import { ChevronDown } from "lucide-react";
    selectable: "Because you watched <title> ▾" (watch history) and
    "Movies on <provider> ▾" / "TV Series on <provider> ▾" (streaming service).
 
+   An item may carry a `logo`; when it does, the option renders that brand mark
+   beside the name. The provider rail passes each service's own logo, so the
+   open list reads as a brand picker instead of a column of plain words.
+
    Markup contract: a plain label, then the current value as a bold underlined
    button with a chevron. Opening it lists the options as a dark-glass listbox
    (`.discovery-menu` supplies the panel shell and scrollbar). One
@@ -98,7 +102,24 @@ function RailMenu({ label, valueLabel, items, activeId, onPick, ariaLabel }) {
                   closeMenu();
                 }}
               >
-                {option.label}
+                {option.logo ? (
+                  /* Decorative: the name beside it is the accessible label, and
+                     a broken logo must not leave a gap where a brand should be
+                     (onError removes the node, the text stays). */
+                  <img
+                    className="rail-menu__logo"
+                    src={option.logo}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    decoding="async"
+                    draggable="false"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : null}
+                <span className="rail-menu__item-label">{option.label}</span>
               </button>
             ))}
           </div>

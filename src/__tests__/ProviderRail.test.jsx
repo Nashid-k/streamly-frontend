@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import ProviderRail from "../components/rails/ProviderRail";
 import { renderWithProviders } from "../test/testUtils";
+import { BROWSE_PROVIDERS, STREAMING_PROVIDERS } from "../data/homeRailDomains";
 
 /* "Movies on X" / "TV Series on X" — the home rail whose subject is a
    streaming service. The contract: the row head is a dropdown over the six
@@ -53,6 +54,21 @@ describe("ProviderRail", () => {
     expect(mocks.getDiscover).toHaveBeenCalledWith(
       expect.objectContaining({ mediaType: "movie", providerId: 8 }),
     );
+  });
+
+  it("shows each service's own brand mark in the picker", async () => {
+    renderWithProviders(<ProviderRail mediaType="movie" />, { route: "/" });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Netflix" }));
+
+    // A list of bare names is a settings menu. The mark comes from the Browse
+    // rail's provider data, so the two surfaces can never disagree.
+    const logos = screen
+      .getAllByRole("option")
+      .map((option) => option.querySelector("img")?.getAttribute("src"));
+    const logosById = new Map(BROWSE_PROVIDERS.map((provider) => [provider.id, provider.logo]));
+    expect(logos).toEqual(STREAMING_PROVIDERS.map((provider) => logosById.get(provider.id)));
+    expect(logos.every(Boolean)).toBe(true);
   });
 
   it("keeps the picker on screen when the service has nothing", async () => {

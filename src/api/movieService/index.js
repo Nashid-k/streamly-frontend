@@ -17,6 +17,7 @@ import {
 } from './featured';
 import {
   getMovieDetails,
+  getCollection,
   getRecommendations,
   getSimilarMovies,
   getSeasonEpisodes,
@@ -51,6 +52,7 @@ export const movieService = {
   getTop10,
   getRecommendations,
   getMovieDetails,
+  getCollection,
   getSimilarMovies,
   getSeasonEpisodes,
   getPersonDetails,

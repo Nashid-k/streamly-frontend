@@ -462,6 +462,77 @@
   padding-right: var(--content-gutter);
 }
 
+/* ── Details-page franchise / studio rails ───────────────────────────────
+   The section column around these rows already applies .details-gutter, so the
+   track adds only the heading's own 8px inset (px-2) — never a second full
+   gutter, which is what pushes a "You Might Also Like" card ~40px right of its
+   heading. Card size matches that rail (140 → 200px). */
+.detail-rail {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 8px 1.5rem;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: 8px;
+  scrollbar-width: none;
+  /* Fade the RIGHT edge only: the first card starts 8px in, so a left-edge
+     fade would dim it while there is nothing behind it to reveal. */
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
+}
+.detail-rail::-webkit-scrollbar {
+  display: none;
+}
+.detail-rail__item {
+  position: relative;
+  flex: 0 0 auto;
+  width: 140px;
+  scroll-snap-align: start;
+}
+@media (min-width: 1024px) {
+  .detail-rail__item {
+    width: 200px;
+  }
+}
+/* The title the viewer is on: an accent ring on the art the card already draws,
+   so the current part is legible at a glance without a second chrome layer. */
+.detail-rail__item.is-current .movie-poster {
+  outline: 2px solid var(--accent-color, #95ff50);
+  outline-offset: -2px;
+}
+.detail-rail__badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full, 999px);
+  background: var(--accent-color, #95ff50);
+  color: #04120b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(var(--black-rgb), 0.45);
+}
+/* Studio mark beside the "More from" heading — logos are shipped on white or
+   transparent backgrounds, so it is flattened to a single light ink like the
+   production-company block does. */
+.detail-rail__brand {
+  height: 18px;
+  width: auto;
+  max-width: 96px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+  opacity: 0.65;
+}
+
 .details-hero__art {
   position: relative;
   width: 100%;
