@@ -58,6 +58,7 @@ import usePlayerKeyboard from "./player/hooks/usePlayerKeyboard";
 import useMediaElementEvents from "./player/hooks/useMediaElementEvents";
 import PlayerShell from "./player/shell/PlayerShell";
 import { providerEmbedUrl } from "./ProviderEmbedPlayer";
+import AtlanticEmbedPlayer from "./AtlanticEmbedPlayer";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveTouchRelease } from "./player/nativePlayerHold";
 
@@ -211,6 +212,10 @@ export default function NativePlayerView({
 
   const handleToggleMode = useCallback(
     (mode) => {
+      if (mode === "atlantic") {
+        setLocalPlayerMode("atlantic");
+        return;
+      }
       setLocalPlayerMode(mode);
       onToggleMode?.(mode);
     },
@@ -2435,6 +2440,20 @@ const showSkipOutro = shouldShowSkipOutro({
     dismissStillWatching();
     onCloseRef.current?.();
   };
+  if (localPlayerMode === "atlantic") {
+    return (
+      <AtlanticEmbedPlayer
+        type={type}
+        id={id}
+        season={season}
+        episode={episode}
+        title={title}
+        subtitle={displaySubtitle}
+        onClose={() => setLocalPlayerMode("streamly")}
+      />
+    );
+  }
+
   return (
     <PlayerShell
       activeDub={activeDub}

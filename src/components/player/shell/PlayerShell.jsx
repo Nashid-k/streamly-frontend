@@ -630,7 +630,7 @@ export default function PlayerShell({
                   aria-expanded={modeDropdownOpen}
                   aria-haspopup="listbox"
                 >
-                  <span>{playerMode === "embed" ? "Embed" : "Streamly"}</span>
+                  <span>{playerMode === "embed" ? "Embed" : playerMode === "atlantic" ? "4K" : "Streamly"}</span>
                   <svg className="np-mode-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="m6 9 6 6 6-6" />
                   </svg>
@@ -666,6 +666,21 @@ export default function PlayerShell({
                       }}
                     >
                       Embed
+                    </button>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={playerMode === "atlantic"}
+                      className={playerMode === "atlantic" ? "active" : ""}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleMode && onToggleMode("atlantic");
+                        setModeDropdownOpen(false);
+                      }}
+                    >
+                      4K (Atlantic)
                     </button>
                   </div>
                 )}
