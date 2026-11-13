@@ -306,6 +306,12 @@ describe("DiscoveryPage pinned filters (Cinejoy .pinned-filters)", () => {
         // filter slot's entry drives the dock.
         if (el.classList?.contains("discover-filter-slot")) onFilterEntry = this.cb;
       }
+      // Real IntersectionObserver API: the virtual-render hook's cleanup calls
+      // unobserve, so a mock without it crashes unmount.
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
       disconnect() {}
     };
 

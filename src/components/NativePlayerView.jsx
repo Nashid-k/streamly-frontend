@@ -2570,7 +2570,6 @@ const showSkipOutro = shouldShowSkipOutro({
       season={season}
       seasonsAvailable={seasonsAvailable}
       selectSubtitle={selectSubtitle}
-      serverSwitchStage={serverSwitchStage}
       setAspectRatioIndex={setAspectRatioIndex}
       setAutoMuted={setAutoMuted}
       setBuffering={setBuffering}

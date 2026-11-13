@@ -147,21 +147,26 @@ export const PLAYER_SOURCES = [
      the health-ordered rotation — the fast fallback that replaces the old dead
      end. The response echoes whichever backend actually served it, and the player
      re-derives that row via `sourceByServer`. */
-  {
-    key: "zxc-atlas",
-    label: "Server 3",
-    tag: "Multi audio · up to 1080p",
-    provider: "ZXC Atlas",
-    server: "atlas",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
-  },
+  /* The rows below mirror the provider's OWN roster order
+     (Orion → Valstrax → Atlas → Ursa → Alatreon; api/stream.js
+     ZXC_ROSTER_SEED). That order is also the menu order and the
+     auto-rotation's tie-break, so a row's number here never disagrees
+     with the order the backend actually tries. */
   {
     key: "zxc-valstrax",
-    label: "Server 4",
+    label: "Server 3",
     tag: "Original audio · up to 1080p",
     provider: "ZXC Valstrax",
     server: "valstrax",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "valstrax" }, o),
+  },
+  {
+    key: "zxc-atlas",
+    label: "Server 4",
+    tag: "Multi audio · up to 1080p",
+    provider: "ZXC Atlas",
+    server: "atlas",
+    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "atlas" }, o),
   },
   {
     key: "zxc-ursa",

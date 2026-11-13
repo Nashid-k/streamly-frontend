@@ -131,7 +131,10 @@
 
 .movie-rail {
   gap: clamp(0.8rem, 1.5vw, 1.25rem);
-  padding: 0.7rem 0.2rem 1.1rem;
+  /* Same gutter as .rail-head: a 0.2rem side pad here started every row's
+     cards at the far-left edge while its heading sat inset by the page
+     gutter (Home "Because you watched" misalignment). */
+  padding: 0.7rem var(--gutter, 24px) 1.1rem;
 }
 
 .movie-rail-wrapper > div:first-child {

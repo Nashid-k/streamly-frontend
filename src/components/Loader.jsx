@@ -5,11 +5,11 @@ import { StreamlyLoader } from "./StreamlyLoader";
 
 /* Universal Loader — the branded neon ring (see StreamlyLoader) in every
    data-loading slot, so the app has ONE spinner look: page, inline, button
-   and the delayed global badge. The two big brand moments stay separate on
-   purpose: route changes show the page-loader GIF (RouteFallback) and the
-   player's cold open shows the player-loader GIF (PlayerLoader). The old
-   liquid-wave dots and every ad-hoc spinner (lucide Loader2, Tailwind
-   animate-spin, .btn-spinner) were replaced by this. */
+   and the delayed global badge. Route changes use skeleton shapes
+   (RouteFallback) and the player's cold open uses its own ring under the
+   title art; no GIF loader path exists. The old liquid-wave dots and every
+   ad-hoc spinner (lucide Loader2, Tailwind animate-spin, .btn-spinner) were
+   replaced by this. */
 
 export default function Loader({ variant = "page", size }) {
   const isFetching = useIsFetching();

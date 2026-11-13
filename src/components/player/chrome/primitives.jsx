@@ -14,7 +14,7 @@ import { CdnImageAdapter } from "../../../api/cdnImageAdapter";
    those are the same wait wearing different clothes — the artwork is what tells
    the viewer the player did not lose their place, and a bare black rectangle
    with a dot in it does not. */
-export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, frame, still }) {
+export function LoadingStage({ title, backdropUrl, posterUrl, message, frame }) {
   // A logo URL that fails to decode (a stale TMDB path, a blocked CDN) must not
   // leave an empty frame where the title should be: the failed art steps aside
   // and the styled text title takes its place, exactly as when no logo exists.
@@ -146,15 +146,12 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, initial, 
               {title}
             </div>
           ) : null}
-          {/* The loader under the art: the neon player-loader GIF on the
-              SERVER-level cold opens — the very first load (the viewer is
-              waiting on the player to boot) AND a manual server switch (they
-              tapped a new backend) — and the Tailspin ring for every later
-              wait (a quality/dub/episode switch re-mounts this same stage,
-              and a ring reads as "the stream is thinking" rather than "the
-              app is starting"). */}
+          {/* One loader for every wait — the initial cold open, a server
+              switch, and a quality/dub/episode re-mount. The small ring under
+              the title art is the whole loader; SERVER-level waits are not a
+              different kind of wait and must not mount a second, larger one. */}
           <div style={{ marginTop: 6, display: "flex", justifyContent: "center" }}>
-            {initial ? <PlayerLoader still={still} /> : <RingSpinner size={44} />}
+            <RingSpinner size={44} />
           </div>
         </div>
       ) : null}
@@ -201,7 +198,6 @@ export function RingSpinner({ size = 44 }) {
         visibility: "visible",
       }}
     >
-      <span className="np-tailspin" style={{ display: "none" }}><span /></span>
       <svg viewBox="0 0 100 100" style={{ width: "100%", height: "100%" }}>
         <defs>
           <linearGradient id="lg-ring" x1="0" y1="0" x2="1" y2="1">
@@ -217,43 +213,4 @@ export function RingSpinner({ size = 44 }) {
   );
 }
 
-/* The loader under the stage art. SERVER-level cold opens — the very first
-   load (the player is booting) and a manual server switch (the viewer tapped a
-   new backend) — show the neon Streamly player-loader GIF
-   (public/brand/streamly-player-loader.gif); every later wait (a quality/dub/
-   episode switch re-mounts this same stage) keeps the Tailspin ring, which
-   reads as "the stream is thinking" rather than "the app is starting".
-   Reduced motion gets the still logo instead of the GIF — an animated GIF
-   cannot be parked by CSS, so the static mark is the honest fallback. */
-function PlayerLoader({ still }) {
-  if (still) {
-    return (
-      <img
-        src="/brand/streamly-logo-transparent.png"
-        alt=""
-        aria-hidden="true"
-        draggable="false"
-        style={{
-          height: 56,
-          width: "auto",
-          objectFit: "contain",
-          opacity: 0.9,
-        }}
-      />
-    );
-  }
-  return (
-    <img
-      src="/brand/streamly-player-loader.gif"
-      alt=""
-      aria-hidden="true"
-      draggable="false"
-      style={{
-        height: "clamp(72px, 11vw, 104px)",
-        width: "auto",
-        maxWidth: "min(70vw, 300px)",
-        objectFit: "contain",
-      }}
-    />
-  );
-}
+

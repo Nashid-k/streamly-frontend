@@ -146,12 +146,11 @@ describe("NativePlayerView (smoke)", () => {
 });
 
 /* The loading stage the viewer stares at while a stream resolves: the title
-   image centred over a blurred full-screen backdrop, with the neon
-   player-loader GIF under the title. jsdom takes the fatal path (no
-   MediaSource), which leaves the stage mounted — exactly the pass whose DOM
-   we assert. */
+   image centred over a blurred full-screen backdrop, with the small neon ring
+   under the title. jsdom takes the fatal path (no MediaSource), which leaves
+   the stage mounted — exactly the pass whose DOM we assert. */
 describe("NativePlayerView loading stage", () => {
-  it("renders the title image and the player-loader GIF under the title", () => {
+  it("renders the title image and the small ring loader under the title", () => {
     render(
       <NativePlayerView
         type="movie"
@@ -175,9 +174,9 @@ describe("NativePlayerView loading stage", () => {
     const backdrop = stage.querySelector(".np-loading-art");
     expect(backdrop).toBeTruthy();
     expect(backdrop.getAttribute("src")).toBe("https://image.test/backdrop.jpg");
-    // INITIAL cold open: the loader is the animated logo GIF, not the ring.
-    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
-    expect(stage.querySelector(".np-tailspin")).toBeNull();
+    // The loader is the small ring under the art — no GIF path exists.
+    expect(stage.querySelector(".np-v4-loader")).toBeTruthy();
+    expect(stage.querySelector('img[src*=".gif"]')).toBeNull();
   });
 
   it("hands the title slot to the text name when the logo file fails to load", () => {
@@ -185,7 +184,6 @@ describe("NativePlayerView loading stage", () => {
       <LoadingStage
         title="Fight Club"
         posterUrl="https://image.test/broken-logo.png"
-        initial
       />,
     );
     const art = container.querySelector(".np-loading-poster");
@@ -216,28 +214,18 @@ describe("NativePlayerView loading stage", () => {
     );
     expect(fallback).toBeTruthy();
     expect(fallback).toBeTruthy();
-    // The player-loader GIF still loads — a black stage never looks frozen.
-    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
+    // The ring still shows — a black stage never looks frozen.
+    expect(stage.querySelector(".np-v4-loader")).toBeTruthy();
   });
 });
 
-/* The animated logo GIF is for the two SERVER-level cold opens — the very
-   first load and a manual server switch (the component passes `initial=true`
-   for both). Every other later cold stage (quality/dub/episode) passes
-   `initial=false` and keeps the round Tailspin ring. */
-describe("LoadingStage loader variant", () => {
-  it("shows the animated logo only while `initial`, and rings otherwise", () => {
-    const { container: first, unmount } = render(
-      <LoadingStage title="Fight Club" initial />,
-    );
-    expect(first.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
-    expect(first.querySelector(".np-tailspin")).toBeNull();
-    unmount();
-
-    const { container: later } = render(
-      <LoadingStage title="Fight Club" initial={false} />,
-    );
-    expect(later.querySelector(".np-tailspin > span")).toBeTruthy();
-    expect(later.querySelector('img[src*="streamly-player-loader"]')).toBeNull();
+/* One loader for every wait, the initial cold open included: the ring under
+   the title art. There is no GIF branch left to pick a different loader for a
+   server switch. */
+describe("LoadingStage loader", () => {
+  it("renders the ring spinner and no GIF", () => {
+    const { container } = render(<LoadingStage title="Fight Club" />);
+    expect(container.querySelector(".np-v4-loader")).toBeTruthy();
+    expect(container.querySelector('img[src*=".gif"]')).toBeNull();
   });
 });

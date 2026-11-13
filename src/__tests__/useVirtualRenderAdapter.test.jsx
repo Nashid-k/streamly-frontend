@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useVirtualRenderAdapter } from "@/hooks/useVirtualRenderAdapter";
 
-// Off-screen stand-in: jsdom reports a 0x0 rect at 0,0 for everything, which
-// the hook's in-viewport fast path would treat as visible.
+// Off-screen stand-in for the observer path: it only has to be a real element.
 function makeOffscreenElement() {
   const el = document.createElement("div");
   el.getBoundingClientRect = () => ({
@@ -67,7 +66,7 @@ describe("useVirtualRenderAdapter", () => {
     expect(unobserveMock).toHaveBeenCalledWith(element);
   });
 
-  it("reveals immediately, without waiting for the observer, when already in view", () => {
+  it("defers to the observer without measuring the element on mount", () => {
     const observeMock = vi.fn();
 
     window.IntersectionObserver = vi.fn(function () {
@@ -75,14 +74,21 @@ describe("useVirtualRenderAdapter", () => {
       this.unobserve = vi.fn();
     });
 
-    const { result } = renderHook(() => useVirtualRenderAdapter("300px"));
+    const element = document.createElement("div");
+    const rectSpy = vi.spyOn(element, "getBoundingClientRect");
+
+    const { result } = renderHook(() => useVirtualRenderAdapter("500px"));
 
     act(() => {
-      result.current.ref(document.createElement("div"));
+      result.current.ref(element);
     });
 
-    expect(result.current.isVisible).toBe(true);
-    expect(observeMock).not.toHaveBeenCalled();
+    // P2 removed the per-node in-viewport fast path: a page mounts a dozen
+    // rails, and measuring every card forced layout on mount. Visibility now
+    // comes only from the shared observer, which never reads a rect itself.
+    expect(rectSpy).not.toHaveBeenCalled();
+    expect(result.current.isVisible).toBe(false);
+    expect(observeMock).toHaveBeenCalledWith(element);
   });
 
   it("shares a single observer between hooks using the same rootMargin", () => {

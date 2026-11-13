@@ -388,20 +388,21 @@ describe("player Servers menu", () => {
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
     // Server 1 is RIVO's multi-audio backend (one master per language) and
     // Server 2 is ZXC Orion — both multi-audio, so "Multi audio" belongs on rows
-    // 1 and 2; Server 3 is ZXC Atlas, also multi-audio. Seven rows: RIVO plus the
-    // provider's current `ec=[…]` roster (Orion/Valstrax/Atlas/Ursa/Alatreon/Daedalus);
-    // VidSrc, NHD and VidRack were removed after re-measuring dead. Alatreon was
-    // probed too and serves NO alternate audio, so it stays "Original audio".
+    // 1 and 2. Six rows: RIVO plus the provider's live roster
+    // (Orion/Valstrax/Atlas/Ursa/Alatreon), in the provider's own order — so
+    // Server 3 is Valstrax and Server 4 is Atlas, the other multi-audio ZXC row.
+    // VidSrc, NHD, VidRack and Daedalus were removed after re-measuring dead.
+    // Alatreon was probed too and serves NO alternate audio, so it stays
+    // "Original audio".
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBe(7);
+    expect(rows.length).toBe(6);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Multi audio"],
-      ["Server 3", "Multi audio"],
-      ["Server 4", "Original audio"],
+      ["Server 3", "Original audio"],
+      ["Server 4", "Multi audio"],
       ["Server 5", "Original audio"],
       ["Server 6", "Original audio"],
-      ["Server 7", "Original audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);

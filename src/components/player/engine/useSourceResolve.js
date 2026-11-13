@@ -450,6 +450,13 @@ export default function useSourceResolve({
       // should say THAT instead of a bare "no stream".
       let anyUpstreamQuota = false;
 
+      // A manual pick that the backend served from a DIFFERENT row. The text is
+      // computed at resolve time but only announced when this source COMMITS:
+      // announcing it before the playability probe claimed a server had no
+      // stream even when the retry landed back on that same server and it
+      // played (user report: "Server X has no stream" while Server X loaded).
+      let fallthroughNote = null;
+
       // The position a re-run of THIS effect must resume at. Seeded from the
       // reload carry (server/source pick, manual retry) and then kept honest by
       // the fatal-latch below, so a MID-PLAY failover to another source picks
@@ -498,9 +505,7 @@ export default function useSourceResolve({
         const servedKey = sourceByServer(resolved?.server)?.key || null;
         if (servedKey && servedKey !== def.key) {
           if (requestedServerRef.current && requestedServerRef.current !== servedKey) {
-            setSwitchingNote(
-              `${sourceLabel(requestedServerRef.current)} has no stream — playing ${sourceLabel(servedKey)}`,
-            );
+            fallthroughNote = `${sourceLabel(requestedServerRef.current)} has no stream — playing ${sourceLabel(servedKey)}`;
           }
           def = sourceByServer(resolved.server);
         }
@@ -960,6 +965,9 @@ export default function useSourceResolve({
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
+          // The fall-through is only true once this source is the one that
+          // committed. Failed probe/parse attempts above never announce it.
+          if (fallthroughNote) setSwitchingNote(fallthroughNote);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;

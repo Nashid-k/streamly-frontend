@@ -747,6 +747,15 @@ body::after {
     padding: 140px var(--gutter, 64px) 60px !important;
   }
 }
+/* .search-page is a centred flex column, so this child has no stretch width.
+   Left auto, the toolbar and result grid size themselves off a shrink-to-fit
+   box and sit narrower than the page (the "results are not placed right"
+   report). Pin the inner stack to the page width, capped like the grid. */
+.search-page > .content-page__inner {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
 .search-hero {
   text-align: center;
   max-width: 640px;

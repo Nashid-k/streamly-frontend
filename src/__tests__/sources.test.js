@@ -42,6 +42,10 @@ describe("sourceByServer", () => {
     expect(sourceByServer("atlas")?.key).toBe("zxc-atlas");
     expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
     expect(sourceByServer("orion")?.key).toBe("zxc-orion");
+    // Menu numbering follows the provider roster's order.
+    expect(sourceLabel("zxc-orion")).toBe("Server 2");
+    expect(sourceLabel("zxc-valstrax")).toBe("Server 3");
+    expect(sourceLabel("zxc-atlas")).toBe("Server 4");
   });
 
   it("returns null for an unknown or absent name", () => {
@@ -126,8 +130,10 @@ describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
     expect(sourceLabel("zxc-orion")).toBe("Server 2");
-    expect(sourceLabel("zxc-atlas")).toBe("Server 3");
-    expect(sourceLabel("zxc-valstrax")).toBe("Server 4");
+    // ZXC rows mirror the provider's own roster order: Orion, Valstrax, Atlas,
+    // Ursa, Alatreon — the same order the backend's rotation walks.
+    expect(sourceLabel("zxc-valstrax")).toBe("Server 3");
+    expect(sourceLabel("zxc-atlas")).toBe("Server 4");
     // ZXC Orion — our multi-audio server from zxcstream — took the Server 2 slot (2026-11-02).
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });

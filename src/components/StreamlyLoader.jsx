@@ -1,8 +1,8 @@
 /* Streamly compact loader — CSS-driven neon ring (lime→green→cyan conic sweep)
    with a gradient play-triangle centre. Resolution-independent, theme-aware,
    and it parks under prefers-reduced-motion (the ring stops instead of
-   spinning). Used for routine navigation and data loading; the animated logo
-   GIF stays reserved for the player's video startup (see PlayerLoader). */
+   spinning). Used for routine navigation and data loading; the player's cold
+   open uses its own small ring under the title art (see LoadingStage). */
 
 export function StreamlyLoader({ size = 42, label = "Loading", className = "" }) {
   const labelled = label !== "";

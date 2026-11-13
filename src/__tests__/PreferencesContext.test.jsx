@@ -148,11 +148,11 @@ describe("PreferencesProvider", () => {
     );
   });
 
-  /* VidSrc, NHD and the old VidRack were removed after re-measuring dead, so a
-     returning visitor's saved order must lose those rows instead of keeping dead
-     entries in the menu. The live catalogue is Server 1–7 (RIVO's multi-audio
-     master, then Valstrax…Daedalus and ZXC Orion), so Server 8 is the retired
-     tail this pins (the label shape itself stops at 8). */
+  /* VidSrc, NHD, the old VidRack and Daedalus were removed after re-measuring
+     dead, so a returning visitor's saved order must lose those rows instead of
+     keeping dead entries in the menu. The live catalogue is Server 1–6 (RIVO's
+     multi-audio master plus ZXC Orion/Valstrax/Atlas/Ursa/Alatreon), so Server 8
+     is the retired tail this pins. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
@@ -182,7 +182,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6 | Server 7",
+      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6",
     );
   });
 

@@ -35,9 +35,9 @@ function acquireObserver(rootMargin) {
 export function useVirtualRenderAdapter(rootMargin = "200px") {
   // No observer support means no deferral is possible, so resolve at init
   // rather than from an effect (an effect never runs without a ref callback).
-  const [isVisible, setIsVisible] = useState(
-    () => typeof window === "undefined" || !window.IntersectionObserver,
-  );
+  const hasObserver =
+    typeof window !== "undefined" && typeof window.IntersectionObserver === "function";
+  const [isVisible, setIsVisible] = useState(() => !hasObserver);
   const [node, setNode] = useState(null);
 
   // Stable callback ref (a fresh arrow every render would detach/reattach the
@@ -46,7 +46,11 @@ export function useVirtualRenderAdapter(rootMargin = "200px") {
   const ref = useCallback((node) => setNode(node), []);
 
   useEffect(() => {
-    if (!node) return undefined;
+    // The effect still runs without observer support (the ref exists), so the
+    // init-time "visible" decision has to be repeated here: without this guard
+    // acquireObserver threw "IntersectionObserver is not defined" from inside
+    // MovieCard in jsdom/older engines even though the hook reported visible.
+    if (!node || !hasObserver) return undefined;
 
     const observer = acquireObserver(rootMargin);
     subscribers.set(node, () => setIsVisible(true));
@@ -56,7 +60,7 @@ export function useVirtualRenderAdapter(rootMargin = "200px") {
       subscribers.delete(node);
       observer.unobserve(node);
     };
-  }, [node, rootMargin]);
+  }, [node, rootMargin, hasObserver]);
 
   return { isVisible, ref };
 }

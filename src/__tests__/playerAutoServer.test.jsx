@@ -153,8 +153,9 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
   });
 
   /* A saved drag order dragged years ago under a different roster re-binds its
-     labels onto today's backends (Server 4 was once a different provider) — it
-     used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
+     labels onto today's backends (Server 4 was once a different provider; it is
+     ZXC Atlas now, and the retired Server 7 entry is dropped by the sanitizer) —
+     it used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
      Server 4 while an explicit Server 1 pick resolved fine. The start is now
      always Server 1; the stale order only steers the fallback after RIVO. */
   it("a stale drag order never moves the no-pick start off Server 1", async () => {
@@ -166,12 +167,12 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
       </PreferencesContext.Provider>,
     );
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 5000 });
-    // Server 1 still leads the line — no prefer:valstrax on the start.
+    // Server 1 still leads the line — no prefer on the start.
     expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
     expect(hlsState.resolveCalls[0].prefer).toBeUndefined();
     // RIVO had no source: the fallback is the saved order's first non-Server-1
-    // row (Server 4 = valstrax) by NAME, still not `auto`.
-    expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "valstrax" });
+    // live row (Server 4 = atlas under today's roster) by NAME, still not `auto`.
+    expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "atlas" });
     expect(hlsState.resolveCalls[1].auto).toBeUndefined();
     expect(hlsState.resolveCalls.length).toBe(2);
   });
@@ -203,34 +204,40 @@ describe("manual server pick prefers then falls back fast", () => {
     expect(pick.auto).toBeUndefined();
   });
 
-  it("a picked server with no source falls through and says which one plays", async () => {
+  it("announces a picked server's fall-through only after the fallback commits", async () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
     // The picked row will be Server 4, but the backend serves ZXC Orion (Server
     // 2) anyway — the exact "no source on the server I picked" case.
     hlsState.server = "orion";
-    hlsState.deferProbe = true; // hold the stage so the note is observable
+    hlsState.deferProbe = true; // hold the probe so the stage stays observable
 
     openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     const server4 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 4"));
     fireEvent.click(server4);
 
-    // The note starts as "Switching to Server 4…" and is replaced by the honest
-    // fallback once the response names ZXC Orion (Server 2).
-    await waitFor(() => expect(screen.getByText(/Server 4 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
-    expect(screen.getByText(/playing Server 2/i)).toBeInTheDocument();
+    // The resolve has answered with Orion, but nothing has committed yet: the
+    // old code claimed "Server 4 has no stream" at resolve time, then a retry
+    // could land back on Server 4 and play — a false report while the loader
+    // was still up. The note must not exist before the fallback commits.
+    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
+    expect(screen.queryByText(/has no stream/i)).toBeNull();
 
+    // Release the probe: the fallback commit is when the note becomes true.
     hlsState.deferProbe = false;
     hlsState.releaseProbe?.();
+    await waitFor(() => expect(screen.getByText(/Server 4 has no stream/i)).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.getByText(/playing Server 2/i)).toBeInTheDocument();
   });
 
-  it("shows the animated logo loader on a server switch (not only the first cold open)", async () => {
+  it("uses the same ring loader on a server switch (no second, larger loader)", async () => {
     const { container } = render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
-    // A first frame exists, so a later wait would normally use the round ring.
+    // A first frame exists: the switch must reuse the initial small ring under
+    // the title art, not mount a GIF or a second loader.
     container.querySelector("video").dispatchEvent(new Event("play"));
     hlsState.deferProbe = true;
 
@@ -240,8 +247,8 @@ describe("manual server pick prefers then falls back fast", () => {
     fireEvent.click(server2);
 
     const stage = await screen.findByRole("status", { name: "Loading video" });
-    expect(stage.querySelector('img[src*="streamly-player-loader"]')).toBeTruthy();
-    expect(stage.querySelector(".np-tailspin")).toBeNull();
+    expect(stage.querySelector(".np-v4-loader")).toBeTruthy();
+    expect(stage.querySelector('img[src*=".gif"]')).toBeNull();
 
     hlsState.deferProbe = false;
     hlsState.releaseProbe?.();

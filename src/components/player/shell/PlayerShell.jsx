@@ -145,7 +145,6 @@ export default function PlayerShell({
   season,
   seasonsAvailable,
   selectSubtitle,
-  serverSwitchStage,
   setAspectRatioIndex,
   setAutoMuted,
   setBuffering,
@@ -795,7 +794,6 @@ export default function PlayerShell({
             <CenterStack
               showStage={showStage}
               stageNote={stageNote}
-              stageInitial={!everPlayed || serverSwitchStage}
               switchFrame={switchFrame}
               displayTitle={displayTitle}
               backdropUrl={backdropUrl}
