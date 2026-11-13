@@ -805,14 +805,7 @@ export default function PlayerShell({
             />
           )}
 
-          <TapToUnmutePill
-            visible={playerMode !== "embed" && autoMuted && playing && !sheetOpen}
-            onUnmute={() => {
-              setAutoMuted(false);
-              setMuted(false);
-              poke();
-            }}
-          />
+          {/* TapToUnmutePill removed per user request */}
 
           {/* Bottom chrome: scrubber + controls */}
           <PlayerTransport
