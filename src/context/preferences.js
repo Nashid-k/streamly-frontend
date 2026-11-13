@@ -85,20 +85,13 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   // Gates the drifting liquid-blob backdrop on every page (AmbientBackground).
   // On by default; off keeps the plain gradient wash for focus/perf.
   ambientBackground: true,
-  // Master switch for ALL seasonal particle effects. Off = theme colors only,
-  // never particles (no snow even on Christmas/Winter). On = the shared
+  // THE one seasonal toggle (2026-11-13 consolidation: the per-effect
+  // snowfall/fallingLeaves/summerGlow prefs are retired — stale localStorage
+  // keys are wiped on boot in PreferencesProvider). Off by default: the theme's
+  // colors stay, particles only spawn when the viewer opts in. On = the shared
   // resolver (utils/seasonal) decides: calendar effect under the default
   // theme, the picked theme's effect only when a seasonal theme is manual.
-  dynamic: true,
-  // Seasonal snowfall overlay (global, mounted in Layout). Auto-on in winter
-  // (Nov-Feb) or when the Christmas / Winter theme is active; manual override.
-  snowfall: true,
-  // Seasonal falling overlays (global, mounted in Layout): autumn leaves
-  // (Sep-Oct) and spring blossoms (Mar-May), or their matching themes.
-  fallingLeaves: true,
-  // Seasonal summer overlay (global, mounted in Layout). Auto-on in summer
-  // (Jun-Aug) or when the Summer Sun theme is active; manual override.
-  summerGlow: true,
+  dynamic: false,
   // Servers — plain labels, DERIVED from the live catalogue so a roster change
     // can never leave the default missing a row (it did: Server 5 stayed absent
     // after Orion came back live). Orders saved under the interim Lisbon/Nebula/…

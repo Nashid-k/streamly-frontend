@@ -12,7 +12,7 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    covers every route. Whether snow is live is decided solely by the shared
    resolver (utils/seasonal): calendar winter (Nov 1 -> Feb 28/29) under the
    default theme, the Christmas / Winter theme under a manual pick, and never
-   at all when Dynamic is off; gated by the `snowfall` preference.
+   at all when Dynamic is off (the single seasonal toggle).
 
    Cost control: the renderer is a full-viewport canvas cleared and redrawn
    every animation frame, so the flake count is the whole bill. 18 desktop /
@@ -39,7 +39,6 @@ export default function Snowfall() {
 
   const enabled =
     effect === "snow" &&
-    prefs?.snowfall !== false &&
     !reduceMotion &&
     !lowPower &&
     !pathname.startsWith("/watch/");

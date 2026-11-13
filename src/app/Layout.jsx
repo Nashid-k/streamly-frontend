@@ -11,6 +11,7 @@ import Snowfall from "../components/Snowfall";
 import FallingLeaves from "../components/FallingLeaves";
 import SpringBlossoms from "../components/SpringBlossoms";
 import SummerGlow from "../components/SummerGlow";
+import MotionBackdrop from "../components/MotionBackdrop";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
 import { useOptionalPreferences } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
@@ -111,6 +112,7 @@ function Layout({ children }) {
       </a>
       <Header />
       <ScrollProgressBar />
+      <MotionBackdrop />
       <Snowfall />
       <FallingLeaves />
       <SpringBlossoms />

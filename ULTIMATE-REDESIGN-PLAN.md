@@ -798,9 +798,13 @@ Never mark a blocked task done. Completion % is recomputed as
 
 ---
 
-## 18. Changelog (append only)
-
-- 2026-11-12 · **Cross-route banner carry (cinejoy parity) · DONE** · The banner no longer
+- 2026-11-13 · **Seasonal consolidation + motion themes + provider radius + no-pick start always Server 1 · DONE** · User-requested batch on top of the verified pass above:
+  - Seasonal: `dynamic` is now the single seasonal toggle (default **off**); `snowfall`/`fallingLeaves`/`summerGlow` prefs retired (keys wiped on boot), Settings rows removed, i18n collapsed to one `dynamicDesc`; all four overlays gate on the shared resolver + reduced motion + a lowPower device check (lowPower added to the three that lacked it). Files: `src/context/preferences.js`, `src/context/PreferencesContext.jsx`, `src/components/{Snowfall,FallingLeaves,SpringBlossoms,SummerGlow}.jsx`, `src/pages/SettingsPage.jsx`, `src/i18n/en.js`, `src/constants/settings.js`.
+  - Motion themes: new `Living Tides` + `Aurora Drift` themes with palette blocks (emerald block palette bug fixed too) and a CSS-only 2-layer transform/opacity backdrop (`src/styles/motion-themes.css` + `src/components/MotionBackdrop.jsx`, mounted in `Layout`), gated by reduceMotion/lowPower. Ambient blobs + sky wash yield while active. Picker gets a pulsing accent dot + i18n hint.
+  - Provider radius: rail chips 10px → 14px, provider hero 18px → 22px (`src/styles/rails.css`, `src/styles/provider.css`, `src/components/rails/BrowseByProviderRail.jsx`).
+  - Servers: no-pick start always Server 1; drag order steers fallback + menu order; `AUTO_SOURCE` identity preserved when fallback = Orion. `src/components/NativePlayerView.jsx`. Production probe (CDP, real `/api/stream`) confirms RIVO is currently down for the tested titles (returns "Could not resolve source on RIVO 1") and the health rotation lands on Valstrax; a stale drag order skips RIVO entirely (the real bug). Per-server matrix + screenshots in `~/.opencode/plan/probe-servers-out.json` / `probe-servers.png`.
+  - Regression test: `src/__tests__/playerAutoServer.test.jsx` (stale order → RIVO first, fallback `prefer:"valstrax"`).
+  - Gates: lint 0 errors · test 124 files / 1476 passed / 2 skipped (one pre-existing timing flake under full-suite load; focused re-runs of the affected files pass) · build exit 0 (7.61s).
   skeleton-swaps when navigating home → movies/series with a matching title on screen, per a
   fresh live teardown of cinejoy.pk (their home/movies/series keep one shared banner record:
   kind match keeps the exact banner while the rest of the page skeletons in — 54 blocks — and

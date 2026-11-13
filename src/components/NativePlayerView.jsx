@@ -27,6 +27,7 @@ import {
   AUTO_SOURCE,
   sourceByKey,
 } from "../constants/sources";
+import { streamResolve } from "../api/streamResolve";
 import {
   getSkipIntroTarget,
   getSkipIntroEnd,
@@ -264,11 +265,10 @@ export default function NativePlayerView({
     }),
     [type, id, season, episode, title, originalLanguage],
   );
-  /* Settings → Servers drag order. It was a real preference that the player
-     never read: the menu stayed in catalogue order and the auto path ignored it.
-     Sort the rows for the menu, and make the FIRST row the preferred server for
-     the no-pick path (`prefer` still falls through to the health rotation, so a
-     dead first row never dead-ends playback). */
+  /* Settings → Servers drag order. Sorts the rows for the menu and — since
+     2026-11-13 — steers the FALLBACK for the no-pick path (what plays when
+     Server 1 has no source): see preferredAutoSource below. The start itself
+     is always Server 1. */
   const orderedSources = useMemo(() => {
     const order = Array.isArray(prefs?.serverOrder) ? prefs.serverOrder : [];
     const rank = new Map(order.map((label, i) => [label, i]));
@@ -279,16 +279,37 @@ export default function NativePlayerView({
     });
   }, [prefs?.serverOrder]);
   const preferredAutoSource = useMemo(() => {
-    const first = orderedSources[0];
-    // Keep AUTO_SOURCE identity for the default order so the details-page warm
-    // token stays consumable (it was minted for the auto path).
-    if (!first || first.key === DEFAULT_SOURCE_KEY) return AUTO_SOURCE;
+    /* 2026-11-13: the no-pick start is ALWAYS Server 1 (RIVO, multi-audio).
+       Before this, the FIRST row of the saved drag order mounted the auto
+       path — and roster rotations re-bind saved labels onto today's backends
+       (a priority dragged years ago under a different roster silently became
+       "Server 4 = Valstrax"), so every unpicked play started at a later server
+       while an explicit Server 1 pick resolved fine. Now the drag order steers
+       the FALLBACK (what plays when Server 1 has no source for the title) and
+       the menu row order — never the start. */
+    const next = orderedSources.find((s) => s.key !== DEFAULT_SOURCE_KEY);
+    // When that fallback is the default row (Server 2 = ZXC Orion) the
+    // behavior is byte-identical to AUTO_SOURCE: return ITS object identity so
+    // the details-page warm token stays consumable — takeWarmResolve compares
+    // `autoDef === AUTO_SOURCE`, and a look-alike object would silently break
+    // the handover and add 2–5s to every cold start.
+    if (!next || next.server === "orion") return AUTO_SOURCE;
     return {
       key: AUTO_SOURCE.key,
       label: AUTO_SOURCE.label,
       tag: AUTO_SOURCE.tag,
       provider: AUTO_SOURCE.provider,
-      resolve: (a, o) => first.resolve(a, o),
+      resolve: async (a, o) => {
+        try {
+          const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
+          return { ...rivo, server: rivo.server || "1" };
+        } catch {
+          // Server 1 has no source for this title — hand to the saved order's
+          // first non-Server-1 row (`prefer` walks the health rotation inside
+          // that same request when it has no source either).
+          return next.resolve(a, o);
+        }
+      },
     };
   }, [orderedSources]);
   const autoSourceRef = useRef(AUTO_SOURCE);

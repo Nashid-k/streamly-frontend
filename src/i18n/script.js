@@ -105,7 +105,7 @@ export const ja = {
       autoPlay: "自動再生", autoPlayDesc: "次のエピソードを自動的に再生します。",
     },
     servers: {
-      serverOrder: "サーバー順序", serverOrderDesc: "サーバーをドラッグして再生優先度を設定します。",
+      serverOrder: "サーバー順序", serverOrderDesc: "再生は常にサーバー1から始まります。サーバー1にソースがない場合に次に使うサーバーをドラッグで設定します（同じ順序がメニューにも適用されます）。",
       resetOrder: "サーバー順序をリセット", resetOrderToast: "サーバー優先度を初期値に戻しました。",
       dragToReorder: "サーバーを並べ替え、優先度 {n}",
     },
@@ -240,7 +240,7 @@ export const ko = {
       autoPlay: "자동 재생", autoPlayDesc: "다음 에피소드를 자동으로 재생합니다.",
     },
     servers: {
-      serverOrder: "서버 순서", serverOrderDesc: "서버를 드래그해 재생 우선순위를 정합니다.",
+      serverOrder: "서버 순서", serverOrderDesc: "재생은 항상 서버 1부터 시작합니다. 서버 1에 소스가 없을 때 다음 서버를 드래그로 정하며, 같은 순서가 메뉴에도 적용됩니다.",
       resetOrder: "서버 순서 초기화", resetOrderToast: "서버 우선순위를 기본값으로 되돌렸습니다.",
       dragToReorder: "서버 재정렬, 우선순위 {n}",
     },
@@ -375,7 +375,7 @@ export const hi = {
       autoPlay: "ऑटोप्ले", autoPlayDesc: "अगला एपिसोड स्वतः चलाएं।",
     },
     servers: {
-      serverOrder: "सर्वर क्रम", serverOrderDesc: "प्लेबैक प्राथमिकता तय करने हेतु सर्वर खींचें।",
+      serverOrder: "सर्वर क्रम", serverOrderDesc: "प्लेबैक हमेशा सर्वर 1 से शुरू होता है। सर्वर 1 में स्रोत न होने पर अगला सर्वर खींचकर चुनें — वही क्रम मेनू में भी लागू होता है।",
       resetOrder: "सर्वर क्रम रीसेट करें", resetOrderToast: "सर्वर प्राथमिकता डिफ़ॉल्ट पर लौटा दी।",
       dragToReorder: "सर्वर पुनः क्रमित करें, प्राथमिकता {n}",
     },
@@ -510,7 +510,7 @@ export const ar = {
       autoPlay: "التشغيل التلقائي", autoPlayDesc: "تشغيل الحلقة التالية تلقائيًا.",
     },
     servers: {
-      serverOrder: "ترتيب الخوادم", serverOrderDesc: "اسحب الخوادم لضبط أولوية التشغيل.",
+      serverOrder: "ترتيب الخوادم", serverOrderDesc: "يبدأ التشغيل دائمًا من الخادم 1. اسحب لتحديد الخادم التالي عندما لا يتوفر مصدر على الخادم 1 — نفس الترتيب يُرتّب قائمة الخوادم.",
       resetOrder: "إعادة تعيين ترتيب الخوادم", resetOrderToast: "أُعيدت أولوية الخوادم إلى الافتراضي.",
       dragToReorder: "إعادة ترتيب الخادم، الأولوية {n}",
     },

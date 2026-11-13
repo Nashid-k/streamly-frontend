@@ -96,6 +96,7 @@ vi.mock("../api/nativeHlsLoader", async (orig) => {
 });
 
 import NativePlayerView from "../components/NativePlayerView";
+import { PreferencesContext } from "../context/preferences";
 
 beforeAll(() => {
   if (!window.ResizeObserver) {
@@ -149,6 +150,30 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     const other = rows.find((r) => r.textContent.includes("Server 5"));
     expect(served).toHaveAttribute("aria-pressed", "true");
     expect(other).not.toHaveAttribute("aria-pressed");
+  });
+
+  /* A saved drag order dragged years ago under a different roster re-binds its
+     labels onto today's backends (Server 4 was once a different provider) — it
+     used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
+     Server 4 while an explicit Server 1 pick resolved fine. The start is now
+     always Server 1; the stale order only steers the fallback after RIVO. */
+  it("a stale drag order never moves the no-pick start off Server 1", async () => {
+    render(
+      <PreferencesContext.Provider
+        value={{ serverOrder: ["Server 4", "Server 5", "Server 6", "Server 7", "Server 1", "Server 2", "Server 3"] }}
+      >
+        <NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />
+      </PreferencesContext.Provider>,
+    );
+    await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 5000 });
+    // Server 1 still leads the line — no prefer:valstrax on the start.
+    expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
+    expect(hlsState.resolveCalls[0].prefer).toBeUndefined();
+    // RIVO had no source: the fallback is the saved order's first non-Server-1
+    // row (Server 4 = valstrax) by NAME, still not `auto`.
+    expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "valstrax" });
+    expect(hlsState.resolveCalls[1].auto).toBeUndefined();
+    expect(hlsState.resolveCalls.length).toBe(2);
   });
 });
 

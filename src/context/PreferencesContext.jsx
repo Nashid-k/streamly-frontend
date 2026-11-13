@@ -262,13 +262,18 @@ export function PreferencesProvider({ children }) {
   }, [preferences.theme, preferences.accentSeed]);
 
   // One-time cleanup of retired integrations (Trakt/Simkl handles, Ads and
-  // Febbox settings). Runs on boot so removed features leave no stale keys.
+  // Febbox settings) and retired seasonal prefs (2026-11-13: snowfall /
+  // fallingLeaves / summerGlow merged into the single `dynamic` toggle).
+  // Runs on boot so removed features leave no stale keys.
   useEffect(() => {
     const retired = [
       "streamly_trakt",
       "streamly_simkl",
       "setting-enableAds",
       "setting-febboxCookie",
+      "setting-snowfall",
+      "setting-fallingLeaves",
+      "setting-summerGlow",
     ];
     for (const key of retired) {
       try {

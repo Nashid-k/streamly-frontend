@@ -671,7 +671,9 @@ textarea:focus-visible {
 .provider__logo {
   width: 64px;
   height: 64px;
-  border-radius: var(--radius-card, 14px);
+  /* +4px over the 10px card token (2026-11-13): provider logos are squarish
+     artwork, not posters — a rounder chip reads softer next to the name. */
+  border-radius: 14px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);

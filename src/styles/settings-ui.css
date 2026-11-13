@@ -3,16 +3,19 @@
    PreferencesProvider. CSS rules reference them for accent-aware elements.
    The --accent-* triplets keep existing translucent surfaces working. */
 html[data-theme="emerald"] {
-  --accent-gradient: linear-gradient(135deg, var(--accent-color), #43861e) !important;
-  --accent-color: var(--accent-color) !important;
-  --accent-primary: var(--accent-color) !important;
-  --accent-secondary: #43861e !important;
-  --accent-primary-rgb: 149, 255, 80 !important;
-  --accent-secondary-rgb: 67, 134, 30 !important;
-  --accent-glow: rgba(149, 255, 80, 0.4) !important;
-  --on-accent: #0e1a06 !important;
-  --theme-global-accentA: var(--accent-color);
-  --theme-global-accentB: #43861e;
+  /* 2026-11-13 palette fix: this block used to hardcode the Signature Green
+     triplets (149,255,80), so picking "Cinejoy Emerald" rendered green. Now
+     it matches the THEMES entry (#34d399 / #059669). */
+  --accent-gradient: linear-gradient(135deg, #34d399, #059669) !important;
+  --accent-color: #34d399 !important;
+  --accent-primary: #34d399 !important;
+  --accent-secondary: #059669 !important;
+  --accent-primary-rgb: 52, 211, 153 !important;
+  --accent-secondary-rgb: 5, 150, 105 !important;
+  --accent-glow: rgba(52, 211, 153, 0.4) !important;
+  --on-accent: #06251a !important;
+  --theme-global-accentA: #34d399;
+  --theme-global-accentB: #059669;
 }
 
 html[data-theme="amethyst"] {
@@ -130,6 +133,32 @@ html[data-theme="christmas"] {
   --on-accent: var(--white) !important;
   --theme-global-accentA: #dc2626;
   --theme-global-accentB: #16a34a;
+}
+
+html[data-theme="tides"] {
+  --accent-gradient: linear-gradient(135deg, #45d4e6, #0b7285) !important;
+  --accent-color: #45d4e6 !important;
+  --accent-primary: #45d4e6 !important;
+  --accent-secondary: #0b7285 !important;
+  --accent-primary-rgb: 69, 212, 230 !important;
+  --accent-secondary-rgb: 11, 114, 133 !important;
+  --accent-glow: rgba(69, 212, 230, 0.4) !important;
+  --on-accent: #03252b !important;
+  --theme-global-accentA: #45d4e6;
+  --theme-global-accentB: #0b7285;
+}
+
+html[data-theme="aurora"] {
+  --accent-gradient: linear-gradient(135deg, #46e3a2, #7c5cf0) !important;
+  --accent-color: #46e3a2 !important;
+  --accent-primary: #46e3a2 !important;
+  --accent-secondary: #7c5cf0 !important;
+  --accent-primary-rgb: 70, 227, 162 !important;
+  --accent-secondary-rgb: 124, 92, 240 !important;
+  --accent-glow: rgba(70, 227, 162, 0.4) !important;
+  --on-accent: #04291c !important;
+  --theme-global-accentA: #46e3a2;
+  --theme-global-accentB: #7c5cf0;
 }
 
 /* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
@@ -560,6 +589,22 @@ html:not([data-theme]) .segment-btn.segment-active {
 .theme-swatch-inline-right {
   width: 50%;
   height: 100%;
+}
+
+/* Motion-theme badge: a tiny breathing dot next to themes that ship a live
+   motion background (Living Tides / Aurora Drift). One 6px element; the
+   animation is opacity-only and frozen by the global reduced-motion guard. */
+.theme-motion-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--theme-global-accentA, var(--accent-primary, var(--white)));
+  flex-shrink: 0;
+  animation: theme-motion-dot 2.4s ease-in-out infinite;
+}
+@keyframes theme-motion-dot {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
 }
 
 /* ── Theme seed accent picker (Cinejoy .seed-* recipe) ── */

@@ -44,7 +44,8 @@
 .provider-hero__logo {
   width: 72px;
   height: 72px;
-  border-radius: 18px;
+  /* +4px (2026-11-13) — matches the rail's rounder provider chip. */
+  border-radius: 22px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.10);

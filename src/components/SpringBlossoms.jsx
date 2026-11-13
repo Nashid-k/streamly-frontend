@@ -7,8 +7,8 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    petal colors and ginkgo/oval shapes. Mounted once in Layout. Live only when
    the shared resolver (utils/seasonal) says "blossoms": calendar spring
    (Mar 1 -> May 31) under the default theme or the Spring Bloom theme under a
-   manual pick, never when Dynamic is off; gated by the `fallingLeaves`
-   preference (shared with autumn) and reduced motion. */
+   manual pick, never when Dynamic is off (the single seasonal toggle); gated
+   by reduced motion and low-power devices. */
 export default function SpringBlossoms() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
@@ -19,7 +19,11 @@ export default function SpringBlossoms() {
     theme: prefs?.theme,
     month,
   });
-  const enabled = effect === "blossoms" && prefs?.fallingLeaves !== false && !reduceMotion;
+  const lowPower =
+    typeof navigator !== "undefined" &&
+    (navigator.hardwareConcurrency <= 4 ||
+      (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
+  const enabled = effect === "blossoms" && !reduceMotion && !lowPower;
 
   if (!enabled) return null;
 

@@ -73,7 +73,29 @@ export const THEMES = [
     primary: "#38bdf8",
     secondary: "#e2e8f0",
   },
+  /* Live motion themes: the palette rides the same --accent-* contract as
+     every other theme, plus a built-in CSS-only animated backdrop (see
+     styles/motion-themes.css). Transform/opacity only — two composited
+     layers, no canvas, no blur filters; frozen by the global
+     reduced-motion guard and not mounted on low-power devices. */
+  {
+    id: "tides",
+    name: "Living Tides",
+    primary: "#45d4e6",
+    secondary: "#0b7285",
+    motion: "tides",
+  },
+  {
+    id: "aurora",
+    name: "Aurora Drift",
+    primary: "#46e3a2",
+    secondary: "#7c5cf0",
+    motion: "aurora",
+  },
 ];
+
+/* Which theme ids ship a live motion backdrop (MotionBackdrop / CSS). */
+export const MOTION_THEME_IDS = new Set(THEMES.filter((t) => t.motion).map((t) => t.id));
 
 export const LANGUAGES = [
   { code: "en", name: "English", flag: "flags/us.svg" },
@@ -187,6 +209,7 @@ export const SECTION_SEARCH_TERMS = {
   appearance: [
     "appearance look theme color palette interface",
     "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber christmas autumn spring summer winter",
+    "living tides aurora drift live motion background animated water flow northern lights moving backdrop",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
     "detail view type full info page quick modal page modal",
@@ -195,9 +218,7 @@ export const SECTION_SEARCH_TERMS = {
     "spoiler-free mode hide information episodes",
     "reduce motion reduce effects",
     "ambient liquid backdrop drifting color blobs behind pages",
-    "seasonal snowfall falling snow winter november december january february christmas winter frost overlay",
-    "seasonal falling leaves blossoms spring autumn september october march april may overlay",
-    "seasonal summer glow sun motes pollen june july august summer sun overlay",
+    "dynamic seasonal effects one toggle snow falling leaves blossoms summer glow sun motes winter autumn spring summer christmas overlay off by default",
     "high-quality thumbnails stream higher resolution artwork",
     "hover previews show frame previews scrubbing player seek bar seek previews",
   ].join(" "),

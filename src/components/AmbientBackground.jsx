@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { useOptionalPreferences } from "../context/preferences";
+import { MOTION_THEME_IDS } from "../constants/settings";
 
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
    a heavily blurred, saturated backdrop + screen-blended top glow above the
@@ -12,7 +13,10 @@ import { useOptionalPreferences } from "../context/preferences";
    gradient stack always stays. */
 function AmbientBackground({ src, alt = "", fallback = false, children }) {
   const prefs = useOptionalPreferences();
-  const liquid = prefs?.ambientBackground !== false;
+  // A motion theme (Living Tides / Aurora Drift) owns the page stage with its
+  // own living backdrop (MotionBackdrop) — the accent-green liquid blobs
+  // would paint over it, so they yield while a motion theme is active.
+  const liquid = prefs?.ambientBackground !== false && !MOTION_THEME_IDS.has(prefs?.theme);
   // Wrapping usage (Explore / Public collection pages) nests the page body as
   // `children`; self-closing usage passes none. Ignoring `children` rendered
   // those pages blank, so render them here — outside the aria-hidden backdrop

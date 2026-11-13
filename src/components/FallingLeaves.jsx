@@ -10,8 +10,8 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    (utils/seasonal): calendar autumn (Sep 1 -> Oct 31) under the default
    theme, the Autumn theme under a manual pick (which also suspends the
    calendar's snow window — no leaves + snow collision), and never at all
-   when Dynamic is off; gated by the `fallingLeaves` preference and reduced
-   motion. */
+   when Dynamic is off (the single seasonal toggle); gated by reduced motion
+   and low-power devices. */
 export default function FallingLeaves() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
@@ -22,7 +22,11 @@ export default function FallingLeaves() {
     theme: prefs?.theme,
     month,
   });
-  const enabled = effect === "leaves" && prefs?.fallingLeaves !== false && !reduceMotion;
+  const lowPower =
+    typeof navigator !== "undefined" &&
+    (navigator.hardwareConcurrency <= 4 ||
+      (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
+  const enabled = effect === "leaves" && !reduceMotion && !lowPower;
 
   if (!enabled) return null;
 

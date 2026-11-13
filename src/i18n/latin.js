@@ -104,7 +104,7 @@ export const es = {
       autoPlay: "Reproducción Automática", autoPlayDesc: "Reproducir el siguiente episodio automáticamente.",
     },
     servers: {
-      serverOrder: "Orden de Servidores", serverOrderDesc: "Arrastra los servidores para fijar la prioridad.",
+      serverOrder: "Orden de Servidores", serverOrderDesc: "La reproducción siempre empieza en el Servidor 1. Arrastra para elegir qué servidor sigue cuando el Servidor 1 no tiene la fuente; el mismo orden ordena el menú del reproductor.",
       resetOrder: "Restablecer Orden", resetOrderToast: "Prioridad de servidores restablecida.",
       dragToReorder: "Reordenar servidor, prioridad {n}",
     },
@@ -238,7 +238,7 @@ export const fr = {
       autoPlay: "Lecture Automatique", autoPlayDesc: "Lire automatiquement l'épisode suivant.",
     },
     servers: {
-      serverOrder: "Ordre des Serveurs", serverOrderDesc: "Faites glisser les serveurs pour définir la priorité.",
+      serverOrder: "Ordre des Serveurs", serverOrderDesc: "La lecture commence toujours au Serveur 1. Glissez pour choisir le serveur suivant quand le Serveur 1 n'a pas la source ; le même ordre trie le menu du lecteur.",
       resetOrder: "Réinitialiser l'Ordre", resetOrderToast: "Priorité des serveurs réinitialisée.",
       dragToReorder: "Réordonner le serveur, priorité {n}",
     },
@@ -374,7 +374,7 @@ export const de = {
       autoPlay: "Automatische Wiedergabe", autoPlayDesc: "Nächste Episode automatisch abspielen.",
     },
     servers: {
-      serverOrder: "Serverreihenfolge", serverOrderDesc: "Server ziehen, um die Priorität festzulegen.",
+      serverOrder: "Serverreihenfolge", serverOrderDesc: "Die Wiedergabe startet immer mit Server 1. Ziehe, um festzulegen, welcher Server folgt, wenn Server 1 keinen Stream hat — dieselbe Reihenfolge sortiert das Servermenü.",
       resetOrder: "Serverreihenfolge zurücksetzen", resetOrderToast: "Serverpriorität auf Standard zurückgesetzt.",
       dragToReorder: "Server neu anordnen, Priorität {n}",
     },
@@ -509,7 +509,7 @@ export const it = {
       autoPlay: "Riproduzione Automatica", autoPlayDesc: "Riproduci automaticamente il prossimo episodio.",
     },
     servers: {
-      serverOrder: "Ordine dei Server", serverOrderDesc: "Trascina i server per impostare la priorità.",
+      serverOrder: "Ordine dei Server", serverOrderDesc: "La riproduzione parte sempre dal Server 1. Trascina per scegliere il server successivo quando il Server 1 non ha la sorgente; lo stesso ordine ordina il menu del player.",
       resetOrder: "Reimposta Ordine Server", resetOrderToast: "Priorità dei server ripristinata.",
       dragToReorder: "Riordina il server, priorità {n}",
     },
@@ -644,7 +644,7 @@ export const pt = {
       autoPlay: "Reprodução Automática", autoPlayDesc: "Reproduza o próximo episódio automaticamente.",
     },
     servers: {
-      serverOrder: "Ordem dos Servidores", serverOrderDesc: "Arraste os servidores para definir a prioridade.",
+      serverOrder: "Ordem dos Servidores", serverOrderDesc: "A reprodução sempre começa no Servidor 1. Arraste para escolher o próximo servidor quando o Servidor 1 não tiver a fonte; a mesma ordem ordena o menu do player.",
       resetOrder: "Redefinir Ordem dos Servidores", resetOrderToast: "Prioridade dos servidores redefinida.",
       dragToReorder: "Reordenar servidor, prioridade {n}",
     },

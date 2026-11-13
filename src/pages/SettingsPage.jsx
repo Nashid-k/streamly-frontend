@@ -109,10 +109,7 @@ export default function SettingsPage() {
     hoverPreviews = true,
     reduceMotion,
     ambientBackground = true,
-    dynamic = true,
-    snowfall = true,
-    fallingLeaves = true,
-    summerGlow = true,
+    dynamic = false,
     notifications,
     notificationsListAdds = true,
     notificationsMilestones = true,
@@ -160,6 +157,10 @@ export default function SettingsPage() {
     () => LANGUAGES.find((l) => l.code === defaultLanguage) || LANGUAGES[0],
     [defaultLanguage],
   );
+
+  // Hoisted out of the theme-picker's THEMES.map((t) => …) — the map param
+  // shadows the i18n `t`, so the badge inside it reads this instead.
+  const motionThemeHint = t("settings.appearance.motionThemeHint");
 
     // Each trigger gets its own wrapper + trigger ref so an outside click closes
     // only that menu, and the shared state is a single name, not three booleans.
@@ -889,6 +890,13 @@ export default function SettingsPage() {
                                           />
                                         </span>
                                         <span>{t.name}</span>
+                                        {t.motion && (
+                                          <span
+                                            className="theme-motion-dot"
+                                            title={motionThemeHint}
+                                            aria-label={motionThemeHint}
+                                          />
+                                        )}
                                       </span>
                                       {selected && <Check className="w-3.5 h-3.5 text-white" />}
                                     </button>
@@ -1045,8 +1053,8 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
-                  {/* Dynamic — master switch for every seasonal effect.
-                      Off keeps theme colors but spawns no particles. */}
+                  {/* Dynamic — THE one seasonal toggle. Off (the default)
+                      keeps theme colors but spawns no particles. */}
                   <SettingRow
                     title={t("settings.appearance.dynamic")}
                     description={t("settings.appearance.dynamicDesc")}
@@ -1055,42 +1063,6 @@ export default function SettingsPage() {
                       label={t("settings.appearance.dynamic")}
                       checked={dynamic}
                       onChange={(val) => setPreference("dynamic", val)}
-                    />
-                  </SettingRow>
-
-                  {/* Seasonal snowfall overlay (global, Layout reads it) */}
-                  <SettingRow
-                    title={t("settings.appearance.snowfall")}
-                    description={t("settings.appearance.snowfallDesc")}
-                  >
-                    <Toggle
-                      label={t("settings.appearance.snowfall")}
-                      checked={snowfall}
-                      onChange={(val) => setPreference("snowfall", val)}
-                    />
-                  </SettingRow>
-
-                  {/* Seasonal falling-leaves overlay (global, Layout reads it) */}
-                  <SettingRow
-                    title={t("settings.appearance.fallingLeaves")}
-                    description={t("settings.appearance.fallingLeavesDesc")}
-                  >
-                    <Toggle
-                      label={t("settings.appearance.fallingLeaves")}
-                      checked={fallingLeaves}
-                      onChange={(val) => setPreference("fallingLeaves", val)}
-                    />
-                  </SettingRow>
-
-                  {/* Seasonal summer overlay (global, Layout reads it) */}
-                  <SettingRow
-                    title={t("settings.appearance.summerGlow")}
-                    description={t("settings.appearance.summerGlowDesc")}
-                  >
-                    <Toggle
-                      label={t("settings.appearance.summerGlow")}
-                      checked={summerGlow}
-                      onChange={(val) => setPreference("summerGlow", val)}
                     />
                   </SettingRow>
 

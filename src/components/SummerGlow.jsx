@@ -8,8 +8,8 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    palette. Mounted once in Layout. Live only when the shared resolver
    (utils/seasonal) says "glow": calendar summer (Jun 1 -> Aug 31) under the
    default theme or the Summer Sun theme under a manual pick, never when
-   Dynamic is off; gated by the `summerGlow` preference and reduced motion.
-   Slow and sparse: it is ambience, not weather. */
+   Dynamic is off (the single seasonal toggle); gated by reduced motion and
+   low-power devices. Slow and sparse: it is ambience, not weather. */
 export default function SummerGlow() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
@@ -20,7 +20,11 @@ export default function SummerGlow() {
     theme: prefs?.theme,
     month,
   });
-  const enabled = effect === "glow" && prefs?.summerGlow !== false && !reduceMotion;
+  const lowPower =
+    typeof navigator !== "undefined" &&
+    (navigator.hardwareConcurrency <= 4 ||
+      (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
+  const enabled = effect === "glow" && !reduceMotion && !lowPower;
 
   if (!enabled) return null;
 

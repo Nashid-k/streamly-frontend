@@ -1,0 +1,123 @@
+/* ── Live motion themes (tides / aurora) ─────────────────────────────────
+   THEMES with a built-in living backdrop. The stage is ONE fixed element
+   (z-index -1: above the body background, below every page surface) holding
+   exactly two composited layers. Performance contract, same as the ambient
+   liquid blobs:
+
+   · every gradient's softness is baked into the gradient falloff — no
+     filter: blur() anywhere, so no per-frame re-blur;
+   · the ONLY animated properties are transform (translate3d/rotate/scale)
+     and opacity — pure compositor work, no layout, no paint;
+   · layers are oversized (inset -25%) so drift never exposes an edge;
+   · contain: strict + backface-visibility on each layer; no will-change —
+     the infinite drift animations keep their layers promoted while running;
+   · the global reduced-motion guard (tokens.css) freezes the drift to
+     0.01ms for prefers-reduced-motion, and MotionBackdrop does not mount
+     at all when the viewer's reduceMotion preference is on or the device
+     is low-power;
+   · hidden tabs stop compositing entirely, so a background tab costs zero. */
+
+.motion-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+
+.motion-backdrop__layer {
+  position: absolute;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+
+/* ── Living Tides: deep-water stage with drifting caustic washes ── */
+.motion-backdrop--tides {
+  background: linear-gradient(180deg, #01151f 0%, #03293e 52%, #011219 100%);
+}
+.motion-backdrop--tides .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(38% 28% at 22% 26%, rgba(69, 212, 230, 0.13), transparent 62%),
+    radial-gradient(30% 22% at 68% 16%, rgba(45, 183, 208, 0.11), transparent 58%),
+    radial-gradient(46% 32% at 58% 64%, rgba(28, 138, 168, 0.12), transparent 64%),
+    radial-gradient(26% 18% at 12% 78%, rgba(94, 226, 238, 0.09), transparent 55%),
+    radial-gradient(34% 24% at 84% 56%, rgba(38, 166, 196, 0.11), transparent 60%);
+  animation: tides-flow-a 48s ease-in-out infinite alternate;
+}
+.motion-backdrop--tides .motion-backdrop__layer--b {
+  background:
+    radial-gradient(42% 30% at 72% 34%, rgba(94, 226, 238, 0.1), transparent 60%),
+    radial-gradient(34% 24% at 30% 52%, rgba(11, 114, 133, 0.35), transparent 62%),
+    radial-gradient(28% 20% at 52% 84%, rgba(69, 212, 230, 0.08), transparent 56%),
+    radial-gradient(40% 28% at 10% 34%, rgba(38, 166, 196, 0.12), transparent 58%);
+  opacity: 0.65;
+  animation: tides-flow-b 66s ease-in-out infinite alternate;
+  animation-delay: -22s;
+}
+@keyframes tides-flow-a {
+  from { transform: translate3d(-3%, -2%, 0) rotate(0.6deg) scale(1.04); }
+  to   { transform: translate3d(3.5%, 2.5%, 0) rotate(-0.6deg) scale(1.1); }
+}
+@keyframes tides-flow-b {
+  from { transform: translate3d(2.5%, 3%, 0) scale(1.08); }
+  to   { transform: translate3d(-3%, -2.5%, 0) scale(1.02); }
+}
+
+/* ── Aurora Drift: night stage with two slow sky bands ── */
+.motion-backdrop--aurora {
+  background: linear-gradient(180deg, #020b16 0%, #051527 58%, #010911 100%);
+}
+.motion-backdrop--aurora .motion-backdrop__layer {
+  left: -30%;
+  right: -30%;
+  height: 68%;
+  background: linear-gradient(
+    100deg,
+    transparent 10%,
+    rgba(70, 227, 162, 0.14) 30%,
+    rgba(45, 212, 191, 0.05) 44%,
+    rgba(124, 92, 240, 0.13) 62%,
+    transparent 86%
+  );
+  animation: aurora-band-a 44s ease-in-out infinite alternate;
+}
+.motion-backdrop--aurora .motion-backdrop__layer--b {
+  height: 74%;
+  background: linear-gradient(
+    80deg,
+    transparent 14%,
+    rgba(124, 92, 240, 0.1) 34%,
+    rgba(70, 227, 162, 0.07) 52%,
+    transparent 78%
+  );
+  opacity: 0.7;
+  animation: aurora-band-b 62s ease-in-out infinite alternate;
+  animation-delay: -18s;
+}
+@keyframes aurora-band-a {
+  from { transform: translate3d(-6%, -1.5%, 0) rotate(-1.2deg) scale(1.05); opacity: 0.75; }
+  50%  { opacity: 1; }
+  to   { transform: translate3d(6%, 2%, 0) rotate(1.2deg) scale(1.12); opacity: 0.7; }
+}
+@keyframes aurora-band-b {
+  from { transform: translate3d(5%, 2%, 0) rotate(0.8deg) scale(1.06); opacity: 0.5; }
+  to   { transform: translate3d(-5%, -1.5%, 0) rotate(-0.8deg) scale(1.02); opacity: 0.85; }
+}
+
+/* Mobile: dimmer stage (matches the ambient blobs' 0.32 mobile opacity),
+   the layers stay but never leave the compositor. */
+@media (max-width: 768px) {
+  .motion-backdrop {
+    opacity: 0.72;
+  }
+}
+
+/* The static ambient wash (hardcoded accent-green radials over a solid
+   --stage-bottom base) would otherwise paint OVER this stage — the motion
+   theme's own gradient already covers the viewport, so the wash yields. */
+html[data-theme="tides"] .ambient-sky,
+html[data-theme="aurora"] .ambient-sky {
+  background: transparent;
+}
