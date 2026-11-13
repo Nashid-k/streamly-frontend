@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   getMovieDetails: vi.fn(),
   getCollection: vi.fn(),
   getDiscover: vi.fn(),
+  getSimilarMovies: vi.fn(),
 }));
 
 vi.mock("../api/movieService", () => ({
@@ -20,7 +21,7 @@ vi.mock("../api/movieService", () => ({
     getMovieDetails: mocks.getMovieDetails,
     getCollection: mocks.getCollection,
     getDiscover: mocks.getDiscover,
-    getSimilarMovies: vi.fn().mockResolvedValue([]),
+    getSimilarMovies: mocks.getSimilarMovies,
     getSeasonEpisodes: vi.fn().mockResolvedValue([]),
     getTitleLogo: vi.fn().mockResolvedValue(null),
     classifyTrailer: vi.fn(() => "trailer"),
@@ -69,6 +70,11 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
 }
 if (!window.scrollTo) window.scrollTo = () => {};
 
+/* The page mounts a lot of tree before the rails resolve; the default 1s find
+   timeout is enough alone but not while the rest of the suite is saturating the
+   machine, which showed up as an intermittent first-test failure. */
+const FIND = { timeout: 5000 };
+
 const CURRENT_ID = "movie-2";
 const COLLECTION = { id: 86311, name: "The Avengers Collection", posterUrl: null, backdropUrl: null };
 
@@ -110,6 +116,8 @@ beforeEach(() => {
   mocks.getMovieDetails.mockReset();
   mocks.getCollection.mockReset();
   mocks.getDiscover.mockReset();
+  mocks.getSimilarMovies.mockReset();
+  mocks.getSimilarMovies.mockResolvedValue([]);
   mocks.getMovieDetails.mockResolvedValue(movieDetails());
   // getCollection already sorts by release date (covered in movieService.test);
   // the page must preserve that order rather than re-sorting or reversing it.
@@ -143,7 +151,11 @@ describe("TitleDetailsPage franchise rails", () => {
   it("lists the franchise's parts in release order and marks the current title", async () => {
     renderPage();
 
-    const heading = await screen.findByRole("heading", { name: /part of the avengers collection/i });
+    const heading = await screen.findByRole(
+      "heading",
+      { name: /part of the avengers collection/i },
+      FIND,
+    );
     expect(heading).toBeInTheDocument();
     expect(mocks.getCollection).toHaveBeenCalledWith(86311);
 
@@ -161,7 +173,7 @@ describe("TitleDetailsPage franchise rails", () => {
   it("shows the studio's own catalogue with the current title removed", async () => {
     renderPage();
 
-    const heading = await screen.findByRole("heading", { name: /more from marvel studios/i });
+    const heading = await screen.findByRole("heading", { name: /more from marvel studios/i }, FIND);
     expect(heading).toBeInTheDocument();
     expect(mocks.getDiscover).toHaveBeenCalledWith(
       expect.objectContaining({ mediaType: "movie", companyId: 420 }),
@@ -174,13 +186,26 @@ describe("TitleDetailsPage franchise rails", () => {
     expect(within(rail).queryByText("Age of Ultron")).toBeNull();
   });
 
+  it("places the studio rail above the algorithmic suggestions", async () => {
+    mocks.getSimilarMovies.mockResolvedValue([part("movie-9", "Thor", "2011-05-06")]);
+    renderPage();
+
+    const studio = await screen.findByRole("heading", { name: /more from marvel studios/i }, FIND);
+    const similar = await screen.findByRole("heading", { name: /you might also like/i }, FIND);
+    // The order is the user's: franchise chapters, then the studio's catalogue,
+    // then suggestions. DOCUMENT_POSITION_FOLLOWING means `similar` is later.
+    expect(
+      studio.compareDocumentPosition(similar) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("drops both rails when there is nothing real to show", async () => {
     mocks.getMovieDetails.mockResolvedValue(
       movieDetails({ collection: null, productionCompanies: [] }),
     );
     renderPage();
 
-    expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1 }, FIND)).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /part of/i })).toBeNull();
     expect(screen.queryByRole("heading", { name: /more from/i })).toBeNull();
     // Neither query should even be attempted without a collection/company.
@@ -196,7 +221,7 @@ describe("TitleDetailsPage franchise rails", () => {
     ]);
     renderPage();
 
-    await screen.findByRole("heading", { name: /part of the avengers collection/i });
+    await screen.findByRole("heading", { name: /part of the avengers collection/i }, FIND);
     expect(screen.queryByRole("heading", { name: /more from marvel studios/i })).toBeNull();
   });
 });

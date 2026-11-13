@@ -2067,6 +2067,49 @@ export default function TitleDetails() {
         </motion.section>
       )}
 
+      {/* ── More from <studio> ─────────────────────────────────────────────────
+          The company behind the title, discovered by its own id: a Marvel
+          Studios page, a YRF page, a Netflix-series page. Requirement for the
+          row is a real catalogue (>= 4 other titles), so small production
+          houses never get a stub strip. */}
+      {studioTitles.length > 0 && company && (
+        <motion.section
+          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
+          {...L.Reveal}
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
+            {company.logoUrl ? (
+              <img
+                className="detail-rail__brand"
+                src={company.logoUrl}
+                alt=""
+                aria-hidden="true"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            ) : null}
+            <motion.h2
+              className="text-xl lg:text-2xl font-bold text-white/90"
+              style={{ margin: 0 }}
+              {...L.Reveal}
+            >
+              More from {company.name}
+            </motion.h2>
+          </div>
+          <ErrorBoundary>
+            <DetailTitleRail
+              titles={studioTitles}
+              currentId={movie.id}
+              badgeLabel="You’re here"
+              ariaLabel={`More from ${company.name}`}
+            />
+          </ErrorBoundary>
+        </motion.section>
+      )}
+
       {/* ── More Like This ────────────────────────────────────────────────────── */}
       {(loading || (similar && similar.length > 0)) && (
         <motion.section
@@ -2113,48 +2156,6 @@ export default function TitleDetails() {
         </motion.section>
       )}
 
-      {/* ── More from <studio> ─────────────────────────────────────────────────
-          The company behind the title, discovered by its own id: a Marvel
-          Studios page, a YRF page, a Netflix-series page. Requirement for the
-          row is a real catalogue (>= 4 other titles), so small production
-          houses never get a stub strip. */}
-      {studioTitles.length > 0 && company && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
-            {company.logoUrl ? (
-              <img
-                className="detail-rail__brand"
-                src={company.logoUrl}
-                alt=""
-                aria-hidden="true"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            ) : null}
-            <motion.h2
-              className="text-xl lg:text-2xl font-bold text-white/90"
-              style={{ margin: 0 }}
-              {...L.Reveal}
-            >
-              More from {company.name}
-            </motion.h2>
-          </div>
-          <ErrorBoundary>
-            <DetailTitleRail
-              titles={studioTitles}
-              currentId={movie.id}
-              badgeLabel="You’re here"
-              ariaLabel={`More from ${company.name}`}
-            />
-          </ErrorBoundary>
-        </motion.section>
-      )}
 
       {/* ── More from Director ──────────────────────────────────────────────── */}
       {movie.director && similar.some(s => s.director && s.director === movie.director) && (
