@@ -1104,6 +1104,7 @@ const [playingOnAtlantic, setPlayingOnAtlantic] = useState(false);
                 aria-disabled={unreleased}
                 onClick={() => {
                   setPlayingOnAtlantic(true);
+                  setIsPlaying(true);
                   if (isTvContent) setPlayingEpisode(episodeToPlay);
                 }}
                 className="relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border border-white/20 bg-transparent text-white hover:bg-white/10 active:scale-95"
@@ -2303,7 +2304,7 @@ const [playingOnAtlantic, setPlayingOnAtlantic] = useState(false);
                               ? `S${selectedSeason}:E${playingEpisode}`
                               : releaseYear(movie)
                           }
-                          onClose={() => setPlayingOnAtlantic(false)}
+                          onClose={() => { setPlayingOnAtlantic(false); setIsPlaying(false); }}
                         />
                       ) : PROVIDER_EMBED_PLAYBACK || zxcNative === false ? (
                         <ProviderEmbedPlayer
