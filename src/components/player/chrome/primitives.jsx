@@ -243,27 +243,17 @@ function PlayerLoader({ still }) {
     );
   }
   return (
-    <div
+    <img
+      src="/brand/streamly-player-loader.gif"
+      alt=""
       aria-hidden="true"
+      draggable="false"
       style={{
         height: "clamp(72px, 11vw, 104px)",
-        width: "clamp(72px, 11vw, 104px)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        width: "auto",
+        maxWidth: "min(70vw, 300px)",
+        objectFit: "contain",
       }}
-    >
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          borderRadius: "50%",
-          border: "3px solid rgba(255,255,255,0.12)",
-          borderTopColor: "var(--accent-primary, #95ff50)",
-          borderRightColor: "var(--accent-secondary, #5ce21c)",
-          animation: "spin 0.8s linear infinite",
-        }}
-      />
-    </div>
+    />
   );
 }

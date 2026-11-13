@@ -231,9 +231,9 @@ export default function NativePlayerView({
     if (type === "tv") {
       const s = Math.max(1, Number(season) || 1);
       const e = Math.max(1, Number(episode) || 1);
-      return `${base}/tv/${cleanId}?s=${s}&e=${e}&autoplay=true&autonext=true`;
+      return `${base}/tv/${cleanId}?s=${s}&e=${e}&autoplay=true&autonext=true&muted=1`;
     }
-    return `${base}/movie/${cleanId}?autoplay=true`;
+    return `${base}/movie/${cleanId}?autoplay=true&muted=1`;
   }, [localPlayerMode, type, id, season, episode]);
 
 
