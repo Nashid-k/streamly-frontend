@@ -163,6 +163,10 @@ export default function useSourceResolve({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
+    // Guard against a dead upstream (e.g. Daedalus / RIVO) hanging the resolve
+    // indefinitely — a manual pick of an unresponsive server must not freeze the
+    // player UI forever. 20s is generous for a PoW mint + manifest probe.
+    const resolveTimeout = setTimeout(() => controller.abort(), 20000);
     // EPISODE SWITCH = COLD OPEN. hasStartedRef stays true from the previous
     // episode, so without dropping it the spinner effect classifies this wait
     // as a warm stall and shows only the light ring - the viewer never sees
@@ -1127,6 +1131,7 @@ export default function useSourceResolve({
     })();
 
     return () => {
+      clearTimeout(resolveTimeout);
       controller.abort();
       try {
         revealCleanup();
