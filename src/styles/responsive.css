@@ -440,7 +440,12 @@
     max-width: 100vw !important;
     margin-left: -50vw !important;
     margin-right: -50vw !important;
-    height: 85vh !important;
+    /* min(75vh, 560px), not 85vh: the hero art is always a 16:9 backdrop, and an
+       85vh portrait box cover-zooms it ~1.63x — only ~30% of the artwork width
+       survives and the subject pins to the top bezel. 560px keeps the
+       native-app feel at a ~1.27x crop. The skeleton shares this height, so the
+       banner mount never jumps. */
+    height: min(75vh, 560px) !important;
     min-height: 450px !important;
     max-height: none !important;
     mask-image: linear-gradient(

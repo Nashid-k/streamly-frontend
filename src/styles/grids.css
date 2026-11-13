@@ -100,18 +100,21 @@
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.movie-card:nth-child(1) { animation-delay: 0.05s; }
-.movie-card:nth-child(2) { animation-delay: 0.10s; }
-.movie-card:nth-child(3) { animation-delay: 0.15s; }
-.movie-card:nth-child(4) { animation-delay: 0.20s; }
-.movie-card:nth-child(5) { animation-delay: 0.25s; }
-.movie-card:nth-child(6) { animation-delay: 0.30s; }
-.movie-card:nth-child(7) { animation-delay: 0.35s; }
-.movie-card:nth-child(8) { animation-delay: 0.40s; }
-.movie-card:nth-child(9) { animation-delay: 0.45s; }
-.movie-card:nth-child(10) { animation-delay: 0.50s; }
-.movie-card:nth-child(11) { animation-delay: 0.55s; }
-.movie-card:nth-child(12) { animation-delay: 0.60s; }
+/* Stagger capped at 0.36s: hovering within the first second of a grid landing
+   used to show no lift because the enter animation owned transform for up to
+   1.1s. Same rhythm as the skeleton-card wave below. */
+.movie-card:nth-child(1) { animation-delay: 0.03s; }
+.movie-card:nth-child(2) { animation-delay: 0.06s; }
+.movie-card:nth-child(3) { animation-delay: 0.09s; }
+.movie-card:nth-child(4) { animation-delay: 0.12s; }
+.movie-card:nth-child(5) { animation-delay: 0.15s; }
+.movie-card:nth-child(6) { animation-delay: 0.18s; }
+.movie-card:nth-child(7) { animation-delay: 0.21s; }
+.movie-card:nth-child(8) { animation-delay: 0.24s; }
+.movie-card:nth-child(9) { animation-delay: 0.27s; }
+.movie-card:nth-child(10) { animation-delay: 0.30s; }
+.movie-card:nth-child(11) { animation-delay: 0.33s; }
+.movie-card:nth-child(12) { animation-delay: 0.36s; }
 
 .poster-wrapper {
   position: relative;
@@ -153,8 +156,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  /* No translateZ(0)/backface-visibility: those promoted EVERY poster (90+ on a
+     populated page) into a permanent compositor layer. The hover scale promotes
+     its own layer for the duration of the transition and Chrome rasters it
+     crisp at the settled scale. */
   transition: filter var(--duration-normal) var(--ease-out), transform 0.5s var(--anim-hover-ease);
 }
 

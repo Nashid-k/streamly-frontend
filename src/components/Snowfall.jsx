@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Snowfall as FallingSnow } from "falling-snow/react";
 import { useLocation } from "react-router-dom";
 import { useOptionalPreferences } from "../context/preferences";
@@ -43,7 +44,34 @@ export default function Snowfall() {
     !lowPower &&
     !pathname.startsWith("/watch/");
 
-  if (!enabled) return null;
+  /* Suspend once the banner moment is scrolled away: the renderer clears and
+     redraws a full-viewport canvas every animation frame, and snow only reads
+     as ambience over the hero/browse banners at the top of a page. Coalesced
+     through rAF so scrolling pays one boolean check per frame; the state only
+     flips at the threshold, so no re-render churn while scrolling. */
+  const [scrolledOut, setScrolledOut] = useState(false);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const out = window.scrollY > window.innerHeight * 1.25;
+      setScrolledOut((prev) => (prev === out ? prev : out));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+    // pathname: a route change can reset scroll without firing a scroll event,
+    // so the deep-scroll suspension must re-check on navigation.
+  }, [enabled, pathname]);
+
+  if (!enabled || scrolledOut) return null;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 

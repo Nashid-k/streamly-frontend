@@ -24,8 +24,11 @@
     transparent 100%
   );
   transform: translateX(-100%);
+  /* No will-change: an infinite animation promotes its own layer for as long as
+     it runs; the permanent hint held a layer for every mounted-but-offscreen
+     blur-up skeleton (66 on a populated home page) whose poster would not load
+     until scrolled near. */
   animation: shimmer-wave 2s ease-in-out infinite;
-  will-change: transform;
 }
 
 @keyframes shimmer-wave {
@@ -60,22 +63,23 @@
   );
 }
 
-/* Skeleton stagger — wave effect across cards */
+/* Skeleton stagger — the same rhythm as the real cardEnter wave (grids.css),
+   so the placeholder grid and the landed grid beat identically. */
 .skeleton-card {
   animation: skeleton-wave-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-.skeleton-card:nth-child(1) { animation-delay: 0s; }
-.skeleton-card:nth-child(2) { animation-delay: 0.05s; }
-.skeleton-card:nth-child(3) { animation-delay: 0.1s; }
-.skeleton-card:nth-child(4) { animation-delay: 0.15s; }
-.skeleton-card:nth-child(5) { animation-delay: 0.2s; }
-.skeleton-card:nth-child(6) { animation-delay: 0.25s; }
-.skeleton-card:nth-child(7) { animation-delay: 0.3s; }
-.skeleton-card:nth-child(8) { animation-delay: 0.35s; }
-.skeleton-card:nth-child(9) { animation-delay: 0.40s; }
-.skeleton-card:nth-child(10) { animation-delay: 0.45s; }
-.skeleton-card:nth-child(11) { animation-delay: 0.50s; }
-.skeleton-card:nth-child(12) { animation-delay: 0.55s; }
+.skeleton-card:nth-child(1) { animation-delay: 0.03s; }
+.skeleton-card:nth-child(2) { animation-delay: 0.06s; }
+.skeleton-card:nth-child(3) { animation-delay: 0.09s; }
+.skeleton-card:nth-child(4) { animation-delay: 0.12s; }
+.skeleton-card:nth-child(5) { animation-delay: 0.15s; }
+.skeleton-card:nth-child(6) { animation-delay: 0.18s; }
+.skeleton-card:nth-child(7) { animation-delay: 0.21s; }
+.skeleton-card:nth-child(8) { animation-delay: 0.24s; }
+.skeleton-card:nth-child(9) { animation-delay: 0.27s; }
+.skeleton-card:nth-child(10) { animation-delay: 0.30s; }
+.skeleton-card:nth-child(11) { animation-delay: 0.33s; }
+.skeleton-card:nth-child(12) { animation-delay: 0.36s; }
 
 @keyframes skeleton-wave-in {
   0% { opacity: 0; transform: translateY(12px) scale(0.97); }
@@ -213,26 +217,14 @@ html[data-reduce-motion="true"] .skeleton-card {
   animation: none;
 }
 
-/* Smooth image fade-in on load to prevent harsh pop-in */
-/* Scoped to specific elements only — avoids flicker on cached images during navigation */
 img {
   color: transparent; /* hide broken-image alt text */
 }
-.movie-poster,
-.details-poster-large {
-  animation: fadeInImage 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@keyframes fadeInImage {
-  from {
-    opacity: 0;
-    transform: scale(1.05);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+/* Poster pop-in is owned by MovieCard's inline opacity transition, which fires
+   on the image's own onLoad. The old fadeInImage keyframe started on ELEMENT
+   MOUNT for every .movie-poster/.details-poster-large — ~90 wasted 0.6s
+   animations per page, run invisibly for below-fold posters, and it fought the
+   hover scale during its window. Removed; the transition already fades. */
 
 /* Removed old cta-pulse — replaced with cta-glow in button section */
 

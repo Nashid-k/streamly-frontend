@@ -61,13 +61,10 @@ textarea:focus-visible {
     opacity 0.42s var(--ease-tv),
     transform 0.42s var(--ease-tv);
 }
-/* Compositor hint only while the reveal is pending: a page carries a dozen
-   revealed sections whose layers sat promoted forever once .is-visible
-   landed. Revealed sections drop the hint (the compositor keeps driving the
-   active transition regardless). */
-.fade-in-section:not(.is-visible) {
-  will-change: opacity, transform;
-}
+/* No will-change while pending: a page mounts a dozen below-fold sections, and
+   the hint reserved a full-width compositor layer for EACH before the user ever
+   reached it (~14 layers / ~40 MB of VRAM at load). The one-shot 0.42s reveal
+   transition promotes itself for its own duration. */
 .fade-in-section.is-visible {
   opacity: 1;
   transform: none;

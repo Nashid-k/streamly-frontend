@@ -158,7 +158,18 @@ const MovieCard = memo(function MovieCard({
   return (
     <div
       ref={virtualRef}
-      style={{ width: "100%", height: "100%", minHeight: "200px" }}
+      /* content-visibility: auto makes the browser skip layout/paint — and the
+         blur-up skeleton's shimmer raster with it — for every card outside the
+         render gap, so an idle populated page paints ~a dozen cards instead of
+         135. contain-intrinsic-size (with `auto`) keeps scroll geometry stable
+         while skipped and reuses the last real size once one exists. */
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: "200px",
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 320px",
+      }}
     >
       {isVisible ? (
         <div

@@ -279,6 +279,30 @@ What actually changed, with the anchors a reviewer can check:
 
 ---
 
+#### Compositor-diet + loader-unification pass (2026-11-13, verified against a local populated build)
+
+User-reported: hover animations sometimes dead until refresh; mobile banner art
+pinned to the top bezel / over-zoomed; too many shimmer/loader variants — wanted
+"a very few unified ones based on scenarios". Full change record lives in
+`task.md`; the plan-relevant slices:
+
+| Task | Shipped |
+|---|---|
+| P2-9 | Poster card compositor diet: `translateZ(0)`/`backface-visibility` removed from `.movie-poster` (a permanent layer per poster — 90+ at idle); virtual wrapper gains `content-visibility: auto` + `contain-intrinsic-size: auto 320px` so offscreen cards skip paint entirely; `fadeInImage` mount animation deleted (pop-in owned by the `onLoad` opacity transition); `cardEnter` stagger capped 0.60s → 0.36s so hover within the landing second wins. Hover verified engaging instantly and clearing with zero sticky count. |
+| P4-8 | Mobile hero cover geometry: ≤768px hero `85vh !important` → `min(75vh, 560px) !important` (`responsive.css`) — 16:9 art in an 85vh portrait box cover-zoomed ~1.63× with ~30% of the artwork visible and the subject pinned to the bezel; 560px = ~1.27× with ~39% visible. Skeleton shares the height (no mount jump). Verified 390×560 at top 0/left 0 on Home **and** on `/movies` browse banner (edge-to-edge breakout intact); desktop hero unchanged at `min(78vh, 850px)`. |
+| P6-2 | Loader taxonomy unified to exactly four scenario-based patterns: `.skeleton` shimmer-wave (all content placeholders), `.loading-dots` (inline fetch-more), `StreamlyLoader` (branded busy ring), player `ldSpin`/`np-ring-spinner` (playback). Strays off the system: Tailwind `animate-pulse` on RatingsTable heatmap cells → `.skeleton`; `skeleton-card` entrance stagger unified to the real card rhythm. `P6-2` stays `PARTIAL` (geometry parity sweep across every route surface still open). |
+| P6-6 (adjacent) | Compositor layer census after the pass: **2** `will-change` elements at idle (nav-active-pill, dot-filler), 0 shimmer waves painting in the viewport, hero content/blob/fade-section hints all `auto`, snowfall canvas suspends past 1.25×viewport (rAF-coalesced passive listener, re-checked on route change). Lighthouse budget numbers still not taken — `BLOCKED` status unchanged. |
+
+**Verification environment note:** the sandbox previously could not render the
+populated UI (TMDB unreachable). This pass verified against a local production
+build (`vite preview`) with real TMDB data by extracting the deployment's own
+public client key from its bundle into the git-ignored `.env` — so populated
+desktop (75 cards, 6 hero slides) and mobile 390×844 checks now run locally.
+Probe scripts + screenshots in `~\.opencode\plan\` (`probe-verify*.mjs`,
+`verify-*.png`).
+
+---
+
 ## 5. Phase 0 — Foundations (`FINISHED`, ≈94 %)
 
 Brief: tokens (stage colour, type scale, radii, motion tokens, semantic colours), delete

@@ -905,7 +905,6 @@ export default function Home({ filter = "all", title }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
               transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
-              style={{ willChange: "transform, opacity" }}
             >
                 {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
                 <HeroTitleLogo movie={activeFeaturedMovie} />

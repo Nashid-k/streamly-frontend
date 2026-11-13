@@ -230,7 +230,9 @@
   border-radius: 50%;
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  will-change: transform;
+  /* No will-change: the 46-66s infinite drift animations keep their layers
+     promoted for as long as they run; the permanent hint reserved three
+     ~40vw-square textures up front. */
   pointer-events: none;
 }
 .ambient-liquid__blob--a {

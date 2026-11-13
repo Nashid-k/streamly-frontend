@@ -232,7 +232,7 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
                       Array.from({ length: gridCols }).map((_, i) => (
                         <div
                           key={`sk-${row.seasonNumber}-${i}`}
-                          className="animate-pulse rounded-[5px] bg-white/[0.04]"
+                          className="skeleton rounded-[5px]"
                           style={{ height: cellSize }}
                         />
                       ))
