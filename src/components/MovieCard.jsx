@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, memo } from "react";
+import { useCallback, useState, useEffect, useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Star, Play } from "lucide-react";
 import slugify from "slugify";
