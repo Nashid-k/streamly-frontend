@@ -68,7 +68,7 @@ const BrowseByProviderRail = memo(function BrowseByProviderRail() {
               aria-label={p.name}
               title={p.name}
             >
-              <div className="provider__logo w-16 h-16 lg:w-20 lg:h-20 rounded-[14px] overflow-hidden bg-white/5 border border-white/10 shadow-lg shadow-black/50 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-108 group-hover:border-white/30 group-hover:shadow-black/70">
+              <div className="provider__logo w-16 h-16 lg:w-20 lg:h-20 rounded-[20px] overflow-hidden bg-white/5 border border-white/10 shadow-lg shadow-black/50 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-108 group-hover:border-white/30 group-hover:shadow-black/70">
                 <img
                   src={p.logo}
                   alt={p.name}

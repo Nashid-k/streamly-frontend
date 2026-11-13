@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { PRESS_SCALE } from "../constants/motion";
 import { MotionLeaf } from "./MotionLeaf";
@@ -9,54 +10,24 @@ import { ChevronUp } from "lucide-react";
  * while the video player is open (matches GlobalShortcuts' player detection)
  * so it never overlaps the player UI.
  */
-const PLAYER_IFRAME_SELECTOR =
-  'iframe[src*="cinesrc"], iframe[src*="vidlink"], iframe[src*="vidsrc"], iframe[src*="vidcore"], iframe[src*="peachify"], iframe[src*="vidup"], iframe[src*="smashystream"], iframe[src*="zxcstream"]';
-
 const SCROLL_THRESHOLD = 600;
 
-function isPlayerActive() {
-  return !!document.querySelector(PLAYER_IFRAME_SELECTOR);
-}
-
 export default function BackToTop() {
+  const { pathname } = useLocation();
   const [visible, setVisible] = useState(false);
-  // Declared unconditionally: the button itself mounts inside `{visible && ...}`,
-  // so a MotionLeaf constructed there would change the hook count on scroll.
-  const L = new MotionLeaf();
-  // `L.reduced` combines the OS media query with the in-app Reduce Motion
-  // setting; smooth scrolling has to honor both or the CSS reduced-motion
-  // override in tokens.css never gets a say over window.scrollTo.
+  const L = MotionLeaf();
+  const isPlayerActive = pathname.startsWith("/watch/");
   const scrollBehavior = L.reduced ? "auto" : "smooth";
 
   useEffect(() => {
-    let interval = null;
     let frameId = 0;
 
-    // Re-evaluate while idle — e.g. the player opens/closes without a scroll
-    // event. The check only runs while the button can actually be shown
-    // (scrolled past threshold), so we never poll the DOM at the top.
     const startPlayerCheck = () => {
       if (window.scrollY > SCROLL_THRESHOLD) {
-        const nextVisible = !isPlayerActive();
+        const nextVisible = !isPlayerActive;
         setVisible((prev) => (prev === nextVisible ? prev : nextVisible));
-        if (!interval) {
-          interval = window.setInterval(() => {
-            if (window.scrollY <= SCROLL_THRESHOLD) {
-              window.clearInterval(interval);
-              interval = null;
-              setVisible(false);
-              return;
-            }
-            const active = !isPlayerActive();
-            setVisible((prev) => (prev === active ? prev : active));
-          }, 1500);
-        }
       } else {
         setVisible((prev) => (prev ? false : prev));
-        if (interval) {
-          window.clearInterval(interval);
-          interval = null;
-        }
       }
     };
 
@@ -72,9 +43,8 @@ export default function BackToTop() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
       if (frameId) window.cancelAnimationFrame(frameId);
-      if (interval) window.clearInterval(interval);
     };
-  }, []);
+  }, [isPlayerActive]);
 
   return (
     <AnimatePresence>

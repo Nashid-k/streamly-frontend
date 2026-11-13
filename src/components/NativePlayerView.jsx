@@ -303,10 +303,8 @@ export default function NativePlayerView({
         try {
           const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
           return { ...rivo, server: rivo.server || "1" };
-        } catch {
-          // Server 1 has no source for this title — hand to the saved order's
-          // first non-Server-1 row (`prefer` walks the health rotation inside
-          // that same request when it has no source either).
+        } catch (error) {
+          if (error?.name === "AbortError") throw error;
           return next.resolve(a, o);
         }
       },

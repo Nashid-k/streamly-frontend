@@ -1,4 +1,6 @@
+import { useState, useEffect } from "react";
 import { Snowfall as FallingSnow } from "falling-snow/react";
+import { useLocation } from "react-router-dom";
 import { useOptionalPreferences } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
 import { resolveSeasonalEffect } from "../utils/seasonal";
@@ -14,6 +16,7 @@ export default function SummerGlow() {
   const prefs = useOptionalPreferences();
   const osReduced = useReducedMotion();
   const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const { pathname } = useLocation();
   const month = new Date().getMonth();
   const effect = resolveSeasonalEffect({
     dynamic: prefs?.dynamic !== false,
@@ -24,9 +27,28 @@ export default function SummerGlow() {
     typeof navigator !== "undefined" &&
     (navigator.hardwareConcurrency <= 4 ||
       (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
-  const enabled = effect === "glow" && !reduceMotion && !lowPower;
+  const enabled = effect === "glow" && !reduceMotion && !lowPower && !pathname.startsWith("/watch/");
+  const [scrolledOut, setScrolledOut] = useState(false);
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let raf = 0;
+    const check = () => {
+      raf = 0;
+      const out = window.scrollY > window.innerHeight * 1.25;
+      setScrolledOut((prev) => (prev === out ? prev : out));
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(check);
+    };
+    check();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [enabled, pathname]);
 
-  if (!enabled) return null;
+  if (!enabled || scrolledOut) return null;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 

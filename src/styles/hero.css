@@ -240,7 +240,7 @@
   height: 46vw;
   left: -10%;
   top: -14%;
-  background: radial-gradient(circle at 38% 38%, rgba(149, 255, 80, 0.38) 0%, rgba(149, 255, 80, 0.2) 28%, rgba(149, 255, 80, 0.06) 52%, transparent 72%);
+  background: radial-gradient(circle at 38% 38%, rgba(var(--accent-primary-rgb, 149, 255, 80), 0.32) 0%, rgba(var(--accent-primary-rgb, 149, 255, 80), 0.16) 28%, rgba(var(--accent-primary-rgb, 149, 255, 80), 0.05) 52%, transparent 72%);
   animation: ambient-blob-a 46s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--b {
@@ -248,7 +248,7 @@
   height: 38vw;
   right: -8%;
   top: 18%;
-  background: radial-gradient(circle at 55% 42%, rgba(92, 226, 28, 0.34) 0%, rgba(92, 226, 28, 0.17) 30%, rgba(92, 226, 28, 0.05) 50%, transparent 70%);
+  background: radial-gradient(circle at 55% 42%, rgba(var(--accent-secondary-rgb, 92, 226, 28), 0.28) 0%, rgba(var(--accent-secondary-rgb, 92, 226, 28), 0.14) 30%, rgba(var(--accent-secondary-rgb, 92, 226, 28), 0.04) 50%, transparent 70%);
   animation: ambient-blob-b 58s ease-in-out infinite alternate;
 }
 .ambient-liquid__blob--c {
@@ -268,9 +268,7 @@
   height: 116%;
   object-fit: cover;
   transform: translate3d(0, 0, 0);
-  filter: blur(18px) saturate(115%);
-  -webkit-filter: blur(18px) saturate(115%);
-  opacity: 0.45;
+  opacity: 0.28;
   backface-visibility: hidden;
   pointer-events: none;
 }

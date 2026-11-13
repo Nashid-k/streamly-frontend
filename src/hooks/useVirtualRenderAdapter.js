@@ -48,17 +48,6 @@ export function useVirtualRenderAdapter(rootMargin = "200px") {
   useEffect(() => {
     if (!node) return undefined;
 
-    // Fast path: anything already inside the viewport paints immediately
-    // rather than waiting a frame for observer delivery, so the first screenful
-    // of cards never renders as empty boxes.
-    const rect = node.getBoundingClientRect();
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const margin = parseFloat(rootMargin) || 0;
-    if (rect.bottom >= -margin && rect.top <= viewportHeight + margin) {
-      setIsVisible(true);
-      return undefined;
-    }
-
     const observer = acquireObserver(rootMargin);
     subscribers.set(node, () => setIsVisible(true));
     observer.observe(node);

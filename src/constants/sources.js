@@ -26,6 +26,7 @@
    and silently bypasses tests that mock the download service (it did, and the
    real resolver went to the network mid-test). */
 import { streamResolve } from "../api/streamResolve";
+import { logDebug } from "../utils/debugLogger";
 
 /* Order matters twice over: it is the display number AND the auto-rotation
    order, so a row that is unreliable belongs late.
@@ -211,11 +212,25 @@ export const AUTO_SOURCE = {
       const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
       // RIVO answered — Server 1 is the start of the line, done.
       return { ...rivo, server: rivo.server || "1" };
-    } catch {
-      // RIVO has no source for this title — hand off to Server 2 (ZXC Orion)
-      // by NAME, the next row in menu order. NOT `auto`: that lets the backend
-      // pick whichever backend wins the health race, which is how the no-pick
-      // path surfaced a late row ("Server 7") instead of starting at the top.
+    } catch (error) {
+      // AbortError = resolve was cancelled (route change or manual server
+      // pick mid-flight). Must propagate — do NOT start a ZXC stream from a
+      // stale run.
+      if (error?.name === "AbortError") throw error;
+
+      // All other RIVO outcomes fall through to ZXC orion:
+      //   code: "no-source" → title absent on RIVO
+      //   code: "upstream"  → RIVO has metadata but CDN sources empty (HTTP 200,
+      //                      sources:[] — the dominant "Server 4" trigger case)
+      //   network / parse   → RIVO unreachable; ZXC is the fallback
+      logDebug("stream", "AUTO: RIVO fallthrough → ZXC orion", {
+        code: error?.code,
+        name: error?.name,
+        message: error?.message?.slice(0, 80),
+      });
+
+      // Prefer orion by NAME. NOT "auto" — "auto" lets the backend pick the
+      // healthiest ZXC backend which may be Server 4/5/7 if orion cooled.
       return await streamResolve.resolveZxc({ ...a, prefer: "orion" }, o);
     }
   },

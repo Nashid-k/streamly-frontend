@@ -1,4 +1,4 @@
-/* ── Live motion themes (tides / aurora) ─────────────────────────────────
+/* ── Live motion themes (tides / aurora / cyberpunk / sunset / midnight / nebula / glacier) ──
    THEMES with a built-in living backdrop. The stage is ONE fixed element
    (z-index -1: above the body background, below every page surface) holding
    exactly two composited layers. Performance contract, same as the ambient
@@ -7,7 +7,7 @@
    · every gradient's softness is baked into the gradient falloff — no
      filter: blur() anywhere, so no per-frame re-blur;
    · the ONLY animated properties are transform (translate3d/rotate/scale)
-     and opacity — pure compositor work, no layout, no paint;
+     and opacity — pure compositor thread work, no layout, no paint;
    · layers are oversized (inset -25%) so drift never exposes an edge;
    · contain: strict + backface-visibility on each layer; no will-change —
      the infinite drift animations keep their layers promoted while running;
@@ -15,7 +15,7 @@
      0.01ms for prefers-reduced-motion, and MotionBackdrop does not mount
      at all when the viewer's reduceMotion preference is on or the device
      is low-power;
-   · hidden tabs stop compositing entirely, so a background tab costs zero. */
+   · hidden browser tabs automatically stop compositor animation ticks. */
 
 .motion-backdrop {
   position: fixed;
@@ -106,17 +106,160 @@
   to   { transform: translate3d(-5%, -1.5%, 0) rotate(-0.8deg) scale(1.02); opacity: 0.85; }
 }
 
-/* Mobile: dimmer stage (matches the ambient blobs' 0.32 mobile opacity),
-   the layers stay but never leave the compositor. */
+/* ── Neo Tokyo / Cyberpunk: drifting neon grid washes ── */
+.motion-backdrop--cyberpunk {
+  background: linear-gradient(180deg, #050512 0%, #0d0824 55%, #050510 100%);
+}
+.motion-backdrop--cyberpunk .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(35% 25% at 20% 20%, rgba(0, 240, 255, 0.12), transparent 60%),
+    radial-gradient(40% 30% at 80% 80%, rgba(255, 0, 127, 0.11), transparent 65%),
+    radial-gradient(30% 20% at 50% 40%, rgba(0, 240, 255, 0.08), transparent 55%);
+  animation: cyberpunk-drift-a 45s ease-in-out infinite alternate;
+}
+.motion-backdrop--cyberpunk .motion-backdrop__layer--b {
+  background:
+    radial-gradient(45% 35% at 75% 25%, rgba(255, 0, 127, 0.10), transparent 60%),
+    radial-gradient(35% 25% at 25% 75%, rgba(0, 240, 255, 0.09), transparent 55%);
+  opacity: 0.7;
+  animation: cyberpunk-drift-b 60s ease-in-out infinite alternate;
+  animation-delay: -15s;
+}
+@keyframes cyberpunk-drift-a {
+  from { transform: translate3d(-4%, -2%, 0) rotate(-1deg) scale(1.05); }
+  to   { transform: translate3d(4%, 3%, 0) rotate(1deg) scale(1.1); }
+}
+@keyframes cyberpunk-drift-b {
+  from { transform: translate3d(3%, 4%, 0) scale(1.08); }
+  to   { transform: translate3d(-3%, -3%, 0) scale(1.02); }
+}
+
+/* ── Mirage Sunset: warm dusk horizon flow ── */
+.motion-backdrop--sunset {
+  background: linear-gradient(180deg, #120608 0%, #240a12 55%, #100407 100%);
+}
+.motion-backdrop--sunset .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(45% 30% at 30% 30%, rgba(255, 107, 107, 0.14), transparent 65%),
+    radial-gradient(38% 28% at 70% 60%, rgba(255, 165, 2, 0.10), transparent 60%);
+  animation: sunset-drift-a 50s ease-in-out infinite alternate;
+}
+.motion-backdrop--sunset .motion-backdrop__layer--b {
+  background:
+    radial-gradient(40% 30% at 65% 25%, rgba(255, 165, 2, 0.11), transparent 60%),
+    radial-gradient(35% 25% at 20% 75%, rgba(255, 107, 107, 0.08), transparent 55%);
+  opacity: 0.65;
+  animation: sunset-drift-b 65s ease-in-out infinite alternate;
+  animation-delay: -20s;
+}
+@keyframes sunset-drift-a {
+  from { transform: translate3d(-3%, -3%, 0) rotate(0.8deg) scale(1.04); }
+  to   { transform: translate3d(3.5%, 2%, 0) rotate(-0.8deg) scale(1.1); }
+}
+@keyframes sunset-drift-b {
+  from { transform: translate3d(2.5%, 3%, 0) scale(1.08); }
+  to   { transform: translate3d(-3%, -2.5%, 0) scale(1.02); }
+}
+
+/* ── Obsidian Neon / Midnight: cosmic indigo pulse ── */
+.motion-backdrop--midnight {
+  background: linear-gradient(180deg, #030412 0%, #070926 55%, #02030d 100%);
+}
+.motion-backdrop--midnight .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(42% 32% at 25% 25%, rgba(129, 140, 248, 0.13), transparent 62%),
+    radial-gradient(36% 26% at 75% 65%, rgba(79, 70, 229, 0.12), transparent 58%);
+  animation: midnight-drift-a 48s ease-in-out infinite alternate;
+}
+.motion-backdrop--midnight .motion-backdrop__layer--b {
+  background:
+    radial-gradient(46% 34% at 70% 28%, rgba(79, 70, 229, 0.10), transparent 60%),
+    radial-gradient(32% 22% at 20% 70%, rgba(129, 140, 248, 0.08), transparent 56%);
+  opacity: 0.7;
+  animation: midnight-drift-b 62s ease-in-out infinite alternate;
+  animation-delay: -18s;
+}
+@keyframes midnight-drift-a {
+  from { transform: translate3d(-5%, -2%, 0) rotate(-1deg) scale(1.05); }
+  to   { transform: translate3d(5%, 3%, 0) rotate(1deg) scale(1.12); }
+}
+@keyframes midnight-drift-b {
+  from { transform: translate3d(4%, 3%, 0) scale(1.08); }
+  to   { transform: translate3d(-4%, -2%, 0) scale(1.02); }
+}
+
+/* ── Deep Nebula: celestial ultraviolet drift ── */
+.motion-backdrop--nebula {
+  background: linear-gradient(180deg, #0b0214 0%, #170529 55%, #08010f 100%);
+}
+.motion-backdrop--nebula .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(44% 30% at 30% 25%, rgba(167, 139, 250, 0.13), transparent 62%),
+    radial-gradient(38% 28% at 70% 70%, rgba(236, 72, 153, 0.11), transparent 60%);
+  animation: nebula-drift-a 52s ease-in-out infinite alternate;
+}
+.motion-backdrop--nebula .motion-backdrop__layer--b {
+  background:
+    radial-gradient(42% 32% at 72% 30%, rgba(236, 72, 153, 0.10), transparent 60%),
+    radial-gradient(30% 20% at 18% 75%, rgba(167, 139, 250, 0.08), transparent 55%);
+  opacity: 0.68;
+  animation: nebula-drift-b 68s ease-in-out infinite alternate;
+  animation-delay: -22s;
+}
+@keyframes nebula-drift-a {
+  from { transform: translate3d(-4%, -3%, 0) rotate(0.9deg) scale(1.05); }
+  to   { transform: translate3d(4%, 2%, 0) rotate(-0.9deg) scale(1.11); }
+}
+@keyframes nebula-drift-b {
+  from { transform: translate3d(3%, 3%, 0) scale(1.07); }
+  to   { transform: translate3d(-3%, -2.5%, 0) scale(1.02); }
+}
+
+/* ── Nordic Frost / Glacier: arctic blue slow surge ── */
+.motion-backdrop--glacier {
+  background: linear-gradient(180deg, #010c14 0%, #031826 55%, #010a11 100%);
+}
+.motion-backdrop--glacier .motion-backdrop__layer {
+  inset: -25%;
+  background:
+    radial-gradient(40% 28% at 25% 25%, rgba(56, 189, 248, 0.13), transparent 60%),
+    radial-gradient(36% 26% at 72% 68%, rgba(2, 132, 199, 0.11), transparent 58%);
+  animation: glacier-drift-a 46s ease-in-out infinite alternate;
+}
+.motion-backdrop--glacier .motion-backdrop__layer--b {
+  background:
+    radial-gradient(44% 30% at 70% 26%, rgba(2, 132, 199, 0.10), transparent 60%),
+    radial-gradient(30% 20% at 20% 72%, rgba(56, 189, 248, 0.08), transparent 56%);
+  opacity: 0.7;
+  animation: glacier-drift-b 64s ease-in-out infinite alternate;
+  animation-delay: -16s;
+}
+@keyframes glacier-drift-a {
+  from { transform: translate3d(-3%, -2%, 0) rotate(-0.8deg) scale(1.04); }
+  to   { transform: translate3d(3%, 3%, 0) rotate(0.8deg) scale(1.1); }
+}
+@keyframes glacier-drift-b {
+  from { transform: translate3d(2.5%, 3%, 0) scale(1.08); }
+  to   { transform: translate3d(-2.5%, -2%, 0) scale(1.02); }
+}
+
+/* Mobile: dimmer stage (matches the ambient blobs' 0.32 mobile opacity) */
 @media (max-width: 768px) {
   .motion-backdrop {
     opacity: 0.72;
   }
 }
 
-/* The static ambient wash (hardcoded accent-green radials over a solid
-   --stage-bottom base) would otherwise paint OVER this stage — the motion
-   theme's own gradient already covers the viewport, so the wash yields. */
+/* The static ambient wash yields for ALL motion themes */
+html[data-theme="cyberpunk"] .ambient-sky,
+html[data-theme="sunset"] .ambient-sky,
+html[data-theme="midnight"] .ambient-sky,
+html[data-theme="nebula"] .ambient-sky,
+html[data-theme="glacier"] .ambient-sky,
 html[data-theme="tides"] .ambient-sky,
 html[data-theme="aurora"] .ambient-sky {
   background: transparent;

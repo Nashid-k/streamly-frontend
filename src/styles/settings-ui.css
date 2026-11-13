@@ -161,6 +161,71 @@ html[data-theme="aurora"] {
   --theme-global-accentB: #7c5cf0;
 }
 
+html[data-theme="cyberpunk"] {
+  --accent-gradient: linear-gradient(135deg, #00f0ff, #ff007f) !important;
+  --accent-color: #00f0ff !important;
+  --accent-primary: #00f0ff !important;
+  --accent-secondary: #ff007f !important;
+  --accent-primary-rgb: 0, 240, 255 !important;
+  --accent-secondary-rgb: 255, 0, 127 !important;
+  --accent-glow: rgba(0, 240, 255, 0.45) !important;
+  --on-accent: #001a1f !important;
+  --theme-global-accentA: #00f0ff;
+  --theme-global-accentB: #ff007f;
+}
+
+html[data-theme="sunset"] {
+  --accent-gradient: linear-gradient(135deg, #ff6b6b, #ffa502) !important;
+  --accent-color: #ff6b6b !important;
+  --accent-primary: #ff6b6b !important;
+  --accent-secondary: #ffa502 !important;
+  --accent-primary-rgb: 255, 107, 107 !important;
+  --accent-secondary-rgb: 255, 165, 2 !important;
+  --accent-glow: rgba(255, 107, 107, 0.4) !important;
+  --on-accent: #260700 !important;
+  --theme-global-accentA: #ff6b6b;
+  --theme-global-accentB: #ffa502;
+}
+
+html[data-theme="midnight"] {
+  --accent-gradient: linear-gradient(135deg, #818cf8, #4f46e5) !important;
+  --accent-color: #818cf8 !important;
+  --accent-primary: #818cf8 !important;
+  --accent-secondary: #4f46e5 !important;
+  --accent-primary-rgb: 129, 140, 248 !important;
+  --accent-secondary-rgb: 79, 70, 229 !important;
+  --accent-glow: rgba(129, 140, 248, 0.4) !important;
+  --on-accent: #ffffff !important;
+  --theme-global-accentA: #818cf8;
+  --theme-global-accentB: #4f46e5;
+}
+
+html[data-theme="nebula"] {
+  --accent-gradient: linear-gradient(135deg, #a78bfa, #ec4899) !important;
+  --accent-color: #a78bfa !important;
+  --accent-primary: #a78bfa !important;
+  --accent-secondary: #ec4899 !important;
+  --accent-primary-rgb: 167, 139, 250 !important;
+  --accent-secondary-rgb: 236, 72, 153 !important;
+  --accent-glow: rgba(167, 139, 250, 0.4) !important;
+  --on-accent: #1a0526 !important;
+  --theme-global-accentA: #a78bfa;
+  --theme-global-accentB: #ec4899;
+}
+
+html[data-theme="glacier"] {
+  --accent-gradient: linear-gradient(135deg, #38bdf8, #0284c7) !important;
+  --accent-color: #38bdf8 !important;
+  --accent-primary: #38bdf8 !important;
+  --accent-secondary: #0284c7 !important;
+  --accent-primary-rgb: 56, 189, 248 !important;
+  --accent-secondary-rgb: 2, 132, 199 !important;
+  --accent-glow: rgba(56, 189, 248, 0.4) !important;
+  --on-accent: #031a29 !important;
+  --theme-global-accentA: #38bdf8;
+  --theme-global-accentB: #0284c7;
+}
+
 /* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
    Mirrors the movies/series/my-list toolbar: frosted capsule triggers that
    wrap on narrow screens, active pill tinted with the interface accent. */

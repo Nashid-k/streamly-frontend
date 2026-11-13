@@ -92,6 +92,45 @@ export const THEMES = [
     secondary: "#7c5cf0",
     motion: "aurora",
   },
+  /* 5 modern cinema palettes (implementation-plan T4): each carries a motion
+     variant so it gets a live backdrop (T5). Seasonal themes (christmas,
+     autumn, spring, summer, winter) are KEPT — they drive the seasonal effect
+     resolver in utils/seasonal.js; these are additive. */
+  {
+    id: "cyberpunk",
+    name: "Neo Tokyo",
+    primary: "#00f0ff",
+    secondary: "#ff007f",
+    motion: "cyberpunk",
+  },
+  {
+    id: "sunset",
+    name: "Mirage Sunset",
+    primary: "#ff6b6b",
+    secondary: "#ffa502",
+    motion: "sunset",
+  },
+  {
+    id: "midnight",
+    name: "Obsidian Neon",
+    primary: "#818cf8",
+    secondary: "#4f46e5",
+    motion: "midnight",
+  },
+  {
+    id: "nebula",
+    name: "Deep Nebula",
+    primary: "#a78bfa",
+    secondary: "#ec4899",
+    motion: "nebula",
+  },
+  {
+    id: "glacier",
+    name: "Nordic Frost",
+    primary: "#38bdf8",
+    secondary: "#0284c7",
+    motion: "glacier",
+  },
 ];
 
 /* Which theme ids ship a live motion backdrop (MotionBackdrop / CSS). */
@@ -210,6 +249,7 @@ export const SECTION_SEARCH_TERMS = {
     "appearance look theme color palette interface",
     "signature green cinejoy emerald amethyst violet ocean cyan crimson ruby solar amber christmas autumn spring summer winter",
     "living tides aurora drift live motion background animated water flow northern lights moving backdrop",
+    "neo tokyo cyberpunk mirage sunset obsidian neon midnight deep nebula nordic frost glacier",
     "custom accent pick any color customize",
     "episode view style carousel rails grids lists series pages",
     "detail view type full info page quick modal page modal",

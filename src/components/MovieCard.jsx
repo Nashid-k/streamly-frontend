@@ -56,6 +56,7 @@ const MovieCard = memo(function MovieCard({
   const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
   const preferences = useOptionalPreferences();
+  const hdThumbs = preferences?.hdThumbs;
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
@@ -138,9 +139,9 @@ const MovieCard = memo(function MovieCard({
   // Fallback so every card has an image: poster → backdrop, else a branded
   // monogram tile. Never render a broken <img>.
   const posterPath = movie.posterUrl || movie.backdropUrl;
-  const posterSrc = CdnImageAdapter.getUrl(
-    posterPath,
-    pickImageWidth("card", preferences),
+  const posterSrc = useMemo(
+    () => CdnImageAdapter.getUrl(posterPath, pickImageWidth("card", { hdThumbs })),
+    [posterPath, hdThumbs],
   );
 
   useEffect(() => {
