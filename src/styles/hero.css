@@ -4,12 +4,15 @@
   left: 50%;
   width: 100vw;
   margin-left: -50vw;
+  /* Start the banner below the floating header instead of behind it, so its top
+     is never hidden under the browser chrome / header islands. */
+  margin-top: 56px !important;
+  padding-top: 0;
   height: min(78vh, 850px);
   min-height: 480px;
   max-height: 850px;
   border-radius: 0;
   overflow: hidden;
-  margin-top: 0;
   margin-bottom: 0;
   box-shadow: none;
   border: none;

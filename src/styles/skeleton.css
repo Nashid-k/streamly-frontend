@@ -92,7 +92,8 @@
   min-height: 560px;
   max-height: 900px;
   border-radius: 0;
-  margin-top: 0;
+  margin-top: 56px;
+  padding-top: 0;
   margin-bottom: 0;
   position: relative;
 }
