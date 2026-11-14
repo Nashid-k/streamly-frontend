@@ -20,7 +20,6 @@
   animation: bannerProgress 8s linear forwards;
   transform-origin: left;
   width: 100%;
-  will-change: transform;
 }
 
 /* The old `.animate-spin` utility is gone: loading states spin the branded
@@ -35,9 +34,11 @@
 
 .cast-rail__scroll {
   -webkit-overflow-scrolling: touch;
+  /* No `transition: mask-image`: a gradient mask cannot be interpolated, so the
+     browser repaints the whole rail twice for a snap the eye never sees. The
+     is-at-start/is-at-end classes below swap the fade instantly. */
   -webkit-mask-image: linear-gradient(to right, transparent, var(--black) 5%, var(--black) 95%, transparent);
   mask-image: linear-gradient(to right, transparent, var(--black) 5%, var(--black) 95%, transparent);
-  transition: -webkit-mask-image var(--duration-fast) var(--ease-out), mask-image var(--duration-fast) var(--ease-out);
 }
 .cast-rail__scroll.is-at-start {
   -webkit-mask-image: linear-gradient(to right, var(--black) 0%, var(--black) 95%, transparent);

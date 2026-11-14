@@ -959,6 +959,16 @@ Never mark a blocked task done. Completion % is recomputed as
    grid ladder (`3/4/5/6/7` columns) and a zero-horizontal-overflow check at five widths. What
    cannot be done here is the **populated** UI and any perf number: `api.themoviedb.org`
    returns status `000` from this sandbox.
+   **Update 2026-11-14:** populated production *was* measurable through Obscura, so layout is
+   now proven there (rail/search alignment, 0 GIFs, server order in the deployed bundle). Perf
+   is still unproven: Obscura's longtask/CLS/LCP/resource-timing observations and
+   `getAnimations()` all come back empty, and its frame pacing is 4–12 fps regardless of page,
+   so its scroll timings are only useful as a relative ranking (Home ≈3× heavier than
+   /movies, matching 90 vs 20 cards). Without engine-neutral work removed anyway: responsive
+   card `srcSet`/`sizes` (was one fixed w342/w500 per card), CDN-baked placeholder blur (was
+   one `filter: blur()` layer per unloaded card), the `mask-image` transition on cast rails and
+   the permanent `will-change` on the hero progress bar. A single real Chromium trace of Home
+   scroll is still the gate before touching the rail masks or mobile snap mode.
 10. **P4-3 where-to-watch data.** Does a stream/rent/buy availability payload exist in the
     frozen contract? If not, the grouping UI must ship only with data we actually have.
 11. **P4/P5 scope.** Phases 4 and 5 are the next two phases; Phase 4's where-to-watch block is

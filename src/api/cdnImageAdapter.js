@@ -69,9 +69,14 @@ export class CdnImageAdapter {
     return `https://image.tmdb.org/t/p/${size}/${cleanPath}`;
   }
 
-    /** Tiny blur-up placeholder (<2KB) for the initial src before the real image. */
-  static getTinyUrl(path) {
-    return this.getUrl(path, "w92");
+    /** Tiny blur-up placeholder (<2KB) for the initial src before the real image.
+        `blur` bakes the gaussian into the wsrv response (parameter probed live:
+        `&blur=12` returns a much smaller WebP) so cards do not need a runtime
+        `filter: blur()` layer — a Home rail mounts 90 of them. */
+  static getTinyUrl(path, { blur = 0 } = {}) {
+    const url = this.getUrl(path, "w92");
+    if (!url || !blur || !url.includes("wsrv.nl/")) return url;
+    return `${url}&blur=${blur}`;
   }
 
     /** Small thumbnail for search dropdowns and compact displays. */

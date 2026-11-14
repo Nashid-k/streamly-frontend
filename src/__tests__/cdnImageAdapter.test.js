@@ -57,6 +57,13 @@ describe('CdnImageAdapter', () => {
       const url = CdnImageAdapter.getTinyUrl('/abc.jpg');
       expect(url).toContain('/w92/');
     });
+
+    // The placeholder blur is baked by the CDN (`&blur=`) so a mounted rail
+    // does not pay a runtime `filter: blur()` layer per card.
+    it('bakes the blur into the proxied URL only when asked', () => {
+      expect(CdnImageAdapter.getTinyUrl('/abc.jpg', { blur: 12 })).toContain('&blur=12');
+      expect(CdnImageAdapter.getTinyUrl('/abc.jpg')).not.toContain('blur=');
+    });
   });
 
   describe('getSmallUrl', () => {

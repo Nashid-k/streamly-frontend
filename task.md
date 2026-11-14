@@ -8615,6 +8615,43 @@ No `CACHE_NAME` change — the Phase 4 "don't mass-purge warm caches" decision s
 - [x] Gates: `npm run lint` **0 errors / 144 warnings** (none new) — `npm run test` **125 files / 1486-1487 passed + 2 skipped** (1489 collected) — `npm run build` exit 0 (2.75s). Full-suite caveat recorded honestly: this machine has no route to TMDB, so the network-bound specs (`librarySelection`, player source specs) intermittently exceed the 5s test timeout under load — `librarySelection` was the only failure in the last full run and is green when run alone; every rails test passes inside the full run.
 - [ ] Visual pass of the populated rails is still blocked locally (`api.themoviedb.org` unreachable from this machine); the two rails' geometry is CSS-pinned to the heading inset and card widths the deployed details page already uses.
 
+### 2026-11-14 - Perf pass from the live audit (user: "fix it")
+
+Audit context: the Obscura pass proved layout/console/network, not smoothness. A follow-up
+probe measured DOM/workload (Home 2719 nodes / 90 cards / 112 imgs, /movies 1379 / 20 / 40,
+detail 1163 / 30 / 66, search 748 / 17 / 19) but its frame timings are engine artifacts
+(Obscura is not Chromium; longtask/CLS/LCP/resource-timing/getAnimations all return empty).
+Fixes below are limited to work that is provably wasted regardless of engine.
+
+- [x] **Card art is responsive.** `MovieCard` resolved one wsrv rendition per card at render
+  (w342/w500 from the `hdThumbs` pref), so a phone and a 4K desktop fetched the same file and
+  the browser could never react to DPR or width. Added `posterSrcSet` from
+  `CdnImageAdapter.getSrcSet(path, "card")` (w154/w342/w500/w780) + `sizes`
+  (`getSizes("card")`); `src={posterSrc}` stays as the fallback. `hdThumbs === false` still
+  suppresses srcSet, because that preference is an explicit bandwidth choice, not layout.
+- [x] **90 runtime blur layers removed.** Every unloaded card painted a w92 placeholder with
+  inline `filter: blur(10px) brightness(0.8)` and `scale(1.1)`. `getTinyUrl(path, { blur })`
+  now appends `&blur=N` (probed live: wsrv returns 200 and a much smaller WebP), so the
+  placeholder arrives pre-blurred and is a plain `<img>` with `opacity: .85` — no filter, no
+  transform, nothing to re-rasterise per scroll frame. Default `getTinyUrl(path)` is unchanged.
+- [x] **Two compositor-hostile declarations dropped.** `.cast-rail__scroll` transitioned
+  `mask-image` (a gradient mask cannot interpolate, so the browser repaints the rail for a
+  change the eye never sees; the `is-at-start`/`is-at-end` classes still swap it instantly),
+  and `.dot-filler` carried a permanent `will-change: transform` on an 8s animation that the
+  browser promotes on its own.
+- Deliberately NOT changed, with reasons: the rail edge `mask-image` on scroll containers, and
+  mobile `scroll-snap-type: mandatory`. Both are visual/product decisions, and the audit
+  cannot measure their cost in a Chromium-representative way; moving a mask to a same-box
+  wrapper does not guarantee a fixed mask layer, and switching the mobile snap back to
+  proximity changes the feel the previous batch deliberately chose. Both need one real Chrome
+  trace first.
+- [x] Tests: `cdnImageAdapter.test.js` pins the baked blur (and its absence by default).
+- [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1488 passed + 2 skipped** - `npm run build` exit 0 (2.06s; entry
+  `index-B-UroVl-.js` 153.56 kB, CSS `index-DpsJE4VM.css` 313.44 kB).
+- [ ] Still open from the audit: subtitle relay `401` (`streamly-proxy.nashidk1999.workers.dev`)
+  and 5 TMDB `/discover/*` zero-result warnings.
+
 ### 2026-11-14 - Hero banner top hidden under the header (user: "the banner top is going under the browser")
 - [x] Root cause: `.hero-container` declared `margin-top: 0` even though hero.css's header comment said the hero should start "right below navbar" — so the banner's top ~56px sat behind the floating header islands (and, on notched phones, under the status bar).
 - [x] Fix: `margin-top: 56px` on `.hero-container` (hero.css) and `.skeleton-hero` (skeleton.css), matching the header island height (safe-area inset + 12px + 44px). Verified via Obscura: skeleton hero `top=56px, mt=56px` (was `top=0, mt=0px`). Used a literal because Obscura's CSS engine does not resolve `var()`/`env()`/`calc()` in `margin-top`; real browsers resolve `--header-h` fine, but 56px is the nominal desktop value.

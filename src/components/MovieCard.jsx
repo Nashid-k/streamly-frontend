@@ -144,6 +144,22 @@ const MovieCard = memo(function MovieCard({
     [posterPath, hdThumbs],
   );
 
+  /* Placeholder served pre-blurred by the CDN, so the loading state costs one
+     plain <img> instead of a runtime filter layer per mounted card. */
+  const posterTinySrc = useMemo(
+    () => CdnImageAdapter.getTinyUrl(posterPath, { blur: 12 }),
+    [posterPath],
+  );
+
+  /* One URL per card was resolved once at render, so a phone and a 4K desktop
+     both downloaded the same rendition. srcSet lets the browser pick per DPR
+     and width; `hdThumbs === false` keeps the single small URL because that is
+     an explicit bandwidth preference, not a layout decision. */
+  const posterSrcSet = useMemo(
+    () => (hdThumbs === false ? undefined : CdnImageAdapter.getSrcSet(posterPath, "card")),
+    [posterPath, hdThumbs],
+  );
+
   useEffect(() => {
     setIsLoaded(false);
     setHasImageError(false);
@@ -214,13 +230,9 @@ const MovieCard = memo(function MovieCard({
                 className="skeleton"
                 style={{ position: "absolute", inset: 0, zIndex: 0 }}
               >
-                {CdnImageAdapter.getTinyUrl(
-                  movie.posterUrl || movie.backdropUrl,
-                ) && (
+                {posterTinySrc && (
                   <img
-                    src={CdnImageAdapter.getTinyUrl(
-                      movie.posterUrl || movie.backdropUrl,
-                    )}
+                    src={posterTinySrc}
                     alt=""
                     /* Lazy like the real poster: a rail mounts every card, and
                        without this each one eagerly fetched its 92px blur-up
@@ -228,12 +240,15 @@ const MovieCard = memo(function MovieCard({
                        that the poster it precedes then had to queue behind. */
                     loading="lazy"
                     decoding="async"
+                    /* The blur is baked into the CDN response (getTinyUrl
+                       `blur`), so this layer is a plain <img>: no filter, no
+                       scale transform, nothing to re-rasterise per scroll
+                       frame across 15 cards a rail. */
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
-                      filter: "blur(10px) brightness(0.8)",
-                      transform: "scale(1.1)",
+                      opacity: 0.85,
                     }}
                   />
                 )}
@@ -320,6 +335,8 @@ const MovieCard = memo(function MovieCard({
             {posterSrc && !hasImageError ? (
               <img
                 src={posterSrc}
+                srcSet={posterSrcSet}
+                sizes={posterSrcSet ? CdnImageAdapter.getSizes("card") : undefined}
                 alt={movie.title}
                 className="movie-poster"
                 loading="lazy"
