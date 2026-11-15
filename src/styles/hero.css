@@ -1,12 +1,16 @@
-/* Hero Section — Full-width edge-to-edge, starts right below navbar (restored 20-commit parity: min(78vh, 850px)) */
+/* Hero Section — Full-width edge-to-edge, flush to the viewport top
+   (restored 20-commit parity: min(78vh, 850px), margin-top 0).
+   The banner is the page's first surface, not a card under the chrome: the
+   floating header islands paint over its top and `.app-container::after`
+   supplies the 92px scrim that keeps the brand mark legible on bright art.
+   A 56px offset here used to leave an empty band above the artwork on every
+   banner page (home and browse). */
 .hero-container {
   position: relative;
   left: 50%;
   width: 100vw;
   margin-left: -50vw;
-  /* Start the banner below the floating header instead of behind it, so its top
-     is never hidden under the browser chrome / header islands. */
-  margin-top: 56px !important;
+  margin-top: 0;
   padding-top: 0;
   height: min(78vh, 850px);
   min-height: 480px;
@@ -263,7 +267,12 @@
   animation: ambient-blob-c 66s ease-in-out infinite alternate;
 }
 
-/* Hardware-composited ambient image backdrop + top glow */
+/* Hardware-composited ambient image backdrop + top glow — the page background
+   is the banner's own artwork, heavily softened. The blur is baked into the CDN
+   response (`getTinyUrl(src, { blur })`), so this element is a plain <img> with
+   no runtime filter: the exact trade the card placeholders make. Opacity is
+   high enough that the wash reads as "the banner's colours", which is the whole
+   point of the layer; 0.28 left it invisible under the scrim stack. */
 .ambient-backdrop-img {
   position: absolute;
   inset: -8%;
@@ -271,7 +280,7 @@
   height: 116%;
   object-fit: cover;
   transform: translate3d(0, 0, 0);
-  opacity: 0.28;
+  opacity: 0.5;
   backface-visibility: hidden;
   pointer-events: none;
 }

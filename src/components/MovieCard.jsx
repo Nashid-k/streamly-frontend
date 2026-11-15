@@ -257,16 +257,18 @@ const MovieCard = memo(function MovieCard({
 
 
 
-            {/* Bottom-left badges: content tags (NEW) + release chips — one
-                row so nothing overlaps. Always mounted; the CSS curtain
-                choreography fades the row out while the curtain is open (old
-                code unmounted it on a debounced hover state, which re-rendered
-                the card on every hover). */}
+            {/* Top-left badges: content tags (NEW) + release chips — one row
+                so nothing overlaps, and the same corner the Discovery rail's
+                "Coming Soon" tab uses, so a status label always appears in the
+                same place. Always mounted; the CSS curtain choreography fades
+                the row out while the curtain is open (old code unmounted it on
+                a debounced hover state, which re-rendered the card on every
+                hover). */}
             <div
               className="card-badges"
               style={{
                 position: "absolute",
-                bottom: "8px",
+                top: "8px",
                 left: "8px",
                 zIndex: 10,
                 display: "flex",

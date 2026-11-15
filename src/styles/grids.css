@@ -255,6 +255,13 @@
   transition: opacity var(--duration-instant) var(--ease-out);
 }
 
+/* The details rail's "You're here" chip owns the same top-left corner as the
+   card status badges, so on that one card the badge row drops below it
+   instead of painting over the chip. */
+.detail-rail__item.is-current .card-badges {
+  top: 34px;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .movie-card:hover {
     transform: scale(1.06);

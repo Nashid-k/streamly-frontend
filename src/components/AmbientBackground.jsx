@@ -24,11 +24,12 @@ function AmbientBackground({ src, alt = "", fallback = false, children }) {
   const hasChildren = children !== undefined && children !== null;
   if (!src && !fallback && !hasChildren) return null;
 
-  /* The two layers are pure color washes — resolution is invisible under a
-     blur(50–80px). Render them from a w342 rendition so the GPU blurs a few
-     hundred pixels instead of a full 4K frame (this runs on every page,
-     behind the hero, forever). */
-  const blurSrc = CdnImageAdapter.getUrl(src, "w342");
+  /* The two layers are pure colour washes — resolution is invisible. Request
+     the smallest rendition WITH the gaussian baked in by the CDN
+     (`getTinyUrl`'s `blur`), so this layer is a plain <img> with no runtime
+     `filter: blur()`: it renders behind every page, behind the hero, forever,
+     and a live filter here would re-rasterise a full-viewport texture. */
+  const blurSrc = CdnImageAdapter.getTinyUrl(src, { blur: 60 });
 
   const layer = (
     <div

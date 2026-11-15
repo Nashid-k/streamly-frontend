@@ -631,16 +631,19 @@ export default function Home({ filter = "all", title }) {
     totalFeatured > 0 ? finalPool[featuredIndex % totalFeatured] : null;
   const hasInitialLoadError = !activeFeaturedMovie && (featuredError || categoriesError);
 
-  /* The ambient backdrop is deliberately NOT bound to the rotating slide.
-     `AmbientBackground` paints a full-viewport `filter: blur(18px)` raster, so
-     swapping its image every 10 s re-decoded and re-blurred the whole viewport
-     mid-scroll. It stays on the pool's first title for the visit; the hero
-     itself still crossfades per slide. */
+  /* The ambient backdrop follows the banner that is actually on screen. The
+     wash is a w92 image with the blur baked in by the CDN, so a slide change is
+     a few kilobytes and a tiny decode — no full-viewport filter re-raster (the
+     reason this used to stay pinned to the pool's first title). */
   const ambientSrc = useMemo(() => {
-    const first = finalPool[0];
-    if (!first) return null;
-    return first.backdropUrl || first.posterUrl || first.poster || null;
-  }, [finalPool]);
+    if (!activeFeaturedMovie) return null;
+    return (
+      activeFeaturedMovie.backdropUrl ||
+      activeFeaturedMovie.posterUrl ||
+      activeFeaturedMovie.poster ||
+      null
+    );
+  }, [activeFeaturedMovie]);
 
   /* Cross-route banner record (cinejoy parity): publish the on-screen featured
      slide so the browse pages can keep this exact banner when their media kind

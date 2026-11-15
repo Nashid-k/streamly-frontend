@@ -8707,3 +8707,46 @@ active theme except by accident.
 - [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
   **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (2.79s; CSS
   `index-B4-07A9c.css` 314.98 kB).
+
+### 2026-11-15 - Badges top-left, banner flush to the top, banner-derived wash on every banner page (user: "badge should be top left like coming soon, as well as why the banner image has top spaces, if you refer 30 commits before the home banner and its styles as well as the bg gradients based on the banner (we need that in every page when banner has)")
+
+- [x] Badges moved to the corner "Coming Soon" uses: `.card-badges` is now
+  `top: 8px; left: 8px` (`MovieCard.jsx`) instead of bottom-left, so NEW / "In 3
+  days" / "Dec 17" always appear where the rail's status tab appears. The details
+  rail's "You're here" chip owns that corner on its one card, so
+  `.detail-rail__item.is-current .card-badges` drops to `top: 34px` (`grids.css`)
+  instead of painting over the chip.
+- [x] Top band removed on every banner page: `99280a7` pushed `.hero-container`
+  down 56px to keep the banner out from under the floating header, which left a
+  page-coloured strip above the artwork on Home AND on the browse pages whose own
+  comment says "sits flush at the top behind the floating navbar". Restored the
+  20-commit geometry (`git show 2a739b1:src/styles/hero.css`): `margin-top: 0` on
+  `.hero-container` (`hero.css`) and `.skeleton-hero` (`skeleton.css`, so the
+  skeleton does not jump when the real hero mounts). Header legibility is already
+  carried by `.app-container::after` (92px scrim; mobile `responsive.css` already
+  set `margin-top: 0`, so only desktop ever had the band).
+- [x] Banner-derived background wash made real: `AmbientBackground` was already
+  mounted on every page that has a banner (home, movies, series, provider,
+  details, genre, category, search, watchlist) but the layer was `opacity: .28`
+  with no blur after the P1 perf pass, i.e. effectively invisible. It now requests
+  the w92 rendition with the gaussian baked in by the CDN
+  (`CdnImageAdapter.getTinyUrl(src, { blur: 60 })` - no runtime `filter: blur()`,
+  same trade as the card placeholders) and paints at `opacity: .5` (`hero.css`
+  `.ambient-backdrop-img`).
+- [x] The wash follows the banner actually on screen: `HomePage` ambient is now
+  derived from `activeFeaturedMovie` (was deliberately pinned to `finalPool[0]`
+  because a live blur re-rasterised the viewport on every 10s slide; the baked
+  blur removes that cost), and `DiscoveryPage` prefers `bannerPool[0]` before the
+  first grid result.
+- [x] Obscura local check: home `.hero-container` top `0`, `margin-top: 0px`, height
+  738 (no band above the artwork); details `.ambient-backdrop-img` opacity `0.5`,
+  `src` ends `...w92...&blur=60`, computed `filter: none`.
+- [x] Card-corner and browse-banner rendering could NOT be confirmed locally: TMDB
+  `/trending/*` times out from this machine right now
+  (`TMDB /trending/all/week timed out after 10000ms`), so Home mounted 50
+  skeletons and 0 cards. Confirmed on production instead (below).
+- [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1492 passed + 2 skipped** (one earlier full-suite run had a single
+  failure; the same files then passed 3x focused and 2x full-suite - pre-existing
+  timing flake, not this change) - `npm run build` exit 0 (1.79s; CSS
+  `index-DqRr6Lu7.css` 315.01 kB).

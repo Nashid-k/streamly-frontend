@@ -712,7 +712,14 @@ export default function DiscoveryPage({ mode = "movies" }) {
     : null;
   const railEmpty = !railQuery.isLoading && !railQuery.error && railItems.length === 0;
 
-  const ambientSrc = gridItems[0]?.backdropUrl || gridItems[0]?.posterUrl || railItems[0]?.backdropUrl || null;
+  // Banner first: every browse page's ambient wash is that page's own banner
+  // art, not an unrelated grid result.
+  const ambientSrc =
+    bannerPool[0]?.backdropUrl ||
+    gridItems[0]?.backdropUrl ||
+    gridItems[0]?.posterUrl ||
+    railItems[0]?.backdropUrl ||
+    null;
 
   /* One bundle feeds both mounts of the filter row (header + dock), so the two
      can never drift apart. */
