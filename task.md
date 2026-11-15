@@ -8803,7 +8803,16 @@ Resume button.
 - [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
   **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (1.70s; CSS
   `index-fmp98XVh.css` 314.85 kB).
-- [x] Production verified (Obscura, seeded `aios_continue_watching`): one
-  `.cw-rail__card`, zero centre discs inside it, panel `opacity 0` before hover and `1`
-  on pointer hover and on keyboard focus, Resume button visible and hit-testable at the
-  panel, progress bar `z-index 20`.
+- [x] Production verified (Obscura, seeded `aios_continue_watching`, CSS
+  `index-Dd7yA6rO.css`): one `.cw-rail__card`; zero centre discs
+  (`[class*="backdrop-blur-md"]` count 0) and exactly one play glyph in the card (the
+  Resume button's); on pointer hover the panel becomes `pointer-events: auto` and
+  `elementFromPoint` at the Resume button centre returns the BUTTON (94x33), so the one
+  control is hit-testable above the scrim; progress bar `z-index 20`.
+- [x] Honest note on the keyboard half: Obscura's style engine does not implement
+  `:focus-within` - after focusing a link inside `.movie-card`, the pre-existing
+  `.movie-card:focus-within .card-play-disc { opacity: 1 }` rule also fails to apply and
+  `card.matches(':focus-within')` is false even with `activeElement` inside the card
+  (`:has()` does work). So the `.cw-rail__card:focus-within .cw-rail__panel` rule is
+  verified as present in the deployed sheet; its behaviour follows the standard Chromium
+  semantics the app already relies on in `grids.css`.
