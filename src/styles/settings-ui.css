@@ -226,35 +226,30 @@ html[data-theme="glacier"] {
   --theme-global-accentB: #0284c7;
 }
 
-/* ── Settings Nav Tabs (Cinejoy capsule pills) ───────────────────────────────
-   Mirrors the movies/series/my-list toolbar: frosted capsule triggers that
-   wrap on narrow screens, active pill tinted with the interface accent. */
+/* ── Settings Nav (Cinejoy capsule pills / numbered index rail) ─────────── */
 .settings-nav {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.35rem;
   max-width: 100%;
   padding: 0.3rem;
   border-radius: var(--radius-full);
   overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .settings-nav::-webkit-scrollbar {
   display: none;
 }
 
-/* Capsule pill tabs — ghost until active, then the accent disc like the
-   movies/series filter pills. */
 .settings-tab {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
   flex: none;
-  padding: 0.5rem 1rem;
   min-height: 40px;
+  padding: 0.5rem 1rem;
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   background: transparent;
@@ -267,16 +262,16 @@ html[data-theme="glacier"] {
 }
 
 @media (hover: hover) and (pointer: fine) {
-.settings-tab:hover {
-  color: var(--white);
-  background: rgba(var(--white-rgb), 0.08);
-}
+  .settings-tab:hover {
+    color: var(--white);
+    background: rgba(var(--white-rgb), 0.08);
+  }
 }
 
 .settings-tab.is-active {
   color: var(--accent-color);
-  border-color: rgba(149, 255, 80, 0.4);
-  background: rgba(149, 255, 80, 0.1);
+  border-color: rgba(var(--accent-primary-rgb), 0.4);
+  background: rgba(var(--accent-primary-rgb), 0.12);
 }
 
 html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
@@ -285,60 +280,51 @@ html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
   background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 10%, transparent);
 }
 
-/* ── Settings Split Shell ────────────────────────────────────────────────────
-   One <nav>, two shapes. Below 1024px it is the Cinejoy capsule pill row that
-   always shipped; from 1024px up it becomes a grouped vertical rail (Watching /
-   Your space / Personalize) on a sticky glass panel, so a section switch is a
-   single glance instead of a hunt across wrapped pills. */
-.settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.settings-tab__index {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(var(--white-rgb), 0.34);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-tab__icon {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.settings-tab__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .settings-rail {
-  /* Non-desktop: static, the nav flows as a normal pill row. */
-  position: static;
+  width: 100%;
 }
 
 .settings-rail__zone {
-  display: none; /* zone labels are a rail-only affordance */
+  display: none;
 }
 
 @media (min-width: 1024px) {
-  .settings-body {
-    display: grid;
-    grid-template-columns: 232px minmax(0, 1fr);
-    align-items: start;
-    gap: 1.5rem;
-  }
-
-  .settings-rail {
-    position: sticky;
-    /* Clear the fixed navbar island (glass cards scroll with the same margin). */
-    top: 104px;
-    max-height: calc(100vh - 128px);
-    overflow: auto;
-  }
-
   .settings-nav {
-    flex-wrap: nowrap;
     flex-direction: column;
     align-items: stretch;
     padding: 0.55rem;
-    background: rgba(18, 18, 22, 0.6);
     border: 1px solid rgba(var(--white-rgb), 0.08);
     border-radius: 16px;
+    background: rgba(18, 18, 22, 0.6);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
 
   .settings-rail__zone {
     display: block;
-    margin: 0.55rem 0.5rem 0.3rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    margin: 0.5rem 0.65rem 0.35rem;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: rgba(var(--white-rgb), 0.35);
   }
@@ -349,7 +335,7 @@ html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
   }
 }
 
-/* Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
+/* ── Dropdown option rows — match the discovery MenuItem recipe (accent-tinted
    selection with a check). */
 .settings-dropdown-item {
   transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
@@ -361,23 +347,6 @@ html[data-theme]:not([data-theme=default]) .settings-tab.is-active {
 
 html[data-theme]:not([data-theme=default]) .settings-dropdown-item.is-selected {
   background: color-mix(in srgb, var(--theme-global-accentA, var(--accent-primary)) 12%, transparent);
-}
-
-/* Settings cards — a fine accent hairline along the bottom edge so each card
-   wears the same accent thread as the discovery rail headers. */
-.settings-section::after {
-  content: "";
-  position: absolute;
-  left: 1.5rem;
-  right: 1.5rem;
-  bottom: 0;
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(149, 255, 80, 0.35), transparent);
-}
-
-html[data-theme]:not([data-theme=default]) .settings-section::after {
-  background: linear-gradient(90deg, transparent, var(--theme-global-accentA, var(--accent-primary)), transparent);
 }
 
 /* Inline controls in setting rows (View List, Sync Now, ...) that would
@@ -412,71 +381,89 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 }
 }
 
-/* Factory-reset sub-block inside the Data & privacy card: the reset tools sit
-   under their own heading in the same card, separated by a hairline. */
-.data-reset-block {
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(var(--white-rgb), 0.08);
-}
-
-.data-reset-header {
-  margin-bottom: 0.5rem;
-}
-
-.data-reset-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--white);
-  margin: 0 0 0.15rem;
-  letter-spacing: -0.015em;
-}
-
-/* ── Glass Card (Cinejoy .glass-card recipe) ── */
-.glass-card {
-  background: rgba(18, 18, 22, 0.75);
+/* ── Panels & grouped rows (the Settings 2.0 flat surface) ─────────────── */
+.settings-panel {
+  background: linear-gradient(180deg, rgba(var(--white-rgb), 0.045), rgba(var(--white-rgb), 0.018));
   border: 1px solid rgba(var(--white-rgb), 0.08);
-  border-radius: 20px;
-  padding: clamp(1.25rem, 2.5vw, 1.75rem);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  scroll-margin-top: 100px;
+  border-radius: var(--radius-panel);
+  padding: clamp(1.1rem, 2.2vw, 1.6rem);
 }
 
-/* ── Section Header ── */
-.section-header {
-  margin-bottom: 1.25rem;
-}
-
-/* grids.css turns .section-header into a one-row title/subtitle flex band for
-   the rails; the same rule leaks into these cards per-property (this sheet
-   never declared display) and at phone widths the subtitle collided with the
-   title. Scoped here: one row on desktop, subtitle wraps below on narrow ones. */
-.settings-section .section-header {
+.settings-panel__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.15rem 1.25rem;
+  align-items: flex-start;
+  gap: 0.9rem;
+  margin-bottom: 1.15rem;
 }
 
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--white);
-  margin: 0 0 0.25rem;
-  letter-spacing: -0.02em;
+.settings-panel__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(var(--white-rgb), 0.12);
+  background: rgba(var(--white-rgb), 0.06);
+  color: var(--accent-color);
 }
 
-.section-subtitle {
-  font-size: 0.85rem;
-  color: rgba(var(--white-rgb), 0.5);
+.settings-panel__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-panel__title {
   margin: 0;
-  line-height: 1.45;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--white);
 }
 
-/* ── Settings Rows ── */
-.settings-list {
+.settings-panel__desc {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: rgba(var(--white-rgb), 0.55);
+}
+
+.settings-panel__aside {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.settings-group__label {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(var(--white-rgb), 0.4);
+}
+
+.settings-group__desc {
+  margin: -0.55rem 0 0;
+  font-size: 0.82rem;
+  color: rgba(var(--white-rgb), 0.55);
+}
+
+.settings-rows {
   display: flex;
   flex-direction: column;
 }
@@ -486,17 +473,18 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 0;
+  min-height: 64px;
+  padding: 0.65rem 0.25rem;
 }
 
 .setting-row + .setting-row {
-  border-top: 1px solid rgba(var(--white-rgb), 0.08);
+  border-top: 1px solid rgba(var(--white-rgb), 0.07);
 }
 
 .setting-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
   flex: 1;
   min-width: 0;
 }
@@ -504,12 +492,12 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
 .setting-title {
   font-size: 0.95rem;
   font-weight: 600;
-  color: rgba(var(--white-rgb), 0.9);
+  color: rgba(var(--white-rgb), 0.92);
 }
 
 .setting-desc {
   font-size: 0.82rem;
-  color: rgba(var(--white-rgb), 0.5);
+  color: rgba(var(--white-rgb), 0.55);
   line-height: 1.4;
 }
 
@@ -517,6 +505,104 @@ html[data-theme]:not([data-theme=default]) .settings-section::after {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+}
+
+.settings-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.55rem 1.05rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(var(--white-rgb), 0.12);
+  background: rgba(var(--white-rgb), 0.05);
+  color: var(--white);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
+}
+
+.settings-action:hover {
+  background: rgba(var(--white-rgb), 0.1);
+  border-color: rgba(var(--white-rgb), 0.2);
+}
+
+.settings-action--primary {
+  border-color: rgba(var(--accent-primary-rgb), 0.45);
+  background: rgba(var(--accent-primary-rgb), 0.14);
+  color: var(--accent-color);
+}
+
+.settings-action--primary:hover {
+  background: rgba(var(--accent-primary-rgb), 0.2);
+}
+
+.settings-note {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: rgba(var(--white-rgb), 0.55);
+}
+
+.settings-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  border: 1px dashed rgba(var(--white-rgb), 0.12);
+  border-radius: var(--radius-panel);
+}
+
+.settings-empty__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: rgba(var(--white-rgb), 0.85);
+}
+
+.settings-empty__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: rgba(var(--white-rgb), 0.5);
+}
+
+.settings-empty__actions {
+  margin-top: 1.25rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.settings-caption {
+  margin: 0;
+  border: 1px solid rgba(var(--white-rgb), 0.08);
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 1.1rem 1.2rem;
+}
+
+.settings-caption__stage {
+  position: relative;
+  min-height: 76px;
+  border-radius: var(--radius-md);
+  background: radial-gradient(ellipse 60% 90% at 50% 0%, rgba(var(--accent-primary-rgb), 0.12), transparent 70%), #0a0a0c;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.settings-caption__line {
+  display: block;
+  font-weight: 600;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95), 0 0 2px var(--black), -1px -1px 0 var(--black), 1px -1px 0 var(--black), -1px 1px 0 var(--black), 1px 1px 0 var(--black);
+}
+
+.settings-caption__hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.76rem;
+  color: rgba(var(--white-rgb), 0.45);
+  text-align: center;
 }
 
 /* ── Segment Control (Cinejoy animated sliding pill) ── */
@@ -968,6 +1054,31 @@ html:not([data-theme]) .segment-btn.segment-active {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--white);
+}
+
+.order-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.order-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(var(--white-rgb), 0.14);
+  color: rgba(var(--white-rgb), 0.75);
+  background: rgba(var(--white-rgb), 0.05);
+}
+
+.order-tag--accent {
+  border-color: rgba(var(--accent-primary-rgb), 0.45);
+  color: var(--accent-color);
+  background: rgba(var(--accent-primary-rgb), 0.12);
 }
 
 /* ── Continue Watching & Scrollbar Utilities ── */

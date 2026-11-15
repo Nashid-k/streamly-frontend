@@ -33,8 +33,9 @@ describe("SettingsPage", () => {
     expect(screen.queryByText(/connect trakt/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/connect simkl/i)).not.toBeInTheDocument();
 
-    // Key settings and controls
-    expect(screen.getByText(/^theme$/i)).toBeInTheDocument();
+    // Key settings and controls. The theme row's group label and row title can
+    // both read "Theme", so the pinned control is the trigger itself.
+    expect(screen.getByRole("button", { name: /theme, current/i })).toBeInTheDocument();
     expect(screen.getByText(/^episode view style$/i)).toBeInTheDocument();
     expect(screen.getByText(/^detail view type$/i)).toBeInTheDocument();
     expect(screen.getByText(/^use image logos$/i)).toBeInTheDocument();

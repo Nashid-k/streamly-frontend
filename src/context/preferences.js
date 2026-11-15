@@ -57,6 +57,7 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   autoplay: true,
   muteTrailers: false,
   hdThumbs: true,
+  hoverPreviews: true,
   reduceMotion: false,
   notifications: true,
   // Notifications v2 (Settings 2.0) — per-type gates. Defaults on so the
@@ -65,7 +66,6 @@ export const DEFAULT_PREFERENCES = Object.freeze({
   notificationsListAdds: true,
   notificationsMilestones: true,
   // Appearance v2
-  hoverPreviews: true,
   theme: "default",
   accentSeed: null,
   episodeViewStyle: "carousel",

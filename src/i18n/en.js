@@ -175,6 +175,7 @@ export const en = {
   settings: {
     title: "Settings",
     subtitle: "Tune playback, servers, subtitles, notifications and your data to your taste.",
+    eyebrow: "Preferences",
     filter: "Filter settings...",
     navSections: "Settings sections",
     sectionCountOne: "1 section",
@@ -191,6 +192,20 @@ export const en = {
       watching: "Watching",
       space: "Your space",
       personalize: "Personalize",
+    },
+    groups: {
+      profile: "Profile",
+      library: "Library & shortcuts",
+      theme: "Theme",
+      layout: "Layout",
+      artwork: "Artwork & trailers",
+      effects: "Effects",
+      playback: "Playback basics",
+      navigation: "Seek & language",
+      audio: "Audio",
+      captions: "Caption style",
+      alerts: "In-app alerts",
+      device: "Backup & restore",
     },
     tabs: {
       all: "All",
@@ -333,12 +348,16 @@ export const en = {
       serverOrder: "Server Order",
       serverOrderDesc:
         "Playback always starts at Server 1. Drag the handle to set which server plays next when Server 1 has no stream for a title — the same order sorts the player's Servers menu.",
+      liveNote:
+        "Server 1 carries alternate audio tracks; the other servers play the original mix. A server with no stream hands over to the next automatically.",
       resetOrder: "Reset Server Order",
       resetOrderToast: "Server priority reset to factory default.",
       dragToReorder: "Reorder server, priority {n}",
     },
     subtitles: {
       subtitlesDesc: "Improve readability and customization for subtitles.",
+      sampleLine: "Here is what your subtitles will look like.",
+      sampleHint: "Live sample — font, size and colour update as you change them.",
     },
     notifications: {
       notifications: "Notifications",

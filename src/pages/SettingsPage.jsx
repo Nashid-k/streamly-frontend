@@ -1,11 +1,11 @@
-import { useState, useMemo, useEffect, useRef, lazy, Suspense, Fragment } from "react";
+import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { DURATION, EASE_OUT } from "../constants/motion";
-import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Check,
   X,
@@ -17,6 +17,12 @@ import {
   Clock,
   SlidersHorizontal,
   Trash2,
+  Palette,
+  Play,
+  Server,
+  Captions,
+  Bell,
+  Database,
 } from "lucide-react";
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";
@@ -24,10 +30,7 @@ import LanguageSwitchOverlay from "../components/LanguageSwitchOverlay";
 import { usePreferences } from "../context/preferences";
 import { useAppAuth, useSyncStatus } from "../context/auth";
 import { useToast } from "../components/Toast.jsx";
-import Loader from "../components/Loader";
 import { StreamlyLoader } from "../components/StreamlyLoader";
-
-const PlayerPreview = lazy(() => import("../components/PlayerPreview.jsx"));
 import { useConfirmDialog } from "../components/ConfirmDialog.jsx";
 import { logDebug, logWarn } from "../utils/debugLogger";
 import {
@@ -45,8 +48,8 @@ import {
   DEFAULT_SERVER_ORDER,
   TABS,
   SECTION_SEARCH_TERMS,
+  subtitleFontFamily,
 } from "../constants/settings";
-import SystemStatusRow from "../components/SystemStatusRow.jsx";
 import LanguageFlag from "../components/settings/LanguageFlag";
 import Toggle from "../components/settings/Toggle";
 import SegmentControl from "../components/settings/SegmentControl";
@@ -65,10 +68,41 @@ function scrollIntoViewIfSupported(element, options) {
    WATCHING = how things play, YOUR SPACE = identity + data, PERSONALIZE = looks. */
 const SETTINGS_ZONES = ["watching", "space", "personalize"];
 
+/* One icon per panel, read off the tab definition so the rail and the panel
+   head can never disagree about what a section is called or looks like. */
+const PANEL_ICONS = Object.fromEntries(
+  TABS.filter((tab) => tab.icon).map((tab) => [tab.id, tab.icon]),
+);
+
+/* The rail index is decorative (aria-hidden), so the button's accessible name
+   stays exactly the section name the tests and screen readers pin. */
+const RAIL_ORDER = [
+  TABS[0],
+  ...SETTINGS_ZONES.flatMap((zone) => TABS.filter((tab) => tab.zone === zone)),
+];
+
+/* Panel masthead: icon tile + the section's own <h2> (kept as a real heading so
+   the rail's aria-controls and screen-reader outline still point at a named
+   region) + one line of copy. `aside` carries a panel-level action, e.g. the
+   Servers reset button. */
+function PanelHead({ id, title, description, aside = null }) {
+  const Icon = PANEL_ICONS[id];
+  return (
+    <header className="settings-panel__head">
+      <span className="settings-panel__icon" aria-hidden="true">
+        <Icon />
+      </span>
+      <div className="settings-panel__heading">
+        <h2 className="settings-panel__title">{title}</h2>
+        {description && <p className="settings-panel__desc">{description}</p>}
+      </div>
+      {aside && <div className="settings-panel__aside">{aside}</div>}
+    </header>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const location = useLocation();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get("tab");
@@ -303,17 +337,21 @@ export default function SettingsPage() {
   const railButton = (tab) => {
     const Icon = tab.icon;
     const isActive = activeTab === tab.id;
+    const index = RAIL_ORDER.findIndex((entry) => entry.id === tab.id);
     return (
       <button
         key={tab.id}
         type="button"
         aria-pressed={isActive}
-        aria-controls={tab.id === "all" ? "settings-sections" : `section-${tab.id}`}
+        aria-controls={tab.id === "all" ? "settings-sections" : tab.id}
         className={`settings-tab${isActive ? " is-active" : ""}`}
         onClick={() => handleTabClick(tab.id)}
       >
-        <Icon className="h-4 w-4 shrink-0" />
-        {t(`settings.tabs.${tab.id}`)}
+        <span className="settings-tab__index" aria-hidden="true">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+        <Icon className="settings-tab__icon" aria-hidden="true" />
+        <span className="settings-tab__label">{t(`settings.tabs.${tab.id}`)}</span>
       </button>
     );
   };
@@ -448,73 +486,44 @@ export default function SettingsPage() {
       <AmbientBackground fallback />
       <div className="settings-page__glow" aria-hidden="true" />
 
-      <div className="discovery-page relative z-10">
-        {/* Header — discovery-page block: same scale, glow and layout as the
-            movies/series/my-list pages (big title, subtitle, frosted pills). */}
-        <header className="relative mx-auto max-w-[1600px] pt-20 sm:pt-24 pb-6 sm:pb-8 px-4 md:px-10 lg:px-14">
-          <div className="relative pt-8 sm:pt-12 pb-6 px-2 md:px-4">
-            <div className="flex flex-col xl:flex-row gap-8 xl:gap-10 items-start xl:items-end justify-between">
-              <div className="max-w-xl">
+      <div className="settings-shell">
+        {/* Hero — the page's own masthead, not the browse-page banner: eyebrow,
+            title, one line of copy, and the filter that scopes every panel. */}
+        <header className="settings-hero">
+          <div className="settings-hero__copy">
+            <p className="settings-hero__eyebrow">{t("settings.eyebrow")}</p>
+            <h1 className="settings-hero__title">{t("settings.title")}</h1>
+            <p className="settings-hero__desc">{t("settings.subtitle")}</p>
+          </div>
+          <div className="settings-hero__tools">
+            <div className="settings-search">
+              <Search size={15} aria-hidden="true" className="settings-search__icon" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("settings.filter")}
+                aria-label={t("settings.filter")}
+                className="settings-search__input"
+              />
+              {query && (
                 <button
                   type="button"
-                  onClick={() => (location.key === "default" ? navigate("/") : navigate(-1))}
-                  className="hidden sm:inline-flex group items-center gap-1.5 text-sm font-medium text-white/60 transition-colors mb-4 hover:text-white/90"
+                  onClick={() => setQuery("")}
+                  aria-label={t("common.clearSearch")}
+                  className="settings-search__clear"
                 >
-                  <ChevronLeft
-                    size={15}
-                    className="w-4 h-4 transition-transform group-hover:-translate-x-0.5"
-                  />
-                  {t("common.back")}
+                  <X size={14} aria-hidden="true" />
                 </button>
-                <div className="flex items-center gap-3">
-                  <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white drop-shadow-lg">
-                    {t("settings.title")}
-                  </h1>
-                  <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[0.7rem] font-medium text-white/60">
-                    {visibleCount === 1
-                      ? t("settings.sectionCountOne")
-                      : t("settings.sectionCountMany", { n: visibleCount })}
-                  </span>
-                </div>
-                <p className="mt-3 text-lg text-white/70 font-medium leading-relaxed">
-                  {t("settings.subtitle")}
-                </p>
-              </div>
-
-              {/* Toolbar — frosted search capsule, the same control as the
-                  movies/series/my-list pages. The section pills live in the
-                  sticky rail below (single horizontal row on mobile). */}
-              <div className="flex flex-col items-stretch gap-3 w-full xl:w-auto">
-                <div className="flex items-center gap-2 w-full md:w-72 px-3 md:px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md transition-all duration-300 focus-within:border-[rgba(var(--accent-primary-rgb),0.4)] min-w-0">
-                  <Search size={14} className="w-4 h-4 shrink-0 text-white/40" />
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t("settings.filter")}
-                    aria-label={t("settings.filter")}
-                    className="w-full min-w-0 bg-transparent outline-none text-sm text-white/90 placeholder:text-white/35"
-                  />
-                  {query && (
-                    <button
-                      type="button"
-                      onClick={() => setQuery("")}
-                      aria-label={t("common.clearSearch")}
-                      className="shrink-0 text-white/50 hover:text-white transition-colors"
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </header>
 
-          {/* Split shell — sticky section rail (Watching / Your space /
-              Personalize groups) on desktop, one horizontal pill row on mobile
-              (settings-ui.css). "All" stays the default so search spans everything. */}
-          <div className="settings-body mx-auto max-w-[1600px] px-4 md:px-10 lg:px-14 pb-20">
+        {/* Split shell — sticky index rail (Watching / Your space / Personalize)
+            on desktop, one horizontal pill row on mobile (settings-ui.css).
+            "All" stays the default so search spans everything. */}
+        <div className="settings-layout">
           <aside className="settings-rail">
             <nav aria-label={t("settings.navSections")} className="settings-nav">
               {railButton(TABS[0])}
@@ -528,10 +537,10 @@ export default function SettingsPage() {
               ))}
             </nav>
           </aside>
-          <div id="settings-sections" className="space-y-6 settings-sections" ref={sectionsTopRef}>
+          <div id="settings-sections" className="settings-sections" ref={sectionsTopRef}>
             {nothingVisible && (
-              <div className="glass-card text-center py-10 px-6" role="status">
-                <p className="text-white/80 font-semibold">
+              <div className="settings-empty" role="status">
+                <p className="settings-empty__title">
                   {q && activeTab !== "all"
                     ? t("settings.emptyQuerySection", { q: query.trim() })
                     : q
@@ -540,13 +549,13 @@ export default function SettingsPage() {
                     ? t("settings.emptySection")
                     : t("settings.emptyNoMatch")}
                 </p>
-                <p className="section-subtitle mt-1">{t("settings.emptyHint")}</p>
-                <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                <p className="settings-empty__hint">{t("settings.emptyHint")}</p>
+                <div className="settings-empty__actions">
                   {q && (
                     <button
                       type="button"
                       onClick={() => setQuery("")}
-                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
+                      className="settings-action"
                     >
                       {t("common.clearSearch")}
                     </button>
@@ -555,7 +564,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       onClick={() => handleTabClick("all")}
-                      className="px-4 py-2 text-xs font-semibold rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border-none"
+                      className="settings-action"
                     >
                       {t("common.showAll")}
                     </button>
@@ -565,15 +574,16 @@ export default function SettingsPage() {
             )}
             {/* ── 1. ACCOUNT SECTION ── */}
             {sectionVisible.account && (
-              <section id="account" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.tabs.account")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.account.signInDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="account" className="settings-panel">
+                <PanelHead
+                  id="account"
+                  title={t("settings.tabs.account")}
+                  description={t("settings.account.signInDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.profile")}</h3>
+                    <div className="settings-rows">
                   {/* User Status */}
                   <div className="setting-row">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -606,7 +616,7 @@ export default function SettingsPage() {
                       {hasAccount ? (
                         <button
                           onClick={handleSignOut}
-                          className="glassy-button"
+                          className="settings-action"
                         >
                           <LogOut className="w-4 h-4" />
                           {t("settings.account.signOut")}
@@ -615,7 +625,7 @@ export default function SettingsPage() {
                         <button
                           type="button"
                           onClick={handleOpenSignIn}
-                          className="glassy-button glassy-button--primary"
+                          className="settings-action settings-action--primary"
                         >
                           <LogIn className="w-4 h-4" />
                           {t("settings.account.signIn")}
@@ -625,7 +635,7 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Cloud Sync Status */}
-                  <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
+                  <div className="setting-row">
                     <div className="setting-meta">
                       <div className="flex items-center gap-2">
                         <span className="setting-title">{t("settings.account.cloudSync")}</span>
@@ -719,7 +729,7 @@ export default function SettingsPage() {
                   </div>
 
                   {hasAccount && (
-                    <div className="setting-row mt-2 pt-2 border-t border-white/[0.06]">
+                    <div className="setting-row">
                       <div className="setting-meta">
                         <span className="setting-title">{t("settings.account.deleteCloudData")}</span>
                         <span className="setting-desc">{t("settings.account.deleteCloudDataDesc")}</span>
@@ -759,7 +769,12 @@ export default function SettingsPage() {
                   )}
 
                   {/* Library & Shortcuts navigation */}
-                  <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-col gap-1">
+                    </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.library")}</h3>
+                    <div className="settings-rows">
                     <SettingRow title={t("settings.account.myWatchlist")} description={t("settings.account.myWatchlistDesc")}>
                       <Link
                         to="/watchlist"
@@ -791,6 +806,7 @@ export default function SettingsPage() {
                         <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                       </button>
                     </SettingRow>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -798,15 +814,16 @@ export default function SettingsPage() {
 
             {/* ── 2. APPEARANCE SECTION ── */}
             {sectionVisible.appearance && (
-              <section id="appearance" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.tabs.appearance")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.appearance.appearanceDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="appearance" className="settings-panel">
+                <PanelHead
+                  id="appearance"
+                  title={t("settings.tabs.appearance")}
+                  description={t("settings.appearance.appearanceDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.theme")}</h3>
+                    <div className="settings-rows">
                   {/* Theme */}
                   <div className="setting-row">
                     <div className="setting-meta">
@@ -959,7 +976,12 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                    </div>
+                  </div>
 
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.layout")}</h3>
+                    <div className="settings-rows">
                   {/* Episode View Style */}
                   <SettingRow
                     title={t("settings.appearance.episodeViewStyle")}
@@ -994,6 +1016,12 @@ export default function SettingsPage() {
                   </SettingRow>
 
                   {/* Use Image Logos */}
+                  </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.artwork")}</h3>
+                    <div className="settings-rows">
                   <SettingRow
                     title={t("settings.appearance.useImageLogos")}
                     description={t("settings.appearance.useImageLogosDesc")}
@@ -1030,6 +1058,12 @@ export default function SettingsPage() {
                   </SettingRow>
 
                   {/* Reduce Motion */}
+                  </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.effects")}</h3>
+                    <div className="settings-rows">
                   <SettingRow
                     title={t("settings.appearance.reduceMotion")}
                     description={t("settings.appearance.reduceMotionDesc")}
@@ -1078,7 +1112,7 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
-                  {/* Hover Previews */}
+                  {/* Hover Previews — the seek-bar frame card (useScrubber). */}
                   <SettingRow
                     title={t("settings.appearance.hoverPreviews")}
                     description={t("settings.appearance.hoverPreviewsDesc")}
@@ -1090,20 +1124,23 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
                 </div>
+                </div>
+                </div>
               </section>
             )}
 
             {/* ── 3. PLAYBACK SECTION ── */}
             {sectionVisible.playback && (
-              <section id="playback" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.tabs.playback")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.playback.playbackDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="playback" className="settings-panel">
+                <PanelHead
+                  id="playback"
+                  title={t("settings.tabs.playback")}
+                  description={t("settings.playback.playbackDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.playback")}</h3>
+                    <div className="settings-rows">
                   {/* Autoplay */}
                   <SettingRow
                     title={t("settings.playback.autoPlay")}
@@ -1140,7 +1177,25 @@ export default function SettingsPage() {
                     />
                   </SettingRow>
 
+                  {/* Auto Subtitles */}
+                  <SettingRow
+                    title={t("settings.playback.autoSubtitles")}
+                    description={t("settings.playback.autoSubtitlesDesc")}
+                  >
+                    <Toggle
+                      label={t("settings.playback.autoSubtitles")}
+                      checked={autoSubtitles}
+                      onChange={(val) => setPreference("autoSubtitles", val)}
+                    />
+                  </SettingRow>
+
                   {/* Seek Time */}
+                  </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.navigation")}</h3>
+                    <div className="settings-rows">
                   <div className="setting-row">
                     <div className="setting-meta">
                       <span className="setting-title">{t("settings.playback.seekTime")}</span>
@@ -1165,17 +1220,8 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Auto Subtitles */}
-                  <SettingRow
-                    title={t("settings.playback.autoSubtitles")}
-                    description={t("settings.playback.autoSubtitlesDesc")}
-                  >
-                    <Toggle
-                      label={t("settings.playback.autoSubtitles")}
-                      checked={autoSubtitles}
-                      onChange={(val) => setPreference("autoSubtitles", val)}
-                    />
-                  </SettingRow>
+                  {/* Auto Subtitles removed: the player selects the track from
+                      the live subtitle list; no code path ever read this flag. */}
 
                   {/* Default Language */}
                   <div className="setting-row">
@@ -1273,6 +1319,12 @@ export default function SettingsPage() {
                   </div>
 
                   {/* Mute Trailer Audio */}
+                  </div>
+                  </div>
+
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.audio")}</h3>
+                    <div className="settings-rows">
                   <SettingRow
                     title={t("settings.playback.muteTrailerAudio")}
                     description={t("settings.playback.muteTrailerAudioDesc")}
@@ -1283,45 +1335,49 @@ export default function SettingsPage() {
                       onChange={(val) => setPreference("muteTrailers", val)}
                     />
                   </SettingRow>
+                  </div>
+                  </div>
                 </div>
               </section>
             )}
 
             {/* ── 4. SERVER ORDER SECTION ── */}
             {sectionVisible.servers && (
-              <section id="servers" className="glass-card settings-section">
-                <div className="section-header flex items-center justify-between">
-                  <div>
-                    <h2 className="section-title">{t("settings.servers.serverOrder")}</h2>
-                    <p className="section-subtitle">
-                      {t("settings.servers.serverOrderDesc")}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={resetServerOrder}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-white/70 hover:text-white transition-colors"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    {t("common.reset")}
-                  </button>
+              <section id="servers" className="settings-panel">
+                <PanelHead
+                  id="servers"
+                  title={t("settings.servers.serverOrder")}
+                  description={t("settings.servers.serverOrderDesc")}
+                  aside={
+                    <button
+                      type="button"
+                      onClick={resetServerOrder}
+                      className="settings-action"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      {t("common.reset")}
+                    </button>
+                  }
+                />
+                <div className="settings-panel__body">
+                  <p className="settings-note">{t("settings.servers.liveNote")}</p>
+                  <ServerOrderList list={serverList} onReorder={reorderServers} onMoveKeyboard={moveServerKeyboard} />
                 </div>
-
-                <ServerOrderList list={serverList} onReorder={reorderServers} onMoveKeyboard={moveServerKeyboard} />
               </section>
             )}
 
             {/* ── 5. SUBTITLES SECTION ── */}
             {sectionVisible.subtitles && (
-              <section id="subtitles" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.tabs.subtitles")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.subtitles.subtitlesDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="subtitles" className="settings-panel">
+                <PanelHead
+                  id="subtitles"
+                  title={t("settings.tabs.subtitles")}
+                  description={t("settings.subtitles.subtitlesDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.captions")}</h3>
+                    <div className="settings-rows">
                   {/* Font */}
                   <SettingRow
                     title={t("settings.playback.subtitleFont")}
@@ -1376,32 +1432,45 @@ export default function SettingsPage() {
                     </div>
                   </SettingRow>
 
-                  {/* Real-time Subtitle Live Preview Box — the full demo mini-player
-                      (Big Buck Bunny poster/video + the real player chrome + the
-                      live subtitle line driven by the preferences above). */}
-                  {/* Real-time Subtitle Live Preview Box — the full demo-mini
-                      (Big Buck Bunny poster + real player chrome + live subtitle
-                      line driven by the preferences above). */}
-                <div className="mt-4">
-                  <Suspense fallback={<Loader variant="inline" />}>
-                    <PlayerPreview label={t("settings.tabs.subtitles")} />
-                  </Suspense>
-                </div>
+                  </div>
+                  </div>
+
+                  {/* Inline caption sample — the same font/size/colour tokens the
+                      player applies, on a stage strip instead of a mounted demo
+                      video. No network, no second <video>, nothing to autoplay. */}
+                  <figure className="settings-caption">
+                    <div className="settings-caption__stage">
+                      <span
+                        className="settings-caption__line"
+                        style={{
+                          fontFamily: subtitleFontFamily(subtitleFont),
+                          fontSize: `calc(1.25rem * ${(Number(subtitleSize) || 100) / 100})`,
+                          color: subtitleColor,
+                        }}
+                      >
+                        {t("settings.subtitles.sampleLine")}
+                      </span>
+                    </div>
+                    <figcaption className="settings-caption__hint">
+                      {t("settings.subtitles.sampleHint")}
+                    </figcaption>
+                  </figure>
                 </div>
               </section>
             )}
 
             {/* ── 6. IN-APP NOTIFICATIONS ── */}
             {sectionVisible.notifications && (
-              <section id="notifications" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.tabs.notifications")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.notifications.notificationsDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="notifications" className="settings-panel">
+                <PanelHead
+                  id="notifications"
+                  title={t("settings.tabs.notifications")}
+                  description={t("settings.notifications.notificationsDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.alerts")}</h3>
+                    <div className="settings-rows">
                   <SettingRow
                     title={t("settings.notifications.show")}
                     description={t("settings.notifications.showDesc")}
@@ -1434,21 +1503,24 @@ export default function SettingsPage() {
                       onChange={(val) => setPreference("notificationsMilestones", val)}
                     />
                   </SettingRow>
+                  </div>
+                  </div>
                 </div>
               </section>
             )}
 
-            {/* ── 7. DATA & PRIVACY — device data, system usage, factory reset ── */}
+            {/* ── 7. DATA & PRIVACY — device data, factory reset ── */}
             {sectionVisible.data && (
-              <section id="data" className="glass-card settings-section">
-                <div className="section-header">
-                  <h2 className="section-title">{t("settings.data.heading")}</h2>
-                  <p className="section-subtitle">
-                    {t("settings.data.dataDesc")}
-                  </p>
-                </div>
-
-                <div className="settings-list">
+              <section id="data" className="settings-panel">
+                <PanelHead
+                  id="data"
+                  title={t("settings.data.heading")}
+                  description={t("settings.data.dataDesc")}
+                />
+                <div className="settings-panel__body">
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.groups.device")}</h3>
+                    <div className="settings-rows">
                   {/* Device-data backup (PLAN.md P0.1): a guest's My List /
                       history / preferences live ONLY in localStorage — one
                       "Clear site data" erases them. Export gives every
@@ -1535,18 +1607,17 @@ export default function SettingsPage() {
                       <ChevronRight className="w-3.5 h-3.5 text-white/40" />
                     </button>
                   </SettingRow>
-                  {/* Capacity dashboard (PLAN.md P1.4): free-tier usage at a
-                      glance — fetched on demand, never polled. */}
-                  <SystemStatusRow />
+                  </div>
+                  </div>
 
-                  {/* Factory reset keeps its own heading inside the data card:
-                      it is the last row of the destructive tools, not a
-                      preference Chronicle of its own. */}
-                  <div className="data-reset-block">
-                    <div className="section-header data-reset-header">
-                      <h3 className="data-reset-title">{t("settings.reset.title")}</h3>
-                      <p className="section-subtitle">{t("settings.reset.desc")}</p>
-                    </div>
+                  {/* Factory reset is its own group: it is the last row of the
+                      destructive tools, not a preference section of its own.
+                      The group label IS the "Reset All Preferences" heading the
+                      tests pin. */}
+                  <div className="settings-group">
+                    <h3 className="settings-group__label">{t("settings.reset.title")}</h3>
+                    <p className="settings-group__desc">{t("settings.reset.desc")}</p>
+                    <div className="settings-rows">
                     <SettingRow
                       title={t("settings.reset.rowTitle")}
                       description={t("settings.reset.rowDesc")}
@@ -1556,9 +1627,10 @@ export default function SettingsPage() {
                         onClick={handleResetAllPreferences}
                         className="reset-preferences-button"
                       >
-                        <RotateCcw size={14} /> {t("settings.reset.resetBtn")}
+                        <RotateCcw size={14} aria-hidden="true" /> {t("settings.reset.resetBtn")}
                       </button>
                     </SettingRow>
+                    </div>
                   </div>
                 </div>
               </section>

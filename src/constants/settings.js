@@ -261,6 +261,7 @@ export const SECTION_SEARCH_TERMS = {
     "dynamic seasonal effects one toggle snow falling leaves blossoms summer glow sun motes winter autumn spring summer christmas overlay off by default",
     "high-quality thumbnails stream higher resolution artwork",
     "hover previews show frame previews scrubbing player seek bar seek previews",
+    "preferences groups profile theme layout artwork effects interface look",
   ].join(" "),
   playback: [
     "playback player behaves autoplay automatically play next episode ends",
@@ -270,6 +271,7 @@ export const SECTION_SEARCH_TERMS = {
     "auto subtitles preferred language available",
     "default language subtitle language auto-select",
     "mute trailer audio trailers sound off",
+    "preferences groups playback audio navigation captions",
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
@@ -293,6 +295,6 @@ export const SECTION_SEARCH_TERMS = {
     "clear device data wipe local storage guest reload",
     "reset all preferences factory reset restore theme playback preferences",
     "factory defaults clears custom themes subtitle styling server order danger",
-    "system status capacity relay catalog live today usage",
+    "device capacity storage usage sync restore wipe",
   ].join(" "),
 };

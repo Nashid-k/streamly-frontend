@@ -16,77 +16,149 @@
   filter: blur(8px);
 }
 
-/* ── Language-switch curtain ─────────────────────────────────────────────
-   Full-screen branded wait while the catalogue refetches in the new language.
-   Opaque and above everything (the header nav sits at a high z-index too), so
-   the viewer cannot mistake the stale previous-language page for the result. */
-.language-switch-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-curtain);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1.1rem;
-  padding: 2rem;
-  text-align: center;
-  background: radial-gradient(
-      ellipse 60% 45% at 50% 18%,
-      var(--accent-glow, rgba(149, 255, 80, 0.13)),
-      transparent 70%
-    ),
-    #050505;
+/* The flat settings shell: one column, the same max-width as the browse pages,
+   ambient glow behind the hero. No glass card on the page itself. */
+.settings-shell {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 1rem 6rem;
 }
 
-/* The curtain uses the same Streamly PNG mark as the header, sized larger
-   because it has no surrounding chrome to carry the brand. The img-height
-   override beats the header's base .brand-wordmark rule. */
-.brand-wordmark.language-switch-overlay__wordmark {
-  height: clamp(5rem, 11vw, 7rem);
-  margin-bottom: 0.4rem;
-  filter: drop-shadow(0 8px 30px rgba(var(--black-rgb), 0.6));
-}
-
-.language-switch-overlay__label {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(var(--white-rgb), 0.92);
-}
-
-.language-switch-overlay__hint {
-  margin: 0;
-  max-width: 26rem;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: rgba(var(--white-rgb), 0.5);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .language-switch-overlay {
-    transition: none;
+@media (min-width: 1024px) {
+  .settings-shell {
+    padding: 0 2.5rem 6rem;
   }
 }
 
+.settings-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 6.5rem 0 1.9rem;
+}
 
+.settings-hero__eyebrow {
+  margin: 0 0 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-color);
+}
+
+.settings-hero__title {
+  margin: 0;
+  font-size: clamp(2.35rem, 5.2vw, 3.9rem);
+  font-weight: 800;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  color: var(--white);
+  text-shadow: 0 2px 26px rgba(var(--black-rgb), 0.65);
+}
+
+.settings-hero__desc {
+  margin: 0.8rem 0 0;
+  max-width: 46ch;
+  font-size: 0.98rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: rgba(var(--white-rgb), 0.62);
+}
+
+.settings-hero__copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-hero__tools {
+  flex: 0 0 auto;
+}
+
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(320px, 100%);
+  padding: 0.72rem 1rem;
+  background: rgba(var(--white-rgb), 0.05);
+  border: 1px solid rgba(var(--white-rgb), 0.1);
+  border-radius: var(--radius-full);
+  transition: border-color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.settings-search:focus-within {
+  border-color: rgba(var(--accent-primary-rgb), 0.55);
+  background: rgba(var(--white-rgb), 0.07);
+  box-shadow: var(--focus-ring);
+}
+
+.settings-search__icon {
+  color: rgba(var(--white-rgb), 0.42);
+  flex-shrink: 0;
+}
+
+.settings-search__input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--white);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.settings-search__input::placeholder {
+  color: rgba(var(--white-rgb), 0.38);
+}
+
+.settings-search__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: rgba(var(--white-rgb), 0.1);
+  color: rgba(var(--white-rgb), 0.75);
+  cursor: pointer;
+}
+
+.settings-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .settings-layout {
+    display: grid;
+    grid-template-columns: 216px minmax(0, 1fr);
+    align-items: start;
+    gap: 1.75rem;
+  }
+
+  .settings-rail {
+    position: sticky;
+    top: 104px;
+    max-height: calc(100vh - 128px);
+    overflow: auto;
+  }
+}
+
+/* ── Sections stack ── */
 .settings-sections {
   display: flex;
   flex-direction: column;
   gap: 1.8rem;
 }
 
-.setting-row {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  min-height: 3.5rem;
-  padding: 0.65rem 1rem;
-}
-
-/* ── Cards and rails: clearer hierarchy, calmer motion ────────────────── */
 .movie-grid {
   grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
   gap: clamp(0.9rem, 1.7vw, 1.45rem);

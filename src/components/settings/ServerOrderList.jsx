@@ -1,6 +1,31 @@
 import { Reorder, useDragControls } from "framer-motion";
 import { MotionLeaf } from "../../components/MotionLeaf";
 import { GripVertical } from "lucide-react";
+import { PLAYER_SOURCES } from "../../constants/sources";
+
+// Capability chips under a server name: the tag ("Multi audio · up to 1080p")
+// splits into a labelled accent chip for multi-audio and plain chips for the
+// rest, so the roster's measured capabilities stay readable in the list.
+function CapabilityChips({ label }) {
+  const source = PLAYER_SOURCES.find((s) => s.label === label);
+  const parts = String(source?.tag || "")
+    .split("·")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const multi = parts.find((p) => /multi audio/i.test(p));
+  const rest = parts.filter((p) => !/multi audio/i.test(p));
+  if (!multi && rest.length === 0) return null;
+  return (
+    <span className="order-tags">
+      {multi && <span className="order-tag order-tag--accent">{multi}</span>}
+      {rest.map((p) => (
+        <span key={p} className="order-tag">
+          {p}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 // Drag-and-drop server priority list. Pointer dragging starts from the grip
 // handle (mouse + touch via framer-motion Reorder); keyboard users reorder
@@ -58,6 +83,7 @@ function ServerOrderList({ list, onReorder, onMoveKeyboard }) {
               {idx + 1}
             </span>
             <span className="order-name">{srv}</span>
+            <CapabilityChips label={srv} />
           </div>
           <span className="order-hint" aria-hidden="true">
             {idx === 0 ? "Default" : `Priority ${idx + 1}`}
