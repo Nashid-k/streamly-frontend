@@ -528,6 +528,15 @@ real route; no frozen query key changed.
 ### P2-9 — Poster card (`DONE`)
 **Current:** 2:3 art, 12px radius, title/meta, release/S-E/air-day/SERIES/countdown badges
 (`MovieCard.jsx`), hover quick actions exist.
+**Badges (2026-11-15):** every poster state is one family in `styles/ui-kit.css`
+(`.content-badge`): a 10px/800 uppercase pill with a 1px tinted ring, a dot and no
+`backdrop-filter` (90 chips on Home). SOLID = a positive state, filled with the active
+theme accent and a near-black ink (`NEW`, `TODAY`, the "Airing" tabs, the details
+"You're here" chip). GLASS = a future state, dark fill + semantic ink ramp: red imminent
+(pulse + Zap), amber ≤3 days, sky ≤7, violet ≤4 weeks, white for a plain date, mint for
+live/airing. `--on-accent` is a BUTTON token (white on default lime), so the solid pill
+deliberately uses `#0b0b0d` instead. The Discovery "Coming Soon" pill and the three
+hardcoded-green "Airing" tabs joined the same family, so all of them now re-tint per theme.
 **Left:** rating badge, progress bar when applicable, quick actions must not shift layout,
 hover `translateY(-4px) scale(1.02)` over 180ms with image `scale(1.03)`, reduced motion =
 opacity only, alt text `"Title (year)"`.

@@ -1091,23 +1091,12 @@ export default function TitleDetails() {
             {seriesIsAiring && (
               <div className="details-hero__gap flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
                 <span
+                  className="content-badge content-badge--tab"
                   aria-label={
                     airingSeasonNumber > 1
                       ? `Season ${airingSeasonNumber} Airing`
                       : "Airing"
                   }
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    padding: "4px 12px",
-                    borderRadius: "7px 7px 0 0",
-                    background: "#3c8217",
-                    color: "var(--white)",
-                    fontSize: "11px",
-                    fontWeight: 500,
-                    lineHeight: 1.45,
-                    whiteSpace: "nowrap",
-                  }}
                 >
                   {airingSeasonNumber > 1
                     ? `Season ${airingSeasonNumber} Airing`

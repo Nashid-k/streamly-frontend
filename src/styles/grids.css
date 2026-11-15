@@ -513,13 +513,15 @@
   padding: 3px 8px;
   border-radius: var(--radius-full, 999px);
   background: var(--accent-color, #95ff50);
-  color: #04120b;
+  /* Near-black, not --on-accent: default lime declares white there (a button
+     token) and the chip would be unreadable. */
+  color: #0b0b0d;
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 4px 14px rgba(var(--black-rgb), 0.45);
+  box-shadow: 0 4px 14px var(--accent-glow, rgba(var(--black-rgb), 0.45));
 }
 /* Studio mark beside the "More from" heading — logos are shipped on white or
    transparent backgrounds, so it is flattened to a single light ink like the

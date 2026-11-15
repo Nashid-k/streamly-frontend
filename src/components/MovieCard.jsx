@@ -6,7 +6,7 @@ import { highlightSegments } from "../utils/highlightMatch";
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import CountdownBadge from "./CountdownBadge";
 import ContentTag from "./ContentTag";
-import { getContentTags } from "../utils/contentTags";
+import { getContentTags, releaseChipTone } from "../utils/contentTags";
 import useDetailView from "../hooks/useDetailView";
 import { useAppAuth } from "../context/auth";
 import { useOptionalNotifications } from "../context/notifications";
@@ -288,22 +288,14 @@ const MovieCard = memo(function MovieCard({
                   />
                 ))}
                 {/* Non-series premiere: explicit date chip (rail-provided) or
-                    a countdown when only the raw date is known */}
+                    a countdown when only the raw date is known. Both use the
+                    shared badge family, so TODAY reads as a released title and
+                    TOMORROW joins the countdown's amber ramp. */}
                 {!isTvContent && movie.formattedRelease && (
-                  <div
-                    style={{
-                      background: "rgba(0,0,0,0.65)",
-                      color: "var(--white)",
-                      padding: "2px 6px",
-                      borderRadius: "3px",
-                      fontSize: "var(--text-2xs)",
-                      fontWeight: 800,
-                      letterSpacing: "0.04em",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                    }}
-                  >
-                    {movie.formattedRelease}
-                  </div>
+                  <ContentTag
+                    label={movie.formattedRelease}
+                    tone={releaseChipTone(movie.formattedRelease)}
+                  />
                 )}
                 {!isTvContent && movie.releaseDate && !movie.formattedRelease && (
                   <CountdownBadge

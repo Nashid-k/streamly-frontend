@@ -64,21 +64,9 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
           Season {selectedSeason}
           {airingSeasonNumber === selectedSeason && (
             <span
+              className="content-badge content-badge--tab"
               aria-label="Currently airing"
               title="Currently airing"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "2px 10px",
-                borderRadius: "7px 7px 0 0",
-                background: "#3c8217",
-                color: "var(--white)",
-                fontSize: "11px",
-                fontWeight: 500,
-                lineHeight: 1.45,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
             >
               Airing
             </span>
@@ -168,20 +156,8 @@ function SeasonDropdown({ seasons, selectedSeason, airingSeasonNumber, onSelect 
                     <span style={{ flex: 1 }}>Season {seasonNumber}</span>
 {isAiringSeason && (
                       <span
+                        className="content-badge content-badge--tab"
                         aria-label="Currently airing"
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          padding: "2px 10px",
-                          borderRadius: "7px 7px 0 0",
-                          background: "#3c8217",
-                          color: "var(--white)",
-                          fontSize: "11px",
-                          fontWeight: 500,
-                          lineHeight: 1.45,
-                          flexShrink: 0,
-                          whiteSpace: "nowrap",
-                        }}
                       >
                         Airing
                       </span>

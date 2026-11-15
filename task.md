@@ -8657,3 +8657,47 @@ Fixes below are limited to work that is provably wasted regardless of engine.
 - [x] Fix: `margin-top: 56px` on `.hero-container` (hero.css) and `.skeleton-hero` (skeleton.css), matching the header island height (safe-area inset + 12px + 44px). Verified via Obscura: skeleton hero `top=56px, mt=56px` (was `top=0, mt=0px`). Used a literal because Obscura's CSS engine does not resolve `var()`/`env()`/`calc()` in `margin-top`; real browsers resolve `--header-h` fine, but 56px is the nominal desktop value.
 - [x] Gates: `npm run lint` 0 errors; `npm run build` exit 0 (12.56s); `HomePage` + `motion` tests 59/59.
 - [x] Pushed as `99280a7`.
+
+### 2026-11-15 - Card badge family: NEW / "In X days" / "In X weeks" (user: "the NEW badge, in x days, in x weeks badges should be better modelled around the coming soon badge, find other badges too and update them with diff colors based on themes")
+
+Badge audit found seven surfaces drawing the same class of label with seven different
+inline style objects: `ContentTag` (NEW), `CountdownBadge` ("In 3 days"/"In 2 weeks"),
+the `MovieCard` release chip (TODAY/TOMORROW/weekday), the Discovery rail pill
+("Coming Soon"/"Season N"/"Airing"), the details hero "Airing" tab, the SeasonDropdown
+"Airing" tabs (x2) and the details rail "You're here" chip. None of them followed the
+active theme except by accident.
+
+- [x] One family, `.content-badge` (`styles/ui-kit.css`): 10px/800 uppercase pill,
+  `--radius-pill`, 1px ring derived from the ink with `color-mix`, a 4px dot, no
+  `backdrop-filter` (Home mounts ~90 of these), `--md` = 11px for the landscape rail.
+- [x] Two forms only. SOLID = a state that is already true: `background:
+  var(--accent-color)` + near-black ink, so NEW re-tints with the theme instead of
+  being a hardcoded red gradient. GLASS = a state still in the future: dark fill and a
+  semantic ink ramp — red `#f87171` imminent (pulse ring + Zap), amber `#fbbf24` <=3
+  days, sky `#38bdf8` <=7, violet `#a78bfa` <=4 weeks, white for a plain date, mint
+  `#34d399` live/airing.
+- [x] `--on-accent` is NOT used for the solid badges: it is the BUTTON token and the
+  default lime theme maps it to white, which is illegible on lime. All accents in the
+  registry are mid/light, so `#0b0b0d` holds on every theme.
+- [x] NEW stays solid while every countdown stays glass: on the crimson theme both can
+  be red, and the form + pulse is what keeps "just out" readable apart from "out in 5
+  hours".
+- [x] Rail release chips map by label through a new pure helper
+  `releaseChipTone()` (`utils/contentTags.js`): TODAY -> solid, TOMORROW -> amber,
+  *AIRING* -> mint, everything else -> neutral white.
+- [x] "Coming Soon" pill and the season rail labels now use the family (`accent` glass /
+  `live` mint); `.upcoming-card__badge` reduced to positioning, its duplicate
+  typography and `backdrop-filter` deleted.
+- [x] The three hardcoded `#3c8217` "Airing" tabs became `.content-badge--tab` (theme
+  accent fill, tab radius `7px 7px 0 0`, near-black ink), and `.detail-rail__badge`
+  ("You're here") moved onto `var(--accent-color)` + `var(--accent-glow)`.
+- [x] Obscura (local preview, computed styles): NEW `rgb(149,255,80)` fill /
+  `rgb(11,11,13)` ink on default and `rgb(248,113,113)` fill on crimson; "In 3 days"
+  amber ink + 34% amber ring on dark glass; date chip white 86%; series rail "Season
+  38" mint 11px. All pills 9999px radius.
+- [x] Tests: `contentTagRender.test.jsx` now asserts the class contract (solid NEW,
+  glass countdowns, ring only on imminent) and the amber/violet ramp;
+  `contentTags.test.js` pins `releaseChipTone`.
+- [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (2.79s; CSS
+  `index-B4-07A9c.css` 314.98 kB).

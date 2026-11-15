@@ -47,6 +47,7 @@ const MODE_CONFIG = {
     subtitle: "Discover new movies to watch",
     railLabel: "Upcoming",
     railBadge: () => "Coming Soon",
+    railBadgeTone: "accent",
     randomAria: "Play Random Movie",
     mediaType: "movie",
   },
@@ -56,6 +57,7 @@ const MODE_CONFIG = {
     railLabel: "New Seasons Airing",
     railBadge: (item) =>
       item?.airingSeasonNumber ? `Season ${item.airingSeasonNumber}` : "Airing",
+    railBadgeTone: "live",
     randomAria: "Play Random Show",
     mediaType: "tv",
   },
@@ -97,7 +99,7 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
 }
 
 // ── Upcoming card (rail) — Cinejoy parity ─────────────────────────────
-function UpcomingCard({ item, badgeLabel = "Coming Soon", onOpen }) {
+function UpcomingCard({ item, badgeLabel = "Coming Soon", badgeTone = "accent", onOpen }) {
   const preferences = useOptionalPreferences();
   const imgUrl = CdnImageAdapter.getUrl(
     item.backdropUrl || item.posterUrl,
@@ -126,7 +128,12 @@ function UpcomingCard({ item, badgeLabel = "Coming Soon", onOpen }) {
             {(item.title || "?").trim().charAt(0).toUpperCase()}
           </div>
         )}
-        <span className="upcoming-card__badge">{badgeLabel}</span>
+        <span
+          className={`upcoming-card__badge content-badge content-badge--md content-badge--${badgeTone}`}
+        >
+          <span className="content-badge__dot" aria-hidden="true" />
+          {badgeLabel}
+        </span>
         <div className="upcoming-card__date-overlay">
           <CalendarDays size={18} className="icon text-white" />
           <span className="date">{dateLabel}</span>
@@ -798,6 +805,7 @@ export default function DiscoveryPage({ mode = "movies" }) {
                         key={item.id}
                         item={item}
                         badgeLabel={cfg.railBadge(item)}
+                        badgeTone={cfg.railBadgeTone}
                         onOpen={() => openDetails(item)}
                       />
                     ))}

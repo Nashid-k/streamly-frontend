@@ -5,11 +5,20 @@ import { Clock, Zap } from "lucide-react";
 import { getCountdown, getCountdownUrgency } from "../utils/releaseCalendar";
 
 /**
- * CountdownBadge — Animated countdown timer for upcoming releases
+ * CountdownBadge — "In 3 days" / "Tomorrow" / "In 2 weeks" on a poster.
  *
- * Shows on MovieCard for content with a known release date.
- * Pulses red for imminent releases, calm blue for distant ones.
+ * Every countdown is a GLASS pill (styles/ui-kit.css `.content-badge`): the
+ * urgency sets the ink, and the ring is the only difference between "out
+ * imminently" (red + pulse + Zap) and "out in a few days" (amber) or "weeks"
+ * (violet). The solid accent fill belongs to ContentTag's NEW, so a red-accent
+ * theme cannot make "just released" and "out in 5 hours" the same object.
  */
+const TONE_BY_URGENCY = {
+  imminent: "imminent",
+  soon: "soon",
+  upcoming: "upcoming",
+};
+
 export default function CountdownBadge({ releaseDate, platform, compact = false }) {
   const [countdown, setCountdown] = useState(() => getCountdown(releaseDate, platform));
   const reduceMotion = useReducedMotion();
@@ -31,56 +40,19 @@ export default function CountdownBadge({ releaseDate, platform, compact = false 
     ? "imminent"
     : getCountdownUrgency(countdown.days);
 
-  const styles = {
-    imminent: {
-      background: "linear-gradient(135deg, rgba(239,68,68,0.9), rgba(220,38,38,0.9))",
-      text: "var(--white)",
-      shadow: "0 2px 8px rgba(239,68,68,0.4)",
-      animate: true,
-    },
-    soon: {
-      background: "linear-gradient(135deg, rgba(249,115,22,0.9), rgba(234,88,12,0.9))",
-      text: "var(--white)",
-      shadow: "0 2px 8px rgba(249,115,22,0.3)",
-      animate: false,
-    },
-    upcoming: {
-      background: "rgba(96,165,250,0.15)",
-      text: "#60a5fa",
-      shadow: "none",
-      animate: false,
-    },
-    future: {
-      background: "rgba(255,255,255,0.08)",
-      text: "var(--text-secondary)",
-      shadow: "none",
-      animate: false,
-    },
-  };
-
-  const s = styles[urgency] || styles.future;
-  const pulse = s.animate && !reduceMotion;
+  // Past four weeks getCountdown switches to a plain date ("Nov 4"), so the
+  // four-week violet would be flagging a fact the label no longer states.
+  const tone =
+    TONE_BY_URGENCY[urgency] ||
+    (countdown.days <= 30 ? "weeks" : "later");
+  const pulse = urgency === "imminent" && !reduceMotion;
 
   return (
     <motion.div
+      className={`content-badge${compact ? "" : " content-badge--md"} content-badge--${tone}`}
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: pulse ? 0.3 : 0.3, ease: EASE_OUT }}
-      style={{
-        position: "relative",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: compact ? "3px" : "5px",
-        padding: compact ? "2px 6px" : "3px 8px",
-        borderRadius: "6px",
-        background: s.background,
-        color: s.text,
-        fontSize: compact ? "0.5rem" : "0.6rem",
-        fontWeight: 800,
-        letterSpacing: "0.04em",
-        boxShadow: s.shadow,
-        whiteSpace: "nowrap",
-      }}
+      transition={{ duration: 0.3, ease: EASE_OUT }}
       title={`Releases ${countdown.text}`}
     >
       {pulse && (

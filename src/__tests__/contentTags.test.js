@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   getContentTags,
   daysSinceRelease,
+  releaseChipTone,
   NEW_TAG_WINDOW_DAYS,
 } from "../utils/contentTags.js";
 
@@ -95,5 +96,23 @@ describe("getContentTags — it must not lie", () => {
     const m = { id: "movie-5", isSeries: false, releaseDate: day(-20) };
     expect(getContentTags(m, { now: NOW2, windowDays: 30 })).toHaveLength(1);
     expect(getContentTags(m, { now: NOW2, windowDays: 7 })).toHaveLength(0);
+  });
+});
+
+describe("releaseChipTone — rail labels map to the same tones as the badges", () => {
+  it("TODAY is the only released state, so it gets the solid accent", () => {
+    expect(releaseChipTone("TODAY")).toBe("new");
+  });
+
+  it("TOMORROW joins the countdown's near edge", () => {
+    expect(releaseChipTone("TOMORROW")).toBe("soon");
+  });
+
+  it("airing labels are live, everything else is a neutral calendar fact", () => {
+    expect(releaseChipTone("NOW AIRING")).toBe("live");
+    expect(releaseChipTone("FRI")).toBe("later");
+    expect(releaseChipTone("Nov 4")).toBe("later");
+    expect(releaseChipTone("")).toBe("later");
+    expect(releaseChipTone(null)).toBe("later");
   });
 });

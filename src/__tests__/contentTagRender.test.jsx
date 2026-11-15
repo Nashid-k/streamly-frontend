@@ -1,11 +1,10 @@
-// Render guard for the red "NEW" card tag.
+// Render guard for the card status badges.
 //
 // Two things the pure logic tests in contentTags.test.js cannot check:
-//  1. the tag is actually RED on screen (a tone regression would ship silently),
-//  2. it is visually distinguishable from CountdownBadge's red — that one
-//     PULSES and means "not out yet", this one is static and means "just out".
-//     If these two ever look alike, a viewer cannot tell "coming soon" from
-//     "just released", so this asserts the two states stay separated.
+//  1. NEW is the SOLID theme-accent pill and the countdowns are GLASS — the
+//     form, not the hue, is what keeps "just released" readable apart from
+//     "out imminently" (a red-accent theme makes both red).
+//  2. only CountdownBadge carries the pulse ring.
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 
@@ -50,15 +49,17 @@ describe("ContentTag", () => {
     expect(el.getAttribute("title")).toBe("Released today");
   });
 
-  it("is actually red — solid #ef4444→#dc2626 fill, not the green accent", () => {
+  it("is the SOLID theme-accent pill, never the glass urgency tone", () => {
     render(<ContentTag label="NEW" tone="new" />);
-    const style = screen.getByText("NEW").getAttribute("style") || "";
-    // jsdom normalises inline hex to rgb(), so assert the rgb form of
-    // #ef4444 → #dc2626. Both stops must be present, or the fill is not red.
-    expect(style).toContain("rgb(239, 68, 68)");
-    expect(style).toContain("rgb(220, 38, 38)");
-    // The old badge used var(--accent-gradient), i.e. green. Guard the fix.
-    expect(style).not.toContain("accent-gradient");
+    const el = screen.getByText("NEW");
+    // The fill/ink now come from --accent-color/--on-accent in CSS, so the
+    // contract is the class (which re-tints with the theme), not an rgb value.
+    expect(el.className).toContain("content-badge");
+    expect(el.className).toContain("content-badge--solid");
+    expect(el.className).not.toContain("content-badge--imminent");
+    expect(el.className).not.toContain("content-badge--soon");
+    // The old inline gradient would defeat every theme; it must stay gone.
+    expect(el.getAttribute("style") || "").not.toContain("gradient");
   });
 
   it("does not pulse — pulsing is CountdownBadge's signature", () => {
@@ -101,10 +102,27 @@ describe("NEW tag vs CountdownBadge — the two reds must stay distinguishable",
     expect(container.textContent).toMatch(/in 3 days/i);
   });
 
+  it("ramps the glass ink by distance: amber this week, violet for weeks", () => {
+    const soon = render(<CountdownBadge releaseDate="2026-06-18" compact />);
+    const soonPill = soon.container.querySelector(".content-badge");
+    expect(soonPill.className).toContain("content-badge--soon");
+    expect(soon.container.querySelector(".countdown-badge-ring")).toBeNull();
+
+    const weeks = render(<CountdownBadge releaseDate="2026-07-05" compact />);
+    expect(weeks.container.textContent).toMatch(/in 3 weeks/i);
+    expect(weeks.container.querySelector(".content-badge").className).toContain(
+      "content-badge--weeks",
+    );
+  });
+
   it("the countdown keeps its pulse ring so it stays visually distinct", () => {
     // 1 day out = imminent = the red-pulse state NEW must never look like.
     const { container } = render(<CountdownBadge releaseDate="2026-06-16" compact />);
     expect(container.querySelector(".countdown-badge-ring")).not.toBeNull();
+    const pill = container.querySelector(".content-badge");
+    expect(pill.className).toContain("content-badge--imminent");
+    // Glass, never the solid accent form NEW owns.
+    expect(pill.className).not.toContain("content-badge--solid");
   });
 
   it("a title released today gets the countdown suppressed, freeing NEW to own it", () => {

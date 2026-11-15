@@ -53,6 +53,26 @@ function isSeries(movie) {
 }
 
 /**
+ * Tone for a rail-provided release chip ("TODAY", "TOMORROW", "FRI", "Nov 4").
+ *
+ * These labels come from releaseCalendar's relLabel builder, not from a date
+ * we re-parse here, so the mapping is on the label the viewer will actually
+ * read. TODAY is the only state that is already true → the solid accent;
+ * TOMORROW is the near edge of the glass ramp. Everything else is a plain
+ * calendar fact and stays neutral.
+ *
+ * @param {string} label
+ * @returns {"new"|"soon"|"live"|"later"}
+ */
+export function releaseChipTone(label) {
+  const s = String(label || "").trim().toUpperCase();
+  if (s === "TODAY") return "new";
+  if (s === "TOMORROW") return "soon";
+  if (s.includes("AIRING")) return "live";
+  return "later";
+}
+
+/**
  * The tags a card should show, in priority order.
  *
  * @returns {Array<{id: string, label: string, tone: "new", reason: string, days: number}>}

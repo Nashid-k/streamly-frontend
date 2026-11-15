@@ -48,5 +48,9 @@ describe("CountdownBadge — under a day out", () => {
     // The pulse ring is CountdownBadge's imminent signature; the released/future
     // styles never render it.
     expect(container.querySelector(".countdown-badge-ring")).not.toBeNull();
+    // …and the pill is the glass imminent tone, not the solid NEW fill.
+    expect(container.querySelector(".content-badge").className).toContain(
+      "content-badge--imminent",
+    );
   });
 });
