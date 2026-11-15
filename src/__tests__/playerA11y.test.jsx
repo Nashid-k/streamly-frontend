@@ -386,25 +386,19 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
-    // Server 1 is RIVO's multi-audio backend (one master per language) and
-    // Server 2 is ZXC Orion — both multi-audio, so "Multi audio" belongs on rows
-    // 1 and 2. Six rows: RIVO plus the provider's live roster
-    // (Orion/Valstrax/Atlas/Ursa/Alatreon), in the provider's own order — so
-    // Server 3 is Valstrax and Server 4 is Atlas.
-    // Only Orion advertises "Multi Audio Support" in the provider roster, so it
-    // is the ONLY ZXC row that promises dubs; Atlas/Valstrax/Ursa/Alatreon are
-    // original-audio rows (an Atlas "Multi audio" tag listed a menu that could
-    // never be filled). VidSrc, NHD, VidRack and Daedalus were removed after
-    // re-measuring dead.
+    // Server 1 is RIVO's multi-audio backend (one master per language) and the
+    // ONLY row that returned alternate tracks when pinned (2026-11-15). Four
+    // rows: RIVO plus the backends that actually served (Valstrax, Ursa,
+    // Alatreon). Orion and Atlas were retired here after every strict pin
+    // answered "manifest unreadable"; VidSrc, NHD, VidRack and Daedalus were
+    // removed earlier for the same measured reason.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBe(6);
+    expect(rows.length).toBe(4);
     const expected = [
       ["Server 1", "Multi audio"],
-      ["Server 2", "Multi audio"],
+      ["Server 2", "Original audio"],
       ["Server 3", "Original audio"],
       ["Server 4", "Original audio"],
-      ["Server 5", "Original audio"],
-      ["Server 6", "Original audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);

@@ -36,39 +36,33 @@ describe("PLAYER_SOURCES", () => {
     expect(sourceLabel(DEFAULT_SOURCE_KEY)).toBe("Server 1");
   });
 
-  /* The ZXC rows are the provider's own roster, in the provider's own order
-     (api/stream.js ZXC_ROSTER_SEED): Orion, Valstrax, Atlas, Ursa, Alatreon.
-     Only Orion ships multi audio ("Multi Audio Support" in the roster), so a
-     row tagged multi-audio promises dub tracks the Audio menu cannot list —
-     Atlas carried that wrong tag. The multi-audio rows (RIVO's Server 1 and
-     ZXC Orion) therefore lead the menu, in that order. */
-  it("mirrors the provider roster order and tags multi audio only where it exists", () => {
+  /* The ZXC rows are the provider backends that actually served a strict pin
+     (2026-11-15): Valstrax, Ursa, Alatreon. Orion and Atlas answered "manifest
+     unreadable" on every title and were retired, so their "Multi audio" tag is
+     gone too — the only row that returned alternate tracks is RIVO's Server 1.
+     Sites that never answered are not menu entries. */
+  it("tags multi audio only on the measured multi-audio row", () => {
     const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
-    expect(zxcRows.map((row) => row.server)).toEqual([
-      "orion",
-      "valstrax",
-      "atlas",
-      "ursa",
-      "alatreon",
-    ]);
-    expect(zxcRows.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.server)).toEqual([
-      "orion",
-    ]);
-    // The two multi-audio rows are the first two entries the Servers menu shows.
-    expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-orion"]);
+    expect(zxcRows.map((row) => row.server)).toEqual(["valstrax", "ursa", "alatreon"]);
+    expect(zxcRows.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.server)).toEqual([]);
+    expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-valstrax"]);
     expect(PLAYER_SOURCES[0].tag).toMatch(/multi audio/i);
   });
 });
 
 describe("sourceByServer", () => {
   it("maps a backend server name back onto its row", () => {
-    expect(sourceByServer("atlas")?.key).toBe("zxc-atlas");
     expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
-    expect(sourceByServer("orion")?.key).toBe("zxc-orion");
-    // Menu numbering follows the provider roster's order.
-    expect(sourceLabel("zxc-orion")).toBe("Server 2");
-    expect(sourceLabel("zxc-valstrax")).toBe("Server 3");
-    expect(sourceLabel("zxc-atlas")).toBe("Server 4");
+    expect(sourceByServer("ursa")?.key).toBe("zxc-ursa");
+    expect(sourceByServer("alatreon")?.key).toBe("zxc-alatreon");
+    // Retired backends have no row to re-derive, so the player never highlights
+    // a server the viewer cannot pick.
+    expect(sourceByServer("orion")).toBeNull();
+    expect(sourceByServer("atlas")).toBeNull();
+    // Menu numbering is contiguous over the live rows.
+    expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
+    expect(sourceLabel("zxc-ursa")).toBe("Server 3");
+    expect(sourceLabel("zxc-alatreon")).toBe("Server 4");
   });
 
   it("returns null for an unknown or absent name", () => {
@@ -104,7 +98,7 @@ describe("AUTO_SOURCE", () => {
     expect(result).toEqual({ source: {}, variants: [], audioTracks: [], server: "1" });
   });
 
-  it("falls through to Server 2 (Orion, prefer) only when RIVO has no source for the title", async () => {
+  it("falls through to Server 2 (Valstrax, prefer) only when RIVO has no source for the title", async () => {
     resolveRivoMock.mockRejectedValue(new Error("no source"));
     resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
     const result = await AUTO_SOURCE.resolve({ type: "movie", id: "550" }, { signal: undefined });
@@ -112,7 +106,7 @@ describe("AUTO_SOURCE", () => {
     // rotation. `auto` would jump straight to whichever backend wins, which is
     // exactly how the no-pick path used to surface a late row ("Server 7").
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { type: "movie", id: "550", prefer: "orion" },
+      { type: "movie", id: "550", prefer: "valstrax" },
       { signal: undefined },
     );
     expect(result).toEqual({ source: {}, variants: [], audioTracks: [] });
@@ -152,12 +146,12 @@ describe("manual server rows", () => {
 describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
-    expect(sourceLabel("zxc-orion")).toBe("Server 2");
-    // ZXC rows mirror the provider's own roster order: Orion, Valstrax, Atlas,
-    // Ursa, Alatreon — the same order the backend's rotation walks.
-    expect(sourceLabel("zxc-valstrax")).toBe("Server 3");
-    expect(sourceLabel("zxc-atlas")).toBe("Server 4");
-    // ZXC Orion — our multi-audio server from zxcstream — took the Server 2 slot (2026-11-02).
+    expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
+    expect(sourceLabel("zxc-ursa")).toBe("Server 3");
+    expect(sourceLabel("zxc-alatreon")).toBe("Server 4");
+    // A retired key no longer resolves, so its fallback names the menu, not a
+    // backend that cannot deliver.
+    expect(sourceLabel("zxc-orion", "Server 1")).toBe("Server 1");
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });
 });

@@ -210,7 +210,7 @@ export function findSubtitleTrack(languages, code) {
 
 /* DERIVED from the live catalogue, never hand-listed, so adding or retiring a
    server renumbers this automatically. It used to be a hardcoded Server 1–4 and
-   drifted the moment Server 5 came back live: the Settings drag list silently
+   drifted as soon as a fifth row shipped: the Settings drag list silently
    dropped the fifth row. The Settings page renders this before the provider
    resolves; the adapter owns the persisted list. */
 export const DEFAULT_SERVER_ORDER = [...PLAYER_SOURCE_LABELS];
@@ -273,7 +273,7 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 server 2 server 3 server 4 server 5 server 6 server 7 default priority",
+    "reset server 1 server 2 server 3 server 4 default priority",
   ].join(" "),
   subtitles: [
     "subtitles readability customization font cinejoy classic montserrat",

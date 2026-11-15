@@ -293,12 +293,13 @@ export default function NativePlayerView({
        the FALLBACK (what plays when Server 1 has no source for the title) and
        the menu row order — never the start. */
     const next = orderedSources.find((s) => s.key !== DEFAULT_SOURCE_KEY);
-    // When that fallback is the default row (Server 2 = ZXC Orion) the
-    // behavior is byte-identical to AUTO_SOURCE: return ITS object identity so
-    // the details-page warm token stays consumable — takeWarmResolve compares
-    // `autoDef === AUTO_SOURCE`, and a look-alike object would silently break
-    // the handover and add 2–5s to every cold start.
-    if (!next || next.server === "orion") return AUTO_SOURCE;
+    // When that fallback IS the row AUTO_SOURCE itself falls back to
+    // (Server 2 = Valstrax), the behavior is byte-identical to AUTO_SOURCE:
+    // return ITS object identity so the details-page warm token stays
+    // consumable — takeWarmResolve compares `autoDef === AUTO_SOURCE`, and a
+    // look-alike object would silently break the handover and add 2–5s to
+    // every cold start.
+    if (!next || next.server === "valstrax") return AUTO_SOURCE;
     return {
       key: AUTO_SOURCE.key,
       label: AUTO_SOURCE.label,

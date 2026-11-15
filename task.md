@@ -8816,3 +8816,36 @@ Resume button.
   (`:has()` does work). So the `.cw-rail__card:focus-within .cw-rail__panel` rule is
   verified as present in the deployed sheet; its behaviour follows the standard Chromium
   semantics the app already relies on in `grids.css`.
+
+### 2026-11-15 - Server roster measured live: 4 of 6 rows serve, only Server 1 is multi-audio (user: "reverse engineer ... find the issues with our servers, how many are working and how many are giving multi audios, find and fix")
+
+Measured through production `/api/stream` (live relay; three titles: movie 1101383, movie
+1339713, tv 1399 S1E1; client-exact `auto`+`prefer` payloads AND a strict single-server
+pin). Full matrix: `C:\Users\dell\AppData\Local\Temp\opencode\probe-servers-live.json`.
+
+| Row | Result |
+| --- | --- |
+| Server 1 RIVO | 3/3 titles, 1080p, **multi-audio** (4 tracks incl. original on 1101383) - the only row that ever returned alternate tracks |
+| ZXC Valstrax | 3/3 titles, 1080p, original audio |
+| ZXC Ursa | 2/3 (720p on tv 1399, 1080p on 1339713, "HLS links unreadable" on 1101383) |
+| ZXC Alatreon | 2/2 pinned, playlist master without height metadata, original audio |
+| ZXC Orion | **0/2 strict pins** - "ZXC orion manifest unreadable" on every title |
+| ZXC Atlas | **0/2 strict pins** - "ZXC atlas manifest unreadable" on every title |
+
+- [x] Roster pruned to the rows that serve: `src/constants/sources.js` is now Server 1
+  RIVO (Multi audio) / 2 Valstrax / 3 Ursa / 4 Alatreon, contiguous. Orion + Atlas retired
+  (same precedent as VidRack) with the measurement block recording why; their "Multi audio"
+  tag went with them because no ZXC title returned a dub track on any probe.
+- [x] No-pick fallback asks `prefer: "valstrax"` (AUTO_SOURCE + RIVO's catch), and
+  `NativePlayerView`'s `AUTO_SOURCE` identity shortcut now checks `next.server === "valstrax"`,
+  so the warm-token handover stays byte-identical.
+- [x] Failover fix (`api/stream.js` HLS branch): `hard` is now `fetched.length === 0`, i.e. a
+  transport failure cools the row instead of the rotation paying the dead host every resolve
+  (measured ~5 s per dead backend, never benched before because `hard` was always false).
+- [x] `ZXC_ROSTER_SEED` stays in provider order on purpose - discovery re-derives the live
+  roster, and the client no longer names the retired rows.
+- [x] Tests updated for the 4-row roster: `sources.test.js`, `warmResolve.test.js`,
+  `playerAutoServer.test.jsx`, `playerA11y.test.jsx`, `PreferencesContext.test.jsx`,
+  `constants/settings.js` search haystack.
+- [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0.

@@ -241,7 +241,10 @@ const ZXC_LINK_KEY = "7f4c9e2a81d63b05c4f7a9e8126d3b50e1a8c7f23d9465ab0c6e9f1d4a
    THE ORDER IS THE PROVIDER'S OWN, and it MATTERS: their Server 1 is Orion.
    This list is the menu order, the default, and the auto-rotation's tie-break.
    Reorder it whenever the provider reorders — a row whose delivered host is
-   down should never sit at position 1.
+   down should never sit at position 1. (Client-side menu order lives in
+   src/constants/sources.js and no longer follows this list row-for-row: the
+   rows measured dead on 2026-11-15 were retired there while staying reachable
+   here through the rotation.)
 
    The roster ROTATES and a single row can be renamed/removed, so the live
    roster is RE-DERIVED from the shipped chunk at runtime (see
@@ -298,9 +301,9 @@ export function zxcServerNames() {
   return roster.map((r) => r.server);
 }
 
-/* Healthy first, then most-recently-successful, then the provider's own roster
-   order — so with every backend equally healthy the no-pick path lands on the
-   provider's Server 1 (Orion's multi-audio) rather than any dead row. */
+/* Healthy first, then most-recently-successful, then the seed order above —
+   so with every backend equally healthy the no-pick path lands on the
+   measured-healthiest row rather than a dead one. */
 function orderZxcServers() {
   const names = zxcServerNames();
   return [...names].sort((a, b) => {
@@ -1796,12 +1799,15 @@ async function resolveZxcOnServer(meta, server, prefetchedToken, sourceHeight) {
     // No candidate survived. Do not fall into the DASH branch: these links are
     // not MPDs, and a "manifest unreadable" error hides the real provider state.
     // Distinguish a storyboard-only response from links that never answered:
-    // the first is a provider fact, the second is a transport failure.
+    // the first is a provider fact, the second is a transport failure — and a
+    // transport failure must COOL the row, or the rotation pays its dead host
+    // again on the next resolve (measured 2026-11-15: a dead backend cost ~5s
+    // per call and was never benched).
     return {
       ok: false,
       code: "no-source",
       error: fetched.length > 0 ? `ZXC ${server} has no video playlist` : `ZXC ${server} HLS links unreadable`,
-      hard: false,
+      hard: fetched.length === 0,
     };
   }
 

@@ -1,6 +1,6 @@
 // The no-pick ("auto") path end to end: the player mounts without a selected
 // server, resolves through AUTO_SOURCE — Server 1 (RIVO) first, then Server 2
-// (ZXC Orion, `prefer`) only when RIVO has no source — and then maps the echoed
+// (ZXC Valstrax, `prefer`) only when RIVO has no source — and then maps the echoed
 // server name back onto the real Servers-menu row, so the viewer sees WHICH
 // server is actually playing, never a stale label.
 import { describe, expect, it, beforeAll, beforeEach, vi } from "vitest";
@@ -16,7 +16,7 @@ const hlsState = {
   instances: [],
   // Which server the fake backend says served the stream (echoed in the
   // response). Flipped by a test to model a picked server falling through.
-  server: "orion",
+  server: "valstrax",
   // Hold the playability probe open so the switching stage stays mounted long
   // enough to assert on. Cleared/resolved at the end of each test that sets it.
   deferProbe: false,
@@ -52,11 +52,11 @@ vi.mock("hls.js", () => {
   return { default: FakeHls };
 });
 
-// The backend chose orion (the provider's Server 1) — the resolver echoes it.
+// The backend chose valstrax (Server 2) — the resolver echoes it.
 const RESOLVE_PAYLOAD = {
-  source: { kind: "hls", url: "https://vidstuck.xyz/backend/servers/orion?zx=streamly&zv=master", refUrl: "https://vidstuck.xyz/embed/movie/12345", multiLevelMaster: true },
+  source: { kind: "hls", url: "https://vidstuck.xyz/backend/servers/valstrax?zx=streamly&zv=master", refUrl: "https://vidstuck.xyz/embed/movie/12345", multiLevelMaster: true },
   variants: [{ uri: "https://vidstuck.xyz/m/0", bandwidth: 2000000, width: 1920, height: 1080, codecs: "hev1.1.6.L150.90" }],
-  server: "orion",
+  server: "valstrax",
   audioTracks: [],
 };
 
@@ -115,7 +115,7 @@ beforeEach(() => {
   hlsState.loadSourceCalls.length = 0;
   hlsState.resolveCalls.length = 0;
   hlsState.instances.length = 0;
-  hlsState.server = "orion";
+  hlsState.server = "valstrax";
   hlsState.deferProbe = false;
   hlsState.releaseProbe = null;
 });
@@ -129,8 +129,8 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     // numbering — which is the jump this pins against).
     expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
     expect(hlsState.resolveCalls[0].auto).toBeUndefined();
-    // RIVO had no source: the fallback is Server 2 (Orion) by NAME, not `auto`.
-    expect(hlsState.resolveCalls[1]).toMatchObject({ type: "movie", id: "12345", prefer: "orion" });
+    // RIVO had no source: the fallback is Server 2 (Valstrax) by NAME, not `auto`.
+    expect(hlsState.resolveCalls[1]).toMatchObject({ type: "movie", id: "12345", prefer: "valstrax" });
     expect(hlsState.resolveCalls[1].auto).toBeUndefined();
     expect(hlsState.resolveCalls.length).toBe(2);
   });
@@ -147,14 +147,14 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     const served = rows.find((r) => r.textContent.includes("Server 2"));
-    const other = rows.find((r) => r.textContent.includes("Server 5"));
+    const other = rows.find((r) => r.textContent.includes("Server 4"));
     expect(served).toHaveAttribute("aria-pressed", "true");
     expect(other).not.toHaveAttribute("aria-pressed");
   });
 
   /* A saved drag order dragged years ago under a different roster re-binds its
-     labels onto today's backends (Server 4 was once a different provider; it is
-     ZXC Atlas now, and the retired Server 7 entry is dropped by the sanitizer) —
+     labels onto today's backends (Server 4 is ZXC Alatreon now, and the retired
+     Server 7 entry is dropped by the sanitizer) —
      it used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
      Server 4 while an explicit Server 1 pick resolved fine. The start is now
      always Server 1; the stale order only steers the fallback after RIVO. */
@@ -171,8 +171,8 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
     expect(hlsState.resolveCalls[0].prefer).toBeUndefined();
     // RIVO had no source: the fallback is the saved order's first non-Server-1
-    // live row (Server 4 = atlas under today's roster) by NAME, still not `auto`.
-    expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "atlas" });
+    // live row (Server 4 = alatreon under today's roster) by NAME, still not `auto`.
+    expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "alatreon" });
     expect(hlsState.resolveCalls[1].auto).toBeUndefined();
     expect(hlsState.resolveCalls.length).toBe(2);
   });
@@ -201,7 +201,7 @@ describe("manual server pick prefers then falls back fast", () => {
 
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });
     const pick = hlsState.resolveCalls[1];
-    expect(pick.prefer).toBe("orion");
+    expect(pick.prefer).toBe("valstrax");
     expect(pick.server).toBeUndefined();
     expect(pick.auto).toBeUndefined();
   });
@@ -210,10 +210,10 @@ describe("manual server pick prefers then falls back fast", () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
-    // The picked row will be Server 4, but the backend serves ZXC Orion (Server
-    // 2) instead — a `prefer` fall-through, which is the backend's fast failover
-    // and not proof the picked row is dead.
-    hlsState.server = "orion";
+    // The picked row will be Server 4, but the backend serves ZXC Valstrax
+    // (Server 2) instead — a `prefer` fall-through, which is the backend's fast
+    // failover and not proof the picked row is dead.
+    hlsState.server = "valstrax";
     hlsState.deferProbe = true; // hold the probe so the stage stays observable
 
     openServers();
@@ -234,7 +234,7 @@ describe("manual server pick prefers then falls back fast", () => {
     expect(screen.queryByText(/has no stream/i)).toBeNull();
 
     // What plays is the row the backend actually served, not the picked one.
-    expect(hlsState.loadSourceCalls[1]).toContain("orion");
+    expect(hlsState.loadSourceCalls[1]).toContain("valstrax");
   });
 
   it("uses the same ring loader on a server switch (no second, larger loader)", async () => {

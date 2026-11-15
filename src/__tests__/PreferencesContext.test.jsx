@@ -117,14 +117,14 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
-    // Nebula -> Server 2, Lisbon -> Server 1, Joy -> Server 5 (live again as
-    // Orion), so all three survive the migration + retirement filter.
+    // Nebula -> Server 2, Lisbon -> Server 1, Joy -> Server 5 (retired), so the
+    // two live rows survive the migration + retirement filter.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 2 | Server 1 | Server 5",
+      "Server 2 | Server 1",
     );
     // The stored key is rewritten in place so the migration is idempotent.
     expect(localStorage.getItem("setting-serverOrder")).toBe(
-      JSON.stringify(["Server 2", "Server 1", "Server 5"]),
+      JSON.stringify(["Server 2", "Server 1"]),
     );
   });
 
@@ -148,11 +148,11 @@ describe("PreferencesProvider", () => {
     );
   });
 
-  /* VidSrc, NHD, the old VidRack and Daedalus were removed after re-measuring
-     dead, so a returning visitor's saved order must lose those rows instead of
-     keeping dead entries in the menu. The live catalogue is Server 1–6 (RIVO's
-     multi-audio master plus ZXC Orion/Valstrax/Atlas/Ursa/Alatreon), so Server 8
-     is the retired tail this pins. */
+  /* VidSrc, NHD, the old VidRack, Daedalus, ZXC Orion and ZXC Atlas were removed
+     after re-measuring dead, so a returning visitor's saved order must lose those
+     rows instead of keeping dead entries in the menu. The live catalogue is
+     Server 1–4 (RIVO's multi-audio master plus ZXC Valstrax/Ursa/Alatreon), so
+     Server 8 is the retired tail this pins. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
@@ -182,7 +182,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4 | Server 5 | Server 6",
+      "Server 1 | Server 2 | Server 3 | Server 4",
     );
   });
 

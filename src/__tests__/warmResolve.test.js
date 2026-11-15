@@ -10,8 +10,8 @@ import { DEFAULT_SOURCE_KEY } from "../constants/sources";
 /* The warm token is minted through `AUTO_SOURCE` — the SAME mount the player's
    no-pick path resolves through — so a warm handover can never deliver a token
    for a server the player would refuse. That mount now asks Server 1 (RIVO)
-   first and only falls through to Server 2 (ZXC Orion, `prefer`) when RIVO has
-   no source. These tests fail if either side hardcodes a row again, or if the
+   first and only falls through to Server 2 (ZXC Valstrax, `prefer`) when RIVO
+   has no source. These tests fail if either side hardcodes a row again, or if the
    warm leg drifts away from the player's start-of-line order. */
 const { resolveZxcMock, resolveRivoMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
@@ -43,15 +43,16 @@ describe("warmResolve", () => {
     expect(resolveZxcMock).not.toHaveBeenCalled();
   });
 
-  it("falls through to Server 2 (Orion, prefer) only when RIVO has no source", async () => {
+  it("falls through to Server 2 (Valstrax, prefer) only when RIVO has no source", async () => {
     resolveRivoMock.mockRejectedValue(new Error("no source"));
     resolveZxcMock.mockResolvedValue({ variants: [{ uri: "u", height: 1080 }] });
     await warmResolve(MOVIE_ARGS).catch(() => {});
     // The warm leg mints exactly what the player will ask for (AUTO_SOURCE), so
     // the handover can never deliver a token for a different row than the one
-    // the no-pick path would resolve: Server 2 (Orion) by NAME, not `auto`.
+    // the no-pick path would resolve: Server 2 (Valstrax, the measured-healthiest
+    // ZXC backend) by NAME, not `auto`.
     expect(resolveZxcMock).toHaveBeenCalledWith(
-      { ...MOVIE_ARGS, prefer: "orion" },
+      { ...MOVIE_ARGS, prefer: "valstrax" },
       expect.anything(),
     );
   });
