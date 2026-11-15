@@ -8757,8 +8757,9 @@ active theme except by accident.
   left/z-index/display/flex/gap/pointer-events`) now lives in `.card-badges`
   (`grids.css`), so `.detail-rail__item.is-current .card-badges { top: 34px }` is the
   winning rule. JSX keeps only the class.
-- [x] Production verified after deploy (`streamlyvercelin.vercel.app`, Obscura, CSS
-  `index-IJaEgjvv.css` then `index-16nNVAE8.css` build): home `.hero-container` top `0`,
+- [x] Production verified across both deploys (`streamlyvercelin.vercel.app`, Obscura,
+  CSS `index-IJaEgjvv.css` then `index-BjNm2t4r.css` for the cascade fix): home
+  `.hero-container` top `0`,
   `margin-top: 0px`, 702px tall (no band above the artwork); `/movies` hero top `0`,
   `margin-top: 0px` at scroll 0; home `.ambient-backdrop-img` opacity `0.5`, computed
   `filter: none`, `src` ending `...w92...&blur=60`; same on `/movies`, `/series` and the
@@ -8769,3 +8770,13 @@ active theme except by accident.
 - [x] Gates (final): `npm run lint` **0 errors / 144 warnings** - `npm run test`
   **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (1.82s; CSS
   `index-16nNVAE8.css` 315.13 kB).
+- [x] Re-verified after the cascade fix (CSS `index-BjNm2t4r.css`): Dune: Part Two and
+  The Godfather collection rails now report the "You're here" chip `top 8` / height 22
+  and the badge row `top 35` (was `9`, gap `-21` before the fix), i.e. the row sits
+  below the chip with a 5px gap; home keeps `dx 9 / dy 9` with no inline style on the
+  row. The deployed sheet carries both `.card-badges{...position:absolute;top:8px;
+  left:8px...}` and `.detail-rail__item.is-current .card-badges{top:34px}`.
+  Obscura's style engine cannot resolve `var()` in some properties (it reports
+  `border-radius: 0px` for the pill), so radius was verified from the deployed CSS text
+  plus the rendered box (68x22 matches `padding: 3px 8px` at 10px/1.4, which a 0-padding
+  chip cannot produce).
