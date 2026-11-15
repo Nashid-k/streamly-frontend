@@ -385,10 +385,18 @@ textarea:focus-visible {
   z-index: 30;
 }
 
+/* Keyboard parity for the hover panel. The Resume pill is the card's only
+   play control; without this the panel stayed at opacity 0 while a keyboard
+   user tabbed into an invisible button. */
+.cw-rail__card:focus-within .cw-rail__panel {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
 /* Edit toggle — a real 36px control (44px on touch), not the 28px glyph box
    it used to be. The "Done" state keeps the same footprint so the head never
-   reflows when the mode flips. */
-.cw-edit-btn {
+   reflows when the mode flips. */.cw-edit-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -183,15 +183,9 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                     </div>
                   )}
 
-                  {/* Play icon overlay on hover */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-200 pointer-events-none">
-                    <div className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white shadow-lg border border-white/20">
-                      <Play size={18} className="ml-0.5" fill="currentColor" stroke="none" />
-                    </div>
-                  </div>
-
-                  {/* 3px Progress Bar */}
-                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-white/20">
+                  {/* 3px Progress Bar — above the panel's scrim (z-20) so the
+                      resume percentage stays readable while the panel is open. */}
+                  <div className="absolute bottom-0 left-0 right-0 z-20 h-[3px] bg-white/20">
                     <div
                       className="h-full theme-progress-bar rounded-r-full transition-all duration-300"
                       style={{ width: `${pct}%`, background: "var(--progress)" }}
@@ -211,9 +205,13 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
 
                   {/* Hover preview panel — Cinejoy-style popup that slides up
                       over the thumbnail: gradient scrim, title, episode +
-                      remaining + pct, and a solid-white Resume pill. */}
+                      remaining + pct, and a solid-white Resume pill. This is the
+                      card's ONE play affordance: the old decorative centre disc
+                      (pointer-events-none, so never clickable) duplicated it and
+                      sat below this panel's z-10 scrim, which is what made it
+                      look clipped/dimmed as the panel slid up. */}
                   {!editMode && (
-                    <div className="absolute inset-x-0 bottom-0 z-10 translate-y-2 opacity-0 pointer-events-none transition-[transform,opacity] duration-300 ease-out group-hover/card:translate-y-0 group-hover/card:opacity-100 group-hover/card:pointer-events-auto">
+                    <div className="cw-rail__panel absolute inset-x-0 bottom-0 z-10 translate-y-2 opacity-0 pointer-events-none transition-[transform,opacity] duration-300 ease-out group-hover/card:translate-y-0 group-hover/card:opacity-100 group-hover/card:pointer-events-auto">
                       <div
                         className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
                         style={{

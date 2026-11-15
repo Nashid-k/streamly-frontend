@@ -8780,3 +8780,30 @@ active theme except by accident.
   `border-radius: 0px` for the pill), so radius was verified from the deployed CSS text
   plus the rendered box (68x22 matches `padding: 3px 8px` at 10px/1.4, which a 0-padding
   chip cannot produce).
+
+### 2026-11-15 - Continue Watching card: two play affordances, one of them painted under the hover panel (user: "the play btn has low z index ... has resume as well as another play btn in center, analyse first and fix")
+
+Analysis: the card mounted two play affordances on hover - a decorative centre disc
+(`absolute inset-0`, `pointer-events-none`, so never clickable, and shown in edit mode
+too) and the Resume panel at `z-10`. On a 288px 16:9 card the 44px disc spans roughly
+59-103px from the card top while the panel's scrim starts around 62px, so the panel
+painted over the disc and it read as clipped/dimmed - that is the "low z-index" symptom.
+The disc also duplicated the one real control (Resume) and, because the panel is
+`opacity-0 pointer-events-none` until `:hover`, a keyboard user tabbed into an invisible
+Resume button.
+
+- [x] Deleted the centre disc overlay (`ContinueWatchingRail.jsx`). The Resume pill in the
+  hover panel is now the card's single play control; the fallback Play glyph for a
+  history entry with no artwork stays.
+- [x] Keyboard parity: `.cw-rail__card:focus-within .cw-rail__panel` (`rails.css`) reveals
+  the panel, so the only play control is visible when focus lands in the card - not just
+  on pointer hover.
+- [x] The 3px progress bar is now `z-20`, so the resume percentage stays readable over the
+  panel's near-black scrim instead of disappearing under it.
+- [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (1.70s; CSS
+  `index-fmp98XVh.css` 314.85 kB).
+- [x] Production verified (Obscura, seeded `aios_continue_watching`): one
+  `.cw-rail__card`, zero centre discs inside it, panel `opacity 0` before hover and `1`
+  on pointer hover and on keyboard focus, Resume button visible and hit-testable at the
+  panel, progress bar `z-index 20`.
