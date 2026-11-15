@@ -264,20 +264,10 @@ const MovieCard = memo(function MovieCard({
                 the row out while the curtain is open (old code unmounted it on
                 a debounced hover state, which re-rendered the card on every
                 hover). */}
-            <div
-              className="card-badges"
-              style={{
-                position: "absolute",
-                top: "8px",
-                left: "8px",
-                zIndex: 10,
-                display: "flex",
-                gap: "4px",
-                alignItems: "center",
-                flexWrap: "wrap",
-                pointerEvents: "none",
-              }}
-            >
+            {/* Positioning lives in `grids.css`, not an inline style: the details
+                rail overrides the row's `top` for its one "You're here" card, and
+                an inline `top` would win that cascade. */}
+            <div className="card-badges">
                 {/* Content tags first (NEW). getContentTags suppresses itself
                     when the rail already renders an equivalent label, so this
                     never double-labels a card. */}

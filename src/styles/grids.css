@@ -251,7 +251,20 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Status row in the poster's top-left corner — the same corner the Discovery
+   rail's "Coming Soon" tab uses, so a status label always appears in the same
+   place. Declared here rather than inline so the details-rail override below can
+   win the cascade. */
 .card-badges {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
   transition: opacity var(--duration-instant) var(--ease-out);
 }
 

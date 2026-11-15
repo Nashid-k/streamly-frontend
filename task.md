@@ -8750,3 +8750,22 @@ active theme except by accident.
   failure; the same files then passed 3x focused and 2x full-suite - pre-existing
   timing flake, not this change) - `npm run build` exit 0 (1.79s; CSS
   `index-DqRr6Lu7.css` 315.01 kB).
+- [x] Cascade fix after the first production pass: the row's corner lived in an inline
+  `style` on `MovieCard`, and inline styles beat stylesheets, so the details-rail
+  override never applied (Obscura on Dune: Part Two showed the badge row at `top: 9px`
+  with the "You're here" chip 8-30px, i.e. `gap: -21px`). Positioning (`position/top/
+  left/z-index/display/flex/gap/pointer-events`) now lives in `.card-badges`
+  (`grids.css`), so `.detail-rail__item.is-current .card-badges { top: 34px }` is the
+  winning rule. JSX keeps only the class.
+- [x] Production verified after deploy (`streamlyvercelin.vercel.app`, Obscura, CSS
+  `index-IJaEgjvv.css` then `index-16nNVAE8.css` build): home `.hero-container` top `0`,
+  `margin-top: 0px`, 702px tall (no band above the artwork); `/movies` hero top `0`,
+  `margin-top: 0px` at scroll 0; home `.ambient-backdrop-img` opacity `0.5`, computed
+  `filter: none`, `src` ending `...w92...&blur=60`; same on `/movies`, `/series` and the
+  Simpsons details page (each with its own banner art); card chips measure `dx 9 / dy 9`
+  from the card box with `rowTop: 8px`; crimson theme keeps NEW solid red + near-black
+  ink and "In 3 days" amber glass in the same corner; deployed CSS carries
+  `.content-badge--imminent` and the `.detail-rail__item.is-current .card-badges` rule.
+- [x] Gates (final): `npm run lint` **0 errors / 144 warnings** - `npm run test`
+  **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (1.82s; CSS
+  `index-16nNVAE8.css` 315.13 kB).
