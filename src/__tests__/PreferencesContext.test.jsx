@@ -117,8 +117,9 @@ describe("PreferencesProvider", () => {
       </PreferencesProvider>,
     );
 
-    // Nebula -> Server 2, Lisbon -> Server 1, Joy -> Server 5 (retired), so the
-    // two live rows survive the migration + retirement filter.
+    // Nebula -> Server 2 and Lisbon -> Server 1 survive; Joy -> Server 5 is a
+    // retired row (Ursa/Orion were dropped on 2026-11-15), so the retirement
+    // filter removes it instead of offering a server the player cannot resolve.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
       "Server 2 | Server 1",
     );
@@ -148,11 +149,11 @@ describe("PreferencesProvider", () => {
     );
   });
 
-  /* VidSrc, NHD, the old VidRack, Daedalus, ZXC Orion and ZXC Atlas were removed
-     after re-measuring dead, so a returning visitor's saved order must lose those
-     rows instead of keeping dead entries in the menu. The live catalogue is
-     Server 1–4 (RIVO's multi-audio master plus ZXC Valstrax/Ursa/Alatreon), so
-     Server 8 is the retired tail this pins. */
+  /* VidSrc, NHD, the old VidRack, Daedalus, ZXC Orion, ZXC Atlas and ZXC Ursa
+     were removed after re-measuring dead, so a returning visitor's saved order
+     must lose those rows instead of keeping dead entries in the menu. The live
+     catalogue is Server 1–3 (RIVO's multi-audio master plus ZXC
+     Valstrax/Alatreon), so Server 8 is the retired tail this pins. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
@@ -182,7 +183,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4",
+      "Server 1 | Server 2 | Server 3",
     );
   });
 

@@ -36,15 +36,14 @@ describe("PLAYER_SOURCES", () => {
     expect(sourceLabel(DEFAULT_SOURCE_KEY)).toBe("Server 1");
   });
 
-  /* The ZXC rows are the provider backends that actually served a strict pin
-     (2026-11-15): Valstrax, Ursa, Alatreon. Orion and Atlas answered "manifest
-     unreadable" on every title and were retired, so their "Multi audio" tag is
-     gone too — the only row that returned alternate tracks is RIVO's Server 1.
-     Sites that never answered are not menu entries. */
-  it("tags multi audio only on the measured multi-audio row", () => {
+  /* The ZXC rows are the provider backends that served the roster on the
+     2026-11-15 re-measure: Valstrax and Alatreon. Ursa and Orion were dropped
+     the same day at 0/3, so the roster carries exactly one multi-audio row and
+     it is RIVO (Server 1). */
+  it("tags multi audio only where the row can actually deliver it", () => {
     const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
-    expect(zxcRows.map((row) => row.server)).toEqual(["valstrax", "ursa", "alatreon"]);
-    expect(zxcRows.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.server)).toEqual([]);
+    expect(zxcRows.map((row) => row.server)).toEqual(["valstrax", "alatreon"]);
+    expect(zxcRows.filter((row) => /multi audio/i.test(row.tag))).toEqual([]);
     expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-valstrax"]);
     expect(PLAYER_SOURCES[0].tag).toMatch(/multi audio/i);
   });
@@ -53,16 +52,17 @@ describe("PLAYER_SOURCES", () => {
 describe("sourceByServer", () => {
   it("maps a backend server name back onto its row", () => {
     expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
-    expect(sourceByServer("ursa")?.key).toBe("zxc-ursa");
     expect(sourceByServer("alatreon")?.key).toBe("zxc-alatreon");
     // Retired backends have no row to re-derive, so the player never highlights
-    // a server the viewer cannot pick.
-    expect(sourceByServer("orion")).toBeNull();
+    // a server the viewer cannot pick (Ursa and Orion measured 0/3 on
+    // 2026-11-15; Atlas and Daedalus were retired earlier for the same reason).
     expect(sourceByServer("atlas")).toBeNull();
+    expect(sourceByServer("ursa")).toBeNull();
+    expect(sourceByServer("orion")).toBeNull();
     // Menu numbering is contiguous over the live rows.
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
-    expect(sourceLabel("zxc-ursa")).toBe("Server 3");
-    expect(sourceLabel("zxc-alatreon")).toBe("Server 4");
+    expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
+    expect(sourceLabel("zxc-ursa")).toBe("That server");
   });
 
   it("returns null for an unknown or absent name", () => {
@@ -147,11 +147,10 @@ describe("sourceLabel", () => {
   it("falls back instead of returning undefined for an unknown key", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
-    expect(sourceLabel("zxc-ursa")).toBe("Server 3");
-    expect(sourceLabel("zxc-alatreon")).toBe("Server 4");
+    expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
+    expect(sourceLabel("zxc-orion")).toBe("That server");
     // A retired key no longer resolves, so its fallback names the menu, not a
     // backend that cannot deliver.
-    expect(sourceLabel("zxc-orion", "Server 1")).toBe("Server 1");
     expect(sourceLabel("__auto__", "Server 1")).toBe("Server 1");
   });
 });

@@ -226,6 +226,33 @@ movie 1339713 and tv 1399 S1E1 it returns eight language-tagged 1080p masters
 (English, French, Latin American Spanish, Brazilian Portuguese, Spanish, Yoruba,
 Arabic sub). The upstream contract differs from ZXC's, hence the separate action.
 
+**Servers menu (re-measured 2026-11-15): three rows.** Server 1 RIVO (multi audio,
+the only row that returns alternate tracks), Server 2 ZXC Valstrax, Server 3 ZXC
+Alatreon. Ursa and Orion were removed the same day at 0/3; Atlas and Daedalus
+were already retired on the same evidence. Every row is walked through the real
+handler (`resolve` → `action:"playlist"` → `action:"segment"`, real bytes) before
+it keeps a row, because a menu entry that cannot deliver is a promise the player
+never keeps.
+
+**RIVO delivery is relay-only, by upstream design.** Its playlists come from a
+third-party Cloudflare DASH→HLS bridge (host rotates: `dash-hls-bridge.*.workers.dev`)
+which answers with `ACAO: *`, but its media segments live on
+`sacdn.hakunaymatata.com`, which sends **no** `Access-Control-Allow-Origin` — a
+browser can never read them directly. `nativeHlsLoader` therefore relays every
+fragment through `relayProxyConfig()`'s worker (`streamly-proxy…workers.dev`, a
+zero-env default) and only falls to the Vercel `/api/stream` leg if that fails.
+Measured 2026-11-15 on a 997-segment media playlist: worker 126–1663 ms per
+0.2–0.6 MB fragment with `ACAO: *`; Vercel 134–4800 ms with `ACAO: null`. A 4-minute
+unattended Server 1 playback held a 168–411 s forward buffer with zero `pause()`
+calls, so relay latency is not a stall source at the rungs the player actually
+starts on — do not "fix" it by moving these bytes back onto Vercel.
+
+**The provider origin stays `zxcstream.cc` (re-probed 2026-11-15).** `zxcstream.com`
+is a DIFFERENT app: it serves `/watch` and `/search` but 404s `/player/{type}/{id}`,
+`/embed/…` and the mint route, while `.cc` serves `/player` and `/embed` with 200 and
+answers the mint route (500 JSON for a parameter-less probe). A migration to `.com`
+would break Servers 2–3, so it was reverted, not shipped.
+
 **VIDSTUCK / ZXC (`resolvezxc`) is a FIFTH provider that contributes SIX
 separate Servers-menu rows** — `zxc-orion`, `zxc-atlas`, `zxc-valstrax,
 `zxc-ursa`, `zxc-alatreon`, `zxc-daedalus` (Server 2–7; re-numbered 2026-11-02 so

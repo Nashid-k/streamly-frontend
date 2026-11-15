@@ -157,8 +157,18 @@ const pickAudio = (index) => {
     setAudioIndex(previousIndex >= 0 ? previousIndex : 0);
     // The switch never confirmed — the outgoing track is back and the viewer
     // was listening, so take playback away from the paused element again.
-    if (wasPlayingAtPick && previousIndex >= 0) {
-      videoRef.current?.play().catch(() => {});
+    // NOT gated on `previousIndex >= 0`: a pick made before hls.js had
+    // selected a default track reads -1, and the old guard then left the
+    // element paused forever with no track to restore (Server 1 is the only
+    // multi-audio row, so its Audio menu is where a viewer hits this). The
+    // element still plays whatever track it had; unpausing is always better
+    // than stranding a paused frame behind a closed sheet.
+    if (wasPlayingAtPick) {
+      videoRef.current?.play().catch((error) => {
+        logWarn("native", "Browser refused the post-audio-timeout auto-resume; playback starts on the next tap.", {
+          code: error?.name || String(error),
+        });
+      });
     }
     setBuffering(false);
     setStageWhileLoading(false);

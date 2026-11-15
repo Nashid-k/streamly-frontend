@@ -8858,3 +8858,68 @@ pin). Full matrix: `C:\Users\dell\AppData\Local\Temp\opencode\probe-servers-live
   `constants/settings.js` search haystack.
 - [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
   **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0.
+
+### 2026-11-15 — Server 1 "keeps pausing" diagnosed end-to-end; roster re-measured and pruned to 3 rows
+
+User order: "find out why server1 is keep pausing the video and fix it, for server 1 refer
+20 commits before (as server1 is working), also eliminate the servers that are not working,
+dig the internet and find out another multi audio servers and tell me".
+
+**Every claim below is a measurement, not an inference.** Titles: movie 1101383, movie
+1339713, movie 27205, tv 1399 S1E1. Transport probes: production `/api/stream`
+(`resolveRivo` → bridge playlist → real segment bytes), the Cloudflare worker
+(`streamly-proxy.nashidk1999.workers.dev`) and the Vercel relay, timed per fragment.
+Playback probes: deployed app in headless Chrome, 1920x1080, fresh profile (no resume
+card), 12 Mbps / 80 ms emulation, `pause()`/`playing`/`waiting` instrumented on
+`HTMLMediaElement.prototype`.
+
+- [x] **Server 1 playback does NOT pause mid-stream — reproduced 0 pauses in 4 minutes.**
+  `movie-1101383` on Server 1 (RIVO): `paused:false`, `currentTime 231.2s` after 240s,
+  forward buffer 168–411s, **zero `pause()` calls**, one initial `waiting`, 150+ relayed
+  fragments. An earlier clean run under 3 Mbps had exactly one pause, stack
+  `NativePlayerView … et.current`, media time `0.00` — that is `maybeOfferResume`, i.e.
+  the **"Resume Watching?" card**, which pauses at t=0 *by design* when the title has
+  saved progress (screenshot `.freebuff`-probe evidence; card text "You left off at
+  31:03"). A viewer with watch history therefore sees Server 1 "pause" on open even
+  though playback itself is healthy. That is intended behaviour, not a defect.
+- [x] **Delivery is healthy, so the relay is not the cause either.** One RIVO variant's
+  media playlist (997 segments, ENDLIST, 5.88s each) fetched through both legs:
+  worker **200, `ACAO: *`, 126–1663 ms** per 0.2–0.6 MB fragment; Vercel `200` but
+  `ACAO: null` (browser-unreadable), 134–4800 ms. Relay loops are also steady at 480p
+  (`maxBufferLength` 90s keeps 168–411s ahead). Direct is impossible (sacdn sends no
+  ACAO) but `relayProxyConfig()`'s zero-env default already routes those bytes through
+  the user's worker, not Vercel.
+- [x] **All 9 `pause()` call sites audited** — resume card, user toggle, embed teardown,
+  MediaSession "pause" key, sleep timer, still-watching (2h idle), and the two audio-switch
+  paths (which resume by contract). None is a timer that pauses an ordinary playing stream.
+- [x] **One real pause defect found in that audit and fixed** —
+  `src/components/player/engine/useAudioSwitch.js`: the audio-switch timeout rollback
+  resumed playback only `if (wasPlayingAtPick && previousIndex >= 0)`. A pick made before
+  hls.js had selected a default track reads `hls.audioTrack === -1`, so a track that never
+  confirmed left the element **paused forever** behind a closed sheet. Server 1 is the only
+  multi-audio row, so its Audio menu is the only place a viewer can hit it. The rollback now
+  resumes whenever playback was running at the pick (same contract as the catch/rollback
+  branches), with a `logWarn` if the browser refuses the resume.
+- [x] **Misleading log corrected**: every relayed fragment logged "via Vercel relay" even
+  when the Cloudflare worker served it (`relayConfig()` prefers the worker). That wording
+  sent this very diagnosis down the Vercel-burn path; it now reads "via the relay".
+- [x] **Roster pruned on new measurements** (`src/constants/sources.js`): Server 1 RIVO
+  (multi audio) / Server 2 Valstrax / Server 3 Alatreon. **ZXC Ursa removed (0/3 —
+  "HLS links unreadable" or segment 502)**, the uncommitted **ZXC Orion row reverted (0/3)**
+  and Alatreon renumbered 4 → 3. Atlas/Daedalus had already been retired. Tests updated:
+  `sources.test.js`, `playerA11y.test.jsx`, `playerAutoServer.test.jsx`,
+  `PreferencesContext.test.jsx`, `nativeHlsLoaderStreak.test.js` (new log wording).
+- [x] **Multi-audio research (see chat report).** Only contract-compatible option found:
+  CinePro Core (OMSS `audioTracks[]`, self-hosted Docker, 50+ providers). Embeds verified
+  alive today: `vidlink.pro` 200, `vidfast.pro` → `vidfast.vc` 200, `2embed.cc` → 200;
+  **dead/blocked**: `multiembed.mov` 403 Cloudflare challenge + `X-Frame-Options: SAMEORIGIN`,
+  `embed.su` / `vidsrc.cc` / `vidsrc.to` / `vidsrc.in` / `vidsrc.io` no response.
+- [x] **The uncommitted `zxcstream.cc` → `zxcstream.com` migration was REVERTED, not
+  shipped** — re-probed live: `.com` is a different app (serves `/watch` + `/search`,
+  **404s `/player/{type}/{id}`, `/embed/…` and the mint route**), while `.cc` serves
+  `/player` + `/embed` with 200 and answers the mint route. Moving `ZXC_ORIGIN` to `.com`
+  would have broken Servers 2–3 while looking like a routine domain bump. Production
+  ZXC resolves worked today on `.cc` (Valstrax 3/3, Alatreon 1/1), which is the same
+  evidence standard the roster prune used.
+- [x] Gates: `npm run lint` **0 errors / 150 warnings** · `npm run test`
+  **124 files / 1488 passed + 2 skipped** · `npm run build` exit 0.

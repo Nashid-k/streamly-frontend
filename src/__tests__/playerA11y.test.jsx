@@ -386,19 +386,16 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
-    // Server 1 is RIVO's multi-audio backend (one master per language) and the
-    // ONLY row that returned alternate tracks when pinned (2026-11-15). Four
-    // rows: RIVO plus the backends that actually served (Valstrax, Ursa,
-    // Alatreon). Orion and Atlas were retired here after every strict pin
-    // answered "manifest unreadable"; VidSrc, NHD, VidRack and Daedalus were
-    // removed earlier for the same measured reason.
+    // Server 1 is RIVO's multi-audio backend (one master per language). Three
+    // rows: RIVO plus the two backends that actually served on the 2026-11-15
+    // re-measure (Valstrax, Alatreon). VidSrc, NHD, VidRack, Daedalus, Ursa and
+    // Orion were removed after being measured dead for the same reason.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBe(4);
+    expect(rows.length).toBe(3);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
       ["Server 3", "Original audio"],
-      ["Server 4", "Original audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);

@@ -63,21 +63,28 @@ import { logDebug } from "../utils/debugLogger";
    is `ZXC_MINT_PATH` in `api/stream.js`, re-discovered from the shipped embed
    chunk by the procedure recorded next to it.
 
-   ROSTER 2026-11-15 — four rows, each one MEASURED against production
+   ROSTER 2026-11-15 (re-measured) — three rows, each driven through production
    (`/api/stream`, strict single-server pins on movie 1101383 and 1339713, plus
    client-exact auto+prefer payloads on tv 1399 S1E1):
 
      Server 1 RIVO       served 3/3 titles, 1080p, and the ONLY row that
-                         returned alternate audio (4 tracks incl. the original
-                         on 1101383).
-     Server 2 Valstrax   served 3/3, 1080p.
-     Server 3 Ursa       served 2/3 (720p on 1399, 1080p on 1339713, "HLS links
-                         unreadable" on 1101383) — a live row with an
-                         intermittent delivery host.
-     Server 4 Alatreon   served 2/2 probed, playlist master without height
-                         metadata; NO alternate audio.
+                         returned alternate audio (3–5 tracks incl. the original
+                         on 1101383). Every one of its bytes rides the relay
+                         (its segment CDN sends no ACAO) — a throughput fact,
+                         not a fault.
+     Server 2 Valstrax   served 3/3, 1080p, no alternate audio.
+     Server 3 Alatreon   served 3/3, TS bytes with no height metadata, no
+                         alternate audio.
 
-   ZXC Orion and ZXC Atlas were RETIRED here because both strict pins failed
+    ZXC Ursa was REMOVED here (2026-11-15) after re-measuring 0/3: every title
+    answered "HLS links unreadable" or a 502 from its segment host. ZXC Orion
+    (briefly a fifth row the same day) went the same way at 0/3, and the ZXC
+    family returned no dubbed tracks on any measured title — so neither row
+    could keep the "Multi audio" promise it advertised. Atlas and Daedalus had
+    already been retired on the same evidence. Server 1 (RIVO) is therefore the
+    only multi-audio row in the catalogue.
+
+    ZXC Orion and ZXC Atlas were RETIRED here because both strict pins failed
    on both titles ("ZXC <server> manifest unreadable"). Keeping them in the
    menu made every "pick Server 2/4" wait 5-10s only to fall through to
    Valstrax, and their "Multi audio" tag described a feature no probe could
@@ -109,7 +116,7 @@ export const PLAYER_SOURCES = [
   /* Server 1 is RIVO's multi-audio backend (rivo.st / f.rivo.st): one master
      PER LANGUAGE, so the Audio menu switches between full sibling manifests.
      It leads the menu because multi-audio is the capability most viewers pick a
-     server for, and it is the only row measured to return alternate tracks
+     server for, and it is the only row MEASURED to return alternate tracks
      (2026-11-15). */
   {
     key: "rivo-1",
@@ -148,16 +155,8 @@ export const PLAYER_SOURCES = [
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "valstrax" }, o),
   },
   {
-    key: "zxc-ursa",
-    label: "Server 3",
-    tag: "Original audio · up to 1080p",
-    provider: "ZXC Ursa",
-    server: "ursa",
-    resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "ursa" }, o),
-  },
-  {
     key: "zxc-alatreon",
-    label: "Server 4",
+    label: "Server 3",
     tag: "Original audio",
     provider: "ZXC Alatreon",
     server: "alatreon",

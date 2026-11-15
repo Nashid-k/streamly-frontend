@@ -95,7 +95,7 @@ describe("relay streak — module-scoped across per-fragment loader instances", 
     }
 
     const streakWarns = logWarn.mock.calls.filter((call) =>
-      String(call[1]).includes("consecutive fragment(s) via Vercel relay"),
+      String(call[1]).includes("consecutive fragment(s) via the relay"),
     );
     expect(streakWarns.length).toBe(1);
     expect(String(streakWarns[0][1])).toContain("1 consecutive fragment(s)");
@@ -142,7 +142,7 @@ describe("relay streak — module-scoped across per-fragment loader instances", 
     expect(loadedFrom).toEqual(["direct", "relay"]);
 
     const streakWarns = logWarn.mock.calls.filter((call) =>
-      String(call[1]).includes("consecutive fragment(s) via Vercel relay"),
+      String(call[1]).includes("consecutive fragment(s) via the relay"),
     );
     expect(streakWarns.length).toBe(1);
     expect(String(streakWarns[0][1])).toContain("1 consecutive fragment(s)");

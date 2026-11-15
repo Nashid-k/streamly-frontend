@@ -147,21 +147,21 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     const dialog = screen.getByRole("dialog", { name: "Servers" });
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
     const served = rows.find((r) => r.textContent.includes("Server 2"));
-    const other = rows.find((r) => r.textContent.includes("Server 4"));
+    const other = rows.find((r) => r.textContent.includes("Server 3"));
     expect(served).toHaveAttribute("aria-pressed", "true");
     expect(other).not.toHaveAttribute("aria-pressed");
   });
 
   /* A saved drag order dragged years ago under a different roster re-binds its
-     labels onto today's backends (Server 4 is ZXC Alatreon now, and the retired
-     Server 7 entry is dropped by the sanitizer) —
+     labels onto today's backends (Server 3 is ZXC Alatreon now, and the retired
+     Server 5/6/7 entries are dropped by the sanitizer) —
      it used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
      Server 4 while an explicit Server 1 pick resolved fine. The start is now
      always Server 1; the stale order only steers the fallback after RIVO. */
   it("a stale drag order never moves the no-pick start off Server 1", async () => {
     render(
       <PreferencesContext.Provider
-        value={{ serverOrder: ["Server 4", "Server 5", "Server 6", "Server 7", "Server 1", "Server 2", "Server 3"] }}
+        value={{ serverOrder: ["Server 3", "Server 5", "Server 6", "Server 7", "Server 1", "Server 2"] }}
       >
         <NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />
       </PreferencesContext.Provider>,
@@ -171,7 +171,7 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     expect(hlsState.resolveCalls[0]).toMatchObject({ type: "movie", id: "12345", server: "1" });
     expect(hlsState.resolveCalls[0].prefer).toBeUndefined();
     // RIVO had no source: the fallback is the saved order's first non-Server-1
-    // live row (Server 4 = alatreon under today's roster) by NAME, still not `auto`.
+    // live row (Server 3 = alatreon under today's roster) by NAME, still not `auto`.
     expect(hlsState.resolveCalls[1]).toMatchObject({ prefer: "alatreon" });
     expect(hlsState.resolveCalls[1].auto).toBeUndefined();
     expect(hlsState.resolveCalls.length).toBe(2);
@@ -210,7 +210,7 @@ describe("manual server pick prefers then falls back fast", () => {
     render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
 
-    // The picked row will be Server 4, but the backend serves ZXC Valstrax
+    // The picked row will be Server 3, but the backend serves ZXC Valstrax
     // (Server 2) instead — a `prefer` fall-through, which is the backend's fast
     // failover and not proof the picked row is dead.
     hlsState.server = "valstrax";
@@ -218,11 +218,11 @@ describe("manual server pick prefers then falls back fast", () => {
 
     openServers();
     const dialog = screen.getByRole("dialog", { name: "Servers" });
-    const server4 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 4"));
-    fireEvent.click(server4);
+    const server3 = [...dialog.querySelectorAll(".np-dialog-row")].find((r) => r.textContent.includes("Server 3"));
+    fireEvent.click(server3);
 
-    // While the stage is up (resolve answered, nothing committed) a "Server 4
-    // has no stream — playing Server 2" note used to appear even though Server 4
+    // While the stage is up (resolve answered, nothing committed) a "Server 3
+    // has no stream — playing Server 2" note used to appear even though Server 3
     // often serves the very next attempt. No alarm may be shown at any point:
     // the viewer picked a server and the player is still working on it.
     await waitFor(() => expect(hlsState.resolveCalls.length).toBeGreaterThan(1), { timeout: 3000 });

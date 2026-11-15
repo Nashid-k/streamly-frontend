@@ -504,7 +504,7 @@ export async function probeSourcePlayable(entryUrl, refUrl, options = {}) {
 
 /* ZXC replay-marker URLs, minted server-side by zxcPlaylistUrl() in
    api/stream.js, look like
-     https://zxcstream.cc/backend_/sources/<server>?...&zx=streamly&zv=master
+     https://zxcstream.com/backend_/sources/<server>?...&zx=streamly&zv=master
    They are NOT upstream URLs — the marker only means "ask our handler", and
    handlePlaylist is the only thing that can turn one into a real provider
    request (it mints the fresh signed token the provider demands). Forwarded
@@ -515,7 +515,7 @@ export async function probeSourcePlayable(entryUrl, refUrl, options = {}) {
    (the handler rewrites them absolute), so this only ever gates the playlist
    leg. `vidstuck.xyz` is the retired origin, kept so an in-flight session from
    before the migration does not drop. */
-const ZXC_MARKER_HOSTS = new Set(["zxcstream.cc", "vidstuck.xyz"]);
+const ZXC_MARKER_HOSTS = new Set(["zxcstream.com", "vidstuck.xyz"]);
 const ZXC_MARKER_VALUE = "streamly";
 
 function isZxcMarkerUrl(url) {
@@ -1085,7 +1085,11 @@ const text = await withThrottleRetry(this.signal(), async () => {
         lastRelayAt = relayNow;
         relayStreak += 1;
         if (relayStreak === 1 || relayStreak % RELAY_LOG_EVERY === 0) {
-          logWarn("native", `${relayStreak} consecutive fragment(s) via Vercel relay — direct path unavailable.`, {
+          // Name the LEG not the vendor: relayConfig() prefers the Cloudflare
+          // worker and only falls back to /api/stream, so calling every relayed
+          // fragment "via Vercel relay" made a healthy worker path look like
+          // serverless burn (it misled a Server 1 delivery diagnosis).
+          logWarn("native", `${relayStreak} consecutive fragment(s) via the relay — direct path unavailable.`, {
             url: String(url).slice(0, 80),
           });
         } else {
