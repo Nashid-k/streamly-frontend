@@ -8698,6 +8698,12 @@ active theme except by accident.
 - [x] Tests: `contentTagRender.test.jsx` now asserts the class contract (solid NEW,
   glass countdowns, ring only on imminent) and the amber/violet ramp;
   `contentTags.test.js` pins `releaseChipTone`.
+- [x] Production verified (Obscura, `streamlyvercelin.vercel.app`, deployed CSS
+  `index-CuKfDGAJ.css`): home NEW solid `rgb(149,255,80)`/`rgb(11,11,13)` and
+  `rgb(248,113,113)` on crimson, "In 3 days" amber ink + 34% ring, "Dec 17" white 86%;
+  `/series` "Season 38" mint 11px; `/movies` "Coming Soon" accent 11px; The Simpsons
+  details "Season 38 Airing" tab solid accent + near-black ink at the 7px tab radius.
+  All pills 10px/800 (11px on landscape rail), radius 9999px.
 - [x] Gates: `npm run lint` **0 errors / 144 warnings** - `npm run test`
   **125 files / 1492 passed + 2 skipped** - `npm run build` exit 0 (2.79s; CSS
   `index-B4-07A9c.css` 314.98 kB).
