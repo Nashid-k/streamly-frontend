@@ -101,6 +101,8 @@
         fetch that has already started.
       - Replaced broad `transition: all` declarations in non-player screens
         with explicit properties and added regression coverage.
+      - Mobile movie rails use proximity snapping and the shared gutter, so
+        touch flicks can coast instead of being forced to stop at every card.
       Player components, HLS logic and player restructuring remain untouched.
       **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
       profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
