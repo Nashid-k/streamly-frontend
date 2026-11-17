@@ -59,7 +59,7 @@ const MovieRail = React.memo(
       }
     }, [inView]);
 
-    const { canScrollLeft, canScrollRight, refresh } = useRailArrows(railRef, {
+    const { canScrollLeft, canScrollRight } = useRailArrows(railRef, {
       enabled: inView,
     });
 
@@ -89,7 +89,6 @@ const MovieRail = React.memo(
       inThrottle.current = true;
       if (throttleTimeoutRef.current) clearTimeout(throttleTimeoutRef.current);
       throttleTimeoutRef.current = setTimeout(() => (inThrottle.current = false), 150);
-      refresh();
     };
 
     const scroll = (dir) => {
@@ -107,7 +106,6 @@ const MovieRail = React.memo(
           left: dir === "left" ? -scrollAmount : scrollAmount,
           behavior: getRailScrollBehavior({ appReducedMotion, systemReducedMotion }),
         });
-        refresh();
       }
     };
 
