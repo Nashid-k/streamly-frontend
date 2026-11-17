@@ -226,7 +226,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
           exit={{ opacity: 0 }}
           transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
         >
-          <HeroTitleLogo movie={active} />
+          <HeroTitleLogo movie={active} fetchPriority={index === 0 ? "high" : "auto"} />
 
           <div className="hero-eyebrow">
             {active.genres?.slice(0, 2).map((g) => (
