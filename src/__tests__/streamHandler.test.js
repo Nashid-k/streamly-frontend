@@ -658,6 +658,37 @@ describe("resolveRivo", () => {
     expect(calledUrls.some((u) => u.includes("server=7"))).toBe(false);
   });
 
+  it("keeps searching RIVO siblings when the previously working 6 and 7 are empty", async () => {
+    const fallback = {
+      provider: "rivo",
+      server: "Server 2",
+      sources: [{ url: "https://cdn.example/2/master.m3u8", kind: "hls", quality: "1080p" }],
+      subtitles: [],
+    };
+    const empty = { provider: "rivo", server: "empty", sources: [], subtitles: [] };
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        if (target.includes("server=2")) return new Response(JSON.stringify(fallback), { status: 200 });
+        return new Response(JSON.stringify(empty), { status: 200 });
+      }
+      if (target === fallback.sources[0].url) return new Response(MASTER, { status: 200 });
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "1" });
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe("rivo");
+    expect(body.server).toBe("Server 2");
+    expect(body.source.url).toBe(fallback.sources[0].url);
+    const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+    for (const server of ["1", "6", "7", "2"]) {
+      expect(calledUrls.some((u) => u.includes(`server=${server}`))).toBe(true);
+    }
+  });
+
   it("reports an unreachable RIVO host when every sibling attempt fails", async () => {
     vi.stubGlobal(
       "fetch",
