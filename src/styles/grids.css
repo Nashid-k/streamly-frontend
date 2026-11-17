@@ -276,13 +276,16 @@
 
 @media (hover: hover) and (pointer: fine) {
   .movie-card:hover {
-    transform: scale(1.06);
+    /* Keep the lift perceptible without making neighbouring posters jump. */
+    transform: scale(1.035);
     z-index: 20;
     transition: transform var(--anim-hover-time) var(--anim-hover-ease);
   }
   .movie-card:hover .movie-poster {
-    filter: brightness(0.5);
-    transform: scale(1.04);
+    /* Preserve the artwork under the curtain; the play affordance should not
+       require dimming the poster to near-black. */
+    filter: brightness(0.78);
+    transform: scale(1.02);
   }
   .movie-card:hover .card-veil {
     opacity: 1;
@@ -306,9 +309,13 @@
 /* Keyboard focus opens the same curtain (media query above never matches a
    keyboard-only session). Identical declarations on purpose. */
 .movie-card:focus-visible {
-  transform: scale(1.035);
+  transform: scale(1.025);
   z-index: 20;
   transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+}
+.movie-card:focus-visible .poster-wrapper {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
 }
 .movie-card:focus-visible .card-veil {
   opacity: 1;
