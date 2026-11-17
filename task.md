@@ -68,10 +68,10 @@
         Server 2 (ZXC Valstrax), Server 3 (ZXC Alatreon), Server 4 (NetMirror).
       - A manual server pick is attempted first, then the other visible rows;
         the active-server label changes only after a real media-byte probe passes.
-      - Each resolve is bounded (7s for RIVO/ZXC, 10s for NetMirror); each
-        playlist/segment playability probe is bounded to 5s. A shared 40s cold-start
-        budget caps the combined walk; it is not allowed to abort an already
-        committed playback session.
+      - Each resolve is bounded (7s for RIVO/ZXC, 10s for NetMirror), each
+        playlist/segment playability probe to 5s, and each HLS manifest parse
+        to 7s. A shared 40s cold-start budget caps the combined walk; it is
+        not allowed to abort an already committed playback session.
       - ZXC's preferred/automatic backend rotation is restricted to the two
         current menu backends (Valstrax and Alatreon), not retired hidden roster
         entries.
