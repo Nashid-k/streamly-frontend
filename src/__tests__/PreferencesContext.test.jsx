@@ -183,7 +183,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3",
+      "Server 1 | Server 2 | Server 3 | Server 4",
     );
   });
 

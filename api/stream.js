@@ -8,6 +8,8 @@
 // Actions (POST JSON):
 //   resolvezxc     { type, id, season?, episode?, server?, auto?, prefer? } -> { source, variants, audioTracks }
 //   resolveRivo    { type, id, season?, episode?, server? } -> { source, variants, audioTracks } (rivo.st / f.rivo.st)
+//   resolveNetmirror { type, id, title, season?, episode?, originalLanguage? }
+//                  -> { source, variants, audioTracks: [] } (net52.cc: in-manifest audio)
 //   zxcintro       { imdbId, tmdbId, season?, episode? } -> { ok, introEndSeconds|null, creditsStartSeconds|null, confidence|null }
 //   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
@@ -2451,6 +2453,331 @@ async function handleResolveRivo(body, res) {
   });
 }
 
+/* ── NetMirror (net52.cc) ────────────────────────────────────────────────────
+   The "NewTV" API behind NetMirror answers
+     GET https://tv.imgcdn.kim/newtv/search.php?s=<title>&t=<ms>
+   with the `Ott` header choosing the catalogue (Netflix / Prime Video /
+   Hotstar), then `post.php` + `episodes.php` for a series and `player.php?id=`
+   for the playable `video_link`. That link is an HLS MASTER whose audio lives
+   in separate `EXT-X-MEDIA:TYPE=AUDIO` renditions — measured 2026-11-15: 22
+   languages on tv 66732 S1E1, 17 on movie 1101383, 5 on tv 1399 S1E1.
+
+   That is the capability the ZXC family never gave us, so this resolver reports
+   `audioTracks: []` ON PURPOSE: the tracks are in the manifest, hls.js surfaces
+   them, and the player's Audio menu switches them with no re-resolve and no
+   sibling-URL reload.
+
+   Two gates are measured, not assumed:
+     · the API needs the NewTV fingerprint headers — a bare fetch answers a
+       Cloudflare 403 HTML page, not JSON (verified: 403 bare, 200 with them);
+     · every rendition host requires the `net52.cc` referer, and roughly half
+       of the measured audio hosts refuse our Cloudflare relay while the video
+       hosts serve it. A rendition whose audio cannot be fetched plays SILENT
+       video, so each candidate's audio host is fetched HERE, with the same
+       referer the client's relay sends, before it is offered. A title with no
+       reachable audio answers `no-source` instead of shipping a picture with
+       no sound. */
+const NETMIRROR_API_BASE = "https://tv.imgcdn.kim";
+const NETMIRROR_REFERER = "https://net52.cc";
+const NETMIRROR_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:136.0) Gecko/20100101 Firefox/136.0 /OS.GatuNewTV v1.0";
+const NETMIRROR_OTTS = [
+  { key: "nf", label: "Netflix" },
+  { key: "pv", label: "Prime Video" },
+  { key: "hs", label: "Hotstar" },
+];
+
+/* ISO 639-2 (what the manifests carry) -> 639-1 (what TMDB sends us), for the
+   languages these catalogues actually publish. Unmapped codes simply never
+   match the film's language, which only costs the tie-break, never playback. */
+const NETMIRROR_LANG2 = {
+  eng: "en", hin: "hi", tam: "ta", tel: "te", kan: "kn", mal: "ml", ben: "bn",
+  mar: "mr", guj: "gu", pun: "pa", urd: "ur", ara: "ar", fra: "fr", deu: "de",
+  spa: "es", ita: "it", por: "pt", rus: "ru", jpn: "ja", kor: "ko", zho: "zh",
+  tur: "tr", vie: "vi", tha: "th", ind: "id", msa: "ms", pol: "pl", nld: "nl",
+  swe: "sv", nor: "no", dan: "da", fin: "fi", ces: "cs", hun: "hu", ron: "ro",
+  ell: "el", heb: "he", ukr: "uk", fas: "fa", slk: "sk", fil: "tl",
+};
+
+/* "Inception (2010)" / "inception.2010" -> "inception2010": the catalogue's
+   own `t` field and TMDB's title never agree on punctuation. */
+function netmirrorNorm(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+async function netmirrorJson(path, ott) {
+  const text = await fetchUpstream(`${NETMIRROR_API_BASE}${path}`, {
+    timeoutMs: 8000,
+    referer: NETMIRROR_REFERER,
+    extraHeaders: {
+      "cache-control": "no-cache, no-store, must-revalidate",
+      pragma: "no-cache",
+      expires: "0",
+      "x-requested-with": "NetmirrorNewTV v1.0",
+      "user-agent": NETMIRROR_UA,
+      accept: "application/json, text/plain, */*",
+      ...(ott ? { ott } : {}),
+    },
+  });
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`NetMirror ${path} was not JSON (${String(text).slice(0, 80)})`);
+  }
+}
+
+/* One `#EXT-X-MEDIA:TYPE=AUDIO` line -> { label, lang, uri, isDefault }.
+   Exported for the unit tests; the resolve path is the only caller. */
+export function parseNetmirrorAudioRenditions(text, baseUrl) {
+  const out = [];
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!/^#EXT-X-MEDIA:/i.test(line)) continue;
+    if (!/TYPE=AUDIO/i.test(line)) continue;
+    const attrs = {};
+    line.replace(/([A-Z0-9-]+)=("[^"]*"|[^,]*)/gi, (_m, key, value) => {
+      attrs[key.toUpperCase()] = String(value).replace(/^"|"$/g, "");
+      return _m;
+    });
+    if (!attrs.URI) continue;
+    let uri = attrs.URI;
+    try {
+      uri = new URL(attrs.URI, baseUrl).href;
+    } catch {
+      continue;
+    }
+    const lang = String(attrs.LANGUAGE || "").toLowerCase();
+    out.push({
+      label: String(attrs.NAME || lang || "Audio").trim(),
+      lang,
+      uri,
+      isDefault: String(attrs.DEFAULT || "").toUpperCase() === "YES",
+    });
+  }
+  return out;
+}
+
+/* Does this rendition host actually deliver? Fetched exactly the way the
+   client's relay will (referer + browser UA), so a host that only answers bare
+   requests cannot pass. Result cached per host for this request. */
+async function netmirrorAudioReachable(uri, seen) {
+  let host = "";
+  try {
+    host = new URL(uri).host;
+  } catch {
+    return false;
+  }
+  if (seen.has(host)) return seen.get(host);
+  const probe = (async () => {
+    try {
+      const text = await fetchUpstream(uri, { timeoutMs: 10_000, referer: NETMIRROR_REFERER });
+      return text.includes("#EXTM3U") && text.includes("#EXTINF");
+    } catch (error) {
+      logWarn("netmirror", "audio rendition unreachable", {
+        host,
+        message: error?.message?.slice(0, 120),
+      });
+      return false;
+    }
+  })();
+  seen.set(host, probe);
+  return probe;
+}
+
+async function netmirrorCandidates(title) {
+  const wanted = netmirrorNorm(title);
+  const searches = await Promise.allSettled(
+    NETMIRROR_OTTS.map(async (ott) => {
+      const data = await netmirrorJson(
+        `/newtv/search.php?s=${encodeURIComponent(title)}&t=${Date.now()}`,
+        ott.key,
+      );
+      const results = Array.isArray(data?.searchResult) ? data.searchResult : [];
+      const exact = results.filter((r) => r?.id && netmirrorNorm(r.t) === wanted);
+      const fuzzy = results.filter(
+        (r) =>
+          r?.id &&
+          netmirrorNorm(r.t) !== wanted &&
+          (netmirrorNorm(r.t).includes(wanted) || wanted.includes(netmirrorNorm(r.t))),
+      );
+      // One row per OTT: an exact title match, else the first fuzzy one. The
+      // catalogue is normalized separately for each OTT, so the same film can
+      // be present on Netflix but absent on Hotstar.
+      const pick = exact[0] || fuzzy[0] || null;
+      return pick ? { ...pick, ott: ott.key, ottLabel: ott.label } : null;
+    }),
+  );
+  return searches
+    .filter((s) => s.status === "fulfilled" && s.value)
+    .map((s) => s.value);
+}
+
+/* Video id for a candidate: the catalogue's `id` for a film, the matching
+   episode id for a series (post.php -> seasons -> episodes.php). */
+async function netmirrorPlayableId(candidate, { kind, season, episode }) {
+  if (kind === "movie") return candidate.id;
+  const post = await netmirrorJson(`/newtv/post.php?id=${encodeURIComponent(candidate.id)}`, candidate.ott);
+  const seasons = Array.isArray(post?.season) ? post.season : [];
+  let target = seasons[season - 1] || null;
+  for (const s of seasons) {
+    const label = String(s?.s || "").toLowerCase();
+    if (
+      label.includes(`season ${season}`) ||
+      label.includes(`s${season}`) ||
+      label.includes(`s0${season}`) ||
+      label.startsWith(String(season))
+    ) {
+      target = s;
+      break;
+    }
+  }
+  if (!target) return null;
+  const list = target.selected ? post?.episodes : (await netmirrorJson(`/newtv/episodes.php?id=${encodeURIComponent(target.id)}`, candidate.ott))?.episodes;
+  const episodes = Array.isArray(list) ? list.filter(Boolean) : [];
+  const match =
+    episodes.find((e) => Number(e.ep) === episode) ||
+    episodes.find((e) =>
+      Array.isArray(e.info) && e.info.some((i) => new RegExp(`^e0?${episode}$`, "i").test(String(i))),
+    ) ||
+    episodes[episode - 1];
+  return match?.id || null;
+}
+
+async function handleResolveNetmirror(body, res) {
+  const kind = body.type === "tv" ? "tv" : "movie";
+  const tmdbId = String(body.id || "").trim();
+  if (!/^\d{1,12}$/.test(tmdbId)) {
+    json(res, 400, { ok: false, error: "Invalid TMDB id", code: "bad-id" });
+    return;
+  }
+  const title = String(body.title || "").trim().slice(0, 140);
+  if (!title) {
+    // The catalogue is searched by TITLE, and the player always has one — this
+    // is a client bug, not a missing stream, so say so instead of guessing.
+    json(res, 400, { ok: false, error: "NetMirror needs the title to search", code: "bad-request" });
+    return;
+  }
+  const season = Math.max(1, Math.floor(Number(body.season) || 1));
+  const episode = Math.max(1, Math.floor(Number(body.episode) || 1));
+  const originalLang = String(body.originalLanguage || "").trim().toLowerCase().slice(0, 8);
+  const startedAt = Date.now();
+
+  let candidates = [];
+  try {
+    candidates = await netmirrorCandidates(title);
+  } catch (error) {
+    logWarn("netmirror", "search failed", { title, message: error?.message?.slice(0, 140) });
+    json(res, 200, { ok: false, error: "NetMirror search unreachable", code: "upstream" });
+    return;
+  }
+  if (!candidates.length) {
+    logInfo("netmirror", "no catalogue match", { title, kind, tmdbId, elapsedMs: Date.now() - startedAt });
+    json(res, 200, { ok: false, error: `No NetMirror match for "${title}"`, code: "no-source" });
+    return;
+  }
+
+  // Every candidate is resolved in parallel: each OTT is a separate catalogue
+  // and the losers cost nothing but a request we already need to compare them.
+  const resolved = await Promise.allSettled(
+    candidates.map(async (candidate) => {
+      const id = await netmirrorPlayableId(candidate, { kind, season, episode });
+      if (!id) return null;
+      const player = await netmirrorJson(`/newtv/player.php?id=${encodeURIComponent(id)}`, candidate.ott);
+      const masterUrl = String(player?.video_link || "").trim();
+      if (!/^https?:\/\//i.test(masterUrl)) return null;
+      const master = await fetchUpstream(masterUrl, { referer: NETMIRROR_REFERER, timeoutMs: 12_000 });
+      if (!master.includes("#EXTM3U")) return null;
+      const renditions = parseNetmirrorAudioRenditions(master, masterUrl);
+      // Group by host so one probe covers every language on that host.
+      const seen = new Map();
+      const reachable = [];
+      for (const rendition of renditions) {
+        if (await netmirrorAudioReachable(rendition.uri, seen)) reachable.push(rendition);
+      }
+      const variants = parseMasterPlaylist(master, masterUrl);
+      const topHeight = variants.reduce((max, v) => Math.max(max, v.height || 0), 0);
+      const langMatches = reachable.some((r) => NETMIRROR_LANG2[r.lang] === originalLang);
+      return {
+        candidate,
+        masterUrl,
+        master,
+        variants,
+        reachable,
+        topHeight,
+        langMatches,
+        referer: String(player?.referer || NETMIRROR_REFERER),
+      };
+    }),
+  );
+
+  const usable = resolved
+    .filter((r) => r.status === "fulfilled" && r.value && r.value.reachable.length > 0)
+    .map((r) => r.value)
+    // Most verified audio wins; the film's own language breaks ties; then the
+    // tallest ladder. A single-audio rendition is still usable — the row just
+    // has an Audio menu with one entry, which is the truth.
+    .sort(
+      (a, b) =>
+        b.reachable.length - a.reachable.length ||
+        Number(b.langMatches) - Number(a.langMatches) ||
+        b.topHeight - a.topHeight,
+    );
+
+  if (!usable.length) {
+    logWarn("netmirror", "no reachable audio rendition", {
+      title,
+      kind,
+      tmdbId,
+      candidates: candidates.map((c) => c.ott),
+      elapsedMs: Date.now() - startedAt,
+    });
+    json(res, 200, {
+      ok: false,
+      error: "NetMirror carries no audio we can deliver for this title",
+      code: "no-source",
+    });
+    return;
+  }
+
+  const best = usable[0];
+  // Fence: the master, every variant and every audio rendition host must be
+  // admit-able by the relay, or the client's own playlist/segment calls 403.
+  issueHost(best.masterUrl);
+  issueHostsInText(best.master);
+  const defaultTrack = best.reachable.find((r) => r.isDefault) || best.reachable[0];
+  logInfo("netmirror", "resolved", {
+    title,
+    kind,
+    tmdbId,
+    ott: best.candidate.ott,
+    audio: best.reachable.length,
+    variants: best.variants.length,
+    topHeight: best.topHeight,
+    elapsedMs: Date.now() - startedAt,
+  });
+
+  json(res, 200, {
+    ok: true,
+    source: {
+      kind: "hls",
+      url: best.masterUrl,
+      refUrl: best.referer || NETMIRROR_REFERER,
+      multiLevelMaster: true,
+    },
+    variants: best.variants,
+    // In-manifest audio: hls.js reports these, so there are no sibling URLs to
+    // list here (the player renders the Audio menu from the manifest itself).
+    audioTracks: [],
+    audioTrackCount: best.reachable.length,
+    audioOriginalLang: NETMIRROR_LANG2[defaultTrack?.lang] || "",
+    sourceVariants: [],
+    server: "netmirror",
+    provider: "NetMirror",
+  });
+}
+
 /* Reports which transports this deployment can actually serve. `zxcNative`
    is true only when ZXC_RELAY_URL is set: the provider WAF refuses our
    datacenter egress, so native resolve only works once a relay on an allowed
@@ -2523,6 +2850,9 @@ export default async function handler(req, res) {
     switch (body.action) {
       case "resolveRivo":
         await handleResolveRivo(body, res);
+        return;
+      case "resolveNetmirror":
+        await handleResolveNetmirror(body, res);
         return;
       case "resolvezxc":
         await handleResolveZxc(body, res);

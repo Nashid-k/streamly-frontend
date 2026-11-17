@@ -85,6 +85,12 @@ const RIVO_RESOLVE_TTL_MS = 60_000;
 const RIVO_RESOLVE_CACHE_MAX = 40;
 const resolveRivoCache = new Map(); // key -> { at, promise }
 
+/* NetMirror (net52.cc) resolve cache — same coalescing shape, its own upstream
+   contract (catalogue search by title, in-manifest audio). */
+const NETMIRROR_RESOLVE_TTL_MS = 60_000;
+const NETMIRROR_RESOLVE_CACHE_MAX = 40;
+const resolveNetmirrorCache = new Map(); // key -> { at, promise }
+
 function zxcResolveKey({ type, id, season, episode, server, auto, prefer, sourceHeight }) {
   const kind = type === "tv" ? "tv" : "movie";
   const mode = prefer ? `prefer:${prefer}` : auto ? "auto" : `server:${server || ""}`;
@@ -296,6 +302,71 @@ export const streamResolve = {
     resolveRivoCache.set(key, { at: Date.now(), promise: run });
     while (resolveRivoCache.size > RIVO_RESOLVE_CACHE_MAX) {
       resolveRivoCache.delete(resolveRivoCache.keys().next().value);
+    }
+    return run;
+  },
+
+  /** Resolve a NetMirror (net52.cc) row — action "resolveNetmirror".
+
+      The catalogue is searched by TITLE, so `title` is part of the request (and
+      of the cache key: two titles are two different searches). The answer is a
+      master playlist whose audio lives in `EXT-X-MEDIA:TYPE=AUDIO` renditions —
+      measured up to 22 languages on one episode — which is why `audioTracks` is
+      empty on purpose: the tracks are IN the manifest, hls.js surfaces them,
+      and the Audio menu switches them without a re-resolve. */
+  resolveNetmirror(
+    { type, id, season, episode, title, originalLanguage },
+    { signal, bypass } = {},
+  ) {
+    const kind = type === "tv" ? "tv" : "movie";
+    const key = [
+      kind,
+      String(id || ""),
+      season || "",
+      episode || "",
+      String(title || "").trim().toLowerCase(),
+      originalLanguage ? `lang:${String(originalLanguage).toLowerCase()}` : "",
+    ].join("|");
+    if (!bypass) {
+      const hit = resolveNetmirrorCache.get(key);
+      if (hit && Date.now() - hit.at < NETMIRROR_RESOLVE_TTL_MS) return hit.promise;
+      if (hit) resolveNetmirrorCache.delete(key);
+    }
+    const run = (async () => {
+      const body = {
+        action: "resolveNetmirror",
+        type: kind,
+        id: String(id || ""),
+        title: String(title || "").trim(),
+      };
+      if (originalLanguage) body.originalLanguage = String(originalLanguage);
+      if (kind === "tv") {
+        if (season != null) body.season = String(season);
+        if (episode != null) body.episode = String(episode);
+      }
+      const data = await post(body, { signal });
+      const resolved = this.normalizeResolved(data);
+      resolved.server = data.server;
+      logInfo(
+        "stream",
+        `Resolved ${resolved.variants.length} NetMirror variant(s) with ${Number(data.audioTrackCount) || 0} in-manifest audio track(s).`,
+        {
+          type: kind,
+          id,
+          title: body.title,
+          variants: resolved.variants.map((v) => v.label),
+          audioTrackCount: Number(data.audioTrackCount) || 0,
+        },
+      );
+      return resolved;
+    })();
+    run.catch(() => {
+      const current = resolveNetmirrorCache.get(key);
+      if (current && current.promise === run) resolveNetmirrorCache.delete(key);
+    });
+    resolveNetmirrorCache.set(key, { at: Date.now(), promise: run });
+    while (resolveNetmirrorCache.size > NETMIRROR_RESOLVE_CACHE_MAX) {
+      resolveNetmirrorCache.delete(resolveNetmirrorCache.keys().next().value);
     }
     return run;
   },

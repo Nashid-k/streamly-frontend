@@ -4,12 +4,17 @@
 // the round trip `sourceByServer`, and AUTO_SOURCE staying OUT of the menu.
 import { describe, expect, it, vi } from "vitest";
 
-const { resolveZxcMock, resolveRivoMock } = vi.hoisted(() => ({
+const { resolveZxcMock, resolveRivoMock, resolveNetmirrorMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
   resolveRivoMock: vi.fn(),
+  resolveNetmirrorMock: vi.fn(),
 }));
 vi.mock("../api/streamResolve", () => ({
-  streamResolve: { resolveZxc: resolveZxcMock, resolveRivo: resolveRivoMock },
+  streamResolve: {
+    resolveZxc: resolveZxcMock,
+    resolveRivo: resolveRivoMock,
+    resolveNetmirror: resolveNetmirrorMock,
+  },
 }));
 
 import {
@@ -38,14 +43,21 @@ describe("PLAYER_SOURCES", () => {
 
   /* The ZXC rows are the provider backends that served the roster on the
      2026-11-15 re-measure: Valstrax and Alatreon. Ursa and Orion were dropped
-     the same day at 0/3, so the roster carries exactly one multi-audio row and
-     it is RIVO (Server 1). */
+     the same day at 0/3, so no ZXC row may claim multi audio. The two rows that
+     DO carry the tag are the two measured for it: RIVO (sibling masters) and
+     NetMirror (in-manifest audio renditions). */
   it("tags multi audio only where the row can actually deliver it", () => {
     const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
     expect(zxcRows.map((row) => row.server)).toEqual(["valstrax", "alatreon"]);
     expect(zxcRows.filter((row) => /multi audio/i.test(row.tag))).toEqual([]);
     expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-valstrax"]);
     expect(PLAYER_SOURCES[0].tag).toMatch(/multi audio/i);
+    // NetMirror appends rather than inserting: the labels double as the saved
+    // `serverOrder` keys, so a middle insert would re-point a saved pick.
+    expect(PLAYER_SOURCES[PLAYER_SOURCES.length - 1].key).toBe("netmirror-1");
+    expect(
+      PLAYER_SOURCES.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.key),
+    ).toEqual(["rivo-1", "netmirror-1"]);
   });
 });
 
@@ -53,6 +65,7 @@ describe("sourceByServer", () => {
   it("maps a backend server name back onto its row", () => {
     expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
     expect(sourceByServer("alatreon")?.key).toBe("zxc-alatreon");
+    expect(sourceByServer("netmirror")?.key).toBe("netmirror-1");
     // Retired backends have no row to re-derive, so the player never highlights
     // a server the viewer cannot pick (Ursa and Orion measured 0/3 on
     // 2026-11-15; Atlas and Daedalus were retired earlier for the same reason).
@@ -62,6 +75,7 @@ describe("sourceByServer", () => {
     // Menu numbering is contiguous over the live rows.
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
     expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
+    expect(sourceLabel("netmirror-1")).toBe("Server 4");
     expect(sourceLabel("zxc-ursa")).toBe("That server");
   });
 
@@ -148,6 +162,7 @@ describe("sourceLabel", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
     expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
+    expect(sourceLabel("netmirror-1")).toBe("Server 4");
     expect(sourceLabel("zxc-orion")).toBe("That server");
     // A retired key no longer resolves, so its fallback names the menu, not a
     // backend that cannot deliver.
