@@ -121,8 +121,11 @@ function proxy(p) {
   // The query form uses a short alias for the request content-type.
   if (p.ctype != null && p.ctype !== "") headers["content-type"] = String(p.ctype);
   // NewTV (NetMirror) needs its catalogue selector and fingerprint headers.
-  if (p.xrw != null && p.xrw !== "") headers["x-requested-with"] = String(p.xrw);
-  if (p.ua != null && p.ua !== "") headers["user-agent"] = String(p.ua);
+  // The GET form uses the short aliases; doPost lowercases the real names.
+  var xrw = p.xrw != null ? p.xrw : p["x-requested-with"];
+  var ua = p.ua != null ? p.ua : p["user-agent"];
+  if (xrw != null && xrw !== "") headers["x-requested-with"] = String(xrw);
+  if (ua != null && ua !== "") headers["user-agent"] = String(ua);
   if (p.ott != null && p.ott !== "") headers["ott"] = String(p.ott);
 
   var options = {
