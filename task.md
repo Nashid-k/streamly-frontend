@@ -35,6 +35,8 @@
         (the ten rotating rails no longer each create their own observer).
       - Removed unnecessary idle compositor hints from the route plane, movie
         cards, glass buttons, and ambient-liquid wrapper/blobs.
+      - Removed redundant static layer hints from ambient artwork, hero actions,
+        dialogs, search suggestions, collection/discovery panels and pending rails.
       - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
       - Hero artwork keeps high fetch priority for the initial slide; later
         rotating slides use normal priority.
