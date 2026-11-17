@@ -123,6 +123,22 @@ describe("non-player compositor budget", () => {
     expect(mobileItems).not.toContain("scroll-snap-stop: always;");
   });
 
+  it("keeps title-detail playback primary and ratings in a supporting mobile row", () => {
+    const page = read("src/pages/TitleDetailsPage.jsx");
+    const css = read("src/styles/grids.css");
+    const actionStart = page.indexOf("details-hero__actions");
+    const actionEnd = page.indexOf("{unreleased && (", actionStart);
+    const actions = page.slice(actionStart, actionEnd);
+    const mobile = css.slice(css.indexOf("@media (max-width: 639px)"), css.indexOf("@media (max-width: 639px)") + 900);
+
+    expect(actions).toContain("details-hero__play");
+    expect(actions).toContain("details-hero__quick-actions");
+    expect(actions).toContain("details-hero__ratings");
+    expect(mobile).toContain("grid-template-columns: minmax(0, 1fr) auto;");
+    expect(mobile).toContain("grid-column: 1 / -1;");
+    expect(mobile).toContain("min-height: 48px;");
+  });
+
   it("reserves high fetch priority for the first hero slide and its logo", () => {
     const home = read("src/pages/HomePage.jsx");
     const browse = read("src/components/browse/BrowseBanner.jsx");
