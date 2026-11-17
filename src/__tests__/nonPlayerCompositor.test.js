@@ -78,4 +78,11 @@ describe("non-player compositor budget", () => {
     }
   });
 
+  it("does not force a 3D layer on every pending rail reveal", () => {
+    const css = read("src/styles/rails.css");
+    const reveal = rule(css, ".fade-in-section");
+
+    expect(reveal).not.toMatch(/backface-visibility|translateZ\\(0\\)/);
+  });
+
 });
