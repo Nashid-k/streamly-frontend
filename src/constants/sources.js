@@ -208,6 +208,7 @@ export const AUTO_SOURCE = {
   label: "Auto",
   tag: "Best available",
   provider: "RIVO → ZXC auto",
+  fallbackSources: PLAYER_SOURCES,
   resolve: async (a, o) => {
     try {
       const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
