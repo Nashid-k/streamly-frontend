@@ -1911,13 +1911,18 @@ async function handleResolveZxc(body, res) {
   // The response echoes whichever server actually served it, so the player can
   // say so and highlight the real row.
   const wantAuto = body.auto === true && !requested;
+  // Only two ZXC backends are exposed in Streamly's current four-server menu:
+  // Server 2 (Valstrax) and Server 3 (Alatreon). The provider's live roster may
+  // contain retired/unmeasured entries; do not silently spend startup time on
+  // those hidden rows during automatic or preferred failover.
+  const visibleZxcServers = ["valstrax", "alatreon"].filter((server) => names.includes(server));
   let plan;
   if (prefer) {
-    plan = [prefer, ...orderZxcServers().filter((s) => s !== prefer)];
+    plan = [prefer, ...visibleZxcServers.filter((server) => server !== prefer)];
   } else if (requested) {
     plan = [requested];
   } else if (wantAuto) {
-    plan = orderZxcServers();
+    plan = visibleZxcServers.length ? visibleZxcServers : orderZxcServers();
   } else {
     plan = [names[0]];
   }
