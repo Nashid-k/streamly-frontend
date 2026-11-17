@@ -1,0 +1,46 @@
+name: Quality gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Lint, test and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Build-time placeholders only. No production credentials are required
+      # for static analysis, unit tests or compiling the Vite bundle.
+      VITE_TMDB_API_KEY: ci-placeholder
+      VITE_SITE_URL: https://streamly-ci.invalid
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.2
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
