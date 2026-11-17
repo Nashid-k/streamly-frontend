@@ -1,39 +1,24 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
+import { useVirtualRenderAdapter } from "../../hooks/useVirtualRenderAdapter";
 
-/* Scroll-in reveal driven by ONE IntersectionObserver + a CSS class — no
-   framer/JS animation per rail. The transition (translateY(30px) + opacity) is
-   declared in rails.css under .fade-in-section, so the animation itself runs on
-   the compositor thread where Cinejoy's rails live; the JS here only flips a
-   boolean. No IntersectionObserver (jsdom/tests, ancient browsers) = visible
-   immediately, so content can never be stranded behind a reveal that never
-   fires. `delay` maps to the same transition-delay the framer version used. */
-const FadeInSection = React.memo(function FadeInSection({ children, delay = 0, style, className = "" }) {
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === "undefined");
-
-  useEffect(() => {
-    if (visible) return undefined;
-    const node = ref.current;
-    if (!node) return undefined;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      // Mirrors the framer viewport margin: the section must be 50px INSIDE
-      // the viewport before it reveals, so nothing animates while half offscreen.
-      { rootMargin: "-50px" },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [visible]);
+/* Scroll-in reveal uses the same shared, one-shot IntersectionObserver pool as
+   virtualised cards. A page with many rails therefore shares one observer for
+   this root margin instead of allocating one observer per section. The
+   transition itself stays CSS-only in rails.css (opacity + transform), while
+   React only flips the visibility class once. Unsupported browsers and SSR
+   render visible immediately, so content is never stranded behind a reveal. */
+const FadeInSection = React.memo(function FadeInSection({
+  children,
+  delay = 0,
+  style,
+  className = "",
+}) {
+  const { isVisible, ref } = useVirtualRenderAdapter("-50px");
 
   return (
     <div
       ref={ref}
-      className={`fade-in-section${visible ? " is-visible" : ""}${className ? ` ${className}` : ""}`}
+      className={`fade-in-section${isVisible ? " is-visible" : ""}${className ? ` ${className}` : ""}`}
       style={{ ...style, transitionDelay: `${delay}s` }}
     >
       {children}
