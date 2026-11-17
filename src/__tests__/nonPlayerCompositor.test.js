@@ -129,7 +129,8 @@ describe("non-player compositor budget", () => {
     const actionStart = page.indexOf("details-hero__actions");
     const actionEnd = page.indexOf("{unreleased && (", actionStart);
     const actions = page.slice(actionStart, actionEnd);
-    const mobile = css.slice(css.indexOf("@media (max-width: 639px)"), css.indexOf("@media (max-width: 639px)") + 900);
+    const mobileStart = css.lastIndexOf("@media (max-width: 639px)");
+    const mobile = css.slice(mobileStart);
 
     expect(actions).toContain("details-hero__play");
     expect(actions).toContain("details-hero__quick-actions");
