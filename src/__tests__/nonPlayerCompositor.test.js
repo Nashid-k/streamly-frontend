@@ -82,7 +82,7 @@ describe("non-player compositor budget", () => {
     const css = read("src/styles/rails.css");
     const reveal = rule(css, ".fade-in-section");
 
-    expect(reveal).not.toMatch(/backface-visibility|translateZ\\(0\\)/);
+    expect(reveal).not.toMatch(/backface-visibility|translateZ/);
   });
 
 });
