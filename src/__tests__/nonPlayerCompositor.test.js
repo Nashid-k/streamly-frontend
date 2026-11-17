@@ -55,6 +55,18 @@ describe("non-player compositor budget", () => {
     }
   });
 
+  it("keeps the Home hero parent fade-only while CSS staggers its children", () => {
+    const home = read("src/pages/HomePage.jsx");
+    const content = home.slice(home.indexOf('key={activeFeaturedMovie.id + "-content"}'));
+    const parentMotion = content.slice(0, content.indexOf("</motion.div>"));
+
+    expect(parentMotion).toMatch(/initial=\{\{ opacity: 0 \}\}/);
+    expect(parentMotion).toMatch(/animate=\{\{ opacity: 1 \}\}/);
+    expect(parentMotion).toMatch(/exit=\{\{ opacity: 0 \}\}/);
+    expect(parentMotion).not.toMatch(/\by:\s*18|y:\s*0/);
+    expect(read("src/styles/hero.css")).toContain("animation: heroReveal 0.48s");
+  });
+
   it("keeps hero reveal stagger short and transform/opacity based", () => {
     const css = read("src/styles/hero.css");
 
