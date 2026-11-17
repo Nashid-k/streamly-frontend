@@ -14,6 +14,7 @@
 //   playlist       { playlistUrl, refUrl? }              -> raw m3u8 text (referer-supplied)
 //   segment        { url, refUrl?, range: {start,max} }  -> bytes (octet-stream)
 //   capabilities   {}                                     -> { ok, zxcNative } (transport availability)
+//   relayDiag      {}                                     -> relay/token diagnostics (temporary)
 //
 // Retired actions (answer a clean 400 bad-action):
 //   · `resolve` — the old embed-download resolver. Every embed host it served
@@ -2851,6 +2852,106 @@ function handleCapabilities(res) {
   });
 }
 
+/* Temporary production diagnostic: reports only booleans about the relay
+   token, never the token itself, and probes three fixed URLs. Remove after the
+   deployment/config mismatch is identified. */
+const RELAY_DIAG_AUDIO_URL = "https://s20.freecdn1.top/files/70131314/a/0/0.m3u8";
+
+async function relayDiagText(url, { referer, extraHeaders } = {}) {
+  try {
+    const text = await fetchUpstream(url, {
+      timeoutMs: 20_000,
+      referer,
+      extraHeaders,
+      maxTextBytes: 256 * 1024,
+    });
+    return {
+      ok: true,
+      bytes: text.length,
+      m3u8: text.includes("#EXTM3U"),
+      json: text.trim().startsWith("{"),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: Number(error?.status) || 0,
+      error: String(error?.message || error).slice(0, 160),
+    };
+  }
+}
+
+async function relayDiagDirect(url, { referer } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const safeUrl = await assertPublicDestination(url);
+    const response = await fetch(safeUrl, {
+      headers: {
+        referer,
+        "user-agent": NETMIRROR_UA,
+        accept: "*/*",
+      },
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      bytes: text.length,
+      m3u8: text.includes("#EXTM3U"),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: Number(error?.status) || 0,
+      error: String(error?.message || error).slice(0, 160),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function handleRelayDiag(res) {
+  const raw = String(process.env.ZXC_RELAY_URL || "").trim();
+  let relay = null;
+  try {
+    relay = new URL(raw);
+  } catch {
+    relay = null;
+  }
+  const token = relay?.searchParams.get("token") || "";
+  const deployment = relay?.pathname.match(/\/macros\/s\/([^/]+)\/exec/)?.[1] || "";
+  const searchUrl = `${NETMIRROR_API_BASE}/newtv/search.php?s=Inception&t=${Date.now()}`;
+  const [search, audioRelay, audioDirect] = await Promise.all([
+    relayDiagText(searchUrl, {
+      referer: NETMIRROR_REFERER,
+      extraHeaders: {
+        "x-requested-with": "NetmirrorNewTV v1.0",
+        "user-agent": NETMIRROR_UA,
+        accept: "application/json, text/plain, */*",
+        ott: "nf",
+      },
+    }),
+    relayDiagText(RELAY_DIAG_AUDIO_URL, { referer: NETMIRROR_REFERER }),
+    relayDiagDirect(RELAY_DIAG_AUDIO_URL, { referer: NETMIRROR_REFERER }),
+  ]);
+  json(res, 200, {
+    ok: true,
+    relay: {
+      configured: Boolean(raw),
+      host: relay?.hostname || "",
+      deployment,
+      tokenPresent: Boolean(token),
+      tokenLength: token.length,
+      tokenIsPlaceholder: token === "CHANGE_ME_TO_A_RANDOM_STRING",
+      tokenIsDeploymentId: Boolean(token) && token === deployment,
+      tokenHasQuotes: /^["']|["']$/.test(token),
+      tokenHasAngleBrackets: /[<>]/.test(token),
+    },
+    probes: { search, audioRelay, audioDirect },
+  });
+}
+
 export default async function handler(req, res) {
   applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -2929,6 +3030,9 @@ export default async function handler(req, res) {
         return;
       case "capabilities":
         handleCapabilities(res);
+        return;
+      case "relayDiag":
+        await handleRelayDiag(res);
         return;
       default:
         json(res, 400, { ok: false, error: "Unknown action", code: "bad-action" });
