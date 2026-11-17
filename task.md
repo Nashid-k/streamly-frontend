@@ -28,6 +28,20 @@
   `ott`/`xrw`/`ua`; `apps-script/zxc-relay.gs` allows the host and forwards the
   same headers. `zxcRelay.test.js` drives the real handler against the relay
   envelope.
+- **Measured 2026-11-17 (local, residential IP):** `resolveNetmirror` for
+  Inception (27205) returns 3 variants (1080/720/480), 4 in-manifest audio
+  tracks (Hindi/Telugu/Tamil/English), master on `tv.imgcdn.kim`, audio
+  renditions on `s35.freecdn34.top`, variant playlists on
+  `s0022.freecdn4.top`. The resolver is sound; production is blocked only at
+  the Vercel→NewTV JSON step.
+- **Production relay status (2026-11-17):** after `255b8ff` deployed, the
+  NetMirror error changed from `NetMirror search unreachable (HTTP 403)` to
+  `NetMirror search unreachable` with no HTTP status — the request now reaches
+  the relay and the relay refuses the target. The deployed Apps Script still
+  has the old host allow-list; paste/redeploy `apps-script/zxc-relay.gs` as a
+  new version on the same `/exec` URL and token. The Cloudflare worker was
+  re-tested and returns a Cloudflare 403 block page, so it cannot replace the
+  Apps Script.
 - **Server 1 identity (last 30 commits):** RIVO since `0b3eb99` (2026-11-02).
   Server 4 was ZXC Ursa at `0b3eb99`, ZXC Valstrax through
   `bdc86e2`/`ea735b6`/`70fad63`, ZXC Alatreon at `941e1ef`, removed at
@@ -41,9 +55,9 @@
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
-- **Gates:** last recorded green run was 124–125 files / 1488–1492 passed + 2
-  skipped, `npm run lint` 0 errors (warnings only), `npm run build` exit 0.
-  Re-run all three before claiming any new work done.
+- **Gates (2026-11-17):** `npm run test` 127 files / 1514 passed + 2 skipped,
+  `npm run lint` 0 errors (warnings only), `npm run build` exit 0. The
+  `FadeInSection` visibility assertions were corrected in `6febcf6`.
 
 ## Open work queue (top-down)
 
