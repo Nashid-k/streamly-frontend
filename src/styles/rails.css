@@ -761,3 +761,13 @@ textarea:focus-visible {
   }
 }
 
+
+
+/* Keyboard users can focus each horizontal rail and scroll it with the
+   arrow keys. Keep the ring on the track itself so focus is visible without
+   changing the card artwork or the rail's measured geometry. */
+.movie-rail:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
+  border-radius: var(--radius-card);
+}
