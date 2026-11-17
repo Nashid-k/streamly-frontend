@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
 import { ROUTE_VARIANTS } from "../constants/routeMotion";
 import { RIVO_MOTION } from "../components/player/chrome/theme";
+import { getRailScrollBehavior } from "../components/rails/MovieRail";
 
 /* Walks a directory for source files, so the contract tests below cover every
    player surface rather than the three files this test happens to know about. */
@@ -901,5 +902,25 @@ describe("navigation moves one pill, never the dock", () => {
     expect(responsiveCss).toMatch(/margin-left:\s*-50vw\s*!important/);
     expect(responsiveCss).not.toMatch(/margin-left:\s*calc\(50%\s*-\s*50vw\)/);
     expect(tokensCss).toMatch(/--radius-pill:\s*9999px/);
+  });
+});
+
+
+describe("horizontal rail scroll respects reduced motion", () => {
+  it("keeps smooth scrolling when neither preference requests reduced motion", () => {
+    expect(getRailScrollBehavior()).toBe("smooth");
+    expect(getRailScrollBehavior({ appReducedMotion: false, systemReducedMotion: false })).toBe("smooth");
+  });
+
+  it("uses an immediate scroll when the in-app preference is enabled", () => {
+    expect(getRailScrollBehavior({ appReducedMotion: true })).toBe("auto");
+  });
+
+  it("uses an immediate scroll when the operating system requests reduced motion", () => {
+    expect(getRailScrollBehavior({ systemReducedMotion: true })).toBe("auto");
+  });
+
+  it("uses an immediate scroll when both preferences request reduced motion", () => {
+    expect(getRailScrollBehavior({ appReducedMotion: true, systemReducedMotion: true })).toBe("auto");
   });
 });

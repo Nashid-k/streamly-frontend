@@ -4,6 +4,10 @@ import RailArrow from "../RailArrow";
 import SectionHeader from "./SectionHeader";
 import useRailArrows from "../../hooks/useRailArrows";
 
+export function getRailScrollBehavior({ appReducedMotion = false, systemReducedMotion = false } = {}) {
+  return appReducedMotion || systemReducedMotion ? "auto" : "smooth";
+}
+
 const MovieRail = React.memo(
   function MovieRail({ category, railIndex: _railIndex = 0, header }) {
     const railRef = useRef(null);
@@ -93,9 +97,15 @@ const MovieRail = React.memo(
         const clientWidth = railRef.current.clientWidth;
         const scrollAmount =
           clientWidth > 800 ? clientWidth * 0.8 : clientWidth * 0.9;
+        const appReducedMotion =
+          typeof document !== "undefined" &&
+          document.documentElement?.dataset?.reduceMotion === "true";
+        const systemReducedMotion =
+          typeof window !== "undefined" &&
+          window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
         railRef.current.scrollBy({
           left: dir === "left" ? -scrollAmount : scrollAmount,
-          behavior: "smooth",
+          behavior: getRailScrollBehavior({ appReducedMotion, systemReducedMotion }),
         });
         refresh();
       }
