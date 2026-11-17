@@ -63,7 +63,7 @@ describe("non-player compositor budget", () => {
     expect(parentMotion).toMatch(/initial=\{\{ opacity: 0 \}\}/);
     expect(parentMotion).toMatch(/animate=\{\{ opacity: 1 \}\}/);
     expect(parentMotion).toMatch(/exit=\{\{ opacity: 0 \}\}/);
-    expect(parentMotion).not.toMatch(/\by:\s*18|y:\s*0/);
+    expect(parentMotion).not.toMatch(/\by:\s*(?:18|0)\b/);
     expect(read("src/styles/hero.css")).toContain("animation: heroReveal 0.48s");
   });
 
