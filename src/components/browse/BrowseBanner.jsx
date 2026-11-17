@@ -117,6 +117,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
     const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
     if (!preloadUrl) return;
     const img = new window.Image();
+    img.fetchPriority = "low";
     img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
   }, [index, total, nextMovie]);
 
