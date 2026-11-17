@@ -1896,7 +1896,7 @@ export default function TitleDetails() {
                           background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
                           color: 'var(--white)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
+                          letterSpacing: '0.02em', transition: 'background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out)',
                         }}
                       >
                         {`Load more (${episodes.length - visibleEpisodeCount} remaining)`}
@@ -1937,7 +1937,7 @@ export default function TitleDetails() {
                           background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
                           color: 'var(--text-secondary)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
                           fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'all var(--duration-fast) var(--ease-out)',
+                          letterSpacing: '0.02em', transition: 'background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out)',
                         }}
                       >
                         Show less
