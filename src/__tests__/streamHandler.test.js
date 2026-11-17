@@ -616,6 +616,60 @@ describe("resolveRivo", () => {
     expect(body.audioOriginalLang).toBe("en");
   });
 
+  it("falls through to RIVO's own live sibling servers before reporting no-source", async () => {
+    const fallback = {
+      provider: "rivo",
+      server: "Server 6",
+      sources: [
+        { url: "https://cdn.example/6/master.m3u8", kind: "hls", quality: "1080p" },
+      ],
+      subtitles: [],
+    };
+    const empty = { provider: "rivo", server: "Server 1", sources: [], subtitles: [] };
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        if (target.includes("server=1")) {
+          return new Response(JSON.stringify(empty), { status: 200 });
+        }
+        if (target.includes("server=6")) {
+          return new Response(JSON.stringify(fallback), { status: 200 });
+        }
+        return new Response(JSON.stringify({ ...empty, server: "Server 7" }), { status: 200 });
+      }
+      if (target === fallback.sources[0].url) {
+        return new Response(MASTER, { status: 200 });
+      }
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "1" });
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe("rivo");
+    // RIVO's internal id is echoed for diagnostics; the menu row stays Server 1.
+    expect(body.server).toBe("Server 6");
+    expect(body.source.url).toBe(fallback.sources[0].url);
+    expect(body.variants.map((v) => v.height)).toEqual([1080, 720]);
+    const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(calledUrls.some((u) => u.includes("server=1"))).toBe(true);
+    expect(calledUrls.some((u) => u.includes("server=6"))).toBe(true);
+    expect(calledUrls.some((u) => u.includes("server=7"))).toBe(false);
+  });
+
+  it("reports an unreachable RIVO host when every sibling attempt fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("connect reset");
+      }),
+    );
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "1" });
+    const body = JSON.parse(res.body);
+    expect(body).toMatchObject({ ok: false, code: "upstream" });
+  });
+
   it("rejects a malformed id with a 400, not a 500", async () => {
     const res = await call({ action: "resolveRivo", type: "movie", id: "not-a-number", server: "1" });
     expect(res.statusCode).toBe(400);

@@ -92,8 +92,8 @@ import { logDebug } from "../utils/debugLogger";
     (briefly a fifth row the same day) went the same way at 0/3, and the ZXC
     family returned no dubbed tracks on any measured title — so neither row
     could keep the "Multi audio" promise it advertised. Atlas and Daedalus had
-    already been retired on the same evidence. Server 1 (RIVO) is therefore the
-    only multi-audio row in the catalogue.
+    already been retired on the same evidence. Server 1 (RIVO) and Server 4
+    (NetMirror) are therefore the two multi-audio rows in the catalogue.
 
     ZXC Orion and ZXC Atlas were RETIRED here because both strict pins failed
    on both titles ("ZXC <server> manifest unreadable"). Keeping them in the
@@ -132,19 +132,19 @@ export const PLAYER_SOURCES = [
   {
     key: "rivo-1",
     label: "Server 1",
-    tag: "Multi audio · up to 1080p",
+    // RIVO's primary (multi-audio) library was empty on 2026-11-17 while its
+    // sibling servers still served titles, so "multi audio" is conditional on
+    // the library that answers. The row is still RIVO either way.
+    tag: "Multi audio when available · up to 1080p",
     provider: "RIVO",
     server: "1",
-    resolve: async (a, o) => {
-      try {
-        return await streamResolve.resolveRivo({ ...a, server: "1" }, o);
-      } catch (error) {
-        // AbortError = the resolve was cancelled (route change / manual pick).
-        // Never start a ZXC stream from a stale run.
-        if (error?.name === "AbortError") throw error;
-        return await streamResolve.resolveZxc({ ...a, prefer: "valstrax" }, o);
-      }
-    },
+    /* Server 1 means RIVO, full stop. This row used to catch every RIVO miss
+       and replay the request on ZXC Valstrax, so an explicit Server 1 pick
+       silently became Server 2. The RIVO handler now falls through to RIVO's
+       own live sibling ids (6 → 7); a real RIVO outage must surface as a
+       no-source on Server 1, not as a different provider. The no-pick
+       AUTO_SOURCE path keeps its own documented RIVO → Server 2 fallback. */
+    resolve: (a, o) => streamResolve.resolveRivo({ ...a, server: "1" }, o),
   },
 
   /* The ZXC backends, each kept as its OWN row so the Servers menu
@@ -207,7 +207,7 @@ export const AUTO_SOURCE = {
   key: "__auto__",
   label: "Auto",
   tag: "Best available",
-  provider: "ZXC auto",
+  provider: "RIVO → ZXC auto",
   resolve: async (a, o) => {
     try {
       const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);

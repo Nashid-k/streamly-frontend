@@ -436,7 +436,7 @@ export default function NativePlayerView({
   // Mirror of activeDub for the async resolve loop (same pattern as mutedRef et al.).
   const activeDubRef = useRef(0);
   /* Server switcher: which source the viewer chose in the Servers menu (null
-     = the auto rotation's winner, the default being VidCore). A manual pick
+     = the auto rotation's winner, the default being RIVO). A manual pick
      re-resolves through runSourceOnce's `forceSource` argument. */
   const [requestedServer, setRequestedServer] = useState(null);
   const requestedServerRef = useRef(null); // mirror for the async resolve loop

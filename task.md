@@ -15,10 +15,22 @@
 
 - **Player:** native HLS pipeline under `src/components/player/` (`engine/`,
   `hooks/`, `shell/`, `chrome/`), mounted by `NativePlayerView.jsx`.
-- **Server roster (`src/constants/sources.js`):** Server 1 RIVO (multi-audio),
-  Server 2 ZXC Valstrax, Server 3 ZXC Alatreon, and — uncommitted in the
-  working tree — Server 4 NetMirror (in-manifest multi-audio). Orion, Atlas,
-  Ursa, VidRack and Daedalus are retired on measured evidence.
+- **Server roster (`src/constants/sources.js`):** Server 1 RIVO (multi-audio
+  when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon,
+  Server 4 NetMirror (in-manifest multi-audio). Orion, Atlas, Ursa, VidRack and
+  Daedalus are retired on measured evidence. NetMirror is committed
+  (`27bc4c1`); its catalogue still answers 403 to Vercel egress, so the relay
+  path is the next live fix.
+- **Server 1 identity (last 30 commits):** RIVO since `0b3eb99` (2026-11-02).
+  Server 4 was ZXC Ursa at `0b3eb99`, ZXC Valstrax through
+  `bdc86e2`/`ea735b6`/`70fad63`, ZXC Alatreon at `941e1ef`, removed at
+  `67a620e`, then NetMirror at `27bc4c1`. The ZXC family has owned Servers 2–3
+  throughout the current roster.
+- **Measured 2026-11-17:** RIVO's primary library (`server=1`) returns
+  `sources: []` for every tested title; RIVO siblings `server=6`
+  (1080p/720p/480p) and `server=7` (auto) still serve. `handleResolveRivo`
+  therefore tries the requested id first, then 6 → 7, inside the provider. The
+  Server 1 row no longer falls back to ZXC; only the no-pick AUTO path does.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.

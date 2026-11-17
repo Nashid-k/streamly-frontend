@@ -27,6 +27,25 @@ import {
 } from "../constants/sources";
 
 describe("PLAYER_SOURCES", () => {
+  it("pins Server 1 to RIVO and Server 4 to NetMirror", () => {
+    const server1 = sourceByKey("rivo-1");
+    expect(PLAYER_SOURCES[0]).toBe(server1);
+    expect(server1).toMatchObject({
+      label: "Server 1",
+      provider: "RIVO",
+      server: "1",
+    });
+
+    const server4 = sourceByKey("netmirror-1");
+    expect(server4).toMatchObject({
+      label: "Server 4",
+      provider: "NetMirror",
+      server: "netmirror",
+    });
+    // Server 4 is the NetMirror/NewTV row (the ZXC family owns Server 2/3).
+    expect(server4.resolve).toBeTypeOf("function");
+  });
+
   it("gives every row a unique provider server name", () => {
     const servers = PLAYER_SOURCES.map((s) => s.server);
     expect(servers.every(Boolean)).toBe(true);
@@ -145,7 +164,7 @@ describe("manual server rows", () => {
     }
   });
 
-  it("the RIVO row names its own server explicitly — RIVO has no rotation to fall through", () => {
+  it("the RIVO row names its own server explicitly — RIVO has no ZXC fallback", () => {
     resolveRivoMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
     const row = sourceByKey("rivo-1");
     expect(row?.provider).toBe("RIVO");
@@ -154,6 +173,19 @@ describe("manual server rows", () => {
       { type: "movie", id: "550", server: "1" },
       { signal: undefined },
     );
+  });
+
+  it("never replays a RIVO miss on a ZXC row", async () => {
+    resolveRivoMock.mockClear();
+    resolveZxcMock.mockClear();
+    resolveRivoMock.mockRejectedValue(new Error("no source"));
+    resolveZxcMock.mockResolvedValue({ source: {}, variants: [], audioTracks: [] });
+    const row = sourceByKey("rivo-1");
+    await expect(row.resolve({ type: "movie", id: "550" }, { signal: undefined })).rejects.toThrow(
+      "no source",
+    );
+    expect(resolveRivoMock).toHaveBeenCalledTimes(1);
+    expect(resolveZxcMock).not.toHaveBeenCalled();
   });
 });
 

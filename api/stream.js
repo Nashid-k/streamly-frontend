@@ -2190,6 +2190,14 @@ async function handleSegment(body, res) {
 const RIVO_SOURCE_BASE = "https://f.rivo.st/api/source";
 const RIVO_REFERER = "https://f.rivo.st/";
 
+/* RIVO numbers its own backends 1-9. Server 1 is the multi-audio library; on
+   2026-11-17 it returned an empty roster for every measured title while
+   siblings 6 and 7 still served the same films. The menu row stays RIVO, so
+   fall through INSIDE the provider before reporting a title miss. Keep this
+   list short: every extra attempt is latency on a genuinely absent title. */
+const RIVO_FALLBACK_SERVERS = ["6", "7"];
+const RIVO_ATTEMPT_TIMEOUT_MS = 10_000;
+
 /* "1080p (Brazilian Portuguese)" -> "Brazilian Portuguese". A row with no
    parenthesised language ("Auto", "4K Ultra HD") carries no audio meaning. */
 function rivoAudioLabel(quality) {
@@ -2289,94 +2297,123 @@ async function handleResolveRivo(body, res) {
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
   const server = String(body.server || "").trim() || "library";
-  const params = new URLSearchParams({ server });
-  if (kind === "tv" && season && episode) {
-    params.set("s", season);
-    params.set("e", episode);
-  }
-  const upstreamUrl = `${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`;
 
   let sources = [];
   let subtitles;
   let serverName = server;
+  // The menu row the caller asked for. RIVO's sibling fallback must not make a
+  // Server 1 miss look like "Server 6 has no source" in the final error.
+  let rowServerName = server;
   let providerName = "rivo";
+  let sawOkResponse = false;
   const startedAt = Date.now();
-  try {
-    /* 30s of the 60s maxDuration — RIVO resolves JSON; hanging on it starves
-       every other leg of the playback pipeline. */
-    const upstream = await fetch(upstreamUrl, {
-      signal: AbortSignal.timeout(30_000),
-      headers: {
-        "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        accept: "application/json",
-        origin: "https://f.rivo.st",
-        referer: RIVO_REFERER,
-        "sec-fetch-site": "same-origin",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-dest": "empty",
-      },
-    });
-    const raw = await upstream.text();
-    let data;
+
+  const candidates = [server, ...RIVO_FALLBACK_SERVERS.filter((id) => id !== server)];
+  for (const candidate of candidates) {
+    const attemptStarted = Date.now();
+    const params = new URLSearchParams({ server: candidate });
+    if (kind === "tv" && season && episode) {
+      params.set("s", season);
+      params.set("e", episode);
+    }
     try {
-      data = raw ? JSON.parse(raw) : {};
-    } catch (error) {
-      // The body is HTML/empty/truncated rather than the JSON contract: surface
-      // a bounded preview so a WAF/challenge page is distinguishable from an
-      // empty roster. No source URLs can leak here because there are none.
-      logWarn("rivo", "RIVO response was not JSON", {
-        status: upstream.status,
-        body: raw.slice(0, 300),
+      /* 10s per attempt — RIVO resolves JSON; hanging on one sibling must not
+         starve the fallback or the rest of the playback pipeline. */
+      const upstream = await fetch(`${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`, {
+        signal: AbortSignal.timeout(RIVO_ATTEMPT_TIMEOUT_MS),
+        headers: {
+          "user-agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+          accept: "application/json",
+          origin: "https://f.rivo.st",
+          referer: RIVO_REFERER,
+          "sec-fetch-site": "same-origin",
+          "sec-fetch-mode": "cors",
+          "sec-fetch-dest": "empty",
+        },
       });
-      throw error;
-    }
-    const elapsedMs = Date.now() - startedAt;
-    if (!upstream.ok) {
-      logWarn("rivo", "RIVO source resolve returned non-2xx", {
-        status: upstream.status,
-        server,
-        elapsedMs,
-        body: raw.slice(0, 300),
-      });
-      json(res, 200, { ok: false, error: `Could not resolve source on RIVO ${serverName}`, code: "upstream" });
-      return;
-    }
-    serverName = String(data?.server || server);
-    providerName = String(data?.provider || "rivo");
-    const allSources = Array.isArray(data?.sources) ? data.sources : [];
-    sources = allSources.filter((s) => s && s.url);
-    subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
-    if (!sources.length) {
-      // The roster came back empty — the case that took Server 1 down. Log the
-      // provider/server echo and raw body so an upstream outage is not confused
-      // with a shape change or an auth failure. Empty body means no URL leak.
-      logWarn("rivo", "RIVO returned no usable sources", {
-        status: upstream.status,
-        provider: providerName,
-        server: serverName,
-        rawSources: allSources.length,
-        elapsedMs,
-        body: raw.slice(0, 300),
-      });
-    } else {
+      const raw = await upstream.text();
+      let data;
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch (error) {
+        // The body is HTML/empty/truncated rather than the JSON contract:
+        // surface a bounded preview so a WAF/challenge page is distinguishable
+        // from an empty roster. No source URLs can leak here because there are
+        // none.
+        logWarn("rivo", "RIVO response was not JSON", {
+          status: upstream.status,
+          server: candidate,
+          elapsedMs: Date.now() - attemptStarted,
+          body: raw.slice(0, 300),
+        });
+        continue;
+      }
+      const echoedServer = String(data?.server || candidate);
+      if (candidate === server) rowServerName = echoedServer;
+      if (!upstream.ok) {
+        logWarn("rivo", "RIVO source resolve returned non-2xx", {
+          status: upstream.status,
+          server: candidate,
+          requestedServer: server,
+          elapsedMs: Date.now() - attemptStarted,
+          body: raw.slice(0, 300),
+        });
+        continue;
+      }
+      sawOkResponse = true;
+      const allSources = Array.isArray(data?.sources) ? data.sources : [];
+      const usable = allSources.filter((s) => s && s.url);
+      if (!usable.length) {
+        // The roster came back empty — the case that took Server 1 down. Log
+        // the provider/server echo and raw body so an upstream outage is not
+        // confused with a shape change or an auth failure. Empty body means no
+        // URL leak.
+        logWarn("rivo", "RIVO returned no usable sources", {
+          status: upstream.status,
+          provider: String(data?.provider || "rivo"),
+          server: echoedServer,
+          requestedServer: server,
+          candidate,
+          rawSources: allSources.length,
+          elapsedMs: Date.now() - attemptStarted,
+          body: raw.slice(0, 300),
+        });
+        continue;
+      }
+      sources = usable;
+      subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
+      serverName = echoedServer;
+      providerName = String(data?.provider || "rivo");
       logInfo("rivo", "RIVO source resolved", {
         status: upstream.status,
         provider: providerName,
         server: serverName,
+        requestedServer: server,
+        candidate,
         sources: sources.length,
         subtitles: subtitles?.length || 0,
-        elapsedMs,
+        elapsedMs: Date.now() - startedAt,
+      });
+      break;
+    } catch (error) {
+      logWarn("rivo", "RIVO source resolve failed", {
+        server: candidate,
+        requestedServer: server,
+        message: error?.message,
+        elapsedMs: Date.now() - attemptStarted,
       });
     }
-  } catch (error) {
-    logWarn("stream", "RIVO source resolve failed", { message: error?.message });
-    json(res, 200, { ok: false, error: "RIVO source host unreachable", code: "upstream" });
-    return;
   }
 
   if (!sources.length) {
-    json(res, 200, { ok: false, error: `No source on RIVO ${serverName}`, code: "no-source" });
+    // A 200 with an empty roster is a title miss. Only when every attempt
+    // failed at the transport/status layer is the provider itself unreachable.
+    if (!sawOkResponse) {
+      json(res, 200, { ok: false, error: "RIVO source host unreachable", code: "upstream" });
+      return;
+    }
+    json(res, 200, { ok: false, error: `No source on RIVO ${rowServerName}`, code: "no-source" });
     return;
   }
 
