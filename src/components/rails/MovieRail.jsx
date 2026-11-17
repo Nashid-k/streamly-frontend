@@ -161,6 +161,9 @@ const MovieRail = React.memo(
             <div
               ref={railRef}
               className="movie-rail track scroll-x"
+              role="group"
+              tabIndex={0}
+              aria-label={`${category.name} titles`}
               onScroll={handleScroll}
               style={{
                 display: "flex",
