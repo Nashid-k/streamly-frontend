@@ -2856,7 +2856,7 @@ function handleCapabilities(res) {
    token, never the token itself, and probes three fixed URLs. Remove after the
    deployment/config mismatch is identified. */
 const RELAY_DIAG_AUDIO_URL = "https://s20.freecdn1.top/files/70131314/a/0/0.m3u8";
-const RELAY_DIAG_VARIANT_URL = "https://s0022.freecdn4.top/files/70131314/1080p/1080p.m3u8";
+const RELAY_DIAG_VARIANT_URL = "https://s0022.freecdn4.top/s21.freecdn4.top/files/220884/1080p/1080p.m3u8?in=unknown::su::t";
 
 async function relayDiagText(url, { referer, extraHeaders } = {}) {
   try {
