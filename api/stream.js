@@ -2596,9 +2596,11 @@ export function parseNetmirrorAudioRenditions(text, baseUrl) {
   return out;
 }
 
-/* Does this rendition host actually deliver? Fetched exactly the way the
-   client's relay will (referer + browser UA), so a host that only answers bare
-   requests cannot pass. Result cached per host for this request. */
+/* Does this rendition host actually deliver? Fetched with the same net52
+   referer the client's playlist relay sends; hosts on the relay allow-list
+   (the freecdnN.top manifests) take the Apps Script leg, whose Google egress
+   ignores the forwarded browser UA. A host that only answers bare requests
+   still cannot pass. Result cached per host for this request. */
 async function netmirrorAudioReachable(uri, seen) {
   let host = "";
   try {
