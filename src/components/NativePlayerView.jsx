@@ -305,6 +305,7 @@ export default function NativePlayerView({
       label: AUTO_SOURCE.label,
       tag: AUTO_SOURCE.tag,
       provider: AUTO_SOURCE.provider,
+      fallbackSources: orderedSources,
       resolve: async (a, o) => {
         try {
           const rivo = await streamResolve.resolveRivo({ ...a, server: "1" }, o);
