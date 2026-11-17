@@ -723,6 +723,7 @@ export default function Home({ filter = "all", title }) {
     const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
     if (!preloadUrl) return;
     const img = new window.Image();
+    img.fetchPriority = "low";
     img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
   }, [featuredIndex, finalPool.length, nextMovie]);
 
