@@ -101,6 +101,8 @@
         fetch that has already started.
       - Replaced broad `transition: all` declarations in non-player screens
         with explicit properties and added regression coverage.
+      - Balanced poster hover: reduced compounded zoom and darkening so artwork
+        remains visible under the play affordance; added a clear poster focus ring.
       Player components, HLS logic and player restructuring remain untouched.
       **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
       profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
