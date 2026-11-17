@@ -63,12 +63,15 @@ describe("useNearViewport", () => {
       "far",
     ]);
 
+    // Once a rail enters its prefetch margin, it remains enabled and is
+    // unobserved. Leaving the margin must not disable a query mid-flight.
     act(() => observerCallback([{ target: observed[0], isIntersecting: false }]));
     expect(screen.getAllByTestId("probe").map((node) => node.textContent)).toEqual([
-      "far",
+      "near",
       "far",
       "far",
     ]);
+    expect(unobserveMock).toHaveBeenCalledTimes(1);
 
     unmount();
     expect(unobserveMock).toHaveBeenCalledTimes(3);
