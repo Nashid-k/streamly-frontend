@@ -490,21 +490,16 @@ export default function useSourceResolve({
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg, bypassCache) => {
-        // Auto rotation resolves through AUTO_SOURCE (the backend picks the
-        // healthiest server in one round trip); a Servers-menu pick overrides it
-        // for one pass (stale() guards everything as usual).
+        // The caller supplies one of the four visible server rows. Auto and
+        // manual selection both enter the same bounded resolve/probe path; the
+        // outer runSource loop owns fallback ordering.
         let def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
         let resolved = null;
         try {
-          // Warm-resolve handover (PLAN.md P0.4): the details page may have
-          // pre-minted the token while the viewer read the synopsis — consume it
-          // instead of re-paying the resolve leg. The handover is one-shot and
-          // refuses ANY manual server pick (a pick must resolve THAT server, not
-          // a warm token minted for the auto path).
-          // The warm token was minted for the plain auto path, so a custom
-          // server priority must not consume it (it would play a server the
-          // order says is not first).
+          // Warm-resolve handover (PLAN.md P0.4): only the canonical Auto path
+          // may consume the pre-minted payload. A saved custom fallback order
+          // must not consume a token for a different server priority.
           const autoDef = autoSourceRef.current;
           const warm =
             autoDef === AUTO_SOURCE
