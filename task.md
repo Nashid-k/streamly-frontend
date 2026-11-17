@@ -101,12 +101,16 @@
         fetch that has already started.
       - Replaced broad `transition: all` declarations in non-player screens
         with explicit properties and added regression coverage.
-      - Balanced poster hover: reduced compounded zoom and darkening so artwork
-        remains visible under the play affordance; added a clear poster focus ring.
+      - Mobile movie rails use proximity snapping and the shared gutter, so
+        touch flicks can coast instead of being forced to stop at every card.
+      - Poster hover uses a lighter veil and smaller nested scale so artwork
+        remains legible and neighbouring cards move less; keyboard focus gets
+        a clear poster outline.
       Player components, HLS logic and player restructuring remain untouched.
-      **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
-      profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
-      cannot execute the local Node/browser gates, so do not tick this item yet.
+      **Pending:** GitHub Actions lint, Vitest and production-build gates
+      passed for the mobile rail and poster-hover changes. Profile real
+      browser/device FPS, LCP, CLS and INP next; automated compilation is not a
+      substitute for populated-catalogue visual QA.
 
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
