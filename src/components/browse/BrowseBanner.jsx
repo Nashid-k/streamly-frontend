@@ -204,7 +204,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
           sizes={CdnImageAdapter.getSizes("backdrop")}
           alt={active.title}
           className="hero-bg"
-          fetchPriority="high"
+          fetchPriority={index === 0 ? "high" : "auto"}
           loading="eager"
           decoding="async"
           initial={{ opacity: 0 }}
@@ -224,7 +224,6 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
           transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
-          style={{ willChange: "transform, opacity" }}
         >
           <HeroTitleLogo movie={active} />
 
