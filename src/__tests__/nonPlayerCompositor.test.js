@@ -81,9 +81,9 @@ describe("non-player compositor budget", () => {
   it("keeps poster artwork visible beneath the hover affordance", () => {
     const css = read("src/styles/grids.css");
     const card = read("src/components/MovieCard.jsx");
-    const hover = css.match(/\\.movie-card:hover\\s*\\{([^}]*)\\}/)?.[1] ?? "";
-    const poster = css.match(/\\.movie-card:hover \\.movie-poster\\s*\\{([^}]*)\\}/)?.[1] ?? "";
-    const focus = css.match(/\\.movie-card:focus-visible \\.poster-wrapper\\s*\\{([^}]*)\\}/)?.[1] ?? "";
+    const hover = css.match(/\.movie-card:hover\s*\{([^}]*)\}/)?.[1] ?? "";
+    const poster = css.match(/\.movie-card:hover \.movie-poster\s*\{([^}]*)\}/)?.[1] ?? "";
+    const focus = css.match(/\.movie-card:focus-visible \.poster-wrapper\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(hover).toContain("transform: scale(1.035);");
     expect(poster).toContain("filter: brightness(0.78);");
