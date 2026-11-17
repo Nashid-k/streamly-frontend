@@ -1110,13 +1110,19 @@ export default function useSourceResolve({
         // is not a dead end: if resolve OR the real media-byte probe fails, walk
         // the remaining visible servers. This fixes the old false-success case
         // where a valid-looking manifest stopped fallback before media played.
+        const orderedFallbacks = Array.isArray(autoSourceRef.current?.fallbackSources)
+          ? autoSourceRef.current.fallbackSources
+          : PLAYER_SOURCES;
         const selected =
           def && def.key !== AUTO_SOURCE.key
             ? def
             : PLAYER_SOURCES.find((source) => source.key === requestedServerRef.current) || null;
         const candidates = selected
-          ? [selected, ...PLAYER_SOURCES.filter((source) => source.key !== selected.key)]
-          : PLAYER_SOURCES;
+          ? [selected, ...orderedFallbacks.filter((source) => source.key !== selected.key)]
+          : [
+              PLAYER_SOURCES[0],
+              ...orderedFallbacks.filter((source) => source.key !== PLAYER_SOURCES[0]?.key),
+            ];
 
         for (const candidate of candidates) {
           if (stale()) return true;
