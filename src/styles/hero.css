@@ -62,13 +62,13 @@
 
 /* === Hero content reveal — Cinejoy stagger ========================== */
 .hero-content > * {
-  animation: heroReveal 0.7s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) backwards;
+  animation: heroReveal 0.48s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) backwards;
 }
-.hero-content > *:nth-child(1) { animation-delay: 0.15s; }
-.hero-content > *:nth-child(2) { animation-delay: 0.25s; }
-.hero-content > *:nth-child(3) { animation-delay: 0.35s; }
-.hero-content > *:nth-child(4) { animation-delay: 0.45s; }
-.hero-content > *:nth-child(5) { animation-delay: 0.55s; }
+.hero-content > *:nth-child(1) { animation-delay: 0.06s; }
+.hero-content > *:nth-child(2) { animation-delay: 0.12s; }
+.hero-content > *:nth-child(3) { animation-delay: 0.18s; }
+.hero-content > *:nth-child(4) { animation-delay: 0.24s; }
+.hero-content > *:nth-child(5) { animation-delay: 0.30s; }
 
 .hero-content {
   padding-bottom: clamp(1.8rem, 3.5vh, 3rem) !important;
@@ -228,15 +228,11 @@
   opacity: 0.55;
   pointer-events: none;
   contain: strict;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
 }
 /* Pure CSS soft radial gradients: Gaussian-soft falloff without costly GPU filter: blur() passes */
 .ambient-liquid__blob {
   position: absolute;
   border-radius: 50%;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
   /* No will-change: the 46-66s infinite drift animations keep their layers
      promoted for as long as they run; the permanent hint reserved three
      ~40vw-square textures up front. */
@@ -279,9 +275,7 @@
   width: 116%;
   height: 116%;
   object-fit: cover;
-  transform: translate3d(0, 0, 0);
   opacity: 0.5;
-  backface-visibility: hidden;
   pointer-events: none;
 }
 .ambient-top-glow {
@@ -516,7 +510,6 @@
   border: 1px solid rgba(var(--white-rgb), 0.1);
   backdrop-filter: blur(12px) saturate(135%);
   -webkit-backdrop-filter: blur(12px) saturate(135%);
-  transform: translateZ(0);
   box-shadow: 0 8px 20px rgba(var(--black-rgb), 0.35);
   cursor: pointer;
   transition: transform var(--anim-hover-time) var(--anim-hover-ease), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);

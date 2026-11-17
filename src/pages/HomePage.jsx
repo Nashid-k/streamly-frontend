@@ -723,6 +723,7 @@ export default function Home({ filter = "all", title }) {
     const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
     if (!preloadUrl) return;
     const img = new window.Image();
+    img.fetchPriority = "low";
     img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
   }, [featuredIndex, finalPool.length, nextMovie]);
 
@@ -881,7 +882,7 @@ export default function Home({ filter = "all", title }) {
                 sizes={CdnImageAdapter.getSizes("backdrop")}
                 alt={activeFeaturedMovie.title}
                 className="hero-bg"
-                fetchPriority="high"
+                fetchPriority={featuredIndex === 0 ? "high" : "auto"}
                 loading="eager"
                 decoding="async"
                 initial={{ opacity: 0 }}
@@ -910,7 +911,7 @@ export default function Home({ filter = "all", title }) {
               transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
             >
                 {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
-                <HeroTitleLogo movie={activeFeaturedMovie} />
+                <HeroTitleLogo movie={activeFeaturedMovie} fetchPriority={featuredIndex === 0 ? "high" : "auto"} />
 
                 {/* Eyebrow — genre tags, sits below the logo */}
                 <div className="hero-eyebrow">

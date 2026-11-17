@@ -877,7 +877,7 @@ export default function WatchlistPage() {
                                 alignItems: "center",
                                 justifyContent: "center",
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                                transition: "all var(--duration-fast) var(--ease-out)",
+                                transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out)",
                               }}
                             >
                               {isSelected && (

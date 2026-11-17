@@ -1,34 +1,61 @@
 import { useEffect, useRef, useState } from "react";
 
-/* True while the observed element is within `rootMargin` of the viewport.
-   Rails use it to defer BOTH their fetch and their render until the viewer is
-   close enough to notice, which is what keeps a cold Home load from firing the
-   whole catalogue at once. Browsers without IntersectionObserver report visible
-   immediately, so behaviour degrades to "fetch everything" rather than "never
-   fetch".
+/* Query-gated rails only need to know when their sentinel first approaches
+   the viewport. Share one observer per rootMargin across all rows (the Home feed
+   shares its 600px prefetch margin) rather than allocating one per
+   row. Once entered, the sentinel is unobserved: fetching is a one-way gate. */
+const observers = new Map();
+const subscribers = new WeakMap();
 
-   Extracted from the copy that was inlined in MovieRail/Top10Rail so the
-   query-gated rails share one implementation. */
+function acquireObserver(rootMargin) {
+  let observer = observers.get(rootMargin);
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const notify = subscribers.get(entry.target);
+          if (!notify) continue;
+          subscribers.delete(entry.target);
+          observer.unobserve(entry.target);
+          notify(true);
+        }
+      },
+      { rootMargin },
+    );
+    observers.set(rootMargin, observer);
+  }
+  return observer;
+}
+
+/* True once the observed element first enters `rootMargin` of the viewport.
+   Rails use it to defer their fetch until the viewer is close enough to notice;
+   after activation the gate stays open even if the viewer scrolls away. Browsers without IntersectionObserver report visible
+   immediately, so behaviour degrades to "fetch everything" rather than "never
+   fetch". */
 export function useNearViewport(rootMargin = "1400px 0px") {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
-    // No IntersectionObserver support: report visible so behaviour degrades to
-    // "fetch everything", never to "never fetch".
     if (typeof IntersectionObserver === "undefined") {
       setInView(true);
       return undefined;
     }
-    // Ref not attached yet (conditional mount): stay hidden, but do NOT pretend
-    // the browser lacks support — that would open the gate for the wrong reason.
+
+    // A conditional mount can leave the ref empty for this effect pass.
     const el = ref.current;
     if (!el) return undefined;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
-      rootMargin,
-    });
+
+    const observer = acquireObserver(rootMargin);
+    subscribers.set(el, setInView);
     observer.observe(el);
-    return () => observer.disconnect();
+
+    return () => {
+      if (!subscribers.has(el)) return;
+      subscribers.delete(el);
+      observer.unobserve(el);
+    };
   }, [rootMargin]);
 
   return [ref, inView];

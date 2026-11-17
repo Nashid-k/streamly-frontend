@@ -200,7 +200,7 @@ export default function HistoryPage() {
                   fontSize: "0.82rem",
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "all var(--duration-fast) var(--ease-out)",
+                  transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)",
                 }}
               >
                 {isSelectMode ? "Cancel" : "Select"}
@@ -378,7 +378,7 @@ export default function HistoryPage() {
                                   alignItems: "center",
                                   justifyContent: "center",
                                   boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                                  transition: "all var(--duration-fast) var(--ease-out)",
+                                  transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)",
                                 }}
                               >
                                 {isSelected && <Check size={14} color="#fff" strokeWidth={3} />}

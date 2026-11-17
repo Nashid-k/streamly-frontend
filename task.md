@@ -28,6 +28,28 @@
 
 ## Open work queue (top-down)
 
+- [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).**
+      Implemented on `perf/non-player-smoothness-pass`:
+      - Rail reveal sections share the existing one-shot virtual-render observer.
+      - Query-gated Home rails now share one IntersectionObserver per root margin
+        (the ten rotating rails no longer each create their own observer).
+      - Removed unnecessary idle compositor hints from the route plane, movie
+        cards, glass buttons, and ambient-liquid wrapper/blobs.
+      - Removed redundant static layer hints from ambient artwork, hero actions,
+        dialogs, search suggestions, collection/discovery panels and pending rails.
+      - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
+      - Hero artwork and title logos keep high fetch priority only for the
+        initial slide; later rotating slides use normal priority.
+      - Query-gated rails share one observer per margin and unobserve each
+        sentinel after its first entry, so leaving the margin cannot disable a
+        fetch that has already started.
+      - Replaced broad `transition: all` declarations in non-player screens
+        with explicit properties and added regression coverage.
+      Player components, HLS logic and player restructuring remain untouched.
+      **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
+      profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
+      cannot execute the local Node/browser gates, so do not tick this item yet.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;

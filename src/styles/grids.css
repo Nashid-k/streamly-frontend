@@ -77,7 +77,6 @@
 }
 
 .movie-card {
-  backface-visibility: hidden;
   display: flex;
   flex-direction: column;
   cursor: pointer;
