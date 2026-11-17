@@ -10,7 +10,7 @@ import { useTitleLogo } from "../hooks/useTitleLogo";
    the styled text title — that avoids the text→logo flash the old flow had
    (image, then text, then logo). The text title still shows as the honest
    fallback when TMDB has no logo for the title. */
-export default function HeroTitleLogo({ movie }) {
+export default function HeroTitleLogo({ movie, fetchPriority = "auto" }) {
   const { logoUrl, onLogoError } = useTitleLogo(movie, "HeroTitleLogo");
 
   if (logoUrl) {
@@ -21,7 +21,7 @@ export default function HeroTitleLogo({ movie }) {
         className="hero-logo-img"
         loading="eager"
         decoding="async"
-        fetchPriority="high"
+        fetchPriority={fetchPriority}
         onError={onLogoError}
       />
     );
