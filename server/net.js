@@ -96,21 +96,38 @@ function fetchNoRedirect(url, opts) {
    Script web app running on a Google egress IP) instead of being attempted
    directly. Only manifests/JSON ride the relay: the final media CDN sends
    `access-control-allow-origin: *`, so segment bytes are never routed through
-   it (as === "buffer" stays direct). */
+   it (as === "buffer" stays direct).
+
+   NetMirror's audio and variant manifests sit on numbered `freecdnN.top`
+   subdomains (`s20.freecdn1.top`, `s0022.freecdn4.top`, `s35.freecdn34.top`)
+   and gate on the `net52.cc` referer. They are text playlists, so they need
+   the same relay as the catalogue; the resolver's audio reachability probe and
+   the client's playlist action both route through it. Subtitle manifests on
+   `subscdn.top` follow the same path. */
 const RELAY_HOSTS = new Set([
   "zxcstream.cc",
   "vidstuck.cc",
   "vidstuck.xyz",
   "tv.imgcdn.kim",
+  "subscdn.top",
 ]);
+const RELAY_HOST_PATTERNS = [/^(.+\.)?freecdn\d+\.top$/i];
 const RELAY_TIMEOUT_MS = 25000;
+
+function relayHostAllowed(host) {
+  if (RELAY_HOSTS.has(host)) return true;
+  for (const root of RELAY_HOSTS) {
+    if (host.endsWith(`.${root}`)) return true;
+  }
+  return RELAY_HOST_PATTERNS.some((pattern) => pattern.test(host));
+}
 
 function relayTargetFor(url) {
   const relay = String(process.env.ZXC_RELAY_URL || "").trim();
   if (!relay) return null;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return RELAY_HOSTS.has(host) ? relay : null;
+    return relayHostAllowed(host) ? relay : null;
   } catch {
     return null;
   }

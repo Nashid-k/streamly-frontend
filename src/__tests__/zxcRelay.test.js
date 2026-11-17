@@ -144,15 +144,16 @@ describe("NetMirror relay routing", () => {
     process.env.ZXC_RELAY_URL = RELAY_URL;
     const MASTER = [
       "#EXTM3U",
-      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="eng",DEFAULT=YES,URI="https://tv.imgcdn.kim/newtv/hls/eng.m3u8"',
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="eng",DEFAULT=YES,URI="https://s20.freecdn1.top/files/70131314/a/0/0.m3u8"',
       '#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=1920x1080,AUDIO="aud"',
-      "https://tv.imgcdn.kim/newtv/hls/1080.m3u8",
+      "https://s0022.freecdn4.top/files/70131314/1080p/1080p.m3u8",
     ].join("\n");
     const AUDIO = [
       "#EXTM3U",
       "#EXT-X-TARGETDURATION:8",
       "#EXTINF:8.0,",
-      "https://tv.imgcdn.kim/newtv/hls/eng0.ts",
+      "7596_000.js",
+      "#EXT-X-ENDLIST",
     ].join("\n");
 
     const fetchMock = vi.fn(async (url) => {
@@ -175,7 +176,7 @@ describe("NetMirror relay routing", () => {
         );
       }
       if (target.endsWith("/master.m3u8")) return relayEnvelope(MASTER);
-      if (target.endsWith("/eng.m3u8")) return relayEnvelope(AUDIO);
+      if (target.includes("freecdn1.top")) return relayEnvelope(AUDIO);
       return relayEnvelope("nope", { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -200,7 +201,14 @@ describe("NetMirror relay routing", () => {
     expect(["nf", "pv", "hs"]).toContain(searchCall.searchParams.get("ott"));
     expect(searchCall.searchParams.get("xrw")).toBe("NetmirrorNewTV v1.0");
     expect(searchCall.searchParams.get("ua")).toContain("GatuNewTV");
-    // Nothing reached tv.imgcdn.kim directly; every text leg used the relay.
+    // The audio manifest lives on a rotated freecdn host; it must ride the same
+    // relay with the net52 referer, or the resolver rejects the title as silent.
+    const audioCall = relayCalls.find((u) =>
+      String(u.searchParams.get("url")).includes("freecdn1.top"),
+    );
+    expect(audioCall).toBeTruthy();
+    expect(audioCall.searchParams.get("referer")).toBe("https://net52.cc");
+    // Nothing reached a provider host directly; every text leg used the relay.
     expect(fetchMock.mock.calls.every(([u]) => new URL(String(u)).hostname === "script.google.com")).toBe(true);
   });
 });

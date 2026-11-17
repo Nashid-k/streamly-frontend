@@ -11,6 +11,9 @@
  *   browser fetches segments directly. NetMirror's NewTV API (tv.imgcdn.kim)
  *   answers 403 to Vercel egress for the same reason and uses the same relay;
  *   its `ott` catalogue selector and fingerprint headers are forwarded too.
+ *   Its audio/variant manifests live on rotating `freecdnN.top` subdomains and
+ *   its subtitle manifests on `subscdn.top`; those are text playlists gated on
+ *   the net52.cc referer, so they ride the relay as well.
  *
  * DEPLOY (once, ~2 minutes)
  *   1. https://script.google.com  ->  New project.
@@ -23,6 +26,9 @@
  *        - Who has access: Anyone
  *      Deploy, authorise the requested permissions (it only makes outbound
  *      web requests — that is the whole script).
+ *      To UPDATE an existing deployment (e.g. rotate SECRET), use
+ *      Deploy -> Manage deployments -> edit -> Version: New version. That keeps
+ *      the same /exec URL, so only the token in ZXC_RELAY_URL changes.
  *   5. Copy the Web app URL (https://script.google.com/macros/s/AKfy.../exec).
  *   6. On Vercel -> Project -> Settings -> Environment Variables, add:
  *        ZXC_RELAY_URL = <that URL>?token=<your SECRET>
@@ -45,13 +51,25 @@ var SECRET = "CHANGE_ME_TO_A_RANDOM_STRING";
 
 // The relay only talks to the playback providers — a leaked URL can never turn
 // it into a general-purpose open proxy.
-var ALLOWED_HOSTS = ["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz", "tv.imgcdn.kim"];
+var ALLOWED_HOSTS = [
+  "zxcstream.cc",
+  "vidstuck.cc",
+  "vidstuck.xyz",
+  "tv.imgcdn.kim",
+  "subscdn.top",
+];
+// NetMirror rotates its audio/variant manifests across numbered freecdn
+// subdomains (s20.freecdn1.top, s0022.freecdn4.top, s35.freecdn34.top).
+var ALLOWED_HOST_PATTERNS = [/^(.+\.)?freecdn\d+\.top$/i];
 
 function hostAllowed(host) {
   host = String(host || "").toLowerCase();
   for (var i = 0; i < ALLOWED_HOSTS.length; i++) {
     var allowed = ALLOWED_HOSTS[i];
     if (host === allowed || host.slice(-(allowed.length + 1)) === "." + allowed) return true;
+  }
+  for (var j = 0; j < ALLOWED_HOST_PATTERNS.length; j++) {
+    if (ALLOWED_HOST_PATTERNS[j].test(host)) return true;
   }
   return false;
 }

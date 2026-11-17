@@ -572,6 +572,12 @@ them from Vercel; the relay runs on Google's egress and forwards
 status/content-type/body back as JSON. NetMirror's NewTV JSON is 403 to Vercel
 but 200 from residential/Google egress, and its catalogue selector plus NewTV
 fingerprint headers survive the hop as the `ott`, `xrw` and `ua` query aliases.
+NetMirror's audio and variant manifests rotate across `freecdnN.top` hosts and
+its subtitle manifests sit on `subscdn.top`; all three are referer-gated on
+`https://net52.cc`, so `RELAY_HOSTS` admits the `freecdnN.top` pattern and the
+subtitle root, and the resolver's audio probe plus the client's playlist action
+route those text manifests through the same relay. The Apps Script host
+allow-list mirrors that pattern.
 The relay is driven with **GET**, not POST: Apps Script answers a POST to its
 `/exec` endpoint with a 302 to `script.googleusercontent.com` and following that
 redirect drops the request body, so the target URL, method and (small text) body

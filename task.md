@@ -28,6 +28,18 @@
   `ott`/`xrw`/`ua`; `apps-script/zxc-relay.gs` allows the host and forwards the
   same headers. `zxcRelay.test.js` drives the real handler against the relay
   envelope.
+- **NetMirror relay test (2026-11-18):** the deployed relay answers NetMirror
+  search/player/master for Inception: HTTP 200, 3 variants (1080/720/480) and
+  2 in-manifest audio tracks (English/Hindi). ZXC origin also answers 200
+  through the relay. The deployment still uses the placeholder `SECRET`: the
+  supplied token (the deployment ID) returns `unauthorized`, while the
+  placeholder returns `{"ok":true}`. Production `resolveNetmirror` therefore
+  still reports `NetMirror search unreachable` until Vercel's `ZXC_RELAY_URL`
+  carries the actual `SECRET` and is redeployed. Audio and subtitle manifests
+  rotate across `freecdnN.top`/`subscdn.top` and require the `net52.cc` referer;
+  `RELAY_HOSTS` now admits the `freecdnN.top` pattern plus `subscdn.top`, and
+  `apps-script/zxc-relay.gs` mirrors it. The relay deployment must be updated
+  again (new version on the same `/exec`) before production audio verification.
 - **Measured 2026-11-17 (local, residential IP):** `resolveNetmirror` for
   Inception (27205) returns 3 variants (1080/720/480), 4 in-manifest audio
   tracks (Hindi/Telugu/Tamil/English), master on `tv.imgcdn.kim`, audio
