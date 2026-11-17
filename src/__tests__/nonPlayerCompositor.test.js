@@ -14,14 +14,14 @@ describe("non-player compositor budget", () => {
     const css = read("src/styles/grids.css");
     const card = rule(css, ".movie-card");
 
-    expect(card).not.toMatch(/backface-visibility|translateZ\\(0\\)/);
+    expect(card).not.toMatch(/backface-visibility|translateZ\(0\)/);
   });
 
   it("does not force idle glass buttons onto their own compositor layers", () => {
     const css = read("src/styles/buttons.css");
     const glassButton = rule(css, ".btn-glass");
 
-    expect(glassButton).not.toMatch(/translateZ\\(0\\)/);
+    expect(glassButton).not.toMatch(/translateZ\(0\)/);
   });
 
   it("keeps route-plane promotion scoped to the active opacity transition", () => {
@@ -29,6 +29,6 @@ describe("non-player compositor budget", () => {
 
     expect(layout).not.toMatch(/backfaceVisibility:/);
     expect(layout).not.toMatch(/WebkitBackfaceVisibility:/);
-    expect(layout).not.toMatch(/transform:\\s*"translateZ\\(0\\)"/);
+    expect(layout).not.toMatch(/transform:\s*"translateZ\(0\)"/);
   });
 });
