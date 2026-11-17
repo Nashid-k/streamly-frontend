@@ -157,27 +157,34 @@ describe("NetMirror relay routing", () => {
     ].join("\n");
 
     const fetchMock = vi.fn(async (url) => {
-      const relayUrl = String(url);
-      if (!relayUrl.startsWith(RELAY_URL)) {
-        throw new Error(`direct provider call: ${relayUrl}`);
+      const targetUrl = String(url);
+      if (targetUrl.startsWith(RELAY_URL)) {
+        const target = String(new URL(targetUrl).searchParams.get("url"));
+        if (target.includes("/newtv/search.php")) {
+          return relayEnvelope(
+            JSON.stringify({ searchResult: [{ id: "70131314", t: "Inception" }] }),
+          );
+        }
+        if (target.includes("/newtv/player.php")) {
+          return relayEnvelope(
+            JSON.stringify({
+              video_link: "https://tv.imgcdn.kim/newtv/hls/master.m3u8",
+              referer: "https://net52.cc",
+            }),
+          );
+        }
+        if (target.endsWith("/master.m3u8")) return relayEnvelope(MASTER);
+        return relayEnvelope("nope", { status: 404 });
       }
-      const target = String(new URL(relayUrl).searchParams.get("url"));
-      if (target.includes("/newtv/search.php")) {
-        return relayEnvelope(
-          JSON.stringify({ searchResult: [{ id: "70131314", t: "Inception" }] }),
-        );
+      // Audio/variant manifests are referer-gated but Vercel reaches the
+      // freecdn hosts directly; only the NewTV JSON host needs the relay.
+      if (targetUrl.includes("s20.freecdn1.top")) {
+        return new Response(AUDIO, {
+          status: 200,
+          headers: { "content-type": "application/vnd.apple.mpegurl" },
+        });
       }
-      if (target.includes("/newtv/player.php")) {
-        return relayEnvelope(
-          JSON.stringify({
-            video_link: "https://tv.imgcdn.kim/newtv/hls/master.m3u8",
-            referer: "https://net52.cc",
-          }),
-        );
-      }
-      if (target.endsWith("/master.m3u8")) return relayEnvelope(MASTER);
-      if (target.includes("freecdn1.top")) return relayEnvelope(AUDIO);
-      return relayEnvelope("nope", { status: 404 });
+      throw new Error(`unexpected direct provider call: ${targetUrl}`);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -192,7 +199,9 @@ describe("NetMirror relay routing", () => {
     expect(body.provider).toBe("NetMirror");
     expect(body.audioTrackCount).toBeGreaterThan(0);
 
-    const relayCalls = fetchMock.mock.calls.map(([u]) => new URL(String(u)));
+    const relayCalls = fetchMock.mock.calls
+      .filter(([u]) => String(u).startsWith(RELAY_URL))
+      .map(([u]) => new URL(String(u)));
     expect(relayCalls.length).toBeGreaterThan(0);
     const searchCall = relayCalls.find((u) =>
       String(u.searchParams.get("url")).includes("/newtv/search.php"),
@@ -201,15 +210,15 @@ describe("NetMirror relay routing", () => {
     expect(["nf", "pv", "hs"]).toContain(searchCall.searchParams.get("ott"));
     expect(searchCall.searchParams.get("xrw")).toBe("NetmirrorNewTV v1.0");
     expect(searchCall.searchParams.get("ua")).toContain("GatuNewTV");
-    // The audio manifest lives on a rotated freecdn host; it must ride the same
-    // relay with the net52 referer, or the resolver rejects the title as silent.
-    const audioCall = relayCalls.find((u) =>
-      String(u.searchParams.get("url")).includes("freecdn1.top"),
-    );
+    // The audio manifest is fetched direct with the same net52 referer; it must
+    // not consume the relay, which is reserved for the WAF-blocked JSON host.
+    const directCalls = fetchMock.mock.calls.filter(([u]) => !String(u).startsWith(RELAY_URL));
+    const audioCall = directCalls.find(([u]) => String(u).includes("s20.freecdn1.top"));
     expect(audioCall).toBeTruthy();
-    expect(audioCall.searchParams.get("referer")).toBe("https://net52.cc");
-    // Nothing reached a provider host directly; every text leg used the relay.
-    expect(fetchMock.mock.calls.every(([u]) => new URL(String(u)).hostname === "script.google.com")).toBe(true);
+    expect(audioCall[1]?.headers?.referer).toBe("https://net52.cc");
+    expect(
+      directCalls.every(([u]) => new URL(String(u)).hostname === "s20.freecdn1.top"),
+    ).toBe(true);
   });
 });
 

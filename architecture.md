@@ -574,10 +574,11 @@ but 200 from residential/Google egress, and its catalogue selector plus NewTV
 fingerprint headers survive the hop as the `ott`, `xrw` and `ua` query aliases.
 NetMirror's audio and variant manifests rotate across `freecdnN.top` hosts and
 its subtitle manifests sit on `subscdn.top`; all three are referer-gated on
-`https://net52.cc`, so `RELAY_HOSTS` admits the `freecdnN.top` pattern and the
-subtitle root, and the resolver's audio probe plus the client's playlist action
-route those text manifests through the same relay. The Apps Script host
-allow-list mirrors that pattern.
+`https://net52.cc`, but the bom1 function reaches those CDNs DIRECTLY (measured
+200 for the audio manifest and the 1080p variant). `RELAY_HOSTS` therefore keeps
+only the NewTV JSON host; the Apps Script allow-list does not admit the CDN
+roots, and the resolver's audio probe plus the client's playlist action fetch
+them direct with the net52 referer.
 The relay is driven with **GET**, not POST: Apps Script answers a POST to its
 `/exec` endpoint with a 302 to `script.googleusercontent.com` and following that
 redirect drops the request body, so the target URL, method and (small text) body

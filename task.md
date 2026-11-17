@@ -35,11 +35,16 @@
   supplied token (the deployment ID) returns `unauthorized`, while the
   placeholder returns `{"ok":true}`. Production `resolveNetmirror` therefore
   still reports `NetMirror search unreachable` until Vercel's `ZXC_RELAY_URL`
-  carries the actual `SECRET` and is redeployed. Audio and subtitle manifests
-  rotate across `freecdnN.top`/`subscdn.top` and require the `net52.cc` referer;
-  `RELAY_HOSTS` now admits the `freecdnN.top` pattern plus `subscdn.top`, and
-  `apps-script/zxc-relay.gs` mirrors it. The relay deployment must be updated
-  again (new version on the same `/exec`) before production audio verification.
+  token matches the deployed `SECRET`. The production `relayDiag` action
+  (temporary) reports a 32-character token, not the placeholder and not the
+  deployment ID, and every relay probe answers `Relay: unauthorized`; the
+  hosted Apps Script still has `CHANGE_ME_TO_A_RANDOM_STRING`. Audio and
+  subtitle manifests rotate across `freecdnN.top`/`subscdn.top` and require the
+  `net52.cc` referer, but the bom1 function reaches them directly (audio 200 /
+  27,092 bytes; 1080p variant 200 / 1,961 bytes), so only the NewTV JSON host
+  rides the relay. `RELAY_HOSTS` and the Apps Script allow-list keep the API
+  host, not the CDN roots. The relay deployment must be updated again (new
+  version on the same `/exec`) before production audio verification.
 - **Measured 2026-11-17 (local, residential IP):** `resolveNetmirror` for
   Inception (27205) returns 3 variants (1080/720/480), 4 in-manifest audio
   tracks (Hindi/Telugu/Tamil/English), master on `tv.imgcdn.kim`, audio

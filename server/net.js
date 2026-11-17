@@ -98,36 +98,25 @@ function fetchNoRedirect(url, opts) {
    `access-control-allow-origin: *`, so segment bytes are never routed through
    it (as === "buffer" stays direct).
 
-   NetMirror's audio and variant manifests sit on numbered `freecdnN.top`
-   subdomains (`s20.freecdn1.top`, `s0022.freecdn4.top`, `s35.freecdn34.top`)
-   and gate on the `net52.cc` referer. They are text playlists, so they need
-   the same relay as the catalogue; the resolver's audio reachability probe and
-   the client's playlist action both route through it. Subtitle manifests on
-   `subscdn.top` follow the same path. */
+   NetMirror's audio/variant manifests live on `freecdnN.top` subdomains and
+   its subtitles on `subscdn.top`. They are referer-gated, but Vercel can
+   fetch them DIRECTLY with the net52.cc referer (measured 200 from the bom1
+   function for both the audio and 1080p variant manifests), so they are NOT
+   relayed: only the NewTV JSON host needs the Google egress. */
 const RELAY_HOSTS = new Set([
   "zxcstream.cc",
   "vidstuck.cc",
   "vidstuck.xyz",
   "tv.imgcdn.kim",
-  "subscdn.top",
 ]);
-const RELAY_HOST_PATTERNS = [/^(.+\.)?freecdn\d+\.top$/i];
 const RELAY_TIMEOUT_MS = 25000;
-
-function relayHostAllowed(host) {
-  if (RELAY_HOSTS.has(host)) return true;
-  for (const root of RELAY_HOSTS) {
-    if (host.endsWith(`.${root}`)) return true;
-  }
-  return RELAY_HOST_PATTERNS.some((pattern) => pattern.test(host));
-}
 
 function relayTargetFor(url) {
   const relay = String(process.env.ZXC_RELAY_URL || "").trim();
   if (!relay) return null;
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return relayHostAllowed(host) ? relay : null;
+    return RELAY_HOSTS.has(host) ? relay : null;
   } catch {
     return null;
   }
