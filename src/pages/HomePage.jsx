@@ -911,7 +911,7 @@ export default function Home({ filter = "all", title }) {
               transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
             >
                 {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
-                <HeroTitleLogo movie={activeFeaturedMovie} />
+                <HeroTitleLogo movie={activeFeaturedMovie} fetchPriority={featuredIndex === 0 ? "high" : "auto"} />
 
                 {/* Eyebrow — genre tags, sits below the logo */}
                 <div className="hero-eyebrow">
