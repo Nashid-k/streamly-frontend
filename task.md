@@ -96,6 +96,8 @@
       - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
       - Hero artwork and title logos keep high fetch priority only for the
         initial slide; later rotating slides use normal priority.
+      - Home hero slide content now fades at the parent while the existing CSS
+        stagger owns child movement, avoiding stacked vertical transforms.
       - Query-gated rails share one observer per margin and unobserve each
         sentinel after its first entry, so leaving the margin cannot disable a
         fetch that has already started.
