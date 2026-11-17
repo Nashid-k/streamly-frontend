@@ -51,13 +51,8 @@
   `sources: []` for every tested title; RIVO siblings `server=6`
   (1080p/720p/480p) and `server=7` (auto) still serve. `handleResolveRivo`
   therefore tries the requested id first, then 6 → 7, inside the provider. The
-  Server 1 row no longer falls back to ZXC; only the no-pick AUTO path does.
-- **Server 1 playback proof (2026-11-17):** production `resolveRivo`
-  (`server=1`) returns `ok:true, server:"Server 6"`; the RIVO manifest
-  (35,669 bytes) and the first `ts-proxy.ts` segment (2,842,936 bytes,
-  `video/MP2T`) both return 200 through the Cloudflare worker relay. Direct
-  `1.rivo.st` fetches from the local residential IP reset, so the relay is the
-  working playback path.
+  Server 1 row stays a RIVO-only resolve; the player-level four-row failover
+  now advances to the other visible providers after resolve OR byte-probe failure.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
@@ -66,6 +61,28 @@
   `FadeInSection` visibility assertions were corrected in `6febcf6`.
 
 ## Open work queue (top-down)
+
+- [ ] **IN PROGRESS — fast four-server playback failover (2026-11-17).**
+      Branch: `fix/fast-four-server-failover`.
+      - Auto starts with Server 1 (RIVO), then walks the current visible roster:
+        Server 2 (ZXC Valstrax), Server 3 (ZXC Alatreon), Server 4 (NetMirror).
+      - A manual server pick is attempted first, then the other visible rows;
+        the active-server label changes only after a real media-byte probe passes.
+      - Each resolve is bounded (7s for RIVO/ZXC, 10s for NetMirror); each
+        playlist/segment playability probe is bounded to 5s. A 45s outer guard
+        remains as a final safety net.
+      - ZXC's preferred/automatic backend rotation is restricted to the two
+        current menu backends (Valstrax and Alatreon), not retired hidden roster
+        entries.
+      - Added a regression test for advancing to Server 3 when Server 2 returns
+        a manifest but fails the real media probe.
+      **Pending verification:** run targeted player/source tests, then
+      `npm run lint`, `npm run test`, `npm run build`. No local Node/browser
+      runner is available through the GitHub connection, so this item remains
+      unchecked until CI or a local run confirms it.
+      **Deployment dependency:** Server 4's production relay still requires
+      the updated `apps-script/zxc-relay.gs` to be pasted and redeployed in
+      Google Apps Script; the repository cannot update that external deployment.
 
 - [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).**
       Implemented on `perf/non-player-smoothness-pass`:
