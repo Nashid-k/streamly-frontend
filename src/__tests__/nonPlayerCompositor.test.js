@@ -85,4 +85,16 @@ describe("non-player compositor budget", () => {
     expect(reveal).not.toMatch(/backface-visibility|translateZ/);
   });
 
+  it("reserves high fetch priority for the first hero slide and its logo", () => {
+    const home = read("src/pages/HomePage.jsx");
+    const browse = read("src/components/browse/BrowseBanner.jsx");
+    const logo = read("src/components/HeroTitleLogo.jsx");
+
+    expect(home).toContain('fetchPriority={featuredIndex === 0 ? "high" : "auto"}');
+    expect(browse).toContain('fetchPriority={index === 0 ? "high" : "auto"}');
+    expect(home).toContain('<HeroTitleLogo movie={activeFeaturedMovie} fetchPriority={featuredIndex === 0 ? "high" : "auto"} />');
+    expect(browse).toContain('<HeroTitleLogo movie={active} fetchPriority={index === 0 ? "high" : "auto"} />');
+    expect(logo).toContain('fetchPriority = "auto"');
+  });
+
 });
