@@ -419,7 +419,7 @@ export default function PersonDetails() {
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    transition: "all var(--duration-fast) var(--ease-out)",
+                    transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)",
                   }}
                 >
                   {bioExpanded ? "Show less" : "Read more"}
@@ -503,7 +503,7 @@ export default function PersonDetails() {
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       cursor: "pointer",
-                      transition: "all var(--duration-fast) var(--ease-out)",
+                      transition: "background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out)",
                     }}
                   >
                     {tab.label}
