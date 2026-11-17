@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /* Query-gated rails only need to know when their sentinel first approaches
-   the viewport. Share one observer per rootMargin across all rows (the ten
-   daily Home rails use the same 1400px margin) rather than allocating one per
+   the viewport. Share one observer per rootMargin across all rows (the Home feed
+   shares its 600px prefetch margin) rather than allocating one per
    row. Once entered, the sentinel is unobserved: fetching is a one-way gate. */
 const observers = new Map();
 const subscribers = new WeakMap();
