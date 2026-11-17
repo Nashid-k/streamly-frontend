@@ -38,8 +38,11 @@
       - Removed redundant static layer hints from ambient artwork, hero actions,
         dialogs, search suggestions, collection/discovery panels and pending rails.
       - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
-      - Hero artwork keeps high fetch priority for the initial slide; later
-        rotating slides use normal priority.
+      - Hero artwork and title logos keep high fetch priority only for the
+        initial slide; later rotating slides use normal priority.
+      - Query-gated rails share one observer per margin and unobserve each
+        sentinel after its first entry, so leaving the margin cannot disable a
+        fetch that has already started.
       - Replaced broad `transition: all` declarations in non-player screens
         with explicit properties and added regression coverage.
       Player components, HLS logic and player restructuring remain untouched.
