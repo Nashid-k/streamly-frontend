@@ -567,14 +567,17 @@ ASN is the route back to native.
 **The relay is a Google Apps Script web app (`apps-script/zxc-relay.gs`).**
 When `ZXC_RELAY_URL` is set, `server/net.js` `fetchUpstream` routes the small
 TEXT fetches to the WAF-blocked provider hosts (`zxcstream.cc`, `vidstuck.cc`,
-`vidstuck.xyz`) through it instead of attempting them from Vercel; the relay runs
-on Google's egress and forwards status/content-type/body back as JSON. It is
-driven with **GET**, not POST: Apps Script answers a POST to its `/exec` endpoint
-with a 302 to `script.googleusercontent.com` and following that redirect drops
-the request body, so the target URL, method and (small text) body all travel in
-the query string. Only manifests/JSON ride the relay — the final media CDN
-(`sacdn.hakunaymatata.com`) sends `access-control-allow-origin: *`, so segment
-bytes stay direct (`as: "buffer"` is never relayed). The relay is called
+`vidstuck.xyz`, and NetMirror's `tv.imgcdn.kim`) through it instead of attempting
+them from Vercel; the relay runs on Google's egress and forwards
+status/content-type/body back as JSON. NetMirror's NewTV JSON is 403 to Vercel
+but 200 from residential/Google egress, and its catalogue selector plus NewTV
+fingerprint headers survive the hop as the `ott`, `xrw` and `ua` query aliases.
+The relay is driven with **GET**, not POST: Apps Script answers a POST to its
+`/exec` endpoint with a 302 to `script.googleusercontent.com` and following that
+redirect drops the request body, so the target URL, method and (small text) body
+all travel in the query string. Only manifests/JSON ride the relay — the final
+media CDN (`sacdn.hakunaymatata.com`) sends `access-control-allow-origin: *`, so
+segment bytes stay direct (`as: "buffer"` is never relayed). The relay is called
 server-side, so it needs no CORS; a `?token=` shared secret and a host allow-list
 keep it from being an open proxy if the URL leaks.
 

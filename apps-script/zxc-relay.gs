@@ -1,14 +1,16 @@
 /**
- * zxc-relay.gs — Google Apps Script relay for Streamly's native ZXC playback.
+ * zxc-relay.gs — Google Apps Script relay for Streamly's native playback.
  *
  * WHY THIS EXISTS
- *   The provider (zxcstream.cc) sits behind a WAF that 502s every /backend*
+ *   The ZXC provider (zxcstream.cc) sits behind a WAF that 502s every /backend*
  *   request coming from datacenter IPs. Our Vercel function egresses from AWS,
  *   so it is refused; a residential or Google IP is allowed. This web app runs
  *   on Google's egress and forwards the handful of small TEXT requests the
  *   resolver needs (title metadata, the token mint, and the manifest). Video
  *   bytes never pass through here — the final CDN allows CORS "*", so the
- *   browser fetches segments directly.
+ *   browser fetches segments directly. NetMirror's NewTV API (tv.imgcdn.kim)
+ *   answers 403 to Vercel egress for the same reason and uses the same relay;
+ *   its `ott` catalogue selector and fingerprint headers are forwarded too.
  *
  * DEPLOY (once, ~2 minutes)
  *   1. https://script.google.com  ->  New project.
@@ -30,7 +32,7 @@
  *
  * CONTRACT (server -> relay, GET on the /exec URL; relay -> server, JSON body)
  *   query  ?token=<SECRET>&url=<enc>&method=<GET|POST>[&referer=][&origin=]
- *          [&accept=][&ctype=][&body=<enc>]
+ *          [&accept=][&ctype=][&xrw=][&ua=][&ott=][&body=<enc>]
  *   response { status, contentType, body }   // body is always text
  *   ?ping=1 returns { ok: true } for a health check.
  *
@@ -41,9 +43,9 @@
 
 var SECRET = "CHANGE_ME_TO_A_RANDOM_STRING";
 
-// The relay only talks to the playback provider — a leaked URL can never turn
+// The relay only talks to the playback providers — a leaked URL can never turn
 // it into a general-purpose open proxy.
-var ALLOWED_HOSTS = ["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz"];
+var ALLOWED_HOSTS = ["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz", "tv.imgcdn.kim"];
 
 function hostAllowed(host) {
   host = String(host || "").toLowerCase();
@@ -118,6 +120,10 @@ function proxy(p) {
   }
   // The query form uses a short alias for the request content-type.
   if (p.ctype != null && p.ctype !== "") headers["content-type"] = String(p.ctype);
+  // NewTV (NetMirror) needs its catalogue selector and fingerprint headers.
+  if (p.xrw != null && p.xrw !== "") headers["x-requested-with"] = String(p.xrw);
+  if (p.ua != null && p.ua !== "") headers["user-agent"] = String(p.ua);
+  if (p.ott != null && p.ott !== "") headers["ott"] = String(p.ott);
 
   var options = {
     method: String(p.method || "GET").toUpperCase(),

@@ -139,6 +139,72 @@ describe("ZXC relay routing (server/net.js fetchUpstream)", () => {
   });
 });
 
+describe("NetMirror relay routing", () => {
+  it("sends NewTV JSON through the relay with its catalogue + fingerprint headers", async () => {
+    process.env.ZXC_RELAY_URL = RELAY_URL;
+    const MASTER = [
+      "#EXTM3U",
+      '#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="aud",NAME="English",LANGUAGE="eng",DEFAULT=YES,URI="https://tv.imgcdn.kim/newtv/hls/eng.m3u8"',
+      '#EXT-X-STREAM-INF:BANDWIDTH=1000000,RESOLUTION=1920x1080,AUDIO="aud"',
+      "https://tv.imgcdn.kim/newtv/hls/1080.m3u8",
+    ].join("\n");
+    const AUDIO = [
+      "#EXTM3U",
+      "#EXT-X-TARGETDURATION:8",
+      "#EXTINF:8.0,",
+      "https://tv.imgcdn.kim/newtv/hls/eng0.ts",
+    ].join("\n");
+
+    const fetchMock = vi.fn(async (url) => {
+      const relayUrl = String(url);
+      if (!relayUrl.startsWith(RELAY_URL)) {
+        throw new Error(`direct provider call: ${relayUrl}`);
+      }
+      const target = String(new URL(relayUrl).searchParams.get("url"));
+      if (target.includes("/newtv/search.php")) {
+        return relayEnvelope(
+          JSON.stringify({ searchResult: [{ id: "70131314", t: "Inception" }] }),
+        );
+      }
+      if (target.includes("/newtv/player.php")) {
+        return relayEnvelope(
+          JSON.stringify({
+            video_link: "https://tv.imgcdn.kim/newtv/hls/master.m3u8",
+            referer: "https://net52.cc",
+          }),
+        );
+      }
+      if (target.endsWith("/master.m3u8")) return relayEnvelope(MASTER);
+      if (target.endsWith("/eng.m3u8")) return relayEnvelope(AUDIO);
+      return relayEnvelope("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({
+      action: "resolveNetmirror",
+      type: "movie",
+      id: "27205",
+      title: "Inception",
+    });
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe("NetMirror");
+    expect(body.audioTrackCount).toBeGreaterThan(0);
+
+    const relayCalls = fetchMock.mock.calls.map(([u]) => new URL(String(u)));
+    expect(relayCalls.length).toBeGreaterThan(0);
+    const searchCall = relayCalls.find((u) =>
+      String(u.searchParams.get("url")).includes("/newtv/search.php"),
+    );
+    expect(searchCall).toBeTruthy();
+    expect(["nf", "pv", "hs"]).toContain(searchCall.searchParams.get("ott"));
+    expect(searchCall.searchParams.get("xrw")).toBe("NetmirrorNewTV v1.0");
+    expect(searchCall.searchParams.get("ua")).toContain("GatuNewTV");
+    // Nothing reached tv.imgcdn.kim directly; every text leg used the relay.
+    expect(fetchMock.mock.calls.every(([u]) => new URL(String(u)).hostname === "script.google.com")).toBe(true);
+  });
+});
+
 describe("POST /api/stream — capabilities", () => {
   it("reports zxcNative true when a relay is configured", async () => {
     process.env.ZXC_RELAY_URL = RELAY_URL;

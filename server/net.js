@@ -90,12 +90,19 @@ function fetchNoRedirect(url, opts) {
 /* Provider hosts whose WAF refuses datacenter egress. Every /backend* path
    answers 502 from the Vercel function (AWS ranges), yet the identical request
    succeeds from a residential or Google IP — verified against the live provider
-   (see task.md). When ZXC_RELAY_URL is set, TEXT fetches to these hosts are
-   proxied through that external relay (an Apps Script web app running on a
-   Google egress IP) instead of being attempted directly. Only manifests/JSON
-   ride the relay: the final media CDN sends `access-control-allow-origin: *`,
-   so segment bytes are never routed through it (as === "buffer" stays direct). */
-const RELAY_HOSTS = new Set(["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz"]);
+   (see task.md). NetMirror's NewTV JSON host behaves the same way: 403 from
+   Vercel, 200 from a residential/Google IP. When ZXC_RELAY_URL is set, TEXT
+   fetches to these hosts are proxied through that external relay (an Apps
+   Script web app running on a Google egress IP) instead of being attempted
+   directly. Only manifests/JSON ride the relay: the final media CDN sends
+   `access-control-allow-origin: *`, so segment bytes are never routed through
+   it (as === "buffer" stays direct). */
+const RELAY_HOSTS = new Set([
+  "zxcstream.cc",
+  "vidstuck.cc",
+  "vidstuck.xyz",
+  "tv.imgcdn.kim",
+]);
 const RELAY_TIMEOUT_MS = 25000;
 
 function relayTargetFor(url) {
@@ -125,11 +132,20 @@ async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTex
   const hasBody = body != null && upstreamMethod !== "GET" && upstreamMethod !== "HEAD";
   const passthrough = {};
   for (const [name, value] of Object.entries(headers || {})) {
-    // Only the handful of headers the provider actually reads are forwarded;
-    // hop-by-hop/framing headers are recomputed by the relay's own fetch, and
-    // anything else is noise the open relay should not be made to echo back.
+    // Only the headers a provider actually reads are forwarded; hop-by-hop and
+    // framing headers are recomputed by the relay's own fetch. NetMirror's
+    // NewTV contract needs its `ott` catalogue selector and fingerprint
+    // headers (`x-requested-with`, custom `user-agent`) to survive the hop.
     const key = name.toLowerCase();
-    if (key === "referer" || key === "origin" || key === "accept" || key === "content-type") {
+    if (
+      key === "referer" ||
+      key === "origin" ||
+      key === "accept" ||
+      key === "content-type" ||
+      key === "ott" ||
+      key === "x-requested-with" ||
+      key === "user-agent"
+    ) {
       passthrough[key] = value;
     }
   }
@@ -140,6 +156,9 @@ async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTex
   if (passthrough.origin) params.set("origin", String(passthrough.origin));
   if (passthrough.accept) params.set("accept", String(passthrough.accept));
   if (passthrough["content-type"]) params.set("ctype", String(passthrough["content-type"]));
+  if (passthrough["x-requested-with"]) params.set("xrw", String(passthrough["x-requested-with"]));
+  if (passthrough["user-agent"]) params.set("ua", String(passthrough["user-agent"]));
+  if (passthrough.ott) params.set("ott", String(passthrough.ott));
   if (hasBody) params.set("body", typeof body === "string" ? body : String(body));
   const relayTarget = `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}${params.toString()}`;
 
@@ -147,6 +166,12 @@ async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTex
   if (!response.ok) throw new Error(`relay HTTP ${response.status}`);
   const data = await response.json().catch(() => null);
   if (!data || typeof data !== "object") throw new Error("relay returned non-JSON");
+  if (data.ok === false) {
+    // The relay's own refusal (bad token, host not on its allow-list, upstream
+    // fetch error). Surface its message instead of collapsing every one of
+    // those to "Upstream unknown (relay)".
+    throw new Error(`Relay: ${String(data.error || "request rejected").slice(0, 140)}`);
+  }
   const status = Number(data.status) || 0;
   if (status < 200 || status >= 300) {
     const err = new Error(`Upstream ${status || "unknown"} (relay)`);

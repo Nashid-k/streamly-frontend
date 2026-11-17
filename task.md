@@ -19,8 +19,15 @@
   when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon,
   Server 4 NetMirror (in-manifest multi-audio). Orion, Atlas, Ursa, VidRack and
   Daedalus are retired on measured evidence. NetMirror is committed
-  (`27bc4c1`); its catalogue still answers 403 to Vercel egress, so the relay
-  path is the next live fix.
+  (`27bc4c1`); its catalogue answers 403 to Vercel egress, and `tv.imgcdn.kim`
+  now rides the Apps Script relay (host allow-list + `ott`/`xrw`/`ua`
+  forwarding). The external deployment must be pasted with the updated
+  `apps-script/zxc-relay.gs` before production can leave 403.
+- **NetMirror relay (2026-11-17):** `server/net.js` adds `tv.imgcdn.kim` to
+  `RELAY_HOSTS` and forwards the NewTV catalogue/fingerprint headers as
+  `ott`/`xrw`/`ua`; `apps-script/zxc-relay.gs` allows the host and forwards the
+  same headers. `zxcRelay.test.js` drives the real handler against the relay
+  envelope.
 - **Server 1 identity (last 30 commits):** RIVO since `0b3eb99` (2026-11-02).
   Server 4 was ZXC Ursa at `0b3eb99`, ZXC Valstrax through
   `bdc86e2`/`ea735b6`/`70fad63`, ZXC Alatreon at `941e1ef`, removed at
