@@ -2609,6 +2609,24 @@ async function netmirrorCandidates(title) {
       return pick ? { ...pick, ott: ott.key, ottLabel: ott.label } : null;
     }),
   );
+  const failures = searches.filter((s) => s.status === "rejected");
+  for (const failure of failures) {
+    logWarn("netmirror", "catalogue search failed", {
+      title,
+      message: String(failure.reason?.message || failure.reason).slice(0, 140),
+    });
+  }
+  // "Every catalogue is unreachable" is not "the title is not in the
+  // catalogue". Swallowing the difference is how a WAF-blocked deployment
+  // reports a clean no-source for every title, so surface it.
+  if (failures.length === searches.length) {
+    const reason = failures[0]?.reason;
+    const error = new Error(
+      `NetMirror search unreachable${reason?.status ? ` (HTTP ${reason.status})` : ""}`,
+    );
+    error.code = "upstream";
+    throw error;
+  }
   return searches
     .filter((s) => s.status === "fulfilled" && s.value)
     .map((s) => s.value);
@@ -2669,7 +2687,11 @@ async function handleResolveNetmirror(body, res) {
     candidates = await netmirrorCandidates(title);
   } catch (error) {
     logWarn("netmirror", "search failed", { title, message: error?.message?.slice(0, 140) });
-    json(res, 200, { ok: false, error: "NetMirror search unreachable", code: "upstream" });
+    json(res, 200, {
+      ok: false,
+      error: error?.code === "upstream" ? error.message : "NetMirror search unreachable",
+      code: "upstream",
+    });
     return;
   }
   if (!candidates.length) {

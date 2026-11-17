@@ -201,4 +201,21 @@ describe("POST /api/stream — resolveNetmirror", () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toMatchObject({ ok: false, code: "no-source" });
   });
+
+  it("reports an unreachable catalogue as upstream, not as a title miss", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>blocked</html>", { status: 403 })),
+    );
+    const res = await call({
+      action: "resolveNetmirror",
+      type: "movie",
+      id: "27205",
+      title: "Inception",
+    });
+    const payload = JSON.parse(res.body);
+    expect(payload).toMatchObject({ ok: false, code: "upstream" });
+    expect(String(payload.error)).toMatch(/unreachable/i);
+    expect(String(payload.error)).toMatch(/403/);
+  });
 });
