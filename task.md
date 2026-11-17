@@ -144,7 +144,7 @@
 
 - [ ] **Phase 6 — States, motion, a11y, performance.** Adopt shared
       EmptyState/ErrorState everywhere (partial); skeleton geometry parity
-      (partial); keyboard-scrollable rails, focus order and a skip link;
+      (partial); keyboard-scrollable rails (implemented on `ui/keyboard-accessible-rails`; pending lint/test/build verification), focus order and a skip link;
       image-failure fallback (gradient + title, partial); performance budgets
       LCP/CLS/INP + image caps (blocked: no Chromium trace from this machine);
       finish the contract tests/docs (partial).
