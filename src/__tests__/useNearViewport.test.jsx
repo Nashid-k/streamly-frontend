@@ -2,8 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import { useNearViewport } from "@/hooks/useNearViewport";
 
-/* Real mount (not renderHook) because the hook only observes an element the
-   ref has actually been attached to — which is the behaviour under test. */
 function Probe() {
   const [ref, inView] = useNearViewport("600px 0px");
   return <div ref={ref} data-testid="probe">{inView ? "near" : "far"}</div>;
@@ -17,7 +15,8 @@ describe("useNearViewport", () => {
   });
 
   afterEach(() => {
-    window.IntersectionObserver = originalIntersectionObserver;
+    if (originalIntersectionObserver === undefined) delete window.IntersectionObserver;
+    else window.IntersectionObserver = originalIntersectionObserver;
   });
 
   it("treats a browser without IntersectionObserver as visible (never blocks fetching)", () => {
@@ -27,40 +26,51 @@ describe("useNearViewport", () => {
     expect(screen.getByTestId("probe")).toHaveTextContent("near");
   });
 
-  it("stays hidden until the element intersects, then follows it in and out", () => {
+  it("shares one observer across same-margin sentinels and tracks each sentinel independently", () => {
     let observerCallback;
     let observerOptions;
-    const observeMock = vi.fn();
-    const disconnectMock = vi.fn();
+    const observed = [];
+    const unobserveMock = vi.fn();
 
     window.IntersectionObserver = vi.fn(function (callback, options) {
       observerCallback = callback;
       observerOptions = options;
-      this.observe = observeMock;
-      this.disconnect = disconnectMock;
+      this.observe = (node) => observed.push(node);
+      this.unobserve = unobserveMock;
     });
 
-    render(<Probe />);
-    expect(screen.getByTestId("probe")).toHaveTextContent("far");
+    const { unmount } = render(
+      <>
+        <Probe />
+        <Probe />
+        <Probe />
+      </>,
+    );
+
+    expect(window.IntersectionObserver).toHaveBeenCalledTimes(1);
     expect(observerOptions.rootMargin).toBe("600px 0px");
-    expect(observeMock).toHaveBeenCalledWith(screen.getByTestId("probe"));
+    expect(observed).toHaveLength(3);
+    expect(screen.getAllByTestId("probe").map((node) => node.textContent)).toEqual([
+      "far",
+      "far",
+      "far",
+    ]);
 
-    act(() => observerCallback([{ isIntersecting: true }]));
-    expect(screen.getByTestId("probe")).toHaveTextContent("near");
+    act(() => observerCallback([{ target: observed[0], isIntersecting: true }]));
+    expect(screen.getAllByTestId("probe").map((node) => node.textContent)).toEqual([
+      "near",
+      "far",
+      "far",
+    ]);
 
-    act(() => observerCallback([{ isIntersecting: false }]));
-    expect(screen.getByTestId("probe")).toHaveTextContent("far");
-  });
+    act(() => observerCallback([{ target: observed[0], isIntersecting: false }]));
+    expect(screen.getAllByTestId("probe").map((node) => node.textContent)).toEqual([
+      "far",
+      "far",
+      "far",
+    ]);
 
-  it("disconnects the observer on unmount", () => {
-    const disconnectMock = vi.fn();
-    window.IntersectionObserver = vi.fn(function () {
-      this.observe = vi.fn();
-      this.disconnect = disconnectMock;
-    });
-
-    const { unmount } = render(<Probe />);
     unmount();
-    expect(disconnectMock).toHaveBeenCalled();
+    expect(unobserveMock).toHaveBeenCalledTimes(3);
   });
 });
