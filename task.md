@@ -7,6 +7,9 @@
 >
 > **Desktop-only repository.** No Flutter/mobile target — see `AGENTS.md`.
 > Responsive *web* layout is still in scope.
+>
+> **Archived history:** the full pre-2026-11-17 work log lives in git at
+> `git show b9ae61e:task.md` (the `b9ae61e` commit).
 
 ## Current state (2026-11-17)
 
