@@ -51,12 +51,6 @@
         "bom1"
       ]
     },
-    "api/sync-contract.js": {
-      "maxDuration": 60,
-      "regions": [
-        "bom1"
-      ]
-    },
     "api/groq.js": {
       "maxDuration": 30,
       "regions": [
@@ -64,12 +58,7 @@
       ]
     }
   },
-  "crons": [
-    {
-      "path": "/api/sync-contract",
-      "schedule": "0 4 * * *"
-    }
-  ],
+  "crons": [],
   "headers": [
     {
       "source": "(.*)",
