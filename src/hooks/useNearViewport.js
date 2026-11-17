@@ -52,6 +52,7 @@ export function useNearViewport(rootMargin = "1400px 0px") {
     observer.observe(el);
 
     return () => {
+      if (!subscribers.has(el)) return;
       subscribers.delete(el);
       observer.unobserve(el);
     };
