@@ -373,7 +373,7 @@ const MovieCard = memo(function MovieCard({
                 position: "absolute",
                 inset: 0,
                 zIndex: 2,
-                background: "rgba(0, 0, 0, 0.45)",
+                background: "rgba(0, 0, 0, 0.28)",
                 pointerEvents: "none",
               }}
             />
