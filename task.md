@@ -104,9 +104,11 @@
       - Mobile movie rails use proximity snapping and the shared gutter, so
         touch flicks can coast instead of being forced to stop at every card.
       Player components, HLS logic and player restructuring remain untouched.
-      **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
-      profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
-      cannot execute the local Node/browser gates, so do not tick this item yet.
+      **Pending:** GitHub Actions quality gates are now configured on PRs and
+      pushes to `main` (`npm ci`, lint, Vitest, production build). Wait for all
+      three gates to pass, then profile real browser/device FPS, LCP, CLS and
+      INP. Automated compilation is not a substitute for populated-catalogue
+      visual QA.
 
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
