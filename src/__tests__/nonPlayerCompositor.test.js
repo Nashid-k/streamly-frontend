@@ -85,6 +85,18 @@ describe("non-player compositor budget", () => {
     expect(reveal).not.toMatch(/backface-visibility|translateZ/);
   });
 
+  it("keeps mobile rails free-scrolling and aligned to the shared content gutter", () => {
+    const css = read("src/styles/responsive.css");
+    const mobileStyles = css.slice(css.indexOf("/* Movie Rails */"));
+    const mobile = mobileStyles.match(/\.movie-rail\s*\{([^}]*)\}/)?.[1] ?? "";
+    const mobileItems = mobileStyles.match(/\.movie-rail > \*\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(mobile).toContain("scroll-snap-type: x proximity;");
+    expect(mobile).toContain("scroll-padding-left: var(--gutter, 24px);");
+    expect(mobile).not.toContain("scroll-snap-type: x mandatory;");
+    expect(mobileItems).not.toContain("scroll-snap-stop: always;");
+  });
+
   it("reserves high fetch priority for the first hero slide and its logo", () => {
     const home = read("src/pages/HomePage.jsx");
     const browse = read("src/components/browse/BrowseBanner.jsx");

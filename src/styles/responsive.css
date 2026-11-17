@@ -313,14 +313,15 @@
     display: none !important;
   }
   .movie-rail {
-    scroll-snap-type: x mandatory;
-    scroll-padding-left: 1rem;
+    /* Match the heading/track gutter and let fast flicks coast naturally.
+       Proximity still settles a card when the swipe ends near its edge. */
+    scroll-snap-type: x proximity;
+    scroll-padding-left: var(--gutter, 24px);
     padding-top: 0.5rem !important;
     -webkit-overflow-scrolling: touch;
   }
   .movie-rail > * {
     scroll-snap-align: start;
-    scroll-snap-stop: always;
   }
   .movie-rail .movie-card,
   .skeleton-card,
