@@ -995,6 +995,10 @@ export default function useSourceResolve({
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
+          // The outer deadline only guards cold-start resolution. Once a real
+          // source is committed, keep the fatal listener alive for the whole
+          // playback session instead of silently detaching it after 45 seconds.
+          clearTimeout(resolveTimeout);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;
