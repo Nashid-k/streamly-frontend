@@ -1,9 +1,17 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, act } from "@testing-library/react";
 import FadeInSection from "../components/rails/FadeInSection";
 
+let originalIntersectionObserver;
+
+beforeEach(() => {
+  originalIntersectionObserver = window.IntersectionObserver;
+});
+
 afterEach(() => {
   cleanup();
+  if (originalIntersectionObserver === undefined) delete window.IntersectionObserver;
+  else window.IntersectionObserver = originalIntersectionObserver;
   vi.restoreAllMocks();
 });
 
