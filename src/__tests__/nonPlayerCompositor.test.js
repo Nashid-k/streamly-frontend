@@ -62,4 +62,20 @@ describe("non-player compositor budget", () => {
     expect(css).toContain("nth-child(5) { animation-delay: 0.30s; }");
   });
 
+  it("does not permanently promote static non-player overlays and panels", () => {
+    const checks = [
+      ["src/styles/hero.css", ".ambient-backdrop-img"],
+      ["src/styles/hero.css", ".hero-circle-btn"],
+      ["src/styles/auth.css", ".auth-dialog"],
+      ["src/styles/modals.css", ".title-info-card"],
+      ["src/styles/search.css", ".search-suggest"],
+      ["src/styles/collections.css", ".collection-dialog"],
+      ["src/styles/discovery.css", ".discovery-menu"],
+    ];
+
+    for (const [path, selector] of checks) {
+      expect(rule(read(path), selector), selector).not.toMatch(/translateZ\\(0\\)|translate3d\\(0,\\s*0,\\s*0\\)|backface-visibility/);
+    }
+  });
+
 });
