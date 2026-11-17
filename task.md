@@ -28,12 +28,22 @@
 
 ## Open work queue (top-down)
 
-- [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).** Start with
-      shared IntersectionObserver ownership for rail reveal sections, then
-      profile and refine non-player image/rendering and motion paths. Keep all
-      player restructuring out of this pass; defer it until the final phase.
-      Verify with the repository lint, test and build gates where execution is
-      available; record any unavailable runtime/browser measurements honestly.
+- [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).**
+      Implemented on `perf/non-player-smoothness-pass`:
+      - Rail reveal sections share the existing one-shot virtual-render observer.
+      - Query-gated Home rails now share one IntersectionObserver per root margin
+        (the ten rotating rails no longer each create their own observer).
+      - Removed unnecessary idle compositor hints from the route plane, movie
+        cards, glass buttons, and ambient-liquid wrapper/blobs.
+      - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
+      - Hero artwork keeps high fetch priority for the initial slide; later
+        rotating slides use normal priority.
+      - Replaced broad `transition: all` declarations in non-player screens
+        with explicit properties and added regression coverage.
+      Player components, HLS logic and player restructuring remain untouched.
+      **Pending:** run `npm run lint`, `npm run test`, `npm run build`, then
+      profile real browser/device FPS, LCP, CLS and INP. The GitHub connector
+      cannot execute the local Node/browser gates, so do not tick this item yet.
 
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
