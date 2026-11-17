@@ -1,34 +1,55 @@
 import { useEffect, useRef, useState } from "react";
 
+/* Query-gated rails only need to know whether their sentinel is near the
+   viewport. Share one observer per rootMargin across all rows (the ten daily
+   Home rails use the same 1400px margin) rather than allocating one observer
+   per row. Each subscriber still receives its own enter/leave updates. */
+const observers = new Map();
+const subscribers = new WeakMap();
+
+function acquireObserver(rootMargin) {
+  let observer = observers.get(rootMargin);
+  if (!observer) {
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          subscribers.get(entry.target)?.(entry.isIntersecting);
+        }
+      },
+      { rootMargin },
+    );
+    observers.set(rootMargin, observer);
+  }
+  return observer;
+}
+
 /* True while the observed element is within `rootMargin` of the viewport.
    Rails use it to defer BOTH their fetch and their render until the viewer is
-   close enough to notice, which is what keeps a cold Home load from firing the
-   whole catalogue at once. Browsers without IntersectionObserver report visible
+   close enough to notice. Browsers without IntersectionObserver report visible
    immediately, so behaviour degrades to "fetch everything" rather than "never
-   fetch".
-
-   Extracted from the copy that was inlined in MovieRail/Top10Rail so the
-   query-gated rails share one implementation. */
+   fetch". */
 export function useNearViewport(rootMargin = "1400px 0px") {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
 
   useEffect(() => {
-    // No IntersectionObserver support: report visible so behaviour degrades to
-    // "fetch everything", never to "never fetch".
     if (typeof IntersectionObserver === "undefined") {
       setInView(true);
       return undefined;
     }
-    // Ref not attached yet (conditional mount): stay hidden, but do NOT pretend
-    // the browser lacks support — that would open the gate for the wrong reason.
+
+    // A conditional mount can leave the ref empty for this effect pass.
     const el = ref.current;
     if (!el) return undefined;
-    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
-      rootMargin,
-    });
+
+    const observer = acquireObserver(rootMargin);
+    subscribers.set(el, setInView);
     observer.observe(el);
-    return () => observer.disconnect();
+
+    return () => {
+      subscribers.delete(el);
+      observer.unobserve(el);
+    };
   }, [rootMargin]);
 
   return [ref, inView];
