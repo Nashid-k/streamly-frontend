@@ -36,8 +36,8 @@ describe("non-player compositor budget", () => {
     const stage = rule(css, ".ambient-liquid");
     const blob = rule(css, ".ambient-liquid__blob");
 
-    expect(stage).not.toMatch(/translateZ\\(0\\)|translate3d\\(0,\\s*0,\\s*0\\)|backface-visibility/);
-    expect(blob).not.toMatch(/translateZ\\(0\\)|translate3d\\(0,\\s*0,\\s*0\\)|backface-visibility/);
+    expect(stage).not.toMatch(/translateZ\(0\)|translate3d\(0,\s*0,\s*0\)|backface-visibility/);
+    expect(blob).not.toMatch(/translateZ\(0\)|translate3d\(0,\s*0,\s*0\)|backface-visibility/);
     expect(css).toContain("@keyframes ambient-blob-a");
   });
 
@@ -51,7 +51,7 @@ describe("non-player compositor budget", () => {
     ];
 
     for (const path of paths) {
-      expect(read(path), path).not.toMatch(/transition:\\s*["']all\\b/);
+      expect(read(path), path).not.toMatch(/transition:\s*["']all\b/);
     }
   });
 
