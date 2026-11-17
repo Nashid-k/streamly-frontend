@@ -87,8 +87,9 @@ describe("non-player compositor budget", () => {
 
   it("keeps mobile rails free-scrolling and aligned to the shared content gutter", () => {
     const css = read("src/styles/responsive.css");
-    const mobile = css.match(/@media \\(max-width: 768px\\)\\s*\\{[\\s\\S]*?\\.movie-rail\\s*\\{([^}]*)\\}/)?.[1] ?? "";
-    const mobileItems = css.match(/@media \\(max-width: 768px\\)\\s*\\{[\\s\\S]*?\\.movie-rail > \\*\\s*\\{([^}]*)\\}/)?.[1] ?? "";
+    const mobileStyles = css.slice(css.indexOf("/* Movie Rails */"));
+    const mobile = mobileStyles.match(/\\.movie-rail\\s*\\{([^}]*)\\}/)?.[1] ?? "";
+    const mobileItems = mobileStyles.match(/\\.movie-rail > \\*\\s*\\{([^}]*)\\}/)?.[1] ?? "";
 
     expect(mobile).toContain("scroll-snap-type: x proximity;");
     expect(mobile).toContain("scroll-padding-left: var(--gutter, 24px);");
