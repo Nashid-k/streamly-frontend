@@ -163,10 +163,10 @@ export default function useSourceResolve({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
-    // Four visible servers may each need a bounded resolve + media probe. The
-    // per-hop watchdogs below move on quickly; this outer guard is only a final
-    // safety net for a stuck browser/relay request.
-    const resolveTimeout = setTimeout(() => controller.abort(), 45000);
+    // One cold-start budget covers all four visible servers. Per-hop
+    // watchdogs consume only the remaining budget; expiry reaches the normal
+    // error state instead of leaving a spinner behind an aborted run.
+    const sourceDeadlineAt = Date.now() + 40000;
     // EPISODE SWITCH = COLD OPEN. hasStartedRef stays true from the previous
     // episode, so without dropping it the spinner effect classifies this wait
     // as a warm stall and shows only the light ring - the viewer never sees
@@ -438,16 +438,23 @@ export default function useSourceResolve({
       // Bound each server independently. A timeout aborts that server's fetches
       // before the next provider starts, rather than leaving four requests alive.
       const withSourceTimeout = (task, timeoutMs, label) => {
+        const remainingMs = sourceDeadlineAt - Date.now();
+        const boundedTimeoutMs = Math.min(timeoutMs, remainingMs);
+        if (boundedTimeoutMs <= 0) {
+          const error = new Error(`${label} skipped: playback startup budget exhausted`);
+          error.code = "source-timeout";
+          return Promise.reject(error);
+        }
         const attemptController = new AbortController();
         let timer;
         let onParentAbort;
         const timeout = new Promise((_, reject) => {
           timer = setTimeout(() => {
             attemptController.abort();
-            const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+            const error = new Error(`${label} timed out after ${boundedTimeoutMs}ms`);
             error.code = "source-timeout";
             reject(error);
-          }, timeoutMs);
+          }, boundedTimeoutMs);
         });
         const aborted = new Promise((_, reject) => {
           onParentAbort = () => {
@@ -998,7 +1005,6 @@ export default function useSourceResolve({
           // The outer deadline only guards cold-start resolution. Once a real
           // source is committed, keep the fatal listener alive for the whole
           // playback session instead of silently detaching it after 45 seconds.
-          clearTimeout(resolveTimeout);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;
@@ -1083,7 +1089,11 @@ export default function useSourceResolve({
             try {
               // bypass: the cached payload is the one the probe just proved dead
               // — a token refresh must actually re-resolve, not replay it.
-              fresh = await def.resolve(args, { signal: controller.signal, bypass: true });
+              fresh = await withSourceTimeout(
+                (signal) => def.resolve(args, { signal, bypass: true }),
+                def.key === "netmirror-1" ? 10000 : 7000,
+                `${def.label} token refresh`,
+              );
             } catch {
               fresh = null;
             }
@@ -1180,7 +1190,6 @@ export default function useSourceResolve({
     })();
 
     return () => {
-      clearTimeout(resolveTimeout);
       controller.abort();
       try {
         revealCleanup();
