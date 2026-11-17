@@ -51,7 +51,8 @@
   `sources: []` for every tested title; RIVO siblings `server=6`
   (1080p/720p/480p) and `server=7` (auto) still serve. `handleResolveRivo`
   therefore tries the requested id first, then 6 → 7, inside the provider. The
-  Server 1 row no longer falls back to ZXC; only the no-pick AUTO path does.
+  Server 1 row stays a RIVO-only resolve; the player-level four-row failover
+  now advances to the other visible providers after resolve OR byte-probe failure.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
