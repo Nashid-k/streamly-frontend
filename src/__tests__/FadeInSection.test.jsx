@@ -35,16 +35,18 @@ describe("FadeInSection", () => {
       </>,
     );
 
+    const section = (label) => screen.getByText(label).closest(".fade-in-section");
+
     expect(Observer).toHaveBeenCalledTimes(1);
     expect(observed).toHaveLength(3);
-    expect(screen.getByText("First rail").parentElement).not.toHaveClass("is-visible");
+    expect(section("First rail")).not.toHaveClass("is-visible");
 
     act(() => {
       notify(observed.map((target) => ({ target, isIntersecting: true })));
     });
 
     for (const label of ["First rail", "Second rail", "Third rail"]) {
-      expect(screen.getByText(label).parentElement).toHaveClass("is-visible");
+      expect(section(label)).toHaveClass("is-visible");
     }
     expect(unobserve).toHaveBeenCalledTimes(3);
   });
@@ -54,6 +56,8 @@ describe("FadeInSection", () => {
 
     render(<FadeInSection>Accessible fallback</FadeInSection>);
 
-    expect(screen.getByText("Accessible fallback").parentElement).toHaveClass("is-visible");
+    expect(screen.getByText("Accessible fallback").closest(".fade-in-section")).toHaveClass(
+      "is-visible",
+    );
   });
 });
