@@ -55,6 +55,32 @@ describe("non-player compositor budget", () => {
     }
   });
 
+  it("keeps the Home hero parent fade-only while CSS staggers its children", () => {
+    const home = read("src/pages/HomePage.jsx");
+    const content = home.slice(home.indexOf('key={activeFeaturedMovie.id + "-content"}'));
+    const parentMotion = content.slice(0, content.indexOf("</motion.div>"));
+
+    expect(parentMotion).toMatch(/initial=\{\{ opacity: 0 \}\}/);
+    expect(parentMotion).toMatch(/animate=\{\{ opacity: 1 \}\}/);
+    expect(parentMotion).toMatch(/exit=\{\{ opacity: 0 \}\}/);
+    expect(parentMotion).not.toMatch(/\by:\s*(?:18|0)\b/);
+    expect(read("src/styles/hero.css")).toContain("animation: heroReveal 0.48s");
+  });
+
+  it("keeps poster artwork visible beneath the hover affordance", () => {
+    const css = read("src/styles/grids.css");
+    const card = read("src/components/MovieCard.jsx");
+    const hover = css.match(/\.movie-card:hover\s*\{([^}]*)\}/)?.[1] ?? "";
+    const poster = css.match(/\.movie-card:hover \.movie-poster\s*\{([^}]*)\}/)?.[1] ?? "";
+    const focus = css.match(/\.movie-card:focus-visible \.poster-wrapper\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(hover).toContain("transform: scale(1.035);");
+    expect(poster).toContain("filter: brightness(0.78);");
+    expect(poster).toContain("transform: scale(1.02);");
+    expect(card).toContain('background: "rgba(0, 0, 0, 0.28)"');
+    expect(focus).toContain("outline: 2px solid var(--focus-ring-color);");
+  });
+
   it("keeps hero reveal stagger short and transform/opacity based", () => {
     const css = read("src/styles/hero.css");
 
