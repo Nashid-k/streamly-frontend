@@ -1,7 +1,7 @@
 name: Weekly Mongo snapshot
 
-# PLAN.md P0.2 — the signed-in sync state (users + userData collections) is
-# the one irreplaceable dataset in the product. Atlas replica sets protect it
+# The signed-in sync state (users + userData collections) is the one
+# irreplaceable dataset in the product. Atlas replica sets protect it
 # against infra failure; this job protects it against MISTAKES by exporting
 # NDJSON every week and uploading it as a PRIVATE artifact (90-day retention).
 # Restore: `MONGODB_URI=… node scripts/snapshot-mongo.mjs --restore <file>`.
