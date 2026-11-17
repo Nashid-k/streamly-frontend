@@ -28,6 +28,13 @@
 
 ## Open work queue (top-down)
 
+- [ ] **User-prioritised non-player performance pass (2026-11-17).** Start with
+      shared IntersectionObserver ownership for rail reveal sections, then
+      profile and refine non-player image/rendering and motion paths. Keep all
+      player restructuring out of this pass; defer it until the final phase.
+      Verify with the repository lint, test and build gates where execution is
+      available; record any unavailable runtime/browser measurements honestly.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;
