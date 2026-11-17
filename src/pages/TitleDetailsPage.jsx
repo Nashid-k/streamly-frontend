@@ -1133,8 +1133,9 @@ export default function TitleDetails() {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="details-hero__gap flex items-center gap-3 flex-wrap justify-center lg:justify-start">
+            {/* Primary action cluster — keep playback, library actions and ratings
+                grouped so the mobile layout has a clear visual priority. */}
+            <div className="details-hero__gap details-hero__actions">
               <button
                 type="button"
                 disabled={unreleased}
@@ -1157,7 +1158,7 @@ export default function TitleDetails() {
                     }),
                   );
                 }}
-                className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
+                className={`details-hero__play relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
                 }`}
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
@@ -1165,12 +1166,8 @@ export default function TitleDetails() {
                 <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
               </button>
 
-              {/* Real ratings (IMDb + Rotten Tomatoes + TMDB) — surfaced next to
-                  the play action instead of buried in the bottom social-proof bar. */}
-              <RatingsCluster movie={movie} size="md" itemClassName="title-rating-badge" />
-
               {/* Cinejoy-style circular actions: Add to List | Mark watched */}
-              <div className="flex items-center gap-2.5 shrink-0">
+              <div className="details-hero__quick-actions">
                 <div style={{ position: "relative" }} className="flex">
                   {inAnyCollection && (
                     <span
@@ -1204,6 +1201,9 @@ export default function TitleDetails() {
                 >
                   {isMarkedWatched(movie.id) ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
+              </div>
+              <div className="details-hero__ratings">
+                <RatingsCluster movie={movie} size="md" itemClassName="title-rating-badge" />
               </div>
             </div>
 
