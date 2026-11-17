@@ -28,7 +28,7 @@
 
 ## Open work queue (top-down)
 
-- [ ] **User-prioritised non-player performance pass (2026-11-17).** Start with
+- [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).** Start with
       shared IntersectionObserver ownership for rail reveal sections, then
       profile and refine non-player image/rendering and motion paths. Keep all
       player restructuring out of this pass; defer it until the final phase.
