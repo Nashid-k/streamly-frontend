@@ -486,6 +486,10 @@ export default function useSourceResolve({
       // error while the real story is the provider's daily quota, so the banner
       // should say THAT instead of a bare "no stream".
       let anyUpstreamQuota = false;
+      // A preferred ZXC request can be served by the other visible ZXC row.
+      // Remember that actual row so the outer client walk does not request it
+      // a second time after its probe fails.
+      let lastResolvedSourceKey = null;
 
       // The position a re-run of THIS effect must resume at. Seeded from the
       // reload carry (server/source pick, manual retry) and then kept honest by
@@ -542,6 +546,7 @@ export default function useSourceResolve({
         if (servedKey && servedKey !== def.key) {
           def = sourceByServer(resolved.server);
         }
+        lastResolvedSourceKey = def.key;
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
           // Empty is not terminal: the catalogue returns empty lists when rate-flaky.
@@ -1133,9 +1138,14 @@ export default function useSourceResolve({
               ...orderedFallbacks.filter((source) => source.key !== PLAYER_SOURCES[0]?.key),
             ];
 
+        const attempted = new Set();
         for (const candidate of candidates) {
           if (stale()) return true;
+          if (attempted.has(candidate.key)) continue;
+          lastResolvedSourceKey = null;
           const outcome = await runSourceOnce(candidate, false);
+          if (lastResolvedSourceKey) attempted.add(lastResolvedSourceKey);
+          attempted.add(candidate.key);
           if (outcome === true) return true;
           // A title-specific miss and an unreachable server both advance.
           // Do not retry the same slow server here: every row gets one bounded
