@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-/* Query-gated rails only need to know whether their sentinel is near the
-   viewport. Share one observer per rootMargin across all rows (the ten daily
-   Home rails use the same 1400px margin) rather than allocating one observer
-   per row. Each subscriber still receives its own enter/leave updates. */
+/* Query-gated rails only need to know when their sentinel first approaches
+   the viewport. Share one observer per rootMargin across all rows (the ten
+   daily Home rails use the same 1400px margin) rather than allocating one per
+   row. Once entered, the sentinel is unobserved: fetching is a one-way gate. */
 const observers = new Map();
 const subscribers = new WeakMap();
 
@@ -13,7 +13,12 @@ function acquireObserver(rootMargin) {
     observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          subscribers.get(entry.target)?.(entry.isIntersecting);
+          if (!entry.isIntersecting) continue;
+          const notify = subscribers.get(entry.target);
+          if (!notify) continue;
+          subscribers.delete(entry.target);
+          observer.unobserve(entry.target);
+          notify(true);
         }
       },
       { rootMargin },
