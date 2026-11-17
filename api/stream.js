@@ -2190,13 +2190,14 @@ async function handleSegment(body, res) {
 const RIVO_SOURCE_BASE = "https://f.rivo.st/api/source";
 const RIVO_REFERER = "https://f.rivo.st/";
 
-/* RIVO numbers its own backends 1-9. Server 1 is the multi-audio library; on
-   2026-11-17 it returned an empty roster for every measured title while
-   siblings 6 and 7 still served the same films. The menu row stays RIVO, so
-   fall through INSIDE the provider before reporting a title miss. Keep this
-   list short: every extra attempt is latency on a genuinely absent title. */
-const RIVO_FALLBACK_SERVERS = ["6", "7"];
+/* RIVO numbers its own backends 1-9. Server 1 is the multi-audio library;
+   it returned empty rosters on 2026-11-17 while siblings 6 and 7 still served.
+   Those two stay first, but any sibling can become the live library without
+   changing the app's menu. Try the remaining provider IDs as a bounded
+   same-provider failover; never turn a Server 1 pick into a ZXC/Orion request. */
+const RIVO_FALLBACK_SERVERS = ["6", "7", "2", "3", "4", "5", "8", "9"];
 const RIVO_ATTEMPT_TIMEOUT_MS = 10_000;
+const RIVO_FALLBACK_TIMEOUT_MS = 4_000;
 
 /* "1080p (Brazilian Portuguese)" -> "Brazilian Portuguese". A row with no
    parenthesised language ("Auto", "4K Ultra HD") carries no audio meaning. */
@@ -2320,7 +2321,7 @@ async function handleResolveRivo(body, res) {
       /* 10s per attempt — RIVO resolves JSON; hanging on one sibling must not
          starve the fallback or the rest of the playback pipeline. */
       const upstream = await fetch(`${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`, {
-        signal: AbortSignal.timeout(RIVO_ATTEMPT_TIMEOUT_MS),
+        signal: AbortSignal.timeout(candidate === server ? RIVO_ATTEMPT_TIMEOUT_MS : RIVO_FALLBACK_TIMEOUT_MS),
         headers: {
           "user-agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
