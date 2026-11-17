@@ -133,9 +133,6 @@ function Layout({ children }) {
               flex: 1,
               minHeight: "100%",
               overflowX: "clip",
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transform: "translateZ(0)",
             }}
             onAnimationStart={() => {
               if (typeof window !== 'undefined') {
