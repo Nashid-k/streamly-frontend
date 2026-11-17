@@ -225,7 +225,7 @@ export default function useSourceResolve({
       return variant?.uri;
     };
 
-    const waitParsed = (hls) =>
+    const waitParsed = (hls, timeoutMs = PARSE_TIMEOUT_MS) =>
       new Promise((resolve, reject) => {
         let settled = false;
         const finish = () => {
@@ -234,7 +234,7 @@ export default function useSourceResolve({
           hls.off(Hls.Events.ERROR, onError);
           controller.signal.removeEventListener("abort", onAbort);
         };
-        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), PARSE_TIMEOUT_MS);
+        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), timeoutMs);
         const onParsed = () => {
           if (settled) return;
           settled = true;
@@ -909,7 +909,11 @@ export default function useSourceResolve({
           try {
             hls.loadSource(entryUrl);
             hls.attachMedia(videoRef.current);
-            await waitParsed(hls);
+            // The manifest must also parse within this server's share of the
+            // cold-start budget. A valid byte probe followed by a hung master
+            // must not pin the player to the same provider for 75 seconds.
+            const parseBudgetMs = Math.max(1, Math.min(7000, sourceDeadlineAt - Date.now()));
+            await waitParsed(hls, parseBudgetMs);
           } catch {
             // The instance never committed: invalidate every quality/dub/audio
             // continuation parked on it before tearing it down.
