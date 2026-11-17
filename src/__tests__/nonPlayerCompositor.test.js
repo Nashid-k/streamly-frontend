@@ -74,7 +74,7 @@ describe("non-player compositor budget", () => {
     ];
 
     for (const [path, selector] of checks) {
-      expect(rule(read(path), selector), selector).not.toMatch(/translateZ\\(0\\)|translate3d\\(0,\\s*0,\\s*0\\)|backface-visibility/);
+      expect(rule(read(path), selector), selector).not.toMatch(/translateZ\(0\)|translate3d\(0,\s*0,\s*0\)|backface-visibility/);
     }
   });
 
