@@ -905,8 +905,8 @@ export default function Home({ filter = "all", title }) {
             <motion.div
               key={activeFeaturedMovie.id + "-content"}
               className="hero-content hero-content--apple"
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
             >
