@@ -28,9 +28,9 @@ function acquireObserver(rootMargin) {
   return observer;
 }
 
-/* True while the observed element is within `rootMargin` of the viewport.
-   Rails use it to defer BOTH their fetch and their render until the viewer is
-   close enough to notice. Browsers without IntersectionObserver report visible
+/* True once the observed element first enters `rootMargin` of the viewport.
+   Rails use it to defer their fetch until the viewer is close enough to notice;
+   after activation the gate stays open even if the viewer scrolls away. Browsers without IntersectionObserver report visible
    immediately, so behaviour degrades to "fetch everything" rather than "never
    fetch". */
 export function useNearViewport(rootMargin = "1400px 0px") {
