@@ -1158,7 +1158,7 @@ export default function TitleDetails() {
                     }),
                   );
                 }}
-                className={`details-hero__play relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
+                className={`details-hero__play relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
                 }`}
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
