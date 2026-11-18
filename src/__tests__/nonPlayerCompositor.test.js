@@ -131,6 +131,20 @@ describe("non-player compositor budget", () => {
     }
   });
 
+  it("keeps poster artwork visible beneath the hover affordance", () => {
+    const css = read("src/styles/grids.css");
+    const card = read("src/components/MovieCard.jsx");
+    const hover = css.match(/\.movie-card:hover\s*\{([^}]*)\}/)?.[1] ?? "";
+    const poster = css.match(/\.movie-card:hover \.movie-poster\s*\{([^}]*)\}/)?.[1] ?? "";
+    const focus = css.match(/\.movie-card:focus-visible \.poster-wrapper\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(hover).toContain("transform: scale(1.035);");
+    expect(poster).toContain("filter: brightness(0.78);");
+    expect(poster).toContain("transform: scale(1.02);");
+    expect(card).toContain('background: "rgba(0, 0, 0, 0.28)"');
+    expect(focus).toContain("outline: 2px solid var(--focus-ring-color);");
+  });
+
   it("does not force a 3D layer on every pending rail reveal", () => {
     const css = read("src/styles/rails.css");
     const reveal = rule(css, ".fade-in-section");
