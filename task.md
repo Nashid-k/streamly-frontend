@@ -171,6 +171,9 @@
   explicit transition properties for the remaining Tailwind all-property
   transition utilities, keyboard-operable trailer tiles, plus copy/compositor
   regression guards.
+- **2026-11-18 — Title-detail hero actions:** clearer Play/Resume priority,
+  grouped library controls, and a supporting ratings row with a compact mobile
+  two-column layout.
 - **2026-11-15 — Settings restyle:** flat shell, numbered index rail, grouped
   panels, inline caption preview, dead `PlayerPreview`/`SystemStatusRow`
   surfaces removed.
