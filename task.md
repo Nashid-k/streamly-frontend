@@ -47,8 +47,19 @@
   `web-design-guidelines`, `deploy-to-vercel`); applied the web-design ellipsis
   fixes and completed the React/UI audit. Vercel CLI state: not linked and not
   authenticated; no new deployment attempted.
-- **Gates (2026-11-18):** `npm run test -- --maxWorkers=4` 127 files / 1511
-  passed + 2 skipped, `npm run lint` 0 errors (warnings only), `npm run build`
+- **Skill audit pass 2 (2026-11-18):** finished the Web Interface Guidelines
+  sweep the first pass missed — every catalogue placeholder/filter, the My List
+  search fields and the pre-bundle boot loader now use `…` instead of ASCII
+  `...`; the last Tailwind all-property transition utilities (browse pills,
+  search field, settings triggers, continue-watching progress/chevron, provider
+  logos, episode and trailer tiles) were narrowed to the properties they
+  animate; the trailer carousel tiles are now keyboard-operable `role="button"`
+  controls with an `aria-label`. Regression guards added in `i18n.test.js`
+  (catalogue ellipsis + boot loader) and `nonPlayerCompositor.test.js` (no
+  all-property transition utility outside the player). Vercel state re-checked: git remote present, not linked,
+  CLI not installed/authenticated; no deployment attempted.
+- **Gates (2026-11-18):** `npm run test -- --maxWorkers=4` 127 files / 1514
+  passed + 2 skipped, `npm run lint` 0 errors (137 warnings), `npm run build`
   exit 0. The default-worker full run hit the known jsdom timing flake in
   `librarySelection`; both the 4-worker run and that file in isolation pass.
 
@@ -152,6 +163,10 @@
 
 ## Recently shipped (newest first)
 
+- **2026-11-18 — Skills audit pass 2:** catalogue/boot-loader ellipsis copy,
+  explicit transition properties for the remaining Tailwind all-property
+  transition utilities, keyboard-operable trailer tiles, plus copy/compositor
+  regression guards.
 - **2026-11-15 — Settings restyle:** flat shell, numbered index rail, grouped
   panels, inline caption preview, dead `PlayerPreview`/`SystemStatusRow`
   surfaces removed.
