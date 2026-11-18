@@ -54,7 +54,7 @@ async function call(body, { method = "POST" } = {}) {
 const callZxc = (body) => call({ action: "resolvezxc", type: "movie", id: "1101383", ...body });
 
 /* A relay response envelope: the provider's status/content-type/body wrapped in
-   the JSON contract apps-script/zxc-relay.gs emits. */
+   the JSON contract relays/apps-script/zxc-relay.gs emits. */
 function relayEnvelope(upstreamBody, { status = 200, contentType = "application/json" } = {}) {
   return new Response(
     JSON.stringify({ status, contentType, body: upstreamBody }),

@@ -17,12 +17,6 @@ import {
   Clock,
   SlidersHorizontal,
   Trash2,
-  Palette,
-  Play,
-  Server,
-  Captions,
-  Bell,
-  Database,
 } from "lucide-react";
 import SEO from "../components/SEO";
 import AmbientBackground from "../components/AmbientBackground";

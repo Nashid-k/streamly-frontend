@@ -379,71 +379,7 @@ html[data-reduce-motion="true"] .pinned-filters {
   }
 }
 
-/* ── Sticky browse bar (P3-3 / P3-4) ─────────────────────────────────────
-   One row: result count, active-filter chips, Clear all. Sticky under the fixed
-   header; slides away on scroll-down and returns on scroll-up (the JS only
-   toggles the modifier class — the motion is pure CSS). */
-.browse-bar {
-  position: sticky;
-  top: calc(var(--header-h) + 4px);
-  z-index: var(--z-sticky, 40);
-  margin: 0 1rem 1rem;
-  border-radius: var(--radius-panel);
-  border: 1px solid rgba(var(--white-rgb), 0.08);
-  background: rgba(var(--black-rgb), 0.62);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
-  transition:
-    transform var(--duration-fast) var(--ease-silk),
-    opacity var(--duration-fast) var(--ease-silk);
-}
-.browse-bar--hidden {
-  transform: translateY(calc(-100% - var(--header-h)));
-  opacity: 0;
-  pointer-events: none;
-}
-@media (min-width: 768px) {
-  .browse-bar {
-    margin: 0 2rem 1rem;
-  }
-}
-.browse-bar__inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding: 6px 12px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.browse-bar__inner::-webkit-scrollbar {
-  display: none;
-}
-.browse-bar__count {
-  flex: 0 0 auto;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-.browse-bar__summary {
-  flex: 0 0 auto;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  background: rgba(var(--accent-primary-rgb, 149, 255, 80), 0.14);
-  color: var(--accent-color);
-  font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.browse-bar__chips {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+/* Filter suggestion chips (empty-result recovery). */
 .browse-chip {
   display: inline-flex;
   align-items: center;
@@ -466,31 +402,6 @@ html[data-reduce-motion="true"] .pinned-filters {
 .browse-chip:focus-visible {
   background: rgba(var(--white-rgb), 0.13);
   border-color: rgba(var(--white-rgb), 0.28);
-}
-.browse-chip__x {
-  opacity: 0.55;
-}
-.browse-chip:hover .browse-chip__x {
-  opacity: 1;
-}
-.browse-bar__clear {
-  flex: 0 0 auto;
-  margin-left: auto;
-  min-height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius-full);
-  border: 1px solid transparent;
-  background: none;
-  color: rgba(var(--white-rgb), 0.62);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-silk);
-}
-.browse-bar__clear:hover,
-.browse-bar__clear:focus-visible {
-  color: var(--text-primary);
-  border-color: rgba(var(--white-rgb), 0.18);
 }
 
 /* Empty-result recovery: reset + genre suggestions, side by side. */
@@ -807,14 +718,6 @@ html[data-reduce-motion="true"] .pinned-filters {
   .discovery-page .filter-row > * {
     flex: 0 1 auto;
     max-width: 100%;
-  }
-  .browse-bar__inner {
-    flex-wrap: wrap;
-    row-gap: 6px;
-    overflow-x: visible;
-  }
-  .browse-bar__chips {
-    flex-wrap: wrap;
   }
 }
 

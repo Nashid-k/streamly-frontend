@@ -18,12 +18,14 @@
 - **Workspace cleanup (2026-11-18):** removed the legacy UI mock and player
   prototype, unused demo media, stale one-off probe scripts, generated
   build/test caches, and the ignored local agent scratch folder. Only the app,
-  API/server code, live operator scripts and docs remain.
+  API/server code, live operator scripts and docs remain. Deployable relay
+  sources are grouped under `relays/`; `docs/` is documentation only. The
+  unreferenced `BrowseBar` component and `useIsTouch` hook were also deleted.
 - **Server roster (`src/constants/sources.js`):** Server 1 RIVO (multi-audio
   when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon.
   Orion, Atlas, Ursa, VidRack and Daedalus are retired on measured evidence.
   The fourth row was removed on 2026-11-18; only the three rows above remain.
-  The ZXC relay stays in `server/net.js` and `apps-script/zxc-relay.gs`.
+  The ZXC relay stays in `server/net.js` and `relays/apps-script/zxc-relay.gs`.
 - **Server 1 identity:** RIVO since `0b3eb99` (2026-11-02). The ZXC family owns
   Servers 2–3.
 - **Measured 2026-11-17:** RIVO's primary library (`server=1`) returns
@@ -138,7 +140,7 @@
       or preference exists anywhere in the tree. The item cannot be worked
       until the real feature (setting name, file, or bug report) is supplied.
 
-- [ ] **Operator: deploy `docs/relay-worker.js`** to
+- [ ] **Operator: deploy `relays/cloudflare/relay-worker.js`** to
       `streamly-proxy.nashidk1999.workers.dev` and, only if vidrack is ever
       revived, route its two `vidcore.io` POSTs through a POST-capable relay.
       Not on the current roster's path; requires the Worker owner's sign-off.

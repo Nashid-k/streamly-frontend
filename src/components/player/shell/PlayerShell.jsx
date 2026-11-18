@@ -9,7 +9,6 @@ import {
   SkipPill,
   SubtitleOverlay,
   CenterStack,
-  TapToUnmutePill,
   ResumeCard,
   UpNextCard,
   PlayerPanel,

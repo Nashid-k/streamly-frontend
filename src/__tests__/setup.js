@@ -2,10 +2,10 @@ import '@testing-library/jest-dom';
 
 /* ── Shared jsdom gaps ───────────────────────────────────────────────────
    jsdom implements neither matchMedia nor ResizeObserver, and both are read by
-   plain page components (useIsTouch, useReducedMotion, Framer's layout
-   measurement). Without a default every suite that mounts a page re-stubbed
-   them by hand — and the ones that forgot failed with "window.matchMedia is
-   not a function", which reads like a product bug rather than a missing shim.
+   plain page components (useReducedMotion, Framer's layout measurement).
+   Without a default every suite that mounts a page re-stubbed them by hand —
+   and the ones that forgot failed with "window.matchMedia is not a function",
+   which reads like a product bug rather than a missing shim.
 
    These defaults are deliberately inert: matchMedia reports "no match" for
    every query. Suites that need real query semantics (the player's IS_TOUCH

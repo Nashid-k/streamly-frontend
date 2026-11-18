@@ -75,7 +75,6 @@ import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 // hard override that forces the embed.
 const NativePlayerView = lazy(() => import("../components/NativePlayerView"));
 const ProviderEmbedPlayer = lazy(() => import("../components/ProviderEmbedPlayer"));
-const AtlanticEmbedPlayer = lazy(() => import("../components/AtlanticEmbedPlayer"));
 import { PROVIDER_EMBED_PLAYBACK } from "../constants/playback";
 import { getZxcCapabilities } from "../api/streamResolve";
 import ErrorBoundary from "../components/ErrorBoundary";

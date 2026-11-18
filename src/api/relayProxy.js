@@ -23,7 +23,7 @@
 
 const WORKER_SLICE_MAX = 60 * 1024 * 1024;
 
-/* The worker shipped with this repo (.env.example + docs/relay-worker.js) —
+/* The worker shipped with this repo (.env.example + relays/cloudflare/relay-worker.js) —
    live-verified, referer-forwarding version. Client-visible by design. */
 export const DEFAULT_RELAY_URL = "https://streamly-proxy.nashidk1999.workers.dev";
 

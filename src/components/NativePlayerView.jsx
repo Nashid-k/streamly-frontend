@@ -43,7 +43,6 @@ import {
 } from "../utils/skipMarkers";
 import { useOptionalPreferences } from "../context/preferences";
 import { resetPreviewPipeline, setPreviewSuppressed } from "../api/previewThumbs";
-import { IS_TOUCH } from "./player/chrome";
 import { zoneOf } from "./player/nativePlayerHelpers";
 import usePlayerHud from "./player/hooks/usePlayerHud";
 import usePlaybackExtras from "./player/hooks/usePlaybackExtras";
@@ -57,7 +56,6 @@ import useSourceResolve from "./player/engine/useSourceResolve";
 import usePlayerKeyboard from "./player/hooks/usePlayerKeyboard";
 import useMediaElementEvents from "./player/hooks/useMediaElementEvents";
 import PlayerShell from "./player/shell/PlayerShell";
-import { providerEmbedUrl } from "./ProviderEmbedPlayer";
 import AtlanticEmbedPlayer from "./AtlanticEmbedPlayer";
 import { HOLD_2X_DELAY_MS } from "./player/nativePlayerGestures";
 import { resolveTouchRelease } from "./player/nativePlayerHold";

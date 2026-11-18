@@ -6,7 +6,7 @@
 // whether the native resolver can reach the provider. That
 // answer is `zxcNative`, which is true only when ZXC_RELAY_URL is configured
 // (an Apps Script relay on a Google egress IP the provider's WAF allows — see
-// server/net.js and apps-script/zxc-relay.gs).
+// server/net.js and relays/apps-script/zxc-relay.gs).
 //
 //   zxcNative true  -> NativePlayerView (native HLS through the serverless).
 //   zxcNative false -> ProviderEmbedPlayer (the provider's own player iframe),

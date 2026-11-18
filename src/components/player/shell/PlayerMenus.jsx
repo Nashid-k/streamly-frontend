@@ -17,7 +17,6 @@ import { ASPECT_RATIOS, PLAYER_SPEEDS } from "../../../constants/playerUi";
 import { SKIP_DATA_CREDIT } from "../../../api/skipBoundarySource";
 import { languageNameFromCode } from "../../../utils/audioLabels";
 import { AUTO_SOURCE, DEFAULT_SOURCE_KEY, sourceLabel, sourceByKey, sourceByServer } from "../../../constants/sources";
-import { qualityHdTag } from "../nativePlayerHelpers";
 import { formatAirsDate, isEpAired } from "../../../utils/titleDetails";
 
 function Tile({ label, value, ariaLabel, onClick }) {

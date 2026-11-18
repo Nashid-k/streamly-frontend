@@ -550,7 +550,7 @@ not SSR'd. The WAF *does* allow Google's own egress (Google's translate proxy
 reaches `/backend` from `34.16.151.18`, Google Cloud), so a relay on an allowed
 ASN is the route back to native.
 
-**The relay is a Google Apps Script web app (`apps-script/zxc-relay.gs`).**
+**The relay is a Google Apps Script web app (`relays/apps-script/zxc-relay.gs`).**
 When `ZXC_RELAY_URL` is set, `server/net.js` `fetchUpstream` routes the small
 TEXT fetches to the WAF-blocked provider hosts (`zxcstream.cc`, `vidstuck.cc`,
 `vidstuck.xyz`) through it instead of attempting them from Vercel; the relay
@@ -669,7 +669,7 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `useScrollRestoration`, `useVirtualRenderAdapter` (IntersectionObserver adapter for heavy elements),
   `useNearViewport` (one shared "am I within N px of the viewport?" gate - returns `[ref, inView]`,
   treats a browser without `IntersectionObserver` as visible so a missing API can never silently
-  suppress a query), `useIsTouch`, `useContainerSize`.
+  suppress a query), `useContainerSize`.
 - `src/context/` - React contexts (`@/context`). `AuthContext.jsx` + `auth.js`
   (merges user data hooks), `PreferencesContext.jsx` + `preferences.js` (settings + `setting-*`).
 - `src/constants/` — app-level constant single sources (`@/constants`): `navigation`,

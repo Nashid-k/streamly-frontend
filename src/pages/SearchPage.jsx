@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { DURATION, EASE_OUT } from "../constants/motion";
 import { movieService } from "../api/movieService";
 import { rankSearchResults, getDidYouMean } from "../utils/searchRanking";
 import { useState, useEffect, useMemo, useRef, useCallback, useId } from "react";
@@ -7,7 +6,6 @@ import useFeedSentinel from "../hooks/useFeedSentinel";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Search, Film, Tv, Flame, Sparkles, Star, Clock, X, RotateCw } from "lucide-react";
 import slugify from "slugify";
-import { motion } from "framer-motion";
 import MovieCard from "../components/MovieCard";
 import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import EmptyState from "../components/EmptyState";

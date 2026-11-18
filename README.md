@@ -219,7 +219,6 @@ src/
 │   ├── collectionMorph.js           ← storage v2 morph for collections (frozen)
 │   ├── useTitleLogo.js              ← Title logo image fetch + fallback
 │   ├── useDialogA11y.js             ← Focus trap + Esc + focus restore for dialogs
-│   ├── useIsTouch.js                ← Touch-device detection (player gestures)
 │   └── useContainerSize.js          ← Player container size observation
 ├── components/
 │   ├── player/                      ← Native streaming player: shell/ + chrome/ +
