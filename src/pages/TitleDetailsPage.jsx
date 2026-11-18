@@ -1156,7 +1156,7 @@ export default function TitleDetails() {
                     }),
                   );
                 }}
-                className={`relative rounded-full flex items-center justify-center transition-all duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
+                className={`relative rounded-full flex items-center justify-center transition-transform duration-200 font-bold tracking-wide h-[44px] w-full sm:w-auto px-6 py-3 text-base min-w-[120px] border-none shadow-xl shadow-black/10 ${
                   unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
                 }`}
                 style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
@@ -1703,7 +1703,7 @@ export default function TitleDetails() {
                           }}
                         >
                           {/* Thumb */}
-                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/20 shrink-0 border border-white/5 transition-all duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50">
+                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/20 shrink-0 border border-white/5 transition-[transform,box-shadow,border-color] duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50">
                             {epThumb ? (
                               <img
                                 src={epThumb}
@@ -1998,14 +1998,23 @@ export default function TitleDetails() {
             {movie.videos.map((vid) => {
               const rankLabel = classifyTrailer(vid);
               const kindLabel = rankLabel ? rankLabel[0].toUpperCase() + rankLabel.slice(1) : "Trailer";
+              const playTrailer = () => { setIsPlaying(true); setPlayMode('trailer'); setPlayingTrailerKey(vid.key); setPlayingEpisode(null); };
               return (
               <div
                 key={vid.key}
+                role="button"
+                tabIndex={0}
+                aria-label={`Play trailer: ${vid.name}`}
                 className="flex-none w-64 md:w-80 aspect-video group cursor-pointer transition-transform duration-200 active:scale-95"
-                onClick={() => { setIsPlaying(true); setPlayMode('trailer'); setPlayingTrailerKey(vid.key); setPlayingEpisode(null); }}
+                onClick={playTrailer}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  playTrailer();
+                }}
               >
-                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black/20 border border-white/5 transition-all duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50 shadow-lg group-hover:shadow-2xl">
-                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} className="w-full h-full object-cover transition-all duration-300 group-hover:brightness-110" loading="lazy" />
+                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black/20 border border-white/5 transition-[transform,box-shadow,border-color] duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50 shadow-lg group-hover:shadow-2xl">
+                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} className="w-full h-full object-cover transition-[filter] duration-300 group-hover:brightness-110" loading="lazy" />
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-300" />
                   <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
                     <h4 className="text-sm font-bold text-white line-clamp-1">{vid.name}</h4>

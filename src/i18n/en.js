@@ -176,7 +176,7 @@ export const en = {
     title: "Settings",
     subtitle: "Tune playback, servers, subtitles, notifications and your data to your taste.",
     eyebrow: "Preferences",
-    filter: "Filter settings...",
+    filter: "Filter settings…",
     navSections: "Settings sections",
     sectionCountOne: "1 section",
     sectionCountMany: "{n} sections",

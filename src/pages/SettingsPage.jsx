@@ -836,7 +836,7 @@ export default function SettingsPage() {
                           aria-controls="theme-menu"
                           aria-label={t("settings.appearance.themeCurrent", { name: activeTheme.name })}
                           onClick={() => toggleDropdown("theme")}
-                          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[150px] justify-between"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-colors duration-300 backdrop-blur-md group min-w-[150px] justify-between"
                         >
                           <span className="flex items-center gap-2 min-w-0 text-sm font-medium text-white/90">
                             <span
@@ -1235,7 +1235,7 @@ export default function SettingsPage() {
                           aria-controls="lang-menu"
                           aria-label={t("settings.playback.defaultLangCurrent", { name: activeLang.name })}
                           onClick={() => toggleDropdown("lang")}
-                          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between"
+                          className="flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-colors duration-300 backdrop-blur-md group min-w-[160px] justify-between"
                         >
                           <span className="flex items-center gap-2.5 min-w-0 text-sm font-medium text-white/90">
                             <LanguageFlag

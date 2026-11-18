@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const read = (path) => readFileSync(join(process.cwd(), path), "utf8");
@@ -39,6 +39,33 @@ describe("non-player compositor budget", () => {
     expect(stage).not.toMatch(/translateZ\(0\)|translate3d\(0,\s*0,\s*0\)|backface-visibility/);
     expect(blob).not.toMatch(/translateZ\(0\)|translate3d\(0,\s*0,\s*0\)|backface-visibility/);
     expect(css).toContain("@keyframes ambient-blob-a");
+  });
+
+  it("does not use Tailwind's all-property transition utility outside the player", () => {
+    // Tailwind's all-property transition animates paint-only properties too —
+    // the JSX counterpart of the `transition: all` declarations the compositor
+    // diet removed from CSS. Built from parts so Tailwind's scanner, which
+    // reads this file, does not emit the utility into the bundle. Player
+    // chrome is out of scope.
+    const banned = ["transition", "all"].join("-");
+    const pattern = new RegExp(`\\b${banned}\\b`);
+    const offenders = [];
+    const walk = (dir) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          if (entry.name === "player" || entry.name === "__tests__") continue;
+          walk(join(dir, entry.name));
+        } else if (/\.(jsx|js)$/.test(entry.name)) {
+          const file = join(dir, entry.name);
+          if (pattern.test(readFileSync(file, "utf8"))) {
+            offenders.push(file.slice(process.cwd().length + 1));
+          }
+        }
+      }
+    };
+    walk(join(process.cwd(), "src"));
+
+    expect(offenders).toEqual([]);
   });
 
   it("uses explicit properties for non-player interactive transitions", () => {

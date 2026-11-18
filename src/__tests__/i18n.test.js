@@ -189,3 +189,27 @@ describe("language row copy", () => {
     expect(reverted).toEqual({});
   });
 });
+
+describe("user-facing copy typography", () => {
+  // Web Interface Guidelines: a loading/placeholder/truncation state ends with
+  // the real ellipsis character, never three ASCII periods. The previous copy
+  // sweep fixed the JSX strings but left every catalogue placeholder and the
+  // pre-bundle boot loader on "...", so those are guarded here.
+  it("uses a real ellipsis in every catalogue value", () => {
+    const ascii = {};
+    for (const [lang, dict] of [['en', englishTree()], ...Object.entries(DICTIONARIES)]) {
+      const bad = [...flatten(dict).entries()]
+        .filter(([, value]) => typeof value === 'string' && value.includes('...'))
+        .map(([key]) => key);
+      if (bad.length) ascii[lang] = bad;
+    }
+    expect(ascii).toEqual({});
+  });
+
+  it("uses a real ellipsis in the pre-bundle boot loader", () => {
+    const html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf8');
+
+    expect(html).not.toMatch(/Loading app\.\.\./);
+    expect(html).toContain('Loading app…');
+  });
+});

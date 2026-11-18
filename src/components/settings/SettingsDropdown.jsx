@@ -89,7 +89,7 @@ export default function SettingsDropdown({
 
   const triggerCls =
     triggerClassName ||
-    "flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all duration-300 backdrop-blur-md group min-w-[160px] justify-between";
+    "flex items-center gap-2 px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-colors duration-300 backdrop-blur-md group min-w-[160px] justify-between";
 
   return (
     <div className="relative" ref={wrapRef}>

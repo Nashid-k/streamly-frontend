@@ -44,7 +44,7 @@ export const es = {
     },
   },
   search: {
-    placeholder: "Busca películas, series, actores...", trending: "Tendencias", recent: "Búsquedas Recientes",
+    placeholder: "Busca películas, series, actores…", trending: "Tendencias", recent: "Búsquedas Recientes",
     clear: "Borrar", popular: "Búsquedas populares", noResults: "Sin resultados para “{q}”",
     emptyHint: "Busca entre películas, series y actores.",
   },
@@ -66,13 +66,13 @@ export const es = {
   },
   history: {
     eyebrow: "Tu Actividad", emptyTitle: "Aún no hay historial", emptyDesc: "Los títulos que veas aparecerán aquí.",
-    placeholder: "Buscar en el historial...",
+    placeholder: "Buscar en el historial…",
   },
   genre: { eyebrow: "Explorar por Género" },
   category: { eyebrow: "Colección" },
   settings: {
     title: "Ajustes", subtitle: "Ajusta la reproducción, servidores, subtítulos y notificaciones a tu gusto.",
-    filter: "Filtrar ajustes...",
+    filter: "Filtrar ajustes…",
     tabs: {
       all: "Todo", account: "Cuenta", appearance: "Apariencia", playback: "Reproducción", servers: "Servidores",
       subtitles: "Subtítulos", notifications: "Notificaciones",
@@ -178,7 +178,7 @@ export const fr = {
     },
   },
   search: {
-    placeholder: "Rechercher films, séries, acteurs...", trending: "Tendances", recent: "Recherches Récentes",
+    placeholder: "Rechercher films, séries, acteurs…", trending: "Tendances", recent: "Recherches Récentes",
     clear: "Effacer", popular: "Recherches populaires", noResults: "Aucun résultat pour « {q} »",
     emptyHint: "Recherchez parmi les films, séries et acteurs.",
   },
@@ -200,13 +200,13 @@ export const fr = {
   },
   history: {
     eyebrow: "Votre Activité", emptyTitle: "Aucun historique", emptyDesc: "Les titres visionnés apparaîtront ici.",
-    placeholder: "Rechercher dans l'historique...",
+    placeholder: "Rechercher dans l'historique…",
   },
   genre: { eyebrow: "Parcourir par Genre" },
   category: { eyebrow: "Collection" },
   settings: {
     title: "Paramètres", subtitle: "Adaptez lecture, serveurs, sous-titres et notifications à vos goûts.",
-    filter: "Filtrer les paramètres...",
+    filter: "Filtrer les paramètres…",
     tabs: {
       all: "Tout", account: "Compte", appearance: "Apparence", playback: "Lecture", servers: "Serveurs",
       subtitles: "Sous-titres", notifications: "Notifications",
@@ -313,7 +313,7 @@ export const de = {
     },
   },
   search: {
-    placeholder: "Filme, Serien, Schauspieler suchen...", trending: "Trends", recent: "Letzte Suchanfragen",
+    placeholder: "Filme, Serien, Schauspieler suchen…", trending: "Trends", recent: "Letzte Suchanfragen",
     clear: "Löschen", popular: "Beliebte Suchanfragen", noResults: "Keine Ergebnisse für „{q}“",
     emptyHint: "Durchsuche Filme, Serien und Schauspieler.",
   },
@@ -335,14 +335,14 @@ export const de = {
   },
   history: {
     eyebrow: "Deine Aktivität", emptyTitle: "Noch kein Verlauf", emptyDesc: "Gesehene Titel erscheinen hier.",
-    placeholder: "Verlauf durchsuchen...",
+    placeholder: "Verlauf durchsuchen…",
   },
   genre: { eyebrow: "Nach Genre durchsuchen" },
   category: { eyebrow: "Sammlung" },
   settings: {
     title: "Einstellungen",
     subtitle: "Passe Wiedergabe, Server, Untertitel und Benachrichtigungen nach deinem Geschmack an.",
-    filter: "Einstellungen filtern...",
+    filter: "Einstellungen filtern…",
     tabs: {
       all: "Alle", account: "Konto", appearance: "Darstellung", playback: "Wiedergabe", servers: "Server",
       subtitles: "Untertitel", notifications: "Benachrichtigungen",
@@ -448,7 +448,7 @@ export const it = {
     },
   },
   search: {
-    placeholder: "Cerca film, serie, attori...", trending: "In Tendenza", recent: "Ricerche Recenti",
+    placeholder: "Cerca film, serie, attori…", trending: "In Tendenza", recent: "Ricerche Recenti",
     clear: "Cancella", popular: "Ricerche popolari", noResults: "Nessun risultato per “{q}”",
     emptyHint: "Cerca tra film, serie TV e attori.",
   },
@@ -470,14 +470,14 @@ export const it = {
   },
   history: {
     eyebrow: "La Tua Attività", emptyTitle: "Nessuna cronologia", emptyDesc: "I titoli che guardi compariranno qui.",
-    placeholder: "Cerca nella cronologia...",
+    placeholder: "Cerca nella cronologia…",
   },
   genre: { eyebrow: "Sfoglia per Genere" },
   category: { eyebrow: "Raccolta" },
   settings: {
     title: "Impostazioni",
     subtitle: "Regola riproduzione, server, sottotitoli e notifiche secondo i tuoi gusti.",
-    filter: "Filtra impostazioni...",
+    filter: "Filtra impostazioni…",
     tabs: {
       all: "Tutto", account: "Account", appearance: "Aspetto", playback: "Riproduzione", servers: "Server",
       subtitles: "Sottotitoli", notifications: "Notifiche",
@@ -583,7 +583,7 @@ export const pt = {
     },
   },
   search: {
-    placeholder: "Busque filmes, séries, atores...", trending: "Em Alta", recent: "Buscas Recentes",
+    placeholder: "Busque filmes, séries, atores…", trending: "Em Alta", recent: "Buscas Recentes",
     clear: "Limpar", popular: "Buscas populares", noResults: "Nenhum resultado para “{q}”",
     emptyHint: "Busque entre filmes, séries e atores.",
   },
@@ -605,14 +605,14 @@ export const pt = {
   },
   history: {
     eyebrow: "Sua Atividade", emptyTitle: "Sem histórico ainda", emptyDesc: "Os títulos que você assistir aparecerão aqui.",
-    placeholder: "Buscar no histórico...",
+    placeholder: "Buscar no histórico…",
   },
   genre: { eyebrow: "Explorar por Gênero" },
   category: { eyebrow: "Coleção" },
   settings: {
     title: "Configurações",
     subtitle: "Ajuste reprodução, servidores, legendas e notificações ao seu gosto.",
-    filter: "Filtrar configurações...",
+    filter: "Filtrar configurações…",
     tabs: {
       all: "Tudo", account: "Conta", appearance: "Aparência", playback: "Reprodução", servers: "Servidores",
       subtitles: "Legendas", notifications: "Notificações",

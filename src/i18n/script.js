@@ -44,7 +44,7 @@ export const ja = {
     },
   },
   search: {
-    placeholder: "映画、ドラマ、俳優を検索...", trending: "急上昇", recent: "最近の検索",
+    placeholder: "映画、ドラマ、俳優を検索…", trending: "急上昇", recent: "最近の検索",
     clear: "クリア", popular: "人気の検索", noResults: "「{q}」の結果はありません",
     emptyHint: "映画、ドラマ、俳優を検索できます。",
   },
@@ -66,14 +66,14 @@ export const ja = {
   },
   history: {
     eyebrow: "あなたのアクティビティ", emptyTitle: "視聴履歴はまだありません",
-    emptyDesc: "視聴したタイトルがここに表示されます。", placeholder: "視聴履歴を検索...",
+    emptyDesc: "視聴したタイトルがここに表示されます。", placeholder: "視聴履歴を検索…",
   },
   genre: { eyebrow: "ジャンルから探す" },
   category: { eyebrow: "コレクション" },
   settings: {
     title: "設定",
     subtitle: "再生、サーバー、字幕、通知をお好みに合わせて調整します。",
-    filter: "設定を絞り込む...",
+    filter: "設定を絞り込む…",
     tabs: {
       all: "すべて", account: "アカウント", appearance: "外観", playback: "再生", servers: "サーバー",
       subtitles: "字幕", notifications: "通知",
@@ -179,7 +179,7 @@ export const ko = {
     },
   },
   search: {
-    placeholder: "영화, 시리즈, 배우 검색...", trending: "인기 급상승", recent: "최근 검색",
+    placeholder: "영화, 시리즈, 배우 검색…", trending: "인기 급상승", recent: "최근 검색",
     clear: "지우기", popular: "인기 검색어", noResults: "「{q}」에 대한 결과가 없습니다",
     emptyHint: "영화, 시리즈, 배우를 검색해 보세요.",
   },
@@ -201,14 +201,14 @@ export const ko = {
   },
   history: {
     eyebrow: "내 활동", emptyTitle: "아직 시청 기록이 없습니다",
-    emptyDesc: "시청한 작품이 여기에 표시됩니다.", placeholder: "시청 기록 검색...",
+    emptyDesc: "시청한 작품이 여기에 표시됩니다.", placeholder: "시청 기록 검색…",
   },
   genre: { eyebrow: "장르별 탐색" },
   category: { eyebrow: "컬렉션" },
   settings: {
     title: "설정",
     subtitle: "재생, 서버, 자막, 알림을 취향에 맞게 조정하세요.",
-    filter: "설정 필터링...",
+    filter: "설정 필터링…",
     tabs: {
       all: "전체", account: "계정", appearance: "화면", playback: "재생", servers: "서버",
       subtitles: "자막", notifications: "알림",
@@ -314,7 +314,7 @@ export const hi = {
     },
   },
   search: {
-    placeholder: "फ़िल्में, सीरीज़, अभिनेता खोजें...", trending: "ट्रेंडिंग", recent: "हाल की खोजें",
+    placeholder: "फ़िल्में, सीरीज़, अभिनेता खोजें…", trending: "ट्रेंडिंग", recent: "हाल की खोजें",
     clear: "साफ़ करें", popular: "लोकप्रिय खोजें", noResults: "“{q}” के लिए कोई परिणाम नहीं",
     emptyHint: "फ़िल्मों, सीरीज़ और अभिनेताओं में खोजें।",
   },
@@ -336,14 +336,14 @@ export const hi = {
   },
   history: {
     eyebrow: "आपकी गतिविधि", emptyTitle: "अभी तक कोई इतिहास नहीं",
-    emptyDesc: "जो शीर्षक आप देखेंगे वे यहाँ दिखेंगे।", placeholder: "वॉच हिस्ट्री खोजें...",
+    emptyDesc: "जो शीर्षक आप देखेंगे वे यहाँ दिखेंगे।", placeholder: "वॉच हिस्ट्री खोजें…",
   },
   genre: { eyebrow: "शैली के अनुसार खोजें" },
   category: { eyebrow: "संग्रह" },
   settings: {
     title: "सेटिंग्स",
     subtitle: "प्लेबैक, सर्वर, सबटाइटल और सूचनाएँ अपनी पसंद के अनुसार तय करें।",
-    filter: "सेटिंग्स छानें...",
+    filter: "सेटिंग्स छानें…",
     tabs: {
       all: "सभी", account: "खाता", appearance: "रूप", playback: "प्लेबैक", servers: "सर्वर",
       subtitles: "सबटाइटल", notifications: "सूचनाएँ",
@@ -449,7 +449,7 @@ export const ar = {
     },
   },
   search: {
-    placeholder: "ابحث عن أفلام أو مسلسلات أو ممثلين...", trending: "الأكثر رواجًا", recent: "عمليات البحث الأخيرة",
+    placeholder: "ابحث عن أفلام أو مسلسلات أو ممثلين…", trending: "الأكثر رواجًا", recent: "عمليات البحث الأخيرة",
     clear: "مسح", popular: "عمليات البحث الشائعة", noResults: "لا توجد نتائج لـ «{q}»",
     emptyHint: "ابحث بين الأفلام والمسلسلات والممثلين.",
   },
@@ -471,14 +471,14 @@ export const ar = {
   },
   history: {
     eyebrow: "نشاطك", emptyTitle: "لا يوجد سجل مشاهدة بعد",
-    emptyDesc: "ستظهر هنا العناوين التي تشاهدها.", placeholder: "ابحث في سجل المشاهدة...",
+    emptyDesc: "ستظهر هنا العناوين التي تشاهدها.", placeholder: "ابحث في سجل المشاهدة…",
   },
   genre: { eyebrow: "تصفح حسب النوع" },
   category: { eyebrow: "مجموعة" },
   settings: {
     title: "الإعدادات",
     subtitle: "اضبط التشغيل والخوادم والترجمة والإشعارات حسب ذوقك.",
-    filter: "تصفية الإعدادات...",
+    filter: "تصفية الإعدادات…",
     tabs: {
       all: "الكل", account: "الحساب", appearance: "المظهر", playback: "التشغيل", servers: "الخوادم",
       subtitles: "الترجمة", notifications: "الإشعارات",

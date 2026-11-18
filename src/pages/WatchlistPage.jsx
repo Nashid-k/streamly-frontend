@@ -655,7 +655,7 @@ export default function WatchlistPage() {
                     <SearchField
                       value={searchQuery}
                       onChange={setSearchQuery}
-                      placeholder={inCollectionView ? "Search this collection..." : "Search your list..."}
+                      placeholder={inCollectionView ? "Search this collection…" : "Search your list…"}
                     />
                     {inCollectionView ? (
                       <PillAction accent onClick={() => setAddTitlesOpen(true)} ariaLabel="Add titles to this collection">
