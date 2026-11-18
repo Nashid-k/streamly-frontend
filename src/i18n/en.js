@@ -101,7 +101,7 @@ export const en = {
     },
   },
   search: {
-    placeholder: "Search movies, shows, actors...",
+    placeholder: "Search movies, shows, actors…",
     trending: "Trending Now",
     recent: "Recent Searches",
     clear: "Clear",
@@ -164,7 +164,7 @@ export const en = {
     eyebrow: "Your activity",
     emptyTitle: "No watch history yet",
     emptyDesc: "Titles you watch will appear here.",
-    placeholder: "Search watch history...",
+    placeholder: "Search watch history…",
   },
   genre: {
     eyebrow: "Browse by genre",
@@ -237,7 +237,7 @@ export const en = {
       connected: "Connected",
       syncing: "Syncing",
       syncIssue: "Sync issue",
-      syncingMsg: "Synchronizing your watchlist and history...",
+      syncingMsg: "Synchronizing your watchlist and history…",
       lastSynced: "Last synced: {time}",
       synced: "Your library and watch history are synchronized with your account.",
       syncNow: "Sync Now",

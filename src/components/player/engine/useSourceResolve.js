@@ -1038,7 +1038,7 @@ export default function useSourceResolve({
             // wait reads as intent rather than a hung player.
             const throttled = /\b429\b/.test(lastFatalDetail || "");
             if (throttled) {
-              setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly...`);
+              setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly…`);
               await sleep(THROTTLE_BACKOFF_MS);
               if (stale()) return true;
                 }

@@ -399,7 +399,7 @@ export default function PersonDetails() {
                 }}
               >
                 {person.biography.length > 500 && !bioExpanded
-                  ? person.biography.substring(0, 500) + "..."
+                  ? person.biography.substring(0, 500) + "…"
                   : person.biography}
               </p>
               {person.biography.length > 500 && (

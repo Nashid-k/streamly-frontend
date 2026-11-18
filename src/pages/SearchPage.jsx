@@ -541,7 +541,7 @@ export default function SearchPage() {
                   setSuggestIndex(-1);
                 }
               }}
-              placeholder={t("search.placeholder") || "Search movies, TV shows & people..."}
+              placeholder={t("search.placeholder") || "Search movies, TV shows & people…"}
               aria-label={t("nav.search")}
               role="combobox"
               aria-expanded={suggestVisible}

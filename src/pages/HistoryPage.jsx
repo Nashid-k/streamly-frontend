@@ -231,7 +231,7 @@ export default function HistoryPage() {
             />
             <input
               type="text"
-              placeholder="Search watch history..."
+              placeholder="Search watch history…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{

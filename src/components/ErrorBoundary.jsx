@@ -69,7 +69,7 @@ export default class ErrorBoundary extends React.Component {
               Updating Application
             </h1>
             <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", margin: 0 }}>
-              Fetching the latest version...
+              Fetching the latest version…
             </p>
             {/* Escape hatch when the loop-guard suppressed auto-recovery
                 (or a previous reload failed): wipe caches + reload. */}
