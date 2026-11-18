@@ -297,6 +297,11 @@ export function zxcServerNames() {
 /* Healthy first, then most-recently-successful, then the seed order above —
    so with every backend equally healthy the no-pick path lands on the
    measured-healthiest row rather than a dead one. */
+/* The ZXC rows Streamly actually exposes: Server 2 (Valstrax) and Server 3
+   (Alatreon). The provider's live roster can also list Orion/Atlas/Ursa, which
+   are retired here, so failover never spends startup time on them. */
+const VISIBLE_ZXC_SERVERS = ["valstrax", "alatreon"];
+
 function orderZxcServers() {
   const names = zxcServerNames();
   return [...names].sort((a, b) => {
@@ -1904,7 +1909,9 @@ async function handleResolveZxc(body, res) {
   // Server 2 (Valstrax) and Server 3 (Alatreon). The provider's live roster may
   // contain retired/unmeasured entries; do not silently spend startup time on
   // those hidden rows during automatic or preferred failover.
-  const visibleZxcServers = ["valstrax", "alatreon"].filter((server) => names.includes(server));
+  const visibleZxcServers = orderZxcServers().filter(
+    (server) => VISIBLE_ZXC_SERVERS.includes(server),
+  );
   let plan;
   if (prefer) {
     plan = [prefer, ...visibleZxcServers.filter((server) => server !== prefer)];

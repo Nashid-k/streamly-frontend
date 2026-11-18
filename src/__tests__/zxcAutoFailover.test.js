@@ -128,17 +128,17 @@ beforeEach(() => {
 
 describe("ZXC automatic failover", () => {
   it("falls through to a live backend when the preferred server's delivery host is hard-down", async () => {
-    mpdStatus = { "https://93.184.216.34/orion.mpd": 427 };
+    mpdStatus = { "https://93.184.216.34/valstrax.mpd": 427 };
     const r = await call({ auto: true });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("valstrax");
-    // orion (the provider's Server 1) was attempted, cooled, then valstrax served it.
-    expect(mintedServers).toEqual(["orion", "valstrax"]);
+    expect(r.server).toBe("alatreon");
+    // valstrax (the provider's Server 1) was attempted, cooled, then alatreon served it.
+    expect(mintedServers).toEqual(["valstrax", "alatreon"]);
   });
 
   it("skips a server already in cooldown on the next automatic resolve", async () => {
-    mpdStatus = { "https://93.184.216.34/orion.mpd": 427 };
-    await call({ auto: true }); // cools orion
+    mpdStatus = { "https://93.184.216.34/valstrax.mpd": 427 };
+    await call({ auto: true }); // cools valstrax
     // Clear the resolve and MPD caches (not health) so the second call actually
     // re-runs the rotation instead of returning the cached payload.
     mod.clearZxcResolveCache();
@@ -146,9 +146,9 @@ describe("ZXC automatic failover", () => {
     mintedServers = [];
     const r = await call({ auto: true });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("valstrax");
-    // orion is cooling, so it is not attempted at all this time.
-    expect(mintedServers).toEqual(["valstrax"]);
+    expect(r.server).toBe("alatreon");
+    // valstrax is cooling, so it is not attempted at all this time.
+    expect(mintedServers).toEqual(["alatreon"]);
   });
 
   it("a soft miss does NOT cool a server (a title absent on every backend)", async () => {
@@ -157,23 +157,24 @@ describe("ZXC automatic failover", () => {
     expect(r.ok).toBe(false);
     expect(r.code).toBe("no-source");
     // Every backend was walked (soft misses keep the rotation alive), and the
-    // next resolve must still be free to try orion first.
+    // next resolve must still be free to try valstrax first.
     mintedServers = [];
     const r2 = await call({ auto: true });
     expect(r2.ok).toBe(false);
-    expect(mintedServers[0]).toBe("orion");
+    expect(mintedServers[0]).toBe("valstrax");
   });
 
-  it("a hard-down backend ends the walk early instead of draining every server", async () => {
+  it("only walks the two visible menu backends, never retired provider rows", async () => {
     mpdStatus = {
-      "https://93.184.216.34/orion.mpd": 427,
       "https://93.184.216.34/valstrax.mpd": 427,
-      "https://93.184.216.34/atlas.mpd": 427,
+      "https://93.184.216.34/alatreon.mpd": 427,
     };
     const r = await call({ auto: true });
     expect(r.ok).toBe(false);
-    // Three hard failures is the cap — ursa and alatreon are never attempted.
-    expect(mintedServers).toEqual(["orion", "valstrax", "atlas"]);
+    // Streamly exposes Server 2 (Valstrax) and Server 3 (Alatreon); the
+    // provider's Orion/Atlas/Ursa rows are retired and must not cost startup
+    // time during automatic failover.
+    expect(mintedServers).toEqual(["valstrax", "alatreon"]);
   });
 
   it("an explicit pick still tries ONLY the chosen server, even if it is dead", async () => {
@@ -193,16 +194,16 @@ describe("ZXC automatic failover", () => {
    walk. The response echoes whichever backend actually served it. */
 describe("ZXC preferred server with fast fallback", () => {
   it("tries the preferred backend first when it is healthy", async () => {
-    // valstrax is NOT the health-first row (orion is) — landing on it proves
-    // the preference is honoured, not just the rotation order.
-    const r = await call({ auto: true, prefer: "valstrax" });
+    // alatreon is NOT the first rotation row (valstrax is) — landing on it
+    // proves the preference is honoured, not just the rotation order.
+    const r = await call({ auto: true, prefer: "alatreon" });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("valstrax");
-    // valstrax is served; orion (the next candidate) is minted up front as the
-    // fall-through's ready token — one cheap mint, no extra hop. The two mints
-    // are concurrent, so only membership is asserted, not order.
+    expect(r.server).toBe("alatreon");
+    // alatreon is served; valstrax (the next candidate) is minted up front as
+    // the fall-through's ready token — one cheap mint, no extra hop. The two
+    // mints are concurrent, so only membership is asserted, not order.
+    expect(mintedServers).toContain("alatreon");
     expect(mintedServers).toContain("valstrax");
-    expect(mintedServers).toContain("orion");
   });
 
   it("mints the fall-through candidate up front (one less round trip when the pick is dead)", async () => {
@@ -237,21 +238,21 @@ describe("ZXC preferred server with fast fallback", () => {
     );
     const r = await call({ auto: true, prefer: "atlas" });
     expect(r.ok).toBe(true);
-    expect(r.server).toBe("orion");
-    // orion's mint precedes atlas's manifest fetch — it was already in flight.
-    expect(order.indexOf("mint:orion")).toBeGreaterThan(-1);
-    expect(order.indexOf("mint:orion")).toBeLessThan(order.indexOf("mpd:atlas"));
+    expect(r.server).toBe("valstrax");
+    // valstrax's mint precedes atlas's manifest fetch — it was already in flight.
+    expect(order.indexOf("mint:valstrax")).toBeGreaterThan(-1);
+    expect(order.indexOf("mint:valstrax")).toBeLessThan(order.indexOf("mpd:atlas"));
   });
 
   it("falls through to a live backend when the preferred one has no source", async () => {
     mpdStatus = { "https://93.184.216.34/atlas.mpd": 427 };
     const r = await call({ auto: true, prefer: "atlas" });
     expect(r.ok).toBe(true);
-    // atlas was attempted first, cooled, then the rotation served orion.
-    expect(r.server).toBe("orion");
+    // atlas was attempted first, cooled, then the rotation served valstrax.
+    expect(r.server).toBe("valstrax");
     // Both were mintable up front (concurrent), so assert membership, not order.
     expect(mintedServers).toHaveLength(2);
-    expect(mintedServers).toEqual(expect.arrayContaining(["atlas", "orion"]));
+    expect(mintedServers).toEqual(expect.arrayContaining(["atlas", "valstrax"]));
   });
 
   it("rejects an unknown preferred server", async () => {
