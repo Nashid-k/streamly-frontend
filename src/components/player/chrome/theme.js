@@ -1,6 +1,6 @@
 // Streamly player visual language — "Player v4".
 //
-// A player-scoped design system matching player-v4.html. Surfaces are dark
+// A player-scoped design system matching player v4. Surfaces are dark
 // obsidian slate, buttons use icon morphs with spring physics, loaders use
 // double spinning arcs, and the accent color is user-configurable with 8 themes
 // plus custom hex picker.
@@ -9,7 +9,7 @@
 // (the engine owns no CSS layer for these nodes). Hover, press and
 // reduced-motion behaviour live in styles/player.css keyed on class names.
 
-// Default accent from player-v4.html
+// Default accent from player v4
 export const DEFAULT_V4_ACCENT = "#8652bb";
 // Primary accent fallback: unified with player v4 theme accent.
 export const ACCENT = "#8652bb";
@@ -17,7 +17,7 @@ export const ACCENT = "#8652bb";
 export const ACCENT_FG = "var(--white)";
 export const ACCENT_GLOW = "0 0 20px rgba(134,82,187,0.32)";
 
-// The 8 theme swatches from player-v4.html
+// The 8 theme swatches from player v4
 export const PLAYER_V4_THEMES = [
   ["Default", "#8652bb"],
   ["Blue", "#2563eb"],

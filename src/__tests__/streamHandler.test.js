@@ -17,15 +17,15 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 // Hermetic DNS: the handler's SSRF pass resolves hostnames, so without this the
 // issued-host fence tests would depend on real resolution (and on a particular
 // public *.workers.dev subdomain actually existing). Every name resolves public;
-// the fence, not DNS, is what these tests exercise.
+// the fence, not DNS, is what the tests exercise. The contract seed is read from
+// the module so a provider rename can never strand this suite.
 const { lookup } = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
 const { default: handler, clearZxcMpdCache, clearZxcTitleMetaCache, zxcContractSeed } = await import("../../api/stream.js");
 
 // The obfuscated param names the mint body carries. Derived from the module seed
-// so a provider rename (rewritten by the sync-zxc-contract step) can never strand
-// this suite on stale hex literals.
+// so a provider rename can never strand this suite on stale hex literals.
 const ZXC_PARAM = zxcContractSeed().params;
 const DETAILS_PATH = zxcContractSeed().detailsPath;
 

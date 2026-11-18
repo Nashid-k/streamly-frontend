@@ -1055,7 +1055,7 @@
   transform: translateY(10px);
 }
 
-/* ── Menu frame matching player-v4.html ─────────────────────────────────── */
+/* ── Menu frame matching player v4 ─────────────────────────────────── */
 .np-menu {
   position: absolute;
   right: max(1em, env(safe-area-inset-right));
@@ -1220,7 +1220,7 @@
   margin-top: 20px;
 }
 
-/* ── Root tiles + rows matching player-v4.html ──────────────────────────── */
+/* ── Root tiles + rows matching player v4 ──────────────────────────── */
 .player .np-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1835,7 +1835,7 @@
   }
 }
 
-/* ═══ Player v4 Engine & Chrome (2026-11 player-v4.html) ══════════════════════
+/* ═══ Player v4 Engine & Chrome (2026-11 player v4) ══════════════════════
    Obsidian surfaces, dynamic theme colors, morphing SVG controls, double-arc
    loader, touch gesture HUDs and full responsive container queries. */
 .player,
@@ -3589,7 +3589,7 @@
   }
 }
 
-/* ── Sheet geometry & styling matching player-v4.html ─────────────────── */
+/* ── Sheet geometry & styling matching player v4 ─────────────────── */
 .sheet,
 .np-menu.sheet,
 :is(.player, .np-root) .sheet {

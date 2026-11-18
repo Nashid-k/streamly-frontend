@@ -1,5 +1,5 @@
 /**
- * Curated fallback provider catalogue from streamly-update/provider.html.
+ * Curated fallback provider catalogue for the provider pages.
  * Covers ALL 17 streaming providers with full titles, ratings, artwork, and years.
  */
 

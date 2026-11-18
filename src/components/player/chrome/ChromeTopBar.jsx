@@ -1,5 +1,5 @@
 // Player v4 ChromeTopBar
-// Mirrors player-v4.html top bar:
+// Mirrors player v4 top bar:
 // - .top container with top gradient
 // - #back: .btn with .ic.lg (#i-back)
 // - #ttl: .title.swap

@@ -20,9 +20,9 @@ vi.mock("node:dns/promises", () => ({ lookup, default: { lookup } }));
 
 const { default: handler, clearZxcDiscoveryCache, clearZxcTitleMetaCache, clearZxcResolveCache, zxcContractSeed, deriveZxcContractFromChunks, fetchLiveZxcContract } = await import("../../api/stream.js");
 
-// Read the seed from the module so a provider rename (rewritten by the
-// sync-zxc-contract step) can NEVER strand this suite. The seed is what the
-// handler tries first, so the stub must match it — not a frozen literal.
+// Read the seed from the module so a provider rename can NEVER strand this
+// suite. The seed is what the handler tries first, so the stub must match it —
+// not a frozen literal.
 const SEED_MINT = zxcContractSeed().mintPath; // the seeded contract (a human last read this)
 const SEED_DETAILS = zxcContractSeed().detailsPath; // same doctrine for the details GET
 // Host-agnostic: the handler builds this from ZXC_ORIGIN, which moves when the

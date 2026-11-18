@@ -1,4 +1,4 @@
-// Exact SVG Symbol sprite from player-v4.html
+// Exact SVG Symbol sprite from player v4
 // Provides pixel-perfect vector definitions for all icons:
 // play, pause, back, rew, fwd, vol, mute, ep, pip, subs, gear, fs, fsx, chev, sun, x, check
 export default function PlayerSvgSprite() {

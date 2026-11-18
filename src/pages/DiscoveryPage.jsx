@@ -340,8 +340,8 @@ export default function DiscoveryPage({ mode = "movies" }) {
 
   /* ── Pinned filters (Cinejoy .pinned-filters) ──────────────────────────
      Once the header's filter row scrolls above the viewport, the filter row
-     docks to the bottom-centre of the screen as a glass capsule (the
-     `streamly-update/` mock's `.pinned-filters`).
+     docks to the bottom-centre of the screen as a glass capsule (the legacy
+     mock's `.pinned-filters`).
 
      The header keeps its row in place — only the docked copy is fixed — so
      docking never collapses the header or shifts the page. While the dock is

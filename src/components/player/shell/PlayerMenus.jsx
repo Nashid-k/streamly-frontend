@@ -599,7 +599,7 @@ export default function PlayerMenus({
 
     return (
       <div className="np-pbody np-captions-body">
-        {/* Live preview matching player-v4.html */}
+        {/* Live preview matching player v4 */}
         <div
           className="cap pv"
           data-cb={subBgStyle}

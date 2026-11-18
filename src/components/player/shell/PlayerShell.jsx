@@ -1,5 +1,5 @@
 // The player surface and overlay composition.
-// Presentation only. Follows player-v4.html structure:
+// Presentation only. Follows player v4 structure:
 // - .stage for video
 // - .ui overlay containing .dim, .ld, .big, .osd, .dt.l, .dt.r, .top, .bot, .sheet
 import { useState, useEffect, useRef } from "react";
@@ -572,7 +572,7 @@ export default function PlayerShell({
             style={{ pointerEvents: panel && playerMode !== "embed" ? "auto" : "none" }}
           />
 
-          {/* Double-tap radial edge flash ripples matching player-v4.html */}
+          {/* Double-tap radial edge flash ripples matching player v4 */}
           <div
             key={`dt-l-${hudSeq || 0}`}
             className={["dt", "l", "dtl", playerMode !== "embed" && hud?.kind === "seek" && hud.value < 0 ? "show" : ""].filter(Boolean).join(" ")}

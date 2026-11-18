@@ -1,5 +1,5 @@
 // Player v4 Bottom Chrome
-// Structure and styling exactly mirror player-v4.html:
+// Structure and styling exactly mirror player v4:
 // - Single .bot container with gradient background
 // - .prog progress row: elapsed time, .seek > .trk > (.buf, .played, .knob, .tip > .tp), remaining time
 // - .ctl control row with exact v4 button layout and icon morphs:
@@ -116,7 +116,7 @@ export default function BottomChrome({
       className={["bot", !visible ? "np-chrome-hidden" : ""].filter(Boolean).join(" ")}
       inert={!visible}
     >
-        {/* Progress bar row matching player-v4.html */}
+        {/* Progress bar row matching player v4 */}
         <div className="prog">
           <span className="t" id="cur" aria-hidden="true">
             {fmtTime(currentTime)}
@@ -175,7 +175,7 @@ export default function BottomChrome({
           </span>
         </div>
 
-        {/* Control buttons row matching player-v4.html */}
+        {/* Control buttons row matching player v4 */}
         <div className="ctl">
           <button
             type="button"

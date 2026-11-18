@@ -1,4 +1,4 @@
-// Up Next post-roll card matching player-v4.html:
+// Up Next post-roll card matching player v4:
 // - .nxt container with dark obsidian styling (#0d1219, border, shadow)
 // - <small>Up next in <span id="nxc">{seconds}</span>s</small>
 // - <b id="nxl">{epLabel}</b>

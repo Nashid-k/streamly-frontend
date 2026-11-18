@@ -1,4 +1,4 @@
-// The settings menu frame matching player-v4.html:
+// The settings menu frame matching player v4:
 // - Floating sheet card on desktop / bottom-sheet drawer on mobile
 // - Grab handle for touch dismissal (.grab)
 // - Integrated header (.hd) with back arrow (.bk > #i-back), title (h2#st), extra slot (#xs), and close button (.btn > #i-x)

@@ -1,4 +1,4 @@
-// Fatal failure banner matching player-v4.html (.nxt#err):
+// Fatal failure banner matching player v4 (.nxt#err):
 // - Dark obsidian container (#0d1219, subtle border, shadow)
 // - role="alert" message
 // - .nxt-a actions: .nxb (Try again / Retry) and .nxb.sec (Back to browse)
