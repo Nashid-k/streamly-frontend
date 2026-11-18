@@ -701,10 +701,10 @@ export default function Home({ filter = "all", title }) {
   useEffect(() => {
     if (reduceMotion || !hasMultipleFeatured) return;
     const timer = setInterval(() => {
-      // Pause on hover AND keyboard focus (both set the ref), and never rotate
-      // in a background tab — a hidden tab that keeps advancing slides makes the
-      // banner jump the moment the viewer returns.
-      if (isHeroHoveredRef.current || document.hidden) return;
+      // Pause on hover, keyboard focus, hidden tab, or once scrolled past the
+      // hero banner — rotating an off-screen hero wastes a full re-render and
+      // stagger animation pass every 10s while the viewer browses rails below.
+      if (isHeroHoveredRef.current || document.hidden || window.scrollY > window.innerHeight) return;
       const tf = totalFeaturedRef.current;
       if (tf <= 1) return;
       // Rotate the live index (represents the next slide); if the user interrupted
@@ -979,7 +979,7 @@ export default function Home({ filter = "all", title }) {
                     {cwResumeEntry ? t("home.hero.resume") : t("home.hero.play")}
                   </motion.button>
 
-                  <div className="hero-action-pill inline-flex items-stretch shrink-0 rounded-full bg-white/10 backdrop-blur-[20px] backdrop-saturate-150 border border-white/10 shadow-lg shadow-black/5">
+                  <div className="hero-action-pill inline-flex items-stretch shrink-0 rounded-full border border-white/10 shadow-lg shadow-black/5">
                     <motion.button
                       className="hero-cta-secondary-icon"
                       whileHover={{ scale: 1.1 }}

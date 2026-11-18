@@ -6,7 +6,7 @@ import { NAV_ITEMS } from "../constants/navigation";
 import { SPRING, DURATION, EASE_OUT } from "../constants/motion";
 import { useI18n } from "../i18n/index.jsx";
 import { useAppAuth } from "../context/auth";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import AccountMenu from "./AccountMenu";
 import NotificationCenter from "../components/NotificationCenter";
 import BrandWordmark from "../components/BrandWordmark";
@@ -21,10 +21,10 @@ function Header() {
   const { user } = useAppAuth();
   const { t } = useI18n();
   const osReducedMotion = useReducedMotion();
-  const prefs = useOptionalPreferences();
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
   // The pill engine runs outside framer, so the in-app reduce-motion
   // preference has to be honoured here as well, not only via MotionConfig.
-  const reduceMotion = osReducedMotion || !!prefs?.reduceMotion;
+  const reduceMotion = osReducedMotion || !!prefReduceMotion;
 
     /* ── Settings dropdown (Cinejoy .head-menu) ──────────────────────────────
        Clicking the settings icon drops a menu with Login / Settings / Watch
@@ -45,14 +45,22 @@ function Header() {
 
   useEffect(() => {
     if (!accountMenuOpen) return;
+    let frameId = 0;
     const reposition = () => {
-      const el = settingsBtnRef.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      setMenuPos({ top: rect.bottom + 10, left: Math.max(8, rect.right - 240) });
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0;
+        const el = settingsBtnRef.current;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        setMenuPos({ top: rect.bottom + 10, left: Math.max(8, rect.right - 240) });
+      });
     };
-    window.addEventListener("resize", reposition);
-    return () => window.removeEventListener("resize", reposition);
+    window.addEventListener("resize", reposition, { passive: true });
+    return () => {
+      window.removeEventListener("resize", reposition);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
   }, [accountMenuOpen]);
 
   useEffect(() => {

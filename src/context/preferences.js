@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 
 import { DEFAULT_SERVER_ORDER } from "../constants/settings";
 import { PLAYER_SOURCE_LABELS } from "../constants/sources";
@@ -104,6 +104,22 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 });
 
 export const PreferencesContext = createContext(null);
+export const PreferencesStoreContext = createContext(null);
+
+const noopSubscribe = () => () => {};
+
+/**
+ * Subscribe to a single preference key via useSyncExternalStore so unrelated
+ * preference writes never re-render this consumer. Falls back to
+ * DEFAULT_PREFERENCES[key] (or explicit fallback) outside <PreferencesProvider>.
+ */
+export function usePreferenceValue(key, fallback) {
+  const store = useContext(PreferencesStoreContext);
+  const getSnapshot = store
+    ? () => store.getSnapshot()[key]
+    : () => (fallback !== undefined ? fallback : DEFAULT_PREFERENCES[key]);
+  return useSyncExternalStore(store ? store.subscribe : noopSubscribe, getSnapshot, getSnapshot);
+}
 
 export function usePreferences() {
   const context = useContext(PreferencesContext);

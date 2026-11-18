@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   DEFAULT_PREFERENCES,
   LEGACY_SERVER_NAME_MAP,
   migrateServerOrder,
   pruneRetiredServers,
   PreferencesContext,
+  PreferencesStoreContext,
 } from "./preferences";
 import { logDebug, logInfo } from "../utils/debugLogger";
 import { hexToRgbTriplet, deriveSecondary } from "../utils/color";
@@ -167,7 +168,28 @@ function readPreferences() {
 }
 
 export function PreferencesProvider({ children }) {
-  const [preferences, setPreferences] = useState(readPreferences);
+  const store = useMemo(() => {
+    let snapshot = readPreferences();
+    const listeners = new Set();
+    const notify = () => {
+      for (const listener of listeners) listener();
+    };
+    return {
+      getSnapshot: () => snapshot,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      update: (updater) => {
+        const next = typeof updater === "function" ? updater(snapshot) : updater;
+        if (next === snapshot) return;
+        snapshot = next;
+        notify();
+      },
+    };
+  }, []);
+
+  const preferences = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 
   const setPreference = useCallback((key, value) => {
     if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
@@ -175,7 +197,7 @@ export function PreferencesProvider({ children }) {
         // numeric clamps, valid hex accents, deduped Server 1–8 order names — so a
         // garbage value never reaches state/localStorage (it used to surface as NaN%).
     const nextValue = sanitizePreference(key, value);
-    setPreferences((current) =>
+    store.update((current) =>
       current[key] === nextValue ? current : { ...current, [key]: nextValue },
     );
     try {
@@ -196,23 +218,23 @@ export function PreferencesProvider({ children }) {
         // Non-DOM test environments
       }
     }
-  }, []);
+  }, [store]);
 
   useEffect(() => {
     const syncFromAnotherTab = (event) => {
       if (!event.key || !event.key.startsWith(SETTING_PREFIX)) return;
       const key = event.key.slice(SETTING_PREFIX.length);
       if (!Object.hasOwn(DEFAULT_PREFERENCES, key)) return;
-      setPreferences((current) => ({
-        ...current,
-        [key]: parseValue(event.newValue, DEFAULT_PREFERENCES[key]),
-      }));
+      store.update((current) => {
+        const parsed = parseValue(event.newValue, DEFAULT_PREFERENCES[key]);
+        return current[key] === parsed ? current : { ...current, [key]: parsed };
+      });
     };
         // Same-tab cloud fill-in: applyRemotePreferences writes setting-* keys for
         // never-touched settings and fires this, so the UI updates without waiting
         // for a cross-tab storage event.
     const resyncFromStorage = () => {
-      setPreferences(readPreferences());
+      store.update(readPreferences());
     };
     window.addEventListener("storage", syncFromAnotherTab);
     window.addEventListener("aios_sync_preferences", resyncFromStorage);
@@ -220,7 +242,7 @@ export function PreferencesProvider({ children }) {
       window.removeEventListener("storage", syncFromAnotherTab);
       window.removeEventListener("aios_sync_preferences", resyncFromStorage);
     };
-  }, []);
+  }, [store]);
 
   useEffect(() => {
     const lang = preferences.defaultLanguage || "en";
@@ -300,7 +322,7 @@ export function PreferencesProvider({ children }) {
         // Storage fallback
       }
     });
-    setPreferences(DEFAULT_PREFERENCES);
+    store.update(DEFAULT_PREFERENCES);
     try {
       if (typeof document !== "undefined" && document.documentElement) {
         document.documentElement.lang = "en";
@@ -314,12 +336,16 @@ export function PreferencesProvider({ children }) {
       // test safe
     }
     logDebug("preferences", "All preferences reset to factory defaults.");
-  }, []);
+  }, [store]);
 
   const value = useMemo(
     () => ({ ...preferences, setPreference, resetPreferences }),
     [preferences, setPreference, resetPreferences],
   );
 
-  return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
+  return (
+    <PreferencesStoreContext.Provider value={store}>
+      <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>
+    </PreferencesStoreContext.Provider>
+  );
 }

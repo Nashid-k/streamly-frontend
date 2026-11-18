@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import slugify from "slugify";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import TitleInfoModal from "../components/TitleInfoModal";
 
 /* ── useDetailView — one gateway for every "open details" affordance ──
@@ -19,8 +19,7 @@ import TitleInfoModal from "../components/TitleInfoModal";
 
 export default function useDetailView() {
   const navigate = useNavigate();
-  const preferences = useOptionalPreferences();
-  const detailViewType = preferences?.detailViewType || "page";
+  const detailViewType = usePreferenceValue("detailViewType", "page") || "page";
   const [modalMovie, setModalMovie] = useState(null);
 
   const openDetails = useCallback(

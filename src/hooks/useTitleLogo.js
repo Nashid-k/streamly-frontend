@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { logDebug, reportQueryError } from "../utils/debugLogger";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 
@@ -16,8 +16,7 @@ import { CdnImageAdapter } from "../api/cdnImageAdapter";
    filled with the poster or backdrop art reads as a preview still of the title,
    not as a wordmark, which is what the player's cold-open stage used to do. */
 export function useTitleLogo(movie, scope = "useTitleLogo", earlyId = null) {
-  const prefs = useOptionalPreferences();
-  const useImageLogos = prefs?.useImageLogos ?? true;
+  const useImageLogos = usePreferenceValue("useImageLogos", true) ?? true;
   const id = earlyId || movie?.id;
   const hasDetailLogo = !!movie?.logoUrl;
   const [imageError, setImageError] = useState(false);

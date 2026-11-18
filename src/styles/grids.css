@@ -94,11 +94,8 @@
   animation: cardEnter 0.5s var(--ease-out) backwards;
 }
 
-/* === Card enter animation with stagger (Cinejoy-style) === */
-@keyframes cardEnter {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+/* === Card enter animation with stagger (Cinejoy-style) ===
+   (@keyframes cardEnter is declared once in tokens.css.) */
 /* Stagger capped at 0.36s: hovering within the first second of a grid landing
    used to show no lift because the enter animation owned transform for up to
    1.1s. Same rhythm as the skeleton-card wave below. */
@@ -158,8 +155,9 @@
   /* No translateZ(0)/backface-visibility: those promoted EVERY poster (90+ on a
      populated page) into a permanent compositor layer. The hover scale promotes
      its own layer for the duration of the transition and Chrome rasters it
-     crisp at the settled scale. */
-  transition: filter var(--duration-normal) var(--ease-out), transform 0.5s var(--anim-hover-ease);
+     crisp at the settled scale. No filter transition — .card-veil opacity handles
+     darkening on the compositor without per-frame rasterisation. */
+  transition: transform 0.5s var(--anim-hover-ease);
 }
 
 /* ── Cinematic curtain — pure CSS hover/focus choreography ────────────────
@@ -282,9 +280,8 @@
     transition: transform var(--anim-hover-time) var(--anim-hover-ease);
   }
   .movie-card:hover .movie-poster {
-    /* Preserve the artwork under the curtain; the play affordance should not
-       require dimming the poster to near-black. */
-    filter: brightness(0.78);
+    /* Preserve the artwork under the curtain; .card-veil handles darkening on
+       the compositor without per-frame filter rasterisation. */
     transform: scale(1.02);
   }
   .movie-card:hover .card-veil {
@@ -651,11 +648,9 @@
    lighter). Layer opacity, so the five gradients below never drift apart. */
   opacity: var(--details-hero-shade, 1);
   /* Soft-blend the bottom edge so the image seam has no hard horizontal line
-     for any background. This unmasked overlay is the right place for a stronger
-     blur — it melts the seam without the compositor-boundary artifact that
-     backdrop-filter causes on the masked hero-bg/hero-overlay elements. */
-  backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
+     for any background. No backdrop-filter on this masked overlay — pairing
+     backdrop-filter with mask-image disables GPU texture caching and forces
+     per-frame full-hero re-blur; the five gradients + mask melt the seam cleanly. */
   mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
 }

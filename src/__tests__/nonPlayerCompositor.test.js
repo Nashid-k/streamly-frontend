@@ -94,7 +94,7 @@ describe("non-player compositor budget", () => {
     expect(read("src/styles/hero.css")).toContain("animation: heroReveal 0.48s");
   });
 
-  it("keeps poster artwork visible beneath the hover affordance", () => {
+  it("keeps poster artwork visible beneath the hover affordance without filter rasterisation", () => {
     const css = read("src/styles/grids.css");
     const card = read("src/components/MovieCard.jsx");
     const hover = css.match(/\.movie-card:hover\s*\{([^}]*)\}/)?.[1] ?? "";
@@ -102,7 +102,7 @@ describe("non-player compositor budget", () => {
     const focus = css.match(/\.movie-card:focus-visible \.poster-wrapper\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(hover).toContain("transform: scale(1.035);");
-    expect(poster).toContain("filter: brightness(0.78);");
+    expect(poster).not.toMatch(/filter:/);
     expect(poster).toContain("transform: scale(1.02);");
     expect(card).toContain('background: "rgba(0, 0, 0, 0.28)"');
     expect(focus).toContain("outline: 2px solid var(--focus-ring-color);");
@@ -131,18 +131,16 @@ describe("non-player compositor budget", () => {
     }
   });
 
-  it("keeps poster artwork visible beneath the hover affordance", () => {
-    const css = read("src/styles/grids.css");
-    const card = read("src/components/MovieCard.jsx");
-    const hover = css.match(/\.movie-card:hover\s*\{([^}]*)\}/)?.[1] ?? "";
-    const poster = css.match(/\.movie-card:hover \.movie-poster\s*\{([^}]*)\}/)?.[1] ?? "";
-    const focus = css.match(/\.movie-card:focus-visible \.poster-wrapper\s*\{([^}]*)\}/)?.[1] ?? "";
-
-    expect(hover).toContain("transform: scale(1.035);");
-    expect(poster).toContain("filter: brightness(0.78);");
-    expect(poster).toContain("transform: scale(1.02);");
-    expect(card).toContain('background: "rgba(0, 0, 0, 0.28)"');
-    expect(focus).toContain("outline: 2px solid var(--focus-ring-color);");
+  it("enforces zero live blur in player stage, masked hero shade, and animating hero controls", () => {
+    const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(read("src/components/player/chrome/primitives.jsx")).not.toMatch(/blur\(28px\)/);
+    expect(stripComments(rule(read("src/styles/grids.css"), ".details-hero__shade"))).not.toMatch(/backdrop-filter/);
+    expect(stripComments(rule(read("src/styles/hero.css"), ".hero-eyebrow-tag"))).not.toMatch(/backdrop-filter/);
+    expect(stripComments(rule(read("src/styles/hero.css"), ".hero-action-pill"))).not.toMatch(/backdrop-filter/);
+    expect(stripComments(rule(read("src/styles/hero.css"), ".hero-circle-btn"))).not.toMatch(/backdrop-filter/);
+    expect(stripComments(rule(read("src/styles/header.css"), ".nav-active-pill"))).not.toMatch(/will-change/);
+    expect(stripComments(rule(read("src/styles/discovery.css"), ".random-btn"))).not.toMatch(/max-width/);
+    expect(stripComments(rule(read("src/styles/motion-themes.css"), ".motion-backdrop__layer"))).not.toMatch(/backface-visibility/);
   });
 
   it("does not force a 3D layer on every pending rail reveal", () => {

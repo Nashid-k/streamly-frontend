@@ -22,7 +22,7 @@ import FilterPill from "../components/browse/FilterPill";
 import MenuItem from "../components/browse/MenuItem";
 import BrowseBanner from "../components/browse/BrowseBanner";
 import useDetailView from "../hooks/useDetailView";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { pickImageWidth } from "../utils/artwork";
 import useRailArrows from "../hooks/useRailArrows";
 import { buildUpcoming, buildAiringRail } from "../utils/releaseCalendar";
@@ -86,7 +86,6 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
       disabled={disabled}
       onClick={onClick}
       className={`random-btn ${busy ? "cursor-wait" : ""}`}
-      style={busy ? { maxWidth: "160px" } : undefined}
     >
       {busy ? (
         <StreamlyLoader size={16} label="" />
@@ -100,10 +99,10 @@ function RandomPill({ ariaLabel, onClick, busy, disabled }) {
 
 // ── Upcoming card (rail) — Cinejoy parity ─────────────────────────────
 function UpcomingCard({ item, badgeLabel = "Coming Soon", badgeTone = "accent", onOpen }) {
-  const preferences = useOptionalPreferences();
+  const hdThumbs = usePreferenceValue("hdThumbs");
   const imgUrl = CdnImageAdapter.getUrl(
     item.backdropUrl || item.posterUrl,
-    pickImageWidth("rail", preferences),
+    pickImageWidth("rail", { hdThumbs }),
   );
   const dateLabel =
     item.relLabel || item.formattedRelease || item.releaseDay || item.releaseDate || "";

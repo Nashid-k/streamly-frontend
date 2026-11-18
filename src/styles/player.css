@@ -291,11 +291,9 @@
 
 /* Resume / restart button hover */
 .np-resume-btn {
-  transition: transform var(--zxc-t-fast) var(--zxc-ease), box-shadow var(--zxc-t-fast) var(--zxc-ease),
-    filter var(--zxc-t-fast) var(--zxc-ease);
+  transition: transform var(--zxc-t-fast) var(--zxc-ease), box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-resume-btn:hover {
-  filter: brightness(1.06);
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(var(--black-rgb), 0.45),
     0 0 22px rgba(var(--np-accent-rgb), 0.28);
@@ -322,8 +320,7 @@
    are kept for now: deleting either changes rendered geometry and there is no
    browser here to verify the result. Recorded in task.md as a follow-up. */
 .np-dialog-row {
-  transition: background var(--zxc-t-instant) var(--zxc-ease), color var(--zxc-t-instant) var(--zxc-ease),
-    padding var(--zxc-t-fast) var(--zxc-ease);
+  transition: background var(--zxc-t-instant) var(--zxc-ease), color var(--zxc-t-instant) var(--zxc-ease);
 }
 .np-dialog-row:hover:not(:disabled) {
   background: rgba(var(--np-accent-rgb), 0.09) !important;
@@ -655,11 +652,9 @@
 /* Primary play disc: accent fill, dark glyph, glow on hover. */
 .np-play-pill .np-icon-btn {
   border-radius: 50%;
-  transition: filter var(--zxc-t-fast) var(--zxc-ease),
-    box-shadow var(--zxc-t-fast) var(--zxc-ease);
+  transition: box-shadow var(--zxc-t-fast) var(--zxc-ease);
 }
 .np-play-pill .np-icon-btn:hover:not(:disabled) {
-  filter: brightness(1.06);
   box-shadow: 0 0 28px rgba(var(--np-accent-rgb), 0.45);
 }
 /* On an accent disc the hover wash must darken, not lighten. */

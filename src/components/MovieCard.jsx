@@ -26,7 +26,7 @@ import { PrefetchAdapter } from "../api/prefetchAdapter";
 
 import { useVirtualRenderAdapter } from "../hooks/useVirtualRenderAdapter";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { pickImageWidth } from "../utils/artwork";
 import { logWarn } from "../utils/debugLogger";
 
@@ -55,8 +55,7 @@ const MovieCard = memo(function MovieCard({
   const { isInList, toggleMyList, myList } = useAppAuth();
   const { addNotification } = useOptionalNotifications() || {};
   const { toast } = useToast();
-  const preferences = useOptionalPreferences();
-  const hdThumbs = preferences?.hdThumbs;
+  const hdThumbs = usePreferenceValue("hdThumbs");
   const { isVisible, ref: virtualRef } = useVirtualRenderAdapter("400px"); // render 400px before it comes into view
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);

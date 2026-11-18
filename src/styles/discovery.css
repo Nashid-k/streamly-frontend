@@ -159,15 +159,18 @@
   font-size: 14px;
   font-weight: 500;
   overflow: hidden;
-  transition: max-width var(--duration-normal) var(--ease-out), background var(--duration-fast) var(--ease-out);
-  max-width: 38px;
+  /* Compositor-only hover: no max-width transition (animating max-width reflowed
+     every sibling filter pill on every hover frame). */
+  transition: transform var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out);
   white-space: nowrap;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 .random-btn:hover {
-  max-width: 160px;
-  background: rgba(255, 255, 255, 0.10);
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+.random-btn:active {
+  transform: scale(var(--press-scale, 0.96));
 }
 .random-btn .icon {
   width: 16px;
@@ -176,8 +179,8 @@
   flex-shrink: 0;
 }
 .random-btn .label {
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--ease-out) 0.05s;
+  opacity: 0.9;
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 .random-btn:hover .label {
   opacity: 1;

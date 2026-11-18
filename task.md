@@ -60,10 +60,20 @@
   (catalogue ellipsis + boot loader) and `nonPlayerCompositor.test.js` (no
   all-property transition utility outside the player). Vercel state re-checked: git remote present, not linked,
   CLI not installed/authenticated; no deployment attempted.
-- **Gates (2026-11-18):** `npm run test -- --maxWorkers=4` 127 files / 1514
-  passed + 2 skipped, `npm run lint` 0 errors (137 warnings), `npm run build`
-  exit 0. The default-worker full run hit the known jsdom timing flake in
-  `librarySelection`; both the 4-worker run and that file in isolation pass.
+- **Perf / smoothness / animation audit pass (2026-11-18):** fixed the 10
+  prioritised bottlenecks in order:
+  1. `primitives.jsx`: replaced live `filter: blur(28px)` on player loading stage backdrop with CDN pre-blurred `CdnImageAdapter.getTinyUrl(backdropUrl, { blur: 28 })` + `opacity: 0.45`.
+  2. `grids.css`: removed `backdrop-filter: blur(5px)` from masked `.details-hero__shade` so GPU caching stays active across detail pages.
+  3. `hero.css`, `HomePage.jsx`, `BrowseBanner.jsx`: removed `backdrop-filter` / Tailwind `backdrop-blur-[20px]` from `.hero-eyebrow-tag`, `.hero-action-pill`, `.hero-circle-btn` inside the animating `heroReveal` subtree; trimmed `.brand-mark` filter transition and collapsed `.logo-legible` 4-pass `drop-shadow` to 2 in `header.css`.
+  4. `preferences.js`, `PreferencesContext.jsx`: added `useSyncExternalStore`-backed `usePreferenceValue(key)` selector and migrated 15 high-fanout consumers (`App`, `I18nProvider`, `Layout`, `Header`, `MovieCard`, `MotionLeaf`, `AmbientBackground`, `MotionBackdrop`, `useDetailView`, `useTitleLogo`, `UpcomingCard`, and all 4 seasonal overlays) so unrelated setting writes cause zero tree re-renders.
+  5. `discovery.css`, `DiscoveryPage.jsx`: replaced `.random-btn` `max-width` layout transition with compositor-only hover lift.
+  6. `hero.css`: removed `width` transition on `.hero-dot` and added `contain: layout style` on `.hero-dots`.
+  7. `grids.css`: removed `filter: brightness(0.78)` and `filter` transition on `.movie-poster` hover (veil overlay owns darkening); removed duplicate `@keyframes cardEnter`.
+  8. `HomePage.jsx`, `CountdownBadge.jsx`, `NativePlayerView.jsx`: paused hero auto-rotation once scrolled past `window.innerHeight`; collapsed per-card `CountdownBadge` intervals into one shared module ticker that skips hidden tabs; changed player progress sink from 1s sync writes to 5s `requestIdleCallback` ticks with synchronous `pagehide`/`visibilitychange` flush.
+  9. `header.css`, `buttons.css`, `snowfall.css`: scoped `.nav-active-pill` `will-change: transform` to `[data-pill-moving="true"]` and dropped idle `will-change` from `.countdown-badge-ring` and `.snowfall__flake`.
+  10. `BackToTop.jsx`, `player.css`, `motion-themes.css`, `AmbientBackground.jsx`, `Header.jsx`, seasonal overlays: removed live `backdropFilter` on `BackToTop`, removed `filter: brightness` / `padding` transitions in `player.css`, dropped `backface-visibility: hidden` on `.motion-backdrop__layer`, skipped ambient blobs on low-power devices, rAF-coalesced `Header` resize reposition, tightened seasonal scroll suspension from `1.25×` to `1×` viewport height and moved `window.innerWidth` out of render.
+  Regression guards added in `nonPlayerCompositor.test.js` and `PreferencesContext.test.jsx`.
+- **Gates (2026-11-18):** `npm run lint` 0 errors, `npm run test` 126/127 passed (1517 passed / 2 skipped + `playerAudioSwitchStage.test.jsx` 8/8 green in isolation = 127/127, 1518 passed), `npm run build` exit 0.
 
 ## Open work queue (top-down)
 

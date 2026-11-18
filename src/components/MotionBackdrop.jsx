@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { THEMES } from "../constants/settings";
 
 /* Live motion backdrop for the motion THEMES (Living Tides / Aurora Drift).
@@ -15,11 +15,12 @@ import { THEMES } from "../constants/settings";
    · otherwise exactly two composited layers, transform/opacity only —
      see styles/motion-themes.css. */
 function MotionBackdrop() {
-  const prefs = useOptionalPreferences();
-  const theme = THEMES.find((t) => t.id === prefs?.theme);
+  const themeId = usePreferenceValue("theme", "default");
+  const reduceMotion = usePreferenceValue("reduceMotion", false);
+  const theme = THEMES.find((t) => t.id === themeId);
   if (!theme?.motion) return null;
 
-  if (prefs?.reduceMotion) return null;
+  if (reduceMotion) return null;
   const lowPower =
     typeof navigator !== "undefined" &&
     (navigator.hardwareConcurrency <= 4 ||

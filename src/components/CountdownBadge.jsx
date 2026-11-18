@@ -19,17 +19,39 @@ const TONE_BY_URGENCY = {
   upcoming: "upcoming",
 };
 
+// One shared minute ticker for all mounted CountdownBadges instead of N
+// independent setIntervals; starts on first subscriber, stops when empty,
+// and skips hidden tabs.
+const minuteSubscribers = new Set();
+let sharedMinuteTimer = null;
+
+function subscribeMinuteTick(listener) {
+  minuteSubscribers.add(listener);
+  if (!sharedMinuteTimer) {
+    sharedMinuteTimer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      for (const fn of minuteSubscribers) fn();
+    }, 60000);
+  }
+  return () => {
+    minuteSubscribers.delete(listener);
+    if (minuteSubscribers.size === 0 && sharedMinuteTimer) {
+      clearInterval(sharedMinuteTimer);
+      sharedMinuteTimer = null;
+    }
+  };
+}
+
 export default function CountdownBadge({ releaseDate, platform, compact = false }) {
   const [countdown, setCountdown] = useState(() => getCountdown(releaseDate, platform));
   const reduceMotion = useReducedMotion();
 
-  // Update every minute for live countdown
+  // Update every minute for live countdown via the shared module ticker
   useEffect(() => {
-    if (!releaseDate || countdown.isReleased) return;
-    const interval = setInterval(() => {
+    if (!releaseDate || countdown.isReleased) return undefined;
+    return subscribeMinuteTick(() => {
       setCountdown(getCountdown(releaseDate, platform));
-    }, 60000);
-    return () => clearInterval(interval);
+    });
   }, [releaseDate, platform, countdown.isReleased]);
 
   if (!releaseDate || countdown.isReleased) return null;

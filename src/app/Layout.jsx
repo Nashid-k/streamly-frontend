@@ -13,7 +13,7 @@ import SpringBlossoms from "../components/SpringBlossoms";
 import SummerGlow from "../components/SummerGlow";
 import MotionBackdrop from "../components/MotionBackdrop";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
 import {
   getRouteVariant,
@@ -54,8 +54,8 @@ function Layout({ children }) {
   useScrollRestoration();
   const location = useLocation();
   const osReduced = useReducedMotion();
-  const prefs = useOptionalPreferences();
-  const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
+  const reduceMotion = osReduced || !!prefReduceMotion;
   const mainRef = useRef(null);
   /* Previous path is committed in an effect so THIS render still sees it —
      writing during render would erase it before direction is computed. */

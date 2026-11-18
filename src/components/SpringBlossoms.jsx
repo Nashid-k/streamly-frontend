@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FallingLeaves as FallingLeavesLib } from "falling-leaves/react";
 import { useLocation } from "react-router-dom";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
 import { resolveSeasonalEffect } from "../utils/seasonal";
 
@@ -12,14 +12,16 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    manual pick, never when Dynamic is off (the single seasonal toggle); gated
    by reduced motion and low-power devices. */
 export default function SpringBlossoms() {
-  const prefs = useOptionalPreferences();
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
+  const dynamic = usePreferenceValue("dynamic", false);
+  const theme = usePreferenceValue("theme", "default");
   const osReduced = useReducedMotion();
-  const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const reduceMotion = osReduced || !!prefReduceMotion;
   const { pathname } = useLocation();
   const month = new Date().getMonth();
   const effect = resolveSeasonalEffect({
-    dynamic: prefs?.dynamic !== false,
-    theme: prefs?.theme,
+    dynamic: Boolean(dynamic),
+    theme,
     month,
   });
   const lowPower =
@@ -28,28 +30,31 @@ export default function SpringBlossoms() {
       (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
   const enabled = effect === "blossoms" && !reduceMotion && !lowPower && !pathname.startsWith("/watch/");
   const [scrolledOut, setScrolledOut] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (!enabled) return undefined;
     let raf = 0;
     const check = () => {
       raf = 0;
-      const out = window.scrollY > window.innerHeight * 1.25;
+      const out = window.scrollY > window.innerHeight;
       setScrolledOut((prev) => (prev === out ? prev : out));
+      const mobile = window.innerWidth < 768;
+      setIsMobile((prev) => (prev === mobile ? prev : mobile));
     };
-    const onScroll = () => {
+    const onScrollOrResize = () => {
       if (!raf) raf = requestAnimationFrame(check);
     };
     check();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize, { passive: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
       if (raf) cancelAnimationFrame(raf);
     };
   }, [enabled, pathname]);
 
   if (!enabled || scrolledOut) return null;
-
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <FallingLeavesLib

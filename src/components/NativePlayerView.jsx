@@ -1071,23 +1071,60 @@ export default function NativePlayerView({
   };
 
   // Progress sink: report every ~5s while playing (>10s in, so a 3s peek never writes).
+  // Periodic ticks defer storage writes to idle time so localStorage I/O never
+  // competes with video frame decoding; pagehide/visibilitychange flush synchronously.
   useEffect(() => {
     if (!playing) return undefined;
     const onProgressChange = onProgressChangeRef.current;
     if (!onProgressChange) return undefined;
-    const save = () => {
+    let idleHandle = null;
+    const cancelIdle = () => {
+      if (idleHandle == null) return;
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleHandle);
+      else clearTimeout(idleHandle);
+      idleHandle = null;
+    };
+    const commit = (force = false) => {
       const video = videoRef.current;
       if (!video) return;
       const t = video.currentTime || 0;
       if (t <= 10) return;
       const now = Date.now();
-      if (now - lastProgressSaved.current < 4000) return;
+      if (!force && now - lastProgressSaved.current < 4000) return;
       lastProgressSaved.current = now;
       onProgressChange(Math.floor(t));
     };
-    save();
-    const iv = setInterval(save, 1000);
-    return () => clearInterval(iv);
+    const saveIdle = () => {
+      cancelIdle();
+      if (typeof window.requestIdleCallback === "function") {
+        idleHandle = window.requestIdleCallback(() => {
+          idleHandle = null;
+          commit(false);
+        }, { timeout: 1500 });
+      } else {
+        idleHandle = setTimeout(() => {
+          idleHandle = null;
+          commit(false);
+        }, 0);
+      }
+    };
+    const flushNow = () => {
+      cancelIdle();
+      commit(true);
+    };
+    const onVisibility = () => {
+      if (document.hidden) flushNow();
+    };
+    commit(false);
+    const iv = setInterval(saveIdle, 5000);
+    window.addEventListener("pagehide", flushNow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(iv);
+      cancelIdle();
+      window.removeEventListener("pagehide", flushNow);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [playing]);
 
 

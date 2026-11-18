@@ -139,7 +139,6 @@
   border-radius: inherit;
   box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.45);
   animation: countdown-badge-ping 2s ease-in-out infinite;
-  will-change: transform, opacity;
   pointer-events: none;
 }
 @keyframes countdown-badge-ping {

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { en } from "./en.js";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { SUPPORTED_LANGUAGE_CODES } from "../constants/settings";
 import { logError } from "../utils/debugLogger";
 
@@ -87,9 +87,8 @@ export function useI18n() {
 }
 
 export function I18nProvider({ children }) {
-  const prefs = useOptionalPreferences();
-  const lang =
-    prefs && SUPPORTED_LANGUAGES.includes(prefs.defaultLanguage) ? prefs.defaultLanguage : "en";
+  const defaultLanguage = usePreferenceValue("defaultLanguage", "en");
+  const lang = SUPPORTED_LANGUAGES.includes(defaultLanguage) ? defaultLanguage : "en";
   const dir = LANG_DIR[lang] || "ltr";
   // Bumps when a lazily imported catalog lands, so `t()` is rebuilt against it.
   const [catalogVersion, setCatalogVersion] = useState(0);

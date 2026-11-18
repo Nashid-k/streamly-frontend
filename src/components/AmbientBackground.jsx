@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { MOTION_THEME_IDS } from "../constants/settings";
 
 /* Fixed full-viewport ambient layer — mirrors the watch/details page:
@@ -12,11 +12,17 @@ import { MOTION_THEME_IDS } from "../constants/settings";
    drifting blobs (the decorative, animation-bearing layer) while the static
    gradient stack always stays. */
 function AmbientBackground({ src, alt = "", fallback = false, children }) {
-  const prefs = useOptionalPreferences();
+  const ambientBackground = usePreferenceValue("ambientBackground", true);
+  const theme = usePreferenceValue("theme", "default");
+  const lowPower =
+    typeof navigator !== "undefined" &&
+    (navigator.hardwareConcurrency <= 4 ||
+      (typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4));
   // A motion theme (Living Tides / Aurora Drift) owns the page stage with its
   // own living backdrop (MotionBackdrop) — the accent-green liquid blobs
   // would paint over it, so they yield while a motion theme is active.
-  const liquid = prefs?.ambientBackground !== false && !MOTION_THEME_IDS.has(prefs?.theme);
+  // Low-power devices skip the 3 half-viewport animated blobs to save VRAM.
+  const liquid = !lowPower && ambientBackground !== false && !MOTION_THEME_IDS.has(theme);
   // Wrapping usage (Explore / Public collection pages) nests the page body as
   // `children`; self-closing usage passes none. Ignoring `children` rendered
   // those pages blank, so render them here — outside the aria-hidden backdrop

@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { PreferencesProvider } from "../context/PreferencesContext";
-import { usePreferences } from "../context/preferences";
+import { usePreferences, usePreferenceValue } from "../context/preferences";
 
 function PreferenceProbe() {
   const { autoplay, notifications, theme, serverOrder, setPreference } = usePreferences();
@@ -202,5 +202,28 @@ describe("PreferencesProvider", () => {
     expect(screen.getByTestId("server-order")).toHaveTextContent(
       "Server 3 | Server 1",
     );
+  });
+
+  it("isolates usePreferenceValue consumers from unrelated preference writes", () => {
+    let hdRenders = 0;
+    function HdThumbWatcher() {
+      hdRenders += 1;
+      const hd = usePreferenceValue("hdThumbs");
+      return <span data-testid="hd-val">{String(hd)}</span>;
+    }
+
+    render(
+      <PreferencesProvider>
+        <PreferenceProbe />
+        <HdThumbWatcher />
+      </PreferencesProvider>,
+    );
+
+    expect(hdRenders).toBe(1);
+    expect(screen.getByTestId("hd-val")).toHaveTextContent("true");
+
+    // Mutating theme must not re-render a consumer subscribed only to hdThumbs.
+    act(() => screen.getByText("Emerald theme").click());
+    expect(hdRenders).toBe(1);
   });
 });

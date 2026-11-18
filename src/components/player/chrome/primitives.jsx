@@ -24,9 +24,10 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, frame }) 
   }, [posterUrl]);
   const showArt = !!posterUrl && !frame && !artFailed;
   /* The stage's art leaves as optimized WebP renditions: the blurred backdrop
-     reads as colour, so w780 is plenty, and the centred logo gets w500.
+     reads as colour, so a CDN-preblurred w92 rendition avoids a live 28px GPU
+     blur pass on every player open, and the centred logo gets w500.
      Non-TMDB or already-optimized URLs pass through the adapter unchanged. */
-  const backdropSrc = backdropUrl ? CdnImageAdapter.getUrl(backdropUrl, "w780") : null;
+  const backdropSrc = backdropUrl ? CdnImageAdapter.getTinyUrl(backdropUrl, { blur: 28 }) : null;
   const posterSrc = posterUrl ? CdnImageAdapter.getUrl(posterUrl, "w500") : null;
   return (
     <div
@@ -76,9 +77,9 @@ export function LoadingStage({ title, backdropUrl, posterUrl, message, frame }) 
             // Heavily blurred so it reads as COLOUR, not as a photo the viewer
             // might mistake for the frame that is about to appear. The dim layer
             // under it keeps the white text and spinner legible over a bright
-            // still — a light backdrop would otherwise eat both.
-            filter: "blur(28px) saturate(1.2) brightness(0.5)",
-            transform: "scale(1.15)", // blur samples the edge; scale hides it
+            // still — a light backdrop would otherwise eat both. Blur is baked
+            // into the CDN URL above so this stays a plain composited <img>.
+            opacity: 0.45,
           }}
         />
       ) : null}

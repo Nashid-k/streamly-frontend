@@ -28,7 +28,6 @@
 
 .motion-backdrop__layer {
   position: absolute;
-  backface-visibility: hidden;
   pointer-events: none;
 }
 

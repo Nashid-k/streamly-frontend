@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Snowfall as FallingSnow } from "falling-snow/react";
 import { useLocation } from "react-router-dom";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 import { useReducedMotion } from "framer-motion";
 import { resolveSeasonalEffect } from "../utils/seasonal";
 
@@ -21,14 +21,16 @@ import { resolveSeasonalEffect } from "../utils/seasonal";
    the one place the compositor must stay free) and on low-core/low-memory
    devices, where a decorative overlay must never outrank a frame. */
 export default function Snowfall() {
-  const prefs = useOptionalPreferences();
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
+  const dynamic = usePreferenceValue("dynamic", false);
+  const theme = usePreferenceValue("theme", "default");
   const osReduced = useReducedMotion();
-  const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const reduceMotion = osReduced || !!prefReduceMotion;
   const month = new Date().getMonth();
   const { pathname } = useLocation();
   const effect = resolveSeasonalEffect({
-    dynamic: prefs?.dynamic !== false,
-    theme: prefs?.theme,
+    dynamic: Boolean(dynamic),
+    theme,
     month,
   });
 
@@ -49,21 +51,26 @@ export default function Snowfall() {
      through rAF so scrolling pays one boolean check per frame; the state only
      flips at the threshold, so no re-render churn while scrolling. */
   const [scrolledOut, setScrolledOut] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     if (!enabled) return undefined;
     let raf = 0;
     const check = () => {
       raf = 0;
-      const out = window.scrollY > window.innerHeight * 1.25;
+      const out = window.scrollY > window.innerHeight;
       setScrolledOut((prev) => (prev === out ? prev : out));
+      const mobile = window.innerWidth < 768;
+      setIsMobile((prev) => (prev === mobile ? prev : mobile));
     };
-    const onScroll = () => {
+    const onScrollOrResize = () => {
       if (!raf) raf = requestAnimationFrame(check);
     };
     check();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize, { passive: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
       if (raf) cancelAnimationFrame(raf);
     };
     // pathname: a route change can reset scroll without firing a scroll event,
@@ -71,8 +78,6 @@ export default function Snowfall() {
   }, [enabled, pathname]);
 
   if (!enabled || scrolledOut) return null;
-
-  const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
 
   return (
     <FallingSnow

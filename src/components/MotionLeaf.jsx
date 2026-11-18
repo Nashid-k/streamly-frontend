@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { SPRING, FADE, MODAL_PANEL, REVEAL, revealAt } from "../constants/motion";
-import { useOptionalPreferences } from "../context/preferences";
+import { usePreferenceValue } from "../context/preferences";
 
 /**
  * Shared reduced-motion-aware motion leaf for the heaviest non-chrome sites
@@ -26,8 +26,8 @@ import { useOptionalPreferences } from "../context/preferences";
  */
 export function MotionLeaf() {
   const osReduced = useReducedMotion();
-  const prefs = useOptionalPreferences();
-  const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
+  const reduceMotion = osReduced || !!prefReduceMotion;
 
   return useMemo(
     () => {
@@ -77,9 +77,9 @@ export function MotionLeaf() {
  */
 export function MotionFade({ children, ...rest }) {
   const osReduced = useReducedMotion();
-  const prefs = useOptionalPreferences();
+  const prefReduceMotion = usePreferenceValue("reduceMotion", false);
   // Same combined gate as MotionLeaf — see its docstring.
-  const reduceMotion = osReduced || !!prefs?.reduceMotion;
+  const reduceMotion = osReduced || !!prefReduceMotion;
   return (
     <motion.div
       initial={{ opacity: 0 }}
