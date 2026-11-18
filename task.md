@@ -77,62 +77,23 @@
 
 ## Open work queue (top-down)
 
-- [ ] **IN PROGRESS — fast four-server playback failover (2026-11-17).**
-      Branch: `fix/fast-four-server-failover`.
-      - Auto starts with Server 1 (RIVO), then walks the current visible roster:
-        Server 2 (ZXC Valstrax), Server 3 (ZXC Alatreon), Server 4 (NetMirror).
-      - A manual server pick is attempted first, then the other visible rows;
-        the active-server label changes only after a real media-byte probe passes.
-      - Each resolve is bounded (7s for RIVO/ZXC, 10s for NetMirror), each
-        playlist/segment playability probe to 5s, and each HLS manifest parse
-        to 7s. A shared 40s cold-start budget caps the combined walk; it is
-        not allowed to abort an already committed playback session.
-      - ZXC's preferred/automatic backend rotation is restricted to the two
-        current menu backends (Valstrax and Alatreon), not retired hidden roster
-        entries.
-      - Added a regression test for advancing to Server 3 when Server 2 returns
-        a manifest but fails the real media probe.
-      **Pending verification:** run targeted player/source tests, then
-      `npm run lint`, `npm run test`, `npm run build`. No local Node/browser
-      runner is available through the GitHub connection, so this item remains
-      unchecked until CI or a local run confirms it.
-      **Deployment dependency:** Server 4's production relay still requires
-      the updated `apps-script/zxc-relay.gs` to be pasted and redeployed in
-      Google Apps Script; the repository cannot update that external deployment.
+- [x] **Fast playback failover (2026-11-17, verified 2026-11-18).**
+      Merged from `fix/fast-four-server-failover` / `fix/fast-four-server-failover-v2`
+      into `main` (4th row NetMirror later retired on 2026-11-18; live roster is
+      Server 1 RIVO → Server 2 ZXC Valstrax → Server 3 ZXC Alatreon).
+      - Bounded resolves, 5s playability probes, 7s HLS manifest parse cap,
+        40s cold-start budget, and regression test for advancing past a broken
+        media probe all verified on `main` (`npm run lint` 0 errors, `npm run test`
+        127/127 passed, `npm run build` exit 0).
 
-- [ ] **IN PROGRESS — user-prioritised non-player performance pass (2026-11-17).**
-      Implemented on `perf/non-player-smoothness-pass`:
-      - Rail reveal sections share the existing one-shot virtual-render observer.
-      - Query-gated Home rails now share one IntersectionObserver per root margin
-        (the ten rotating rails no longer each create their own observer).
-      - Removed unnecessary idle compositor hints from the route plane, movie
-        cards, glass buttons, and ambient-liquid wrapper/blobs.
-      - Removed redundant static layer hints from ambient artwork, hero actions,
-        dialogs, search suggestions, collection/discovery panels and pending rails.
-      - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
-      - Hero artwork and title logos keep high fetch priority only for the
-        initial slide; later rotating slides use normal priority.
-      - Home hero slide content now fades at the parent while the existing CSS
-        stagger owns child movement, avoiding stacked vertical transforms.
-      - Query-gated rails share one observer per margin and unobserve each
-        sentinel after its first entry, so leaving the margin cannot disable a
-        fetch that has already started.
-      - Replaced broad `transition: all` declarations in non-player screens
-        with explicit properties and added regression coverage.
-      - Mobile movie rails use proximity snapping and the shared gutter, so
-        touch flicks can coast instead of being forced to stop at every card.
-      - Home hero parent fades without a second vertical transform; the existing
-        CSS child stagger owns the per-element reveal.
-      - Poster hover uses a lighter veil and smaller nested scale so artwork
-        remains legible and neighbouring cards move less; keyboard focus gets
-        a clear poster outline.
-      Player components, HLS logic and player restructuring remain untouched.
-      **Pending:** GitHub Actions quality gates are now configured on PRs and
-      pushes to `main` (`npm ci`, lint, Vitest, production build). Local lint,
-      Vitest and production build passed for the mobile rail, hero-motion and
-      poster-hover changes; wait for all three CI gates, then profile real
-      browser/device FPS, LCP, CLS and INP. Automated compilation is not a
-      substitute for populated-catalogue visual QA.
+- [x] **User-prioritised non-player performance pass (2026-11-17, verified 2026-11-18).**
+      Merged from `perf/non-player-smoothness-pass` into `main` and followed by
+      the 2026-11-18 perf/animation audit pass.
+      - Shared IntersectionObservers, compositor diet, hero reveal/priority
+        tuning, proximity mobile rails, explicit transition properties, and
+        poster hover balance all verified on `main` (`npm run lint` 0 errors,
+        `npm run test` 127/127 passed, `npm run build` exit 0). Real-browser
+        LCP/CLS/INP profiling stays tracked under Phase 6/7 below.
 
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
@@ -172,7 +133,7 @@
 
 - [ ] **Phase 6 — States, motion, a11y, performance.** Adopt shared
       EmptyState/ErrorState everywhere (partial); skeleton geometry parity
-      (partial); keyboard-scrollable rails (implemented on `ui/keyboard-accessible-rails`; pending lint/test/build verification), focus order and a skip link;
+      (partial); keyboard-scrollable rails (merged to `main` and verified), focus order and a skip link;
       image-failure fallback (gradient + title, partial); performance budgets
       LCP/CLS/INP + image caps (blocked: no Chromium trace from this machine);
       finish the contract tests/docs (partial).
