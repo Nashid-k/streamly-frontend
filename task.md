@@ -42,6 +42,11 @@
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
+- **Agentic Vercel skills (2026-11-18):** installed and used the Vercel agent
+  skills (`vercel-react-best-practices`, `vercel-composition-patterns`,
+  `web-design-guidelines`, `deploy-to-vercel`); applied the web-design ellipsis
+  fixes and completed the React/UI audit. Vercel CLI state: not linked and not
+  authenticated; no new deployment attempted.
 - **Gates (2026-11-18):** `npm run test -- --maxWorkers=4` 127 files / 1511
   passed + 2 skipped, `npm run lint` 0 errors (warnings only), `npm run build`
   exit 0. The default-worker full run hit the known jsdom timing flake in
