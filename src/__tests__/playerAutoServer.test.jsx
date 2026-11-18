@@ -17,6 +17,8 @@ const hlsState = {
   // Which server the fake backend says served the stream (echoed in the
   // response). Flipped by a test to model a picked server falling through.
   server: "valstrax",
+  serverQueue: [],
+  probeQueue: [],
   // Hold the playability probe open so the switching stage stays mounted long
   // enough to assert on. Cleared/resolved at the end of each test that sets it.
   deferProbe: false,
@@ -65,7 +67,8 @@ vi.mock("../api/streamResolve", async (orig) => {
   const zxc = (args) => {
     hlsState.resolveCalls.push(args);
     // mimic resolveZxc: normalize, then carry the server the backend used.
-    return { ...actual.streamResolve.normalizeResolved({ ...RESOLVE_PAYLOAD, server: hlsState.server }), server: hlsState.server };
+    const server = hlsState.serverQueue.shift() || hlsState.server;
+    return { ...actual.streamResolve.normalizeResolved({ ...RESOLVE_PAYLOAD, server }), server };
   };
   // RIVO leads the no-pick line, so its call must be visible to the assertions
   // too. This fake models the case that matters for the fallback: RIVO has no
@@ -90,7 +93,7 @@ vi.mock("../api/nativeHlsLoader", async (orig) => {
           hlsState.releaseProbe = () => resolve({ ok: true });
         });
       }
-      return { ok: true };
+      return hlsState.probeQueue.shift() || { ok: true };
     },
   };
 });
@@ -116,6 +119,8 @@ beforeEach(() => {
   hlsState.resolveCalls.length = 0;
   hlsState.instances.length = 0;
   hlsState.server = "valstrax";
+  hlsState.serverQueue.length = 0;
+  hlsState.probeQueue.length = 0;
   hlsState.deferProbe = false;
   hlsState.releaseProbe = null;
 });
@@ -133,6 +138,15 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     expect(hlsState.resolveCalls[1]).toMatchObject({ type: "movie", id: "12345", prefer: "valstrax" });
     expect(hlsState.resolveCalls[1].auto).toBeUndefined();
     expect(hlsState.resolveCalls.length).toBe(2);
+  });
+
+  it("advances to Server 3 when Server 2 resolves a URL whose media probe fails", async () => {
+    hlsState.serverQueue.push("valstrax", "alatreon");
+    hlsState.probeQueue.push({ ok: false, reason: "relay refused (502)" }, { ok: true });
+    render(<NativePlayerView type="movie" id="12345" title="A Title" onClose={() => {}} />);
+    await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
+    expect(hlsState.resolveCalls.map((call) => call.prefer).filter(Boolean)).toEqual(["valstrax", "alatreon"]);
+    expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0);
   });
 
   it("highlights the resolved backend's row in the Servers menu", async () => {

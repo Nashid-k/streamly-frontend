@@ -163,10 +163,10 @@ export default function useSourceResolve({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
-    // Guard against a dead upstream (e.g. Daedalus / RIVO) hanging the resolve
-    // indefinitely — a manual pick of an unresponsive server must not freeze the
-    // player UI forever. 20s is generous for a PoW mint + manifest probe.
-    const resolveTimeout = setTimeout(() => controller.abort(), 20000);
+    // Four visible servers may each need a bounded resolve + media probe. The
+    // per-hop watchdogs below move on quickly; this outer guard is only a final
+    // safety net for a stuck browser/relay request.
+    const resolveTimeout = setTimeout(() => controller.abort(), 45000);
     // EPISODE SWITCH = COLD OPEN. hasStartedRef stays true from the previous
     // episode, so without dropping it the spinner effect classifies this wait
     // as a warm stall and shows only the light ring - the viewer never sees
@@ -435,6 +435,36 @@ export default function useSourceResolve({
             { once: true },
           );
         });
+      // Bound each server independently. A timeout aborts that server's fetches
+      // before the next provider starts, rather than leaving four requests alive.
+      const withSourceTimeout = (task, timeoutMs, label) => {
+        const attemptController = new AbortController();
+        let timer;
+        let onParentAbort;
+        const timeout = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            attemptController.abort();
+            const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+            error.code = "source-timeout";
+            reject(error);
+          }, timeoutMs);
+        });
+        const aborted = new Promise((_, reject) => {
+          onParentAbort = () => {
+            attemptController.abort();
+            const error = new Error("Playback attempt aborted");
+            error.name = "AbortError";
+            reject(error);
+          };
+          if (controller.signal.aborted) onParentAbort();
+          else controller.signal.addEventListener("abort", onParentAbort, { once: true });
+        });
+        return Promise.race([Promise.resolve().then(() => task(attemptController.signal)), timeout, aborted])
+          .finally(() => {
+            clearTimeout(timer);
+            controller.signal.removeEventListener("abort", onParentAbort);
+          });
+      };
       // A failure that smells like an expired token (VidCore path tokens rotate) is not a dead CDN.
       const isAuthFatal = (detail) =>
         /\[relay:(segment-fetch-failed|manifest-fetch-failed)\]/.test(detail || "") ||
@@ -460,27 +490,26 @@ export default function useSourceResolve({
       // One pass at a source: true = settled (caller stops), false = transient (retryable
       // warm-up/empty/flaky), "off" = terminal (the provider doesn't have this title).
       const runSourceOnce = async (defArg, bypassCache) => {
-        // Auto rotation resolves through AUTO_SOURCE (the backend picks the
-        // healthiest server in one round trip); a Servers-menu pick overrides it
-        // for one pass (stale() guards everything as usual).
+        // The caller supplies one of the four visible server rows. Auto and
+        // manual selection both enter the same bounded resolve/probe path; the
+        // outer runSource loop owns fallback ordering.
         let def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
         let resolved = null;
         try {
-          // Warm-resolve handover (PLAN.md P0.4): the details page may have
-          // pre-minted the token while the viewer read the synopsis — consume it
-          // instead of re-paying the resolve leg. The handover is one-shot and
-          // refuses ANY manual server pick (a pick must resolve THAT server, not
-          // a warm token minted for the auto path).
-          // The warm token was minted for the plain auto path, so a custom
-          // server priority must not consume it (it would play a server the
-          // order says is not first).
+          // Warm-resolve handover (PLAN.md P0.4): only the canonical Auto path
+          // may consume the pre-minted payload. A saved custom fallback order
+          // must not consume a token for a different server priority.
           const autoDef = autoSourceRef.current;
           const warm =
             autoDef === AUTO_SOURCE
               ? takeWarmResolve(args, { sourceKey: requestedServerRef.current })
               : null;
-          resolved = warm || (await def.resolve(args, { signal: controller.signal, bypass: bypassCache }));
+          resolved = warm || (await withSourceTimeout(
+            (signal) => def.resolve(args, { signal, bypass: bypassCache }),
+            def.key === "netmirror-1" ? 10000 : 7000,
+            `${def.label} resolve`,
+          ));
         } catch (error) {
           if (error?.code === "no-source") return "off";
           return false;
@@ -565,7 +594,11 @@ export default function useSourceResolve({
           // source, or a perfect ladder over dead segments plays as a black screen.
           let probe = { ok: false, reason: "probe error" };
           try {
-            probe = await probeSourcePlayable(entryUrl, liveRefUrl, { signal: controller.signal });
+            probe = await withSourceTimeout(
+              (signal) => probeSourcePlayable(entryUrl, liveRefUrl, { signal }),
+              5000,
+              `${def.label} media probe`,
+            );
           } catch (error) {
             if (error?.name === "AbortError" || stale()) return true;
             probe = { ok: false, reason: error?.message || "probe error" };
@@ -962,6 +995,10 @@ export default function useSourceResolve({
           // never be folded into this string or both go dead. The provider name
           // is already carried by `switchingNote`/the Servers menu.
           setStatus("playing");
+          // The outer deadline only guards cold-start resolution. Once a real
+          // source is committed, keep the fatal listener alive for the whole
+          // playback session instead of silently detaching it after 45 seconds.
+          clearTimeout(resolveTimeout);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;
@@ -1068,28 +1105,38 @@ export default function useSourceResolve({
       };
 
       const runSource = async (def) => {
-        for (let retry = 0; ; retry += 1) {
+        // Auto starts in menu order. A manual pick gets first priority, but it
+        // is not a dead end: if resolve OR the real media-byte probe fails, walk
+        // the remaining visible servers. This fixes the old false-success case
+        // where a valid-looking manifest stopped fallback before media played.
+        const orderedFallbacks = Array.isArray(autoSourceRef.current?.fallbackSources)
+          ? autoSourceRef.current.fallbackSources
+          : PLAYER_SOURCES;
+        const selected =
+          def && def.key !== AUTO_SOURCE.key
+            ? def
+            : PLAYER_SOURCES.find((source) => source.key === requestedServerRef.current) || null;
+        const candidates = selected
+          ? [selected, ...orderedFallbacks.filter((source) => source.key !== selected.key)]
+          : [
+              PLAYER_SOURCES[0],
+              ...orderedFallbacks.filter((source) => source.key !== PLAYER_SOURCES[0]?.key),
+            ];
+
+        for (const candidate of candidates) {
           if (stale()) return true;
-          if (retry > 0) {
-            if (retry > SOURCE_RETRIES) return false;
-            await sleep(SOURCE_RETRY_BACKOFF_MS[retry - 1] ?? 1200);
-            if (stale()) return true;
-          }
-          // A retry means the previous attempt (possibly from the prefetch
-          // cache) did not play, so bypass the cache and resolve live.
-          const outcome = await runSourceOnce(def, retry > 0);
+          const outcome = await runSourceOnce(candidate, false);
           if (outcome === true) return true;
-          if (outcome === "off") return false;
+          // A title-specific miss and an unreachable server both advance.
+          // Do not retry the same slow server here: every row gets one bounded
+          // resolve and one bounded real-byte probe before the next is tried.
         }
+        return false;
       };
 
-      // A Servers-menu pick plays ONLY that server (its own retry + token-
-      // refresh machinery still applies). The no-pick path resolves through
-      // AUTO_SOURCE: the server walks its health-ordered backends in ONE round
-      // trip, so a dead backend no longer costs the viewer four more client
-      // requests before playback. Silently falling back to another provider on
-      // an explicit pick would lie about what the viewer chose — the fatal
-      // message points at the Servers menu instead.
+      // Both Auto and manual picks use the same four-row fallback. A manual
+      // pick is tried first; the Servers menu is updated only after a source
+      // passes the real media-byte probe, so the displayed row stays truthful.
       if (requestedServerRef.current) {
         if (await runSource(null)) return;
       } else if (await runSource(autoSourceRef.current)) {
