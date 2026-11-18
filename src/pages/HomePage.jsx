@@ -902,6 +902,8 @@ export default function Home({ filter = "all", title }) {
 
             {/* ── Apple Hero Content ─────────────────────────────────────── */}
             <AnimatePresence>
+            {/* CSS owns the per-child stagger; keep the parent fade-only so its
+                transform does not stack with each child's heroReveal. */}
             <motion.div
               key={activeFeaturedMovie.id + "-content"}
               className="hero-content hero-content--apple"

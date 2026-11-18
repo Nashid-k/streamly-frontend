@@ -77,6 +77,8 @@
       - Shortened the hero content reveal to 480ms with a 60ms stagger (300ms max).
       - Hero artwork and title logos keep high fetch priority only for the
         initial slide; later rotating slides use normal priority.
+      - Home hero slide content now fades at the parent while the existing CSS
+        stagger owns child movement, avoiding stacked vertical transforms.
       - Query-gated rails share one observer per margin and unobserve each
         sentinel after its first entry, so leaving the margin cannot disable a
         fetch that has already started.
@@ -90,10 +92,12 @@
         remains legible and neighbouring cards move less; keyboard focus gets
         a clear poster outline.
       Player components, HLS logic and player restructuring remain untouched.
-      **Pending:** GitHub Actions lint, Vitest and production-build gates
-      passed for the mobile rail, hero-motion and poster-hover changes. Profile
-      real browser/device FPS, LCP, CLS and INP next; automated compilation is
-      not a substitute for populated-catalogue visual QA.
+      **Pending:** GitHub Actions quality gates are now configured on PRs and
+      pushes to `main` (`npm ci`, lint, Vitest, production build). Local lint,
+      Vitest and production build passed for the mobile rail, hero-motion and
+      poster-hover changes; wait for all three CI gates, then profile real
+      browser/device FPS, LCP, CLS and INP. Automated compilation is not a
+      substitute for populated-catalogue visual QA.
 
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
