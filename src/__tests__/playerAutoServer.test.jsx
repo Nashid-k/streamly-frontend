@@ -68,7 +68,15 @@ vi.mock("../api/streamResolve", async (orig) => {
     hlsState.resolveCalls.push(args);
     // mimic resolveZxc: normalize, then carry the server the backend used.
     const server = hlsState.serverQueue.shift() || hlsState.server;
-    return { ...actual.streamResolve.normalizeResolved({ ...RESOLVE_PAYLOAD, server }), server };
+    const payload = {
+      ...RESOLVE_PAYLOAD,
+      server,
+      source: {
+        ...RESOLVE_PAYLOAD.source,
+        url: RESOLVE_PAYLOAD.source.url.replace("/valstrax?", `/${server}?`),
+      },
+    };
+    return { ...actual.streamResolve.normalizeResolved(payload), server };
   };
   // RIVO leads the no-pick line, so its call must be visible to the assertions
   // too. This fake models the case that matters for the fallback: RIVO has no
@@ -147,6 +155,7 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
     await waitFor(() => expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0), { timeout: 5000 });
     expect(hlsState.resolveCalls.map((call) => call.prefer).filter(Boolean)).toEqual(["valstrax", "alatreon"]);
     expect(hlsState.loadSourceCalls.length).toBeGreaterThan(0);
+    expect(hlsState.loadSourceCalls[0]).toContain("/alatreon?");
   });
 
   it("highlights the resolved backend's row in the Servers menu", async () => {
@@ -169,8 +178,8 @@ describe("no-pick resolve starts at Server 1 and reflects the chosen server", ()
   /* A saved drag order dragged years ago under a different roster re-binds its
      labels onto today's backends (Server 3 is ZXC Alatreon now, and the retired
      Server 5/6/7 entries are dropped by the sanitizer) —
-     it used to MOUNT the no-pick path, so every unpicked play started at a
-     later server while an explicit Server 1 pick resolved fine. The start is now
+     it used to MOUNT the no-pick path, so every unpicked play started at, e.g.,
+     Server 4 while an explicit Server 1 pick resolved fine. The start is now
      always Server 1; the stale order only steers the fallback after RIVO. */
   it("a stale drag order never moves the no-pick start off Server 1", async () => {
     render(

@@ -163,10 +163,10 @@ export default function useSourceResolve({
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
-    // Four visible servers may each need a bounded resolve + media probe. The
-    // per-hop watchdogs below move on quickly; this outer guard is only a final
-    // safety net for a stuck browser/relay request.
-    const resolveTimeout = setTimeout(() => controller.abort(), 45000);
+    // One cold-start budget covers all four visible servers. Per-hop
+    // watchdogs consume only the remaining budget; expiry reaches the normal
+    // error state instead of leaving a spinner behind an aborted run.
+    const sourceDeadlineAt = Date.now() + 40000;
     // EPISODE SWITCH = COLD OPEN. hasStartedRef stays true from the previous
     // episode, so without dropping it the spinner effect classifies this wait
     // as a warm stall and shows only the light ring - the viewer never sees
@@ -225,7 +225,7 @@ export default function useSourceResolve({
       return variant?.uri;
     };
 
-    const waitParsed = (hls) =>
+    const waitParsed = (hls, timeoutMs = PARSE_TIMEOUT_MS) =>
       new Promise((resolve, reject) => {
         let settled = false;
         const finish = () => {
@@ -234,7 +234,7 @@ export default function useSourceResolve({
           hls.off(Hls.Events.ERROR, onError);
           controller.signal.removeEventListener("abort", onAbort);
         };
-        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), PARSE_TIMEOUT_MS);
+        const timer = setTimeout(() => reject(new Error("Timed out waiting for the playlist")), timeoutMs);
         const onParsed = () => {
           if (settled) return;
           settled = true;
@@ -438,16 +438,23 @@ export default function useSourceResolve({
       // Bound each server independently. A timeout aborts that server's fetches
       // before the next provider starts, rather than leaving four requests alive.
       const withSourceTimeout = (task, timeoutMs, label) => {
+        const remainingMs = sourceDeadlineAt - Date.now();
+        const boundedTimeoutMs = Math.min(timeoutMs, remainingMs);
+        if (boundedTimeoutMs <= 0) {
+          const error = new Error(`${label} skipped: playback startup budget exhausted`);
+          error.code = "source-timeout";
+          return Promise.reject(error);
+        }
         const attemptController = new AbortController();
         let timer;
         let onParentAbort;
         const timeout = new Promise((_, reject) => {
           timer = setTimeout(() => {
             attemptController.abort();
-            const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+            const error = new Error(`${label} timed out after ${boundedTimeoutMs}ms`);
             error.code = "source-timeout";
             reject(error);
-          }, timeoutMs);
+          }, boundedTimeoutMs);
         });
         const aborted = new Promise((_, reject) => {
           onParentAbort = () => {
@@ -479,6 +486,10 @@ export default function useSourceResolve({
       // error while the real story is the provider's daily quota, so the banner
       // should say THAT instead of a bare "no stream".
       let anyUpstreamQuota = false;
+      // A preferred ZXC request can be served by the other visible ZXC row.
+      // Remember that actual row so the outer client walk does not request it
+      // a second time after its probe fails.
+      let lastResolvedSourceKey = null;
 
       // The position a re-run of THIS effect must resume at. Seeded from the
       // reload carry (server/source pick, manual retry) and then kept honest by
@@ -535,6 +546,7 @@ export default function useSourceResolve({
         if (servedKey && servedKey !== def.key) {
           def = sourceByServer(resolved.server);
         }
+        lastResolvedSourceKey = def.key;
         let variants = resolved?.variants || [];
         if (variants.length === 0) {
           // Empty is not terminal: the catalogue returns empty lists when rate-flaky.
@@ -704,7 +716,7 @@ export default function useSourceResolve({
               `${data?.details || "error"}` +
               (data?.error?.message ? ` (${data.error.message})` : "") +
               (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
-            // Logs name the PROVIDER, not the generic row: a row number in a
+            // Logs name the PROVIDER, not the generic row: "Server 4" in a
             // console tells you nothing, `zxc-centaurus` tells you which
             // backend to go debug. The viewer-facing status line keeps the generic name.
             if (/\b429\b|quota/i.test(lastFatalDetail)) anyUpstreamQuota = true;
@@ -897,7 +909,11 @@ export default function useSourceResolve({
           try {
             hls.loadSource(entryUrl);
             hls.attachMedia(videoRef.current);
-            await waitParsed(hls);
+            // The manifest must also parse within this server's share of the
+            // cold-start budget. A valid byte probe followed by a hung master
+            // must not pin the player to the same provider for 75 seconds.
+            const parseBudgetMs = Math.max(1, Math.min(7000, sourceDeadlineAt - Date.now()));
+            await waitParsed(hls, parseBudgetMs);
           } catch {
             // The instance never committed: invalidate every quality/dub/audio
             // continuation parked on it before tearing it down.
@@ -998,7 +1014,6 @@ export default function useSourceResolve({
           // The outer deadline only guards cold-start resolution. Once a real
           // source is committed, keep the fatal listener alive for the whole
           // playback session instead of silently detaching it after 45 seconds.
-          clearTimeout(resolveTimeout);
           // This run committed: a source-quality pick (if any) is no longer
           // pending, so a later failure must not roll back to an older rung.
           pendingSourceHeightRollbackRef.current = null;
@@ -1075,7 +1090,7 @@ export default function useSourceResolve({
             // wait reads as intent rather than a hung player.
             const throttled = /\b429\b/.test(lastFatalDetail || "");
             if (throttled) {
-              setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly…`);
+              setSwitchingNote(`${def.label}: provider rate-limited, retrying shortly...`);
               await sleep(THROTTLE_BACKOFF_MS);
               if (stale()) return true;
                 }
@@ -1083,7 +1098,11 @@ export default function useSourceResolve({
             try {
               // bypass: the cached payload is the one the probe just proved dead
               // — a token refresh must actually re-resolve, not replay it.
-              fresh = await def.resolve(args, { signal: controller.signal, bypass: true });
+              fresh = await withSourceTimeout(
+                (signal) => def.resolve(args, { signal, bypass: true }),
+                def.key === "netmirror-1" ? 10000 : 7000,
+                `${def.label} token refresh`,
+              );
             } catch {
               fresh = null;
             }
@@ -1123,9 +1142,14 @@ export default function useSourceResolve({
               ...orderedFallbacks.filter((source) => source.key !== PLAYER_SOURCES[0]?.key),
             ];
 
+        const attempted = new Set();
         for (const candidate of candidates) {
           if (stale()) return true;
+          if (attempted.has(candidate.key)) continue;
+          lastResolvedSourceKey = null;
           const outcome = await runSourceOnce(candidate, false);
+          if (lastResolvedSourceKey) attempted.add(lastResolvedSourceKey);
+          attempted.add(candidate.key);
           if (outcome === true) return true;
           // A title-specific miss and an unreachable server both advance.
           // Do not retry the same slow server here: every row gets one bounded
@@ -1180,7 +1204,6 @@ export default function useSourceResolve({
     })();
 
     return () => {
-      clearTimeout(resolveTimeout);
       controller.abort();
       try {
         revealCleanup();
