@@ -287,9 +287,9 @@ export default function NativePlayerView({
     /* 2026-11-13: the no-pick start is ALWAYS Server 1 (RIVO, multi-audio).
        Before this, the FIRST row of the saved drag order mounted the auto
        path — and roster rotations re-bind saved labels onto today's backends
-       (a priority dragged years ago under a different roster silently became
-       "Server 4 = Valstrax"), so every unpicked play started at a later server
-       while an explicit Server 1 pick resolved fine. Now the drag order steers
+       (a priority dragged years ago under a different roster silently became a
+       later server), so every unpicked play started at a later server while an
+       explicit Server 1 pick resolved fine. Now the drag order steers
        the FALLBACK (what plays when Server 1 has no source for the title) and
        the menu row order — never the start. */
     const next = orderedSources.find((s) => s.key !== DEFAULT_SOURCE_KEY);
@@ -912,8 +912,8 @@ export default function NativePlayerView({
      strings ("Tamil Dub") and call the original track "Original", so both are
      normalised here once rather than at each render site: the original is named
      by the film's real language when TMDB told us, and a dub row is just the
-     language. Covers every multi-audio source — Server 3 (NHD) and Server 4
-     (ZXC Centaurus) both arrive as the same `audioTracks` array. */
+     language. Covers every multi-audio source: sibling-master `audioTracks`
+     and any provider that reports in-manifest tracks arrive as the same array. */
   const audioTrackList = useMemo(
     () => buildAudioTrackList(dubTracks, originalLanguage, dubOriginalLang),
     [dubTracks, originalLanguage, dubOriginalLang],

@@ -76,28 +76,17 @@ import { logDebug } from "../utils/debugLogger";
      Server 3 Alatreon   served 3/3, TS bytes with no height metadata, no
                          alternate audio.
 
-    Server 4 NetMirror was ADDED here (2026-11-15) — the first row whose audio
-    is IN the manifest rather than in sibling masters: one HLS master carries
-    `EXT-X-MEDIA:TYPE=AUDIO` renditions, measured 22 languages on tv 66732 S1E1,
-    17 on movie 1101383, 5 on tv 1399 S1E1, resolved through net52.cc's NewTV
-    API. It appends rather than inserting: the labels ARE the saved
-    `serverOrder` keys, so inserting in the middle would silently re-point a
-    viewer's saved "Server 2" at a different provider. (The NetMirror row that
-    was dropped long ago was a DIFFERENT backend — net27.cc, per-IP 429-gated
-    behind a Cloudflare challenge. This one is net52.cc/tv.imgcdn.kim and is
-    measured, not assumed.)
-
     ZXC Ursa was REMOVED here (2026-11-15) after re-measuring 0/3: every title
     answered "HLS links unreadable" or a 502 from its segment host. ZXC Orion
     (briefly a fifth row the same day) went the same way at 0/3, and the ZXC
     family returned no dubbed tracks on any measured title — so neither row
     could keep the "Multi audio" promise it advertised. Atlas and Daedalus had
-    already been retired on the same evidence. Server 1 (RIVO) and Server 4
-    (NetMirror) are therefore the two multi-audio rows in the catalogue.
+    already been retired on the same evidence. Server 1 (RIVO) is therefore the
+    only multi-audio row in the catalogue.
 
     ZXC Orion and ZXC Atlas were RETIRED here because both strict pins failed
    on both titles ("ZXC <server> manifest unreadable"). Keeping them in the
-   menu made every "pick Server 2/4" wait 5-10s only to fall through to
+   menu made every "pick Server 2/3" wait 5-10s only to fall through to
    Valstrax, and their "Multi audio" tag described a feature no probe could
    reproduce: the ZXC family returned 0 dubbed tracks on every title measured.
    The numbers below are contiguous again (the same precedent as the VidRack
@@ -119,10 +108,8 @@ import { logDebug } from "../utils/debugLogger";
 
    The ONLY 4K in this catalogue was vidcore.io's own ladder, and vidcore.io
    refuses Vercel outright with a 403 from both iad1 and bom1, so that ladder is
-   unreachable server-side. NetMirror (net27.cc) was removed: its
-   video layer is per-IP 429-gated behind a Cloudflare challenge. CineSrc went with
-   its Chrome mint service — no serverless function can mint fingerprint-bound
-   tokens. */
+   unreachable server-side. CineSrc went with its Chrome mint service — no
+   serverless function can mint fingerprint-bound tokens. */
 export const PLAYER_SOURCES = [
   /* Server 1 is RIVO's multi-audio backend (rivo.st / f.rivo.st): one master
      PER LANGUAGE, so the Audio menu switches between full sibling manifests.
@@ -172,21 +159,6 @@ export const PLAYER_SOURCES = [
     provider: "ZXC Alatreon",
     server: "alatreon",
     resolve: (a, o) => streamResolve.resolveZxc({ ...a, prefer: "alatreon" }, o),
-  },
-
-  /* Server 4 is NetMirror's NewTV catalogue (net52.cc / tv.imgcdn.kim): one
-     master whose audio is a set of in-manifest `EXT-X-MEDIA:TYPE=AUDIO`
-     renditions — up to 22 languages measured — so its Audio menu is driven by
-     hls.js's own track list instead of sibling manifests. The resolver withholds
-     a title whose audio hosts it could not fetch (a picture with no sound is
-     worse than an honest "no source"). */
-  {
-    key: "netmirror-1",
-    label: "Server 4",
-    tag: "Multi audio · up to 1080p",
-    provider: "NetMirror",
-    server: "netmirror",
-    resolve: (a, o) => streamResolve.resolveNetmirror(a, o),
   },
 ];
 

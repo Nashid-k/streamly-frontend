@@ -671,7 +671,7 @@ export default function useSourceResolve({
               `${data?.details || "error"}` +
               (data?.error?.message ? ` (${data.error.message})` : "") +
               (frag ? ` [sn ${frag.sn ?? "?"} ${String(frag.url || "").slice(0, 90)}]` : "");
-            // Logs name the PROVIDER, not the generic row: "Server 4" in a
+            // Logs name the PROVIDER, not the generic row: a row number in a
             // console tells you nothing, `zxc-centaurus` tells you which
             // backend to go debug. The viewer-facing status line keeps the generic name.
             if (/\b429\b|quota/i.test(lastFatalDetail)) anyUpstreamQuota = true;

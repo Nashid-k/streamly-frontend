@@ -11,59 +11,21 @@
 > **Archived history:** the full pre-2026-11-17 work log lives in git at
 > `git show b9ae61e:task.md` (the `b9ae61e` commit).
 
-## Current state (2026-11-17)
+## Current state (2026-11-18)
 
 - **Player:** native HLS pipeline under `src/components/player/` (`engine/`,
   `hooks/`, `shell/`, `chrome/`), mounted by `NativePlayerView.jsx`.
+- **Workspace cleanup (2026-11-18):** removed the legacy UI mock and player
+  prototype, unused demo media, stale one-off probe scripts, generated
+  build/test caches, and the ignored local agent scratch folder. Only the app,
+  API/server code, live operator scripts and docs remain.
 - **Server roster (`src/constants/sources.js`):** Server 1 RIVO (multi-audio
-  when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon,
-  Server 4 NetMirror (in-manifest multi-audio). Orion, Atlas, Ursa, VidRack and
-  Daedalus are retired on measured evidence. NetMirror is committed
-  (`27bc4c1`); its catalogue answers 403 to Vercel egress, and `tv.imgcdn.kim`
-  now rides the Apps Script relay (host allow-list + `ott`/`xrw`/`ua`
-  forwarding). The external deployment must be pasted with the updated
-  `apps-script/zxc-relay.gs` before production can leave 403.
-- **NetMirror relay (2026-11-17):** `server/net.js` adds `tv.imgcdn.kim` to
-  `RELAY_HOSTS` and forwards the NewTV catalogue/fingerprint headers as
-  `ott`/`xrw`/`ua`; `apps-script/zxc-relay.gs` allows the host and forwards the
-  same headers. `zxcRelay.test.js` drives the real handler against the relay
-  envelope.
-- **NetMirror relay test (2026-11-18):** the deployed relay answers NetMirror
-  search/player/master for Inception: HTTP 200, 3 variants (1080/720/480) and
-  2 in-manifest audio tracks (English/Hindi). ZXC origin also answers 200
-  through the relay. The deployment still uses the placeholder `SECRET`: the
-  supplied token (the deployment ID) returns `unauthorized`, while the
-  placeholder returns `{"ok":true}`. Production `resolveNetmirror` therefore
-  still reports `NetMirror search unreachable` until Vercel's `ZXC_RELAY_URL`
-  token matches the deployed `SECRET`. The production `relayDiag` action
-  (temporary) reports a 32-character token, not the placeholder and not the
-  deployment ID, and every relay probe answers `Relay: unauthorized`; the
-  hosted Apps Script still has `CHANGE_ME_TO_A_RANDOM_STRING`. Audio and
-  subtitle manifests rotate across `freecdnN.top`/`subscdn.top` and require the
-  `net52.cc` referer, but the bom1 function reaches them directly (audio 200 /
-  27,092 bytes; 1080p variant 200 / 1,961 bytes), so only the NewTV JSON host
-  rides the relay. `RELAY_HOSTS` and the Apps Script allow-list keep the API
-  host, not the CDN roots. The relay deployment must be updated again (new
-  version on the same `/exec`) before production audio verification.
-- **Measured 2026-11-17 (local, residential IP):** `resolveNetmirror` for
-  Inception (27205) returns 3 variants (1080/720/480), 4 in-manifest audio
-  tracks (Hindi/Telugu/Tamil/English), master on `tv.imgcdn.kim`, audio
-  renditions on `s35.freecdn34.top`, variant playlists on
-  `s0022.freecdn4.top`. The resolver is sound; production is blocked only at
-  the Vercel→NewTV JSON step.
-- **Production relay status (2026-11-17):** after `255b8ff` deployed, the
-  NetMirror error changed from `NetMirror search unreachable (HTTP 403)` to
-  `NetMirror search unreachable` with no HTTP status — the request now reaches
-  the relay and the relay refuses the target. The deployed Apps Script still
-  has the old host allow-list; paste/redeploy `apps-script/zxc-relay.gs` as a
-  new version on the same `/exec` URL and token. The Cloudflare worker was
-  re-tested and returns a Cloudflare 403 block page, so it cannot replace the
-  Apps Script.
-- **Server 1 identity (last 30 commits):** RIVO since `0b3eb99` (2026-11-02).
-  Server 4 was ZXC Ursa at `0b3eb99`, ZXC Valstrax through
-  `bdc86e2`/`ea735b6`/`70fad63`, ZXC Alatreon at `941e1ef`, removed at
-  `67a620e`, then NetMirror at `27bc4c1`. The ZXC family has owned Servers 2–3
-  throughout the current roster.
+  when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon.
+  Orion, Atlas, Ursa, VidRack and Daedalus are retired on measured evidence.
+  The fourth row was removed on 2026-11-18; only the three rows above remain.
+  The ZXC relay stays in `server/net.js` and `apps-script/zxc-relay.gs`.
+- **Server 1 identity:** RIVO since `0b3eb99` (2026-11-02). The ZXC family owns
+  Servers 2–3.
 - **Measured 2026-11-17:** RIVO's primary library (`server=1`) returns
   `sources: []` for every tested title; RIVO siblings `server=6`
   (1080p/720p/480p) and `server=7` (auto) still serve. `handleResolveRivo`
@@ -78,9 +40,10 @@
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
-- **Gates (2026-11-17):** `npm run test` 127 files / 1514 passed + 2 skipped,
-  `npm run lint` 0 errors (warnings only), `npm run build` exit 0. The
-  `FadeInSection` visibility assertions were corrected in `6febcf6`.
+- **Gates (2026-11-18):** `npm run test -- --maxWorkers=4` 127 files / 1511
+  passed + 2 skipped, `npm run lint` 0 errors (warnings only), `npm run build`
+  exit 0. The default-worker full run hit the known jsdom timing flake in
+  `librarySelection`; both the 4-worker run and that file in isolation pass.
 
 ## Open work queue (top-down)
 
@@ -186,8 +149,7 @@
   panels, inline caption preview, dead `PlayerPreview`/`SystemStatusRow`
   surfaces removed.
 - **2026-11-15 — Server roster re-measured:** RIVO multi-audio leads; Valstrax
-  and Alatreon keep their rows; Ursa/Orion/Atlas/Daedalus retired. NetMirror
-  Server 4 is the current uncommitted addition.
+  and Alatreon keep their rows; Ursa/Orion/Atlas/Daedalus retired.
 - **2026-11-15 — Badge family:** one `.content-badge` (solid state vs glass
   countdown), theme-aware NEW/“In X days”, top-left card corner.
 - **2026-11-15 — Continue Watching:** one play affordance (Resume), keyboard

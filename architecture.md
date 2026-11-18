@@ -326,47 +326,33 @@ playlist asks for the same title, and the parser falls back to the retired
 contract keys for markers issued before this change; a marker with a blank
 title/year/date is rejected before it can reach the provider. Timeouts/429/5xx deliberately do NOT trigger discovery (discovery asks
 for a higher response ceiling than the default 1.5MB text cap, because the
-provider's contract chunk is a ~1.7MB bundle). Two out-of-band layers keep the
-committed seed truthful, both patching the same sentinel-delimited block through
-helpers exported from `api/stream.js`: a daily GitHub Action
-(`scripts/sync-zxc-contract.mjs` +
-`.github/workflows/sync-zxc-contract.yml`, prefers `SYNC_PAT`) and a Vercel Cron
-watchdog (`api/sync-contract.js`, `crons` in `vercel.json`, authenticated with
-`Authorization: Bearer $CRON_SECRET` and closed when the secret is unset; drift
-is committed as ONE atomic Git Data API commit via `GITHUB_TOKEN`). Each derives
-the live contract, rewrites the block (and the path pinned in
-`zxcMintPath.test.js`), proves real movie + series playback BYTES through the
-handler (resolve → playlist → first fMP4/TS segment, not just `ok:true`), and
-only then commits, so the committed seed never goes stale. The watchdog will not
-commit (or report `pushed`) unless BOTH a movie and a series verified, and its
-probe playlist walker selects the `#EXT-X-STREAM-INF` VIDEO variant rather than
-the first `#EXT-X-MEDIA` audio rendition on a master. The sources
+provider's contract chunk is a ~1.7MB bundle). The committed seed is guarded by
+the contract tests (`zxcMintPath.test.js`, `zxcSelfHeal.test.js`): runtime
+discovery may replace the in-memory value, but the seed in `api/stream.js` is
+what tests compare against, so a provider rename cannot silently ship. The old
+out-of-band auto-sync workflow and Cron watchdog have been removed. The sources
 response's `links` are decrypted per-server links whose wire `type` picks the
 playback path (DASH→`server/dashToHls.js`, else native HLS); wire format and dubs
 are read per response, not frozen. The seed roster maps each backend to a row:
 
 | row | backend | multi-audio |
 | --- | --- | --- |
-| Server 2 Orion | `orion` | yes |
-| Server 3 Atlas | `atlas` | yes |
-| Server 4 Valstrax | `valstrax` | no |
-| Server 5 Ursa | `ursa` | no |
-| Server 6 Alatreon | `alatreon` | no |
-| Server 7 Daedalus | `daedalus` | no |
+| Server 1 RIVO | `1` | yes |
+| Server 2 Valstrax | `valstrax` | no |
+| Server 3 Alatreon | `alatreon` | no |
 
-(Server 1 is RIVO's multi-audio backend since 2026-11-02; our multi-audio server
-from zxcstream, ZXC Orion, took Server 2 on 2026-11-02 so the two multi-audio servers
-read as a pair.)
+(Server 1 is RIVO's multi-audio backend since 2026-11-02; the ZXC backends serve
+Servers 2–3.)
 
 **The no-pick path starts at Server 1, then falls through the ZXC rotation.** When
 the viewer has NOT picked a row the player resolves through `AUTO_SOURCE`
 (`src/constants/sources.js`): it asks RIVO's multi-audio Server 1 first
 (`resolverivo` with `server:"1"`), and only when RIVO has no source for the title
-does it call `resolvezxc` with `prefer:"orion"` — Server 2 first, then the SAME
+does it call `resolvezxc` with `prefer:"valstrax"` — Server 2 first, then the SAME
 request walks the ZXC backends in health order (healthy first, then
 most-recently-successful, then the Servers-menu order). It used to ask for
 `auto: true` with no server named, which let the backend's own health rotation
-answer with a LATE row (Server 7 under the old numbering) instead of the start of
+answer with a LATE row instead of the start of
 the line. Soft misses (server up, title absent)
 continue to the next backend; the walk ends early after 3 HARD transport
 failures. A backend that fails HARD (its own HTTP 4xx/5xx — the provider's
@@ -567,18 +553,8 @@ ASN is the route back to native.
 **The relay is a Google Apps Script web app (`apps-script/zxc-relay.gs`).**
 When `ZXC_RELAY_URL` is set, `server/net.js` `fetchUpstream` routes the small
 TEXT fetches to the WAF-blocked provider hosts (`zxcstream.cc`, `vidstuck.cc`,
-`vidstuck.xyz`, and NetMirror's `tv.imgcdn.kim`) through it instead of attempting
-them from Vercel; the relay runs on Google's egress and forwards
-status/content-type/body back as JSON. NetMirror's NewTV JSON is 403 to Vercel
-but 200 from residential/Google egress, and its catalogue selector plus NewTV
-fingerprint headers survive the hop as the `ott`, `xrw` and `ua` query aliases.
-NetMirror's audio and variant manifests rotate across `freecdnN.top` hosts and
-its subtitle manifests sit on `subscdn.top`; all three are referer-gated on
-`https://net52.cc`, but the bom1 function reaches those CDNs DIRECTLY (measured
-200 for the audio manifest and the 1080p variant). `RELAY_HOSTS` therefore keeps
-only the NewTV JSON host; the Apps Script allow-list does not admit the CDN
-roots, and the resolver's audio probe plus the client's playlist action fetch
-them direct with the net52 referer.
+`vidstuck.xyz`) through it instead of attempting them from Vercel; the relay
+runs on Google's egress and forwards status/content-type/body back as JSON.
 The relay is driven with **GET**, not POST: Apps Script answers a POST to its
 `/exec` endpoint with a 302 to `script.googleusercontent.com` and following that
 redirect drops the request body, so the target URL, method and (small text) body
@@ -623,7 +599,7 @@ chunks with an `x-streamly-more` "more bytes?" header — saved from the old
 this relay (and/or the Cloudflare worker) for providers a browser cannot read
 directly. Embed-host allowlist + DNS-resolved private-IP SSRF guard (every
 redirect hop re-validated; decimal/hex IP literals included).
-Stream-service/NetMirror calling code was deleted (`src/api/env.js` removed);
+Stream-service calling code was deleted (`src/api/env.js` removed);
 the client no longer makes those HTTP calls. Every function is wrapped in a request
 logger (`server/logger.js`); `vercel.json` sets `maxDuration` per function
 (15s tmdb / 30s register+verify+login+sync) to stay inside the Hobby ceiling.

@@ -90,25 +90,12 @@ function fetchNoRedirect(url, opts) {
 /* Provider hosts whose WAF refuses datacenter egress. Every /backend* path
    answers 502 from the Vercel function (AWS ranges), yet the identical request
    succeeds from a residential or Google IP — verified against the live provider
-   (see task.md). NetMirror's NewTV JSON host behaves the same way: 403 from
-   Vercel, 200 from a residential/Google IP. When ZXC_RELAY_URL is set, TEXT
-   fetches to these hosts are proxied through that external relay (an Apps
-   Script web app running on a Google egress IP) instead of being attempted
-   directly. Only manifests/JSON ride the relay: the final media CDN sends
-   `access-control-allow-origin: *`, so segment bytes are never routed through
-   it (as === "buffer" stays direct).
-
-   NetMirror's audio/variant manifests live on `freecdnN.top` subdomains and
-   its subtitles on `subscdn.top`. They are referer-gated, but Vercel can
-   fetch them DIRECTLY with the net52.cc referer (measured 200 from the bom1
-   function for both the audio and 1080p variant manifests), so they are NOT
-   relayed: only the NewTV JSON host needs the Google egress. */
-const RELAY_HOSTS = new Set([
-  "zxcstream.cc",
-  "vidstuck.cc",
-  "vidstuck.xyz",
-  "tv.imgcdn.kim",
-]);
+   (see task.md). When ZXC_RELAY_URL is set, TEXT fetches to these hosts are
+   proxied through that external relay (an Apps Script web app running on a
+   Google egress IP) instead of being attempted directly. Only manifests/JSON
+   ride the relay: the final media CDN sends `access-control-allow-origin: *`,
+   so segment bytes are never routed through it (as === "buffer" stays direct). */
+const RELAY_HOSTS = new Set(["zxcstream.cc", "vidstuck.cc", "vidstuck.xyz"]);
 const RELAY_TIMEOUT_MS = 25000;
 
 function relayTargetFor(url) {
@@ -139,18 +126,13 @@ async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTex
   const passthrough = {};
   for (const [name, value] of Object.entries(headers || {})) {
     // Only the headers a provider actually reads are forwarded; hop-by-hop and
-    // framing headers are recomputed by the relay's own fetch. NetMirror's
-    // NewTV contract needs its `ott` catalogue selector and fingerprint
-    // headers (`x-requested-with`, custom `user-agent`) to survive the hop.
+    // framing headers are recomputed by the relay's own fetch.
     const key = name.toLowerCase();
     if (
       key === "referer" ||
       key === "origin" ||
       key === "accept" ||
-      key === "content-type" ||
-      key === "ott" ||
-      key === "x-requested-with" ||
-      key === "user-agent"
+      key === "content-type"
     ) {
       passthrough[key] = value;
     }
@@ -162,9 +144,6 @@ async function relayFetch(relayUrl, { url, method, body, headers, signal, maxTex
   if (passthrough.origin) params.set("origin", String(passthrough.origin));
   if (passthrough.accept) params.set("accept", String(passthrough.accept));
   if (passthrough["content-type"]) params.set("ctype", String(passthrough["content-type"]));
-  if (passthrough["x-requested-with"]) params.set("xrw", String(passthrough["x-requested-with"]));
-  if (passthrough["user-agent"]) params.set("ua", String(passthrough["user-agent"]));
-  if (passthrough.ott) params.set("ott", String(passthrough.ott));
   if (hasBody) params.set("body", typeof body === "string" ? body : String(body));
   const relayTarget = `${relayUrl}${relayUrl.includes("?") ? "&" : "?"}${params.toString()}`;
 

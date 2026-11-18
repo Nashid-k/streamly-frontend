@@ -4,16 +4,14 @@
 // the round trip `sourceByServer`, and AUTO_SOURCE staying OUT of the menu.
 import { describe, expect, it, vi } from "vitest";
 
-const { resolveZxcMock, resolveRivoMock, resolveNetmirrorMock } = vi.hoisted(() => ({
+const { resolveZxcMock, resolveRivoMock } = vi.hoisted(() => ({
   resolveZxcMock: vi.fn(),
   resolveRivoMock: vi.fn(),
-  resolveNetmirrorMock: vi.fn(),
 }));
 vi.mock("../api/streamResolve", () => ({
   streamResolve: {
     resolveZxc: resolveZxcMock,
     resolveRivo: resolveRivoMock,
-    resolveNetmirror: resolveNetmirrorMock,
   },
 }));
 
@@ -27,7 +25,7 @@ import {
 } from "../constants/sources";
 
 describe("PLAYER_SOURCES", () => {
-  it("pins Server 1 to RIVO and Server 4 to NetMirror", () => {
+  it("pins Server 1 to RIVO and keeps the two ZXC rows after it", () => {
     const server1 = sourceByKey("rivo-1");
     expect(PLAYER_SOURCES[0]).toBe(server1);
     expect(server1).toMatchObject({
@@ -36,14 +34,17 @@ describe("PLAYER_SOURCES", () => {
       server: "1",
     });
 
-    const server4 = sourceByKey("netmirror-1");
-    expect(server4).toMatchObject({
-      label: "Server 4",
-      provider: "NetMirror",
-      server: "netmirror",
+    expect(sourceByKey("zxc-valstrax")).toMatchObject({
+      label: "Server 2",
+      provider: "ZXC Valstrax",
+      server: "valstrax",
     });
-    // Server 4 is the NetMirror/NewTV row (the ZXC family owns Server 2/3).
-    expect(server4.resolve).toBeTypeOf("function");
+    expect(sourceByKey("zxc-alatreon")).toMatchObject({
+      label: "Server 3",
+      provider: "ZXC Alatreon",
+      server: "alatreon",
+    });
+    expect(PLAYER_SOURCES).toHaveLength(3);
   });
 
   it("gives every row a unique provider server name", () => {
@@ -62,21 +63,21 @@ describe("PLAYER_SOURCES", () => {
 
   /* The ZXC rows are the provider backends that served the roster on the
      2026-11-15 re-measure: Valstrax and Alatreon. Ursa and Orion were dropped
-     the same day at 0/3, so no ZXC row may claim multi audio. The two rows that
-     DO carry the tag are the two measured for it: RIVO (sibling masters) and
-     NetMirror (in-manifest audio renditions). */
+     the same day at 0/3, so no ZXC row may claim multi audio. RIVO's sibling
+     masters are the only measured multi-audio source left. */
   it("tags multi audio only where the row can actually deliver it", () => {
     const zxcRows = PLAYER_SOURCES.filter((row) => row.key.startsWith("zxc-"));
     expect(zxcRows.map((row) => row.server)).toEqual(["valstrax", "alatreon"]);
     expect(zxcRows.filter((row) => /multi audio/i.test(row.tag))).toEqual([]);
-    expect(PLAYER_SOURCES.slice(0, 2).map((row) => row.key)).toEqual(["rivo-1", "zxc-valstrax"]);
+    expect(PLAYER_SOURCES.map((row) => row.key)).toEqual([
+      "rivo-1",
+      "zxc-valstrax",
+      "zxc-alatreon",
+    ]);
     expect(PLAYER_SOURCES[0].tag).toMatch(/multi audio/i);
-    // NetMirror appends rather than inserting: the labels double as the saved
-    // `serverOrder` keys, so a middle insert would re-point a saved pick.
-    expect(PLAYER_SOURCES[PLAYER_SOURCES.length - 1].key).toBe("netmirror-1");
     expect(
       PLAYER_SOURCES.filter((row) => /multi audio/i.test(row.tag)).map((row) => row.key),
-    ).toEqual(["rivo-1", "netmirror-1"]);
+    ).toEqual(["rivo-1"]);
   });
 });
 
@@ -84,7 +85,6 @@ describe("sourceByServer", () => {
   it("maps a backend server name back onto its row", () => {
     expect(sourceByServer("valstrax")?.key).toBe("zxc-valstrax");
     expect(sourceByServer("alatreon")?.key).toBe("zxc-alatreon");
-    expect(sourceByServer("netmirror")?.key).toBe("netmirror-1");
     // Retired backends have no row to re-derive, so the player never highlights
     // a server the viewer cannot pick (Ursa and Orion measured 0/3 on
     // 2026-11-15; Atlas and Daedalus were retired earlier for the same reason).
@@ -94,7 +94,6 @@ describe("sourceByServer", () => {
     // Menu numbering is contiguous over the live rows.
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
     expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
-    expect(sourceLabel("netmirror-1")).toBe("Server 4");
     expect(sourceLabel("zxc-ursa")).toBe("That server");
   });
 
@@ -194,7 +193,6 @@ describe("sourceLabel", () => {
     expect(sourceLabel("rivo-1")).toBe("Server 1");
     expect(sourceLabel("zxc-valstrax")).toBe("Server 2");
     expect(sourceLabel("zxc-alatreon")).toBe("Server 3");
-    expect(sourceLabel("netmirror-1")).toBe("Server 4");
     expect(sourceLabel("zxc-orion")).toBe("That server");
     // A retired key no longer resolves, so its fallback names the menu, not a
     // backend that cannot deliver.

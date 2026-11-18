@@ -386,18 +386,16 @@ describe("player Servers menu", () => {
     // Row order = auto-rotation priority. The visible name is deliberately the
     // generic "Server N" (a viewer picks on capability, not on brand), and the
     // grey sub-line states the capability: a resolution ceiling, multi-audio, etc.
-    // Server 1 is RIVO's multi-audio backend (one master per language), Server 4
-    // is NetMirror's (in-manifest audio renditions). Four rows: RIVO, the two
-    // backends that served on the 2026-11-15 re-measure (Valstrax, Alatreon) and
-    // NetMirror. VidSrc, NHD, VidRack, Daedalus, Ursa and Orion were removed
-    // after being measured dead for the same reason.
+    // Server 1 is RIVO's multi-audio backend (one master per language); Server
+    // 2 and Server 3 are the ZXC backends that served the 2026-11-15 re-measure
+    // (Valstrax, Alatreon). VidSrc, NHD, VidRack, Daedalus, Ursa and Orion were
+    // removed after being measured dead for the same reason.
     const rows = [...dialog.querySelectorAll(".np-dialog-row")];
-    expect(rows.length).toBe(4);
+    expect(rows.length).toBe(3);
     const expected = [
       ["Server 1", "Multi audio"],
       ["Server 2", "Original audio"],
       ["Server 3", "Original audio"],
-      ["Server 4", "Multi audio"],
     ];
     expected.forEach(([label, cap], i) => {
       expect(rows[i].textContent).toContain(label);

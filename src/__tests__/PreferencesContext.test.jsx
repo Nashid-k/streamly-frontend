@@ -152,8 +152,8 @@ describe("PreferencesProvider", () => {
   /* VidSrc, NHD, the old VidRack, Daedalus, ZXC Orion, ZXC Atlas and ZXC Ursa
      were removed after re-measuring dead, so a returning visitor's saved order
      must lose those rows instead of keeping dead entries in the menu. The live
-     catalogue is Server 1–4 (RIVO, ZXC Valstrax, ZXC Alatreon, NetMirror), so
-     Server 8 is the retired tail this pins. */
+     catalogue is Server 1–3 (RIVO, ZXC Valstrax, ZXC Alatreon), so Server 8
+     is the retired tail this pins. */
   it("drops retired servers from a saved order instead of listing dead rows", () => {
     localStorage.setItem(
       "setting-serverOrder",
@@ -183,7 +183,7 @@ describe("PreferencesProvider", () => {
     // catalogue: asserting the whole live roster keeps this honest when a server
     // is added or retired.
     expect(screen.getByTestId("server-order")).toHaveTextContent(
-      "Server 1 | Server 2 | Server 3 | Server 4",
+      "Server 1 | Server 2 | Server 3",
     );
   });
 

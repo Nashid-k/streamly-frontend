@@ -275,7 +275,7 @@ export const SECTION_SEARCH_TERMS = {
   ].join(" "),
   servers: [
     "server order drag handle sources tried first title loads priority stream",
-    "reset server 1 server 2 server 3 server 4 default priority",
+    "reset server 1 server 2 server 3 default priority",
   ].join(" "),
   subtitles: [
     "subtitles readability customization font cinejoy classic montserrat",
