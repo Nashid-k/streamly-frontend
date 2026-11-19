@@ -62,12 +62,12 @@
   `node_modules/.vite-temp` (every local `/api/*` handler 500'd); it now
   resolves against `process.cwd()`. The five zero-result `/discover/*` calls
   did not reproduce across 14 live shapes.
-- **Gates (2026-11-19, real-flow pass):** `npm run lint` exit 0 (140
-  warnings); the full Vitest tree 129/129 files, 1535 passed / 2 skipped, and
-  `npm run build` exit 0. The suite was run with 4 workers and a 15s test
-  timeout (`npx vitest run --reporter=verbose --maxWorkers=4
-  --testTimeout=15000`, 254s): the default 7-worker run flaked on pre-existing
-  5s timeouts and then stalled in the Vitest pool.
+- **Gates (2026-11-19, Phase 2):** `npm run lint` exit 0 (141 warnings); the
+  full Vitest tree, 131/131 files, 1560 passed / 2 skipped, and `npm run build`
+  exit 0. The suite was run with 4 workers and a 15s test timeout
+  (`npx vitest run --maxWorkers=4 --testTimeout=15000`, 209s): the default
+  7-worker run flaked on pre-existing 5s timeouts and then stalled in the
+  Vitest pool.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
@@ -206,12 +206,24 @@
       benchmark with before/after numbers. Blocked until a reachable
       catalogue and a Chromium-representative browser are available.
 
-- [ ] **Loader state machine + source-aware readahead.** The relay reports
-      progress as an opaque spinner. Add connecting / probing / first-byte /
-      buffered states (byte counts) and seed the first rendition from a
-      per-source bandwidth read so the slow first rung is not paid every time.
+- [x] **Loader state machine + source-aware ABR seed.** The branded stage now
+      says connecting → checking → starting → buffering with byte counts
+      (`components/player/engine/loadingStage.js`), fed by the resolve/probe
+      and a new `createStreamlyLoader({ onBytes })` observer. Updates stop once
+      a frame is on screen and are capped at ~3/s, so a long film does not
+      re-render per chunk. `streamly_source_bw_v1` remembers each server's
+      measured hls.js throughput (EWMA, one write per 15s, 7-day TTL), and
+      `pickInitialBandwidthBits` takes the LOWER of that prior and
+      `navigator.connection` — a fast remembered session cannot override a
+      link the browser now reports as slow, and a generous downlink cannot
+      override a provider that measured slow. The seed-based relay open cap is
+      now an OPEN cap only: a non-master ladder with more than one rung opens
+      in Auto, and the measured walker may climb to 1080p even when a slow
+      seed held the open at 720p. Tests: `loadingStage`, `sourceBandwidth`,
+      extended `streamTuning`, the loader observer, and a quality-switch
+      walker regression. Gates: see the Phase 2 gate line.
 
-- [ ] **Lint-warning reduction.** ~140 warnings remain, mostly React Compiler
+- [ ] **Lint-warning reduction.** ~141 warnings remain, mostly React Compiler
       / `react-hooks` advisories (`set-state-in-effect`, `exhaustive-deps`)
       that need component restructuring. Player files were previously
       off-limits; re-check before touching them.
@@ -230,6 +242,12 @@
 
 ## Recently shipped (newest first)
 
+- **2026-11-19 — Phase 2 cold start:** the branded loader now names its phase
+  (connecting / checking / starting / buffering with fragment byte counts),
+  stops updating once a frame is on screen, and seeds the first HLS rung from
+  the server's measured throughput (`streamly_source_bw_v1`, EWMA, 7-day TTL).
+  The seed-based relay open cap no longer caps the measured non-master Auto
+  walker, which may climb to 1080p on a fast pipe.
 - **2026-11-19 — Real-flow repair pass:** subtitle downloads direct-first
   (worker 401 diagnosed as an egress bot-wall, not a missing UA), relay
   header/CORS parity, `/api/health` + a keepalive cron that asserts real

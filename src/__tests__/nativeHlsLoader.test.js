@@ -522,7 +522,11 @@ describe("createStreamlyLoader", () => {
         };
       }),
     );
-    const Loader = createStreamlyLoader({ getRefUrl: () => "https://vidcore.io/" });
+    const bytes = [];
+    const Loader = createStreamlyLoader({
+      getRefUrl: () => "https://vidcore.io/",
+      onBytes: (loaded, total) => bytes.push({ loaded, total }),
+    });
     const loader = new Loader();
     const seen = [];
     const response = await new Promise((resolve, reject) => {
@@ -539,6 +543,11 @@ describe("createStreamlyLoader", () => {
     expect(response.resp.data.byteLength).toBe(5);
     // Progress fired per read with an accumulating loaded count.
     expect(seen.map((s) => s.loaded)).toEqual([2, 5]);
+    // The player-facing observer follows the same accumulating count. It is
+    // separate from hls.js's callback so the stage can be driven without
+    // coupling the loader to React.
+    expect(bytes.map((b) => b.loaded)).toEqual([2, 5]);
+    expect(bytes[0].total).toBe(5);
     expect(response.stats.loaded).toBe(5);
     expect(response.stats.total).toBe(5);
   });

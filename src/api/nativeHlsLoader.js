@@ -675,7 +675,7 @@ async function throwIfRelayError(response, fallback) {
   throw error;
 }
 
-export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onCueBoundaries } = {}) {
+export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onCueBoundaries, onBytes } = {}) {
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
   /* Distinct from AbortError so a watchdog win is tellable from a player abort:
@@ -867,6 +867,16 @@ export function createStreamlyLoader({ getRefUrl, onDirectPath, onRelayPath, onC
         this.callbacks?.onProgress?.(this.stats, this.context, chunk, null);
       } catch {
         // a throwing progress listener must never kill the load
+      }
+      // The player-facing counter, separate from hls.js's callback: only media
+      // fragments count (playlists never reach progress), and the observer is
+      // optional so the loader stays usable on its own.
+      if (this.context?.frag) {
+        try {
+          onBytes?.(this.stats.loaded, this.stats.total);
+        } catch {
+          // a throwing observer must never kill the load
+        }
       }
     }
 

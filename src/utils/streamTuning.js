@@ -24,6 +24,12 @@ export const DEFAULT_INITIAL_BW_BITS = 10 * 1000 * 1000;
     costs a rebuffer while under-seeding only costs one smooth rung climb. */
 const DOWNLINK_TRUST = 0.75;
 
+/** The same caution for a MEASURED prior from a previous session. It is a
+    better signal than `downlink`, but it was measured on a different network
+    moment (and possibly a different CDN edge), so the first rung still gets
+    headroom. */
+const MEASURED_TRUST = 0.8;
+
 /** Hard bounds. Below the floor, 4K/1080p can never start; above the ceiling
     there is no rung left to climb to, so extra headroom is pure optimism. */
 export const MIN_SEED_BITS = 2 * 1000 * 1000;
@@ -47,14 +53,21 @@ const EFFECTIVE_TYPE_CEILING_BITS = {
  *
  * @param {object} [connection] - a `navigator.connection` (or equivalent).
  *   Passed in rather than read here so this stays pure and testable.
- * @param {number} [fallbackBits] - used when the API says nothing useful.
+ * @param {number} [fallbackBits] - used when neither source says anything useful.
+ * @param {number} [measuredBits] - last session's hls.js estimate for this
+ *   provider (bits/s). Optional; absent or junk keeps the previous behaviour.
  * @returns {number} bits per second, always within [MIN, MAX].
  */
-export function pickInitialBandwidthBits(connection, fallbackBits = DEFAULT_INITIAL_BW_BITS) {
+export function pickInitialBandwidthBits(
+  connection,
+  fallbackBits = DEFAULT_INITIAL_BW_BITS,
+  measuredBits = null,
+) {
   const fallback = clamp(fallbackBits);
+  const measured = measuredSeed(measuredBits);
 
-  // No API, or it reported nothing → previous behaviour, unchanged.
-  if (!connection || typeof connection !== "object") return fallback;
+  // No API → the provider's own measured history is the next best prior.
+  if (!connection || typeof connection !== "object") return measured ?? fallback;
 
   // Data Saver: the viewer has explicitly asked to use less data. Cap hard
   // rather than guess — honouring the preference is the whole point.
@@ -72,10 +85,20 @@ export function pickInitialBandwidthBits(connection, fallbackBits = DEFAULT_INIT
     bits = Math.max(bits, Math.round(downlink * 1e6 * DOWNLINK_TRUST));
   }
 
-  if (!bits) return fallback;
+  if (!bits) return measured ?? fallback;
   // effectiveType (e.g. '2g') must not be talked UP by a generous downlink.
   if (ceiling) bits = Math.min(bits, ceiling);
-  return clamp(bits);
+  const connectionSeed = clamp(bits);
+  // Two priors: take the LOWER. A fast remembered session must not override a
+  // link the browser now reports as slow, and a generous connection claim must
+  // not override a provider that measured slow last time.
+  return measured == null ? connectionSeed : clamp(Math.min(measured, connectionSeed));
+}
+
+function measuredSeed(bits) {
+  const n = Number(bits);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return clamp(n * MEASURED_TRUST);
 }
 
 function clamp(bits) {

@@ -114,6 +114,7 @@ before the next one starts.
 src/components/player/
   engine/                 ← no JSX. The stream lifecycle.
     useSourceResolve.js     ✅ resolve → probe → attempt ordering, failover, token refresh
+    loadingStage.js         pure cold-open phase reducer + stage copy (Phase 2)
     useAudioSwitch.js       pickAudio / pickDub (in-manifest and sibling-manifest)
     useQualitySwitch.js     pickQuality / pickSourceQuality
     useSubtitles.js         track list, engine wiring, styling persistence
@@ -169,7 +170,11 @@ ref-touching handler is a callback defined in the player.
    moved with the resolve. The moved body is byte-identical to the inline
    version (one intended substitution: `mergeBoundaries(...)` became
    `mergeBoundariesRef.current(...)`, because that `useCallback` is declared
-   later in the player).
+   later in the player). Phase 2 added the pure cold-open reducer
+   (`engine/loadingStage.js`), the loader's `onBytes` observer, and the
+   per-server ABR prior from `utils/sourceBandwidth` before
+   `utils/streamTuning`. The seed's relay 720p guard is an open cap only; the
+   measured non-master Auto walker climbs past it up to 1080p.
 
 8. **`PlayerMenus`** ✅ done (`shell/PlayerMenus.jsx`). The ten menu pages moved
    as one presentational component; the player passes state and callbacks, and

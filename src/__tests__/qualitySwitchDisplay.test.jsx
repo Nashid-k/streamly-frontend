@@ -28,6 +28,8 @@ const hlsState = {
   currentLevel: -1,
   loadSourceCalls: [],
   resolveCalls: [],
+  last: null,
+  probeVia: undefined,
 };
 
 /* hls.js stand-in with an honest level set (drives the pin + LEVEL_SWITCHED)
@@ -50,6 +52,8 @@ vi.mock("hls.js", () => {
     constructor() {
       this.levels = JSON.parse(JSON.stringify(hlsState.levels));
       this.audioTracks = [];
+      this.bandwidthEstimate = 0;
+      hlsState.last = this;
       Object.defineProperty(this, "currentLevel", {
         get: () => hlsState.currentLevel,
         set: (v) => {
@@ -131,7 +135,7 @@ vi.mock("../api/nativeHlsLoader", async (orig) => {
   return {
     ...actual,
     createStreamlyLoader: () => ({ load: async () => "" }),
-    probeSourcePlayable: async () => ({ ok: true }),
+    probeSourcePlayable: async () => ({ ok: true, via: hlsState.probeVia }),
   };
 });
 
@@ -153,6 +157,8 @@ beforeEach(() => {
   hlsState.currentLevel = -1;
   hlsState.loadSourceCalls.length = 0;
   hlsState.resolveCalls.length = 0;
+  hlsState.last = null;
+  hlsState.probeVia = undefined;
   RESOLVE_PAYLOAD = resolveFor({ multiLevelMaster: true, variantHeights: [1080, 720, 480] });
 });
 
@@ -251,6 +257,31 @@ describe("quality switch DISPLAY fixes", () => {
     // so it no longer answers the "button" role query.
     fireEvent.click(screen.getByRole("switch", { name: /^Auto/ }));
     await waitFor(() => expect(screen.getByText("Now 480p · adjusts with your connection")).toBeInTheDocument(), { timeout: 3000 });
+  });
+
+  it("non-master Auto climbs past a slow relay open cap once fragments measure the pipe", async () => {
+    // A 3-rung per-rendition ladder. The relay + the default (slow) seed opens
+    // at 720p; the seed-based guard used to cap the upgrade walker too, so a
+    // fast connection stayed at 720p for the whole film. The walker must judge
+    // later rungs by the MEASURED estimate and climb to 1080p.
+    RESOLVE_PAYLOAD = resolveFor({ multiLevelMaster: false, variantHeights: [480, 720, 1080] });
+    hlsState.probeVia = "relay";
+    const { playingState } = await mountPlayer();
+    playingState.playing = true;
+    // Wait for the commit, not just loadSource(): the walker is registered
+    // after the playlist parses and metaRef is stamped.
+    await waitFor(
+      () => expect(hlsState.last?._handlers?.fragBuffered?.length || 0).toBeGreaterThan(0),
+      { timeout: 5000 },
+    );
+    expect(hlsState.loadSourceCalls[0]).toBe("https://vidstuck.xyz/m/1");
+
+    hlsState.last.bandwidthEstimate = 30_000_000;
+    hlsState.last._fire("fragBuffered", {});
+    await waitFor(
+      () => expect(hlsState.loadSourceCalls).toContain("https://vidstuck.xyz/m/2"),
+      { timeout: 3000 },
+    );
   });
 
   it("quality pick during a dub pins the rung in the dub's OWN ladder — no switch-back", async () => {

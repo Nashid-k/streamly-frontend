@@ -74,4 +74,44 @@ describe("pickInitialBandwidthBits", () => {
   it("respects an explicit fallback argument", () => {
     expect(pickInitialBandwidthBits(undefined, 6 * 1000 * 1000)).toBe(6 * 1000 * 1000);
   });
+
+  it("uses a measured provider prior when the Network API says nothing", () => {
+    // 30Mbps measured last session → 80% trust = 24Mbps, no blind 10Mbps seed.
+    expect(pickInitialBandwidthBits(undefined, DEFAULT_INITIAL_BW_BITS, 30_000_000)).toBe(
+      24_000_000,
+    );
+    expect(pickInitialBandwidthBits({}, DEFAULT_INITIAL_BW_BITS, 30_000_000)).toBe(24_000_000);
+    expect(
+      pickInitialBandwidthBits({ effectiveType: "4g" }, DEFAULT_INITIAL_BW_BITS, 30_000_000),
+    ).toBe(24_000_000);
+  });
+
+  it("takes the LOWER of the measured and connection priors", () => {
+    // Measured slow, connection claims fast: do not over-seed the first rung.
+    expect(pickInitialBandwidthBits({ downlink: 100 }, DEFAULT_INITIAL_BW_BITS, 4_000_000)).toBe(
+      3_200_000,
+    );
+    // Measured fast, browser class says slow: the class wins.
+    const seed = pickInitialBandwidthBits({ effectiveType: "2g" }, DEFAULT_INITIAL_BW_BITS, 30_000_000);
+    expect(seed).toBeLessThanOrEqual(2_000_000);
+    expect(seed).toBe(MIN_SEED_BITS);
+  });
+
+  it("honours Data Saver over a fast measured prior", () => {
+    expect(
+      pickInitialBandwidthBits({ saveData: true }, DEFAULT_INITIAL_BW_BITS, 50_000_000),
+    ).toBe(MIN_SEED_BITS);
+  });
+
+  it("bounds a measured prior and ignores junk", () => {
+    expect(pickInitialBandwidthBits(undefined, DEFAULT_INITIAL_BW_BITS, 1_000)).toBe(MIN_SEED_BITS);
+    expect(pickInitialBandwidthBits(undefined, DEFAULT_INITIAL_BW_BITS, 10_000_000_000)).toBe(
+      MAX_SEED_BITS,
+    );
+    for (const junk of [0, -1, NaN, Infinity, "fast", null, undefined]) {
+      expect(pickInitialBandwidthBits(undefined, DEFAULT_INITIAL_BW_BITS, junk)).toBe(
+        DEFAULT_INITIAL_BW_BITS,
+      );
+    }
+  });
 });

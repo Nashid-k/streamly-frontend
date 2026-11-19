@@ -23,6 +23,8 @@ import { createStreamlyLoader, probeSourcePlayable } from "../../../api/nativeHl
 import { takeWarmResolve } from "../../../api/warmResolve";
 import { PLAYER_SOURCES, AUTO_SOURCE, sourceByServer, sourceLabel } from "../../../constants/sources";
 import { pickInitialBandwidthBits } from "../../../utils/streamTuning";
+import { readSourceBandwidth, rememberSourceBandwidth } from "../../../utils/sourceBandwidth";
+import { LOAD_PHASE, reduceLoadingStage } from "./loadingStage";
 import { clearPreviewCache } from "../../../api/previewThumbs";
 import { buildQualityRows } from "../nativePlayerHelpers";
 
@@ -32,6 +34,13 @@ import { buildQualityRows } from "../nativePlayerHelpers";
    real overhead inside the estimate, so the factor stays honest. Providers
    that omit `bandwidth` fall back to mainstream H.264 presets. */
 const AUTO_UPGRADE_HEADROOM = 2.2;
+/* The open cap (≤720p on a slow relay seed) is a STARTUP rule, not a ceiling
+   for the whole session. Once real fragments measure the pipe, the walker may
+   climb up to this height even if the seed opened lower — otherwise a slow
+   measurement from a previous network would trap a now-fast connection at
+   720p for the entire film. 4K stays a manual pick: a 4K segment needs
+   sustained bandwidth the walker cannot guarantee from one buffered fragment. */
+const AUTO_UPGRADE_CEILING_HEIGHT = 1080;
 const SOURCE_RESOLVE_TIMEOUT_MS = 7_000;
 /* RIVO's Server 1 may walk the provider's own roster before it finds a live
    sibling (Server 5 is commonly the last and slowest to answer). Cutting that
@@ -111,6 +120,7 @@ export default function useSourceResolve({
   setBuffering,
   setSpinner,
   setStageWhileLoading,
+  setLoadingStage,
   setServerSwitchStage,
   setSwitchingNote,
   setRequestedServer,
@@ -170,11 +180,28 @@ export default function useSourceResolve({
       setStageWhileLoading(false);
       setServerSwitchStage(false);
       setSwitchingNote(null);
+      setLoadingStage(null);
       return undefined;
     }
     const run = runRef.current + 1;
     runRef.current = run;
     const controller = new AbortController();
+    /* Cold-open feedback. The branded stage used to say "Loading…" for every
+       wait, including a dead first server and a 4MB fragment crawling in. The
+       resolve/probe/loader phases now feed one small state object. `stageLive`
+       is switched off the moment a real frame is on screen, because the loader
+       keeps reporting bytes for the rest of the film and that must not become
+       a state update every chunk; a reconnect re-arms it. */
+    let stageLive = false;
+    let stageState = null;
+    let lastStageBytesAt = 0;
+    const publishStage = (event) => {
+      if (runRef.current !== run || controller.signal.aborted) return;
+      const next = reduceLoadingStage(stageState, event);
+      if (next === stageState) return;
+      stageState = next;
+      setLoadingStage(next);
+    };
     // One cold-start budget covers all four visible servers. Per-hop
     // watchdogs consume only the remaining budget; expiry reaches the normal
     // error state instead of leaving a spinner behind an aborted run.
@@ -363,6 +390,8 @@ export default function useSourceResolve({
         }
         finished = true;
         cleanup();
+        stageLive = false;
+        publishStage({ type: "clear" });
         setStageWhileLoading(false);
         setServerSwitchStage(false);
         setSwitchingNote(null);
@@ -394,6 +423,8 @@ export default function useSourceResolve({
     };
 
     (async () => {
+      stageLive = true;
+      publishStage({ type: "connect" });
       setStatus("resolving");
       setFatal(null);
       setQualities([]);
@@ -518,6 +549,8 @@ export default function useSourceResolve({
         // outer runSource loop owns fallback ordering.
         let def = defArg || PLAYER_SOURCES.find((s) => s.key === requestedServerRef.current) || null;
         if (!def) return false;
+        stageLive = true;
+        publishStage({ type: "connect", server: def.label });
         let resolved = null;
         try {
           // Warm-resolve handover (PLAN.md P0.4): only the canonical Auto path
@@ -578,13 +611,24 @@ export default function useSourceResolve({
 
         let liveSource = resolved.source;
         let liveRefUrl = resolved.source?.refUrl || resolved.source?.url;
-        // ABR seed — navigator.connection as a PRIOR for how the ladder opens
-        // and upgrades (hls.js's own measurement wins after the first
-        // segments). Absent the API (Safari, Firefox) this is the fixed seed.
+        // ABR seed — the provider's own measured throughput is the strongest
+        // prior (throughput belongs to the backend/CDN, not the title), then
+        // navigator.connection, then the fixed seed. hls.js's own measurement
+        // wins after the first segments; the remembered value only decides the
+        // FIRST rung, which is the one that must survive.
+        const rememberedBits = readSourceBandwidth(def.key);
         const streamSeedBits = pickInitialBandwidthBits(
           typeof navigator !== "undefined" ? navigator.connection : undefined,
           INITIAL_BW_BITS,
+          rememberedBits,
         );
+        if (rememberedBits != null) {
+          logDebug("player", "Seeded ABR from remembered source bandwidth.", {
+            sourceKey: def.key,
+            rememberedBits,
+            seedBits: streamSeedBits,
+          });
+        }
         // Master sources ship levels + audio groups in ONE url; others are per-rendition.
         const isMaster = Boolean(liveSource?.multiLevelMaster);
         // attempt 0 = initial URLs; attempt 1 = one token-refresh re-resolve.
@@ -614,6 +658,7 @@ export default function useSourceResolve({
           if (!entryUrl) {
             return false;
           }
+          publishStage({ type: "probe", server: def.label });
           // Playability gate: prove one real media byte flows before hls.js sees the
           // source, or a perfect ladder over dead segments plays as a black screen.
           let probe = { ok: false, reason: "probe error" };
@@ -636,12 +681,14 @@ export default function useSourceResolve({
             return false;
           }
           setTransportRelay(probe?.via === "relay");
-          // Relay delivery is latency-bound (fresh serverless round trip per chunk),
-          // so the auto OPEN is seeded by the connection prior, not a blind cap: a
-          // connection that comfortably sustains 1080p (the seed knows) opens ON
-          // 1080p even through the relay; a modem-pace seed keeps the old ≤720p
-          // guard. The upgrade walker below still corrects this with MEASURED
-          // bandwidth once fragments bite.
+          // Relay delivery is latency-bound (fresh serverless round trip per
+          // chunk), so the auto OPEN is seeded by the connection prior, not a
+          // blind cap: a connection that comfortably sustains 1080p (the seed
+          // knows) opens ON 1080p even through the relay; a modem-pace seed
+          // keeps the old ≤720p guard. That guard is for the OPEN only: the
+          // walker below judges later rungs by MEASURED bandwidth and may
+          // climb past it up to AUTO_UPGRADE_CEILING_HEIGHT, so a slow prior
+          // cannot pin a now-fast connection to 720p for the whole film.
           const autoTopHeight =
             probe?.via === "relay" && streamSeedBits < 25_000_000 ? 720 : 1080;
           if (!isMaster && (smoothStart?.height || 0) > autoTopHeight) {
@@ -687,6 +734,16 @@ export default function useSourceResolve({
               },
               // Manifest cue tags, when present, replace the guessed skip windows.
               onCueBoundaries: (bounds) => mergeBoundariesRef.current?.(bounds, "cues"),
+              onBytes: (loaded, total) => {
+                if (!stageLive || stale() || hlsRef.current !== hls) return;
+                // The loader reports every read. Stage updates at ~3 Hz are
+                // enough for a human and keep a 4MB fragment from re-rendering
+                // the player per chunk.
+                const now = Date.now();
+                if (stageState?.phase === LOAD_PHASE.BUFFERED && now - lastStageBytesAt < 300) return;
+                lastStageBytesAt = now;
+                publishStage({ type: "bytes", loaded, total, server: def.label });
+              },
             }),
             // ABR + progressive MSE appends: chunks hit the screen while the segment is
             // still arriving. The back buffer stays small so device RAM stays bounded.
@@ -765,6 +822,20 @@ export default function useSourceResolve({
           hls.on(Hls.Events.FRAG_BUFFERED, () => {
             consecFragFails = 0;
           });
+          /* Remember this provider's real pipe for the next open. hls.js's
+             estimate already covers the relay/direct path overhead, which is
+             exactly what the next seed needs to survive; the module EWMA-
+             smooths it and refuses to write more than once per 15s. */
+          let bwSamples = 0;
+          hls.on(Hls.Events.FRAG_BUFFERED, () => {
+            if (stale() || hlsRef.current !== hls) return;
+            const estimate = Number(hls.bandwidthEstimate) || 0;
+            if (estimate <= 0) return;
+            // One fragment can still be hls.js's starting estimate in disguise.
+            bwSamples += 1;
+            if (bwSamples < 2) return;
+            rememberSourceBandwidth(def.key, estimate);
+          });
           hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
             // A heightless media playlist reports 0/null; keep the last real
             // height rather than drive the dialog to "0p" after a full-reload
@@ -813,6 +884,8 @@ export default function useSourceResolve({
               setBuffering(false);
               setStageWhileLoading(false);
               setSwitchingNote(null);
+              stageLive = false;
+              publishStage({ type: "clear" });
               resumeAfterSwitch();
             };
             // Confirmed in under a frame? Hold the stage for the rest of its
@@ -918,6 +991,7 @@ export default function useSourceResolve({
             reportFatal(data);
             failOver();
           });
+          publishStage({ type: "connect", server: def.label });
           try {
             hls.loadSource(entryUrl);
             hls.attachMedia(videoRef.current);
@@ -990,10 +1064,10 @@ export default function useSourceResolve({
           // pickQuality's own probe/rollback path; a refused rung is
           // attempt-locked so the ladder cannot thrash against a lying
           // sibling. Listeners die with this hls instance at every teardown.
+          const autoLadder = variants
+            .filter((v) => (v.height || 0) > 0)
+            .sort((a, b) => (a.height || 0) - (b.height || 0));
           if (!isMaster) {
-            const autoLadder = variants
-              .filter((v) => (v.height || 0) > 0)
-              .sort((a, b) => (a.height || 0) - (b.height || 0));
             const baseHeight = smoothStart?.height || 0;
             const attemptedRungs = new Set([baseHeight]);
             hls.on(Hls.Events.FRAG_BUFFERED, () => {
@@ -1003,7 +1077,7 @@ export default function useSourceResolve({
               if (estimate <= 0) return;
               for (const next of autoLadder) {
                 const h = next.height || 0;
-                if (h <= baseHeight || h > autoTopHeight || attemptedRungs.has(h)) continue;
+                if (h <= baseHeight || h > AUTO_UPGRADE_CEILING_HEIGHT || attemptedRungs.has(h)) continue;
                 const advertised = Number(next.bandwidth) || 0;
                 const need =
                   (advertised > 0 ? advertised : AUTO_UPGRADE_FALLBACK_BITS[h] || 0) *
@@ -1065,10 +1139,12 @@ export default function useSourceResolve({
           const seedHeight = smoothStart?.height || variants?.find((v) => (v.height || 0) > 0)?.height || null;
           if (seedHeight) setCurrentHeight(seedHeight);
           // Honest Auto/active state for the quality menu: a master opened on
-          // real ABR; a fixed ladder (single-variant HLS) has no ABR to be auto
-          // WITH — Auto there just replays the open rung. Without this the
-          // menu showed no active row on NHD/ZXC until the viewer picked one.
-          setAutoLevel(isMaster);
+          // real ABR; a non-master ladder with more than one rung is driven by
+          // the measured walker above, so it is Auto too. A genuinely
+          // single-rung source has nothing for Auto to choose — showing Auto
+          // there just replayed the open rung. Without this the menu showed no
+          // active row on NHD/ZXC until the viewer picked one.
+          setAutoLevel(isMaster || autoLadder.length > 1);
           // Streamly resume gate: first real playback for this title/episode.
           maybeOfferResumeRef.current();
           // A fatal error AFTER playback started either refreshes tokens in place (same
@@ -1080,10 +1156,15 @@ export default function useSourceResolve({
           // so bring the art stage back over it for the reconnect/rotation wait.
           // Cold-open state, exactly like a server switch — hasStartedRef must
           // be dropped too, or the spinner effect would classify the next stall
-          // as a "warm" one and hide the stage this open just armed.
+          // as a "warm" one and hide the stage this open just armed. Cancel the
+          // old reveal first: its 2.5s fallback must not clear the stage over
+          // the reconnect that is starting now.
+          revealCleanup();
           hasStartedRef.current = false;
           setStageWhileLoading(true);
           setSwitchingNote("Reconnecting…");
+          stageLive = true;
+          publishStage({ type: "connect", server: def.label });
           // A pinned dub whose token died mid-play cannot refresh in place — its
           // sibling URL is fixed — so drop back to the original track and let the
           // token-refresh re-resolve below mint a fresh ladder for it.
@@ -1190,6 +1271,8 @@ export default function useSourceResolve({
       setStageWhileLoading(false);
       setServerSwitchStage(false);
       setSwitchingNote(null);
+      stageLive = false;
+      publishStage({ type: "clear" });
       // A source-quality pin is a request to the provider. If that request is
       // what failed, restore the last ladder that worked so "Try again" is not
       // doomed to repeat the dead rung.
@@ -1217,6 +1300,7 @@ export default function useSourceResolve({
 
     return () => {
       controller.abort();
+      stageLive = false;
       try {
         revealCleanup();
       } catch {

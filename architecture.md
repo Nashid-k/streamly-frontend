@@ -63,7 +63,9 @@ Persistence keys (all localStorage, no remote DB): `aios_my_list`,
 below), `aios_my_collections` (named folders referencing saved title ids),
 `aios_search_history`, `streamly:realRatings:<id>`
 (24h), `setting-autoplay|muteTrailers|hdThumbs|reduceMotion|notifications|hoverPreviews|notificationsListAdds|notificationsMilestones|stillWatching|ambientBackground`,
-`streamly_volume|muted|aspectRatio`, `streamly_user`
+`streamly_volume|muted|aspectRatio`, `streamly_source_bw_v1` (per-server
+measured throughput EWMA, 7-day TTL, used only to seed the first HLS rung),
+`streamly_user`
 (current profile), `streamly_sync_token` (per-account HMAC token for
 `/api/sync`, issued only to a verified email identity by `/api/verifyEmail` or
 `/api/login`), `_sv`, `vite_reload`, `chunk_reload_time`. Cross-tab sync via

@@ -53,6 +53,7 @@ import useSubtitles from "./player/hooks/useSubtitles";
 import useQualitySwitch from "./player/engine/useQualitySwitch";
 import useAudioSwitch from "./player/engine/useAudioSwitch";
 import useSourceResolve from "./player/engine/useSourceResolve";
+import { loadingStageMessage } from "./player/engine/loadingStage";
 import usePlayerKeyboard from "./player/hooks/usePlayerKeyboard";
 import useMediaElementEvents from "./player/hooks/useMediaElementEvents";
 import PlayerShell from "./player/shell/PlayerShell";
@@ -606,6 +607,7 @@ export default function NativePlayerView({
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote("Retrying…");
+    setLoadingStage(null);
     setBuffering(true);
     setReloadToken((n) => n + 1);
     pokeRef.current();
@@ -670,6 +672,10 @@ export default function NativePlayerView({
      earlier version that dimmed and blurred it during a stall read as a broken
      player (see the note at the spinner). So a stall keeps the light overlay. */
   const [stageWhileLoading, setStageWhileLoading] = useState(true);
+  // Phase detail for that stage: connecting / checking / starting / buffering.
+  // Separate from `switchingNote`, which states the viewer's own intent and
+  // outranks progress (a pick keeps saying "Switching to Server 2…").
+  const [loadingStage, setLoadingStage] = useState(null);
   // True until the very first frame plays. Drives the START loader: the
   // horizontal sweep belongs to the initial cold open (the player is booting)
   // AND to a server switch (the viewer tapped a new backend), while a
@@ -706,11 +712,11 @@ export default function NativePlayerView({
   // worth keeping and only a light ring may appear.
   const showStage =
     !fatal && (stageWhileLoading || ((spinner || serverSwitchStage) && !hasStartedRef.current));
-  // Why this particular wait is happening. "Loading…" alone is identical for a
-  // cold open and for a server the viewer just picked, and those two deserve
-  // different wording — one is the app working, the other is the app admitting
-  // it is fetching from a different provider.
-  const stageNote = switchingNote || "Loading…";
+  // Why this particular wait is happening. The viewer's own pick ("Switching
+  // to Server 2…", "Retrying…", "Reconnecting…") outranks the loader phase,
+  // because it explains intent; a cold open has no note and gets the honest
+  // phase (connecting / checking / starting / buffering with byte counts).
+  const stageNote = switchingNote || loadingStageMessage(loadingStage) || "Loading…";
 
   const [bufferedSecs, setBufferedSecs] = useState(0);
   const [bufferedRanges, setBufferedRanges] = useState([]);
@@ -1791,6 +1797,7 @@ export default function NativePlayerView({
     setBuffering,
     setSpinner,
     setStageWhileLoading,
+    setLoadingStage,
     setServerSwitchStage,
     setSwitchingNote,
     setRequestedServer,
@@ -1927,6 +1934,7 @@ export default function NativePlayerView({
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote(`Switching to ${def?.label || "that server"}…`);
+    setLoadingStage(null);
     setBuffering(true);
     // A switch never offers resume/restart — that prompt is an initial-play
     // concern only. Carry-over of the position is handled by armReloadCarry().
@@ -2114,6 +2122,7 @@ export default function NativePlayerView({
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote("Loading previous episode…");
+    setLoadingStage(null);
     if (onGoPrevRef.current) return onGoPrevRef.current();
     if (navPrevNumber != null) chooseEpisode(navPrevNumber);
   };
@@ -2127,6 +2136,7 @@ export default function NativePlayerView({
     setStageWhileLoading(true);
     setServerSwitchStage(true);
     setSwitchingNote("Loading next episode…");
+    setLoadingStage(null);
     if (onGoNextRef.current) return onGoNextRef.current();
     if (navNextNumber != null) chooseEpisode(navNextNumber);
   };
