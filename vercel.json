@@ -3,6 +3,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
+    "api/health.js": {
+      "maxDuration": 5,
+      "regions": [
+        "bom1"
+      ]
+    },
     "api/tmdb.js": {
       "maxDuration": 15,
       "regions": [

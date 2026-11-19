@@ -1,14 +1,21 @@
 name: Keep backend warm
 
-# The merged backend (API + stream router) now runs on the same Vercel
-# deployment as the SPA, so there are no Render services to wake anymore.
-# This action merely pings the live deployment every 10 minutes to keep the
-# serverless function warm and "instant" for users. Both URLs below map to the
-# SAME function via vercel.json (`/api` and `/health` rewrites).
-
+# Every Vercel function is its own deployment with its own cold start, so
+# warming one endpoint does not warm another. These steps target the functions
+# viewers actually wait on:
+#
+#   /api/health              the cheap liveness probe (this file's own deploy)
+#   POST /api/stream         the stream router — the expensive cold start
+#   /api/tmdb/configuration  the catalogue proxy + a warm edge-cache entry
+#   worker /health           the Cloudflare fragment relay
+#
+# Do NOT ping `/health`: that path falls through the SPA rewrite to index.html,
+# which retires no function and used to make this workflow green while doing
+# nothing.
+#
 # Tips:
-#  - The cron cadence (10 min) is comfortably under typical idle timeouts.
-#  - Replace the base URL below if the Vercel project is renamed.
+#  - The 10-minute cadence stays inside typical serverless idle windows.
+#  - Replace BASE_URL if the Vercel project is renamed.
 
 on:
   schedule:
@@ -22,22 +29,50 @@ concurrency:
   group: keepalive
   cancel-in-progress: false
 
+env:
+  BASE_URL: https://streamlyvercelin.vercel.app
+  RELAY_URL: https://streamly-proxy.nashidk1999.workers.dev
+
 jobs:
   ping-backends:
-    name: Ping API + stream service
+    name: Warm health, stream, TMDB and relay
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Wake API backend
+      - name: Health function
         run: |
-          curl -sS --fail --max-time 30 \
+          body=$(curl -sS --fail-with-body --retry 2 --retry-delay 5 --max-time 30 \
             -H "User-Agent: keepalive" \
-            "https://streamlyvercelin.vercel.app/health" \
-            || echo "::warning::API health ping failed (may be mid cold-start)"
+            "$BASE_URL/api/health")
+          echo "$body"
+          grep -q '"ok":true' <<< "$body"
 
-      - name: Wake stream router
+      # Fails loudly until the Vercel deployment includes the `capabilities`
+      # action (HEAD 167a444+). The older build answered 400 "Unknown action",
+      # so this all-important warm step was not warming anything.
+      - name: Stream router
         run: |
-          curl -sS --fail --max-time 30 \
+          body=$(curl -sS --fail-with-body --retry 2 --retry-delay 5 --max-time 45 \
+            -X POST \
+            -H "Content-Type: application/json" \
             -H "User-Agent: keepalive" \
-            "https://streamlyvercelin.vercel.app/api/health" \
-            || echo "::warning::Stream health ping failed (may be mid cold-start)"
+            -d '{"action":"capabilities"}' \
+            "$BASE_URL/api/stream")
+          echo "$body"
+          grep -q '"ok":true' <<< "$body"
+
+      - name: TMDB proxy
+        run: |
+          body=$(curl -sS --fail-with-body --retry 2 --retry-delay 5 --max-time 30 \
+            -H "User-Agent: keepalive" \
+            "$BASE_URL/api/tmdb/configuration")
+          echo "${body:0:300}"
+          grep -q '"images"' <<< "$body"
+
+      - name: Cloudflare relay
+        run: |
+          body=$(curl -sS --fail-with-body --retry 2 --retry-delay 5 --max-time 30 \
+            -H "User-Agent: keepalive" \
+            "$RELAY_URL/health")
+          echo "$body"
+          grep -qi 'ok' <<< "$body"

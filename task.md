@@ -49,8 +49,25 @@
   710,061 bytes -> first segment 1,311,488 bytes `video/mp2t`. Direct
   `1.rivo.st` from the local residential IP still resets, so the relay remains
   the verified playback path.
-- **Gates (2026-11-19):** `npm run lint` exit 0 (warnings only), `npm run test`
-  127/127 files, 1521 passed / 2 skipped, `npm run build` exit 0.
+- **Real-flow repair pass (2026-11-19, user-approved Phase 0/1 order):** the
+  subtitle download failure was the Cloudflare worker, not the client. The
+  worker 401s on `dl.opensubtitles.org` because OpenSubtitles' bot wall
+  challenges Worker egress, while a browser-shaped direct request returns 200
+  gzip with `Access-Control-Allow-Origin: *`. Downloads are now direct-first
+  with a relay fallback; search stays relay-first (its CORS is intermittent).
+  The worker source gained CORS-on-error, OPTIONS, slice-header passthrough
+  and the legacy OpenSubtitles UA. `api/health.js` now exists, and the
+  keepalive cron warms the four functions viewers actually wait on with body
+  assertions. The Vite dev API bridge imported handlers from
+  `node_modules/.vite-temp` (every local `/api/*` handler 500'd); it now
+  resolves against `process.cwd()`. The five zero-result `/discover/*` calls
+  did not reproduce across 14 live shapes.
+- **Gates (2026-11-19, real-flow pass):** `npm run lint` exit 0 (140
+  warnings); the full Vitest tree 129/129 files, 1535 passed / 2 skipped, and
+  `npm run build` exit 0. The suite was run with 4 workers and a 15s test
+  timeout (`npx vitest run --reporter=verbose --maxWorkers=4
+  --testTimeout=15000`, 254s): the default 7-worker run flaked on pre-existing
+  5s timeouts and then stalled in the Vitest pool.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
@@ -132,10 +149,39 @@
       local. Covers the open "visuals not verified" notes for the Continue
       Watching rail, detail rails, hero geometry, badges and the banner wash.
 
-- [ ] **Subtitle relay 401 + TMDB discover warnings.** The subtitle relay
-      (`streamly-proxy.nashidk1999.workers.dev`) answers `401`, and five
-      `/discover/*` calls return zero results. Diagnose both against the live
-      deployment before changing the client.
+- [x] **Subtitle relay 401 + TMDB discover warnings (closed 2026-11-19).**
+      - **Subtitle:** the live worker download leg answers 401 with a
+        Cloudflare "not a bot" page; a direct browser-shaped request to
+        `dl.opensubtitles.org` answers 200 gzip with
+        `Access-Control-Allow-Origin: *`. The Worker is challenged on egress,
+        so the client now fetches downloads direct-first and only falls back
+        to the relay. Search remains relay-first (its CORS is intermittent).
+        `relays/cloudflare/relay-worker.js` now carries CORS on errors,
+        answers OPTIONS, exposes/passes `content-range` + `accept-ranges` and
+        injects `TemporaryUserAgent`; `relayWorker.test.js` covers that
+        protocol. `subtitleFetcher.test.js` covers direct-first and the relay
+        fallback. The client fix does not depend on the worker deploy; live
+        production verification waits on the next Vercel deploy.
+      - **Discover:** 14 live `/api/tmdb/discover` shapes (movie/TV across
+        trending/popular/top-rated/upcoming/airing and provider filters) all
+        returned results; the only sparse case was a Hotstar TV combo with 1
+        item. The "five zero-result calls" is not reproducible on the live
+        deployment; reopen only with the exact failing URLs from the console.
+      - Gates: lint exit 0 (140 warnings); full tree 129/129 files, 1535
+        passed / 2 skipped; build exit 0.
+
+- [x] **Warm the functions viewers wait on + repair the dev API bridge
+      (2026-11-19).** Added `api/health.js` (5s, `bom1`) and registered it in
+      `vercel.json` + the Vite handler map. Rewrote
+      `.github/workflows/keepalive.yml`: it used to ping `/health` (which
+      rewrites to `index.html` and warms nothing) and `/api/health` (which
+      did not exist); it now asserts response bodies from `/api/health`,
+      `POST /api/stream {"action":"capabilities"}`,
+      `/api/tmdb/configuration` and the worker `/health`. Fixed
+      `vite.config.js` so dev API handlers import from the repo root instead
+      of `node_modules/.vite-temp`; local `GET /api/health` → 200 and
+      `POST /api/stream capabilities` → 200 verified. `apiModules.test.js`
+      now sees 10/12 Hobby functions.
 
 - [ ] **Phase 4 — Detail.** Where-to-watch (grouped stream/rent/buy with price
       and quality — the biggest remaining gap); detail hero at full art
@@ -165,7 +211,7 @@
       buffered states (byte counts) and seed the first rendition from a
       per-source bandwidth read so the slow first rung is not paid every time.
 
-- [ ] **Lint-warning reduction.** ~144 warnings remain, mostly React Compiler
+- [ ] **Lint-warning reduction.** ~140 warnings remain, mostly React Compiler
       / `react-hooks` advisories (`set-state-in-effect`, `exhaustive-deps`)
       that need component restructuring. Player files were previously
       off-limits; re-check before touching them.
@@ -177,10 +223,17 @@
 - [ ] **Operator: deploy `relays/cloudflare/relay-worker.js`** to
       `streamly-proxy.nashidk1999.workers.dev` and, only if vidrack is ever
       revived, route its two `vidcore.io` POSTs through a POST-capable relay.
-      Not on the current roster's path; requires the Worker owner's sign-off.
+      The client no longer needs this deploy for subtitle downloads
+      (direct-first), but provider fragments still ride this worker, so the
+      header/CORS parity fix matters for playback. Requires the Worker
+      owner's sign-off.
 
 ## Recently shipped (newest first)
 
+- **2026-11-19 — Real-flow repair pass:** subtitle downloads direct-first
+  (worker 401 diagnosed as an egress bot-wall, not a missing UA), relay
+  header/CORS parity, `/api/health` + a keepalive cron that asserts real
+  function bodies, and the dev API handler path fix.
 - **2026-11-18 — Skills audit pass 2:** catalogue/boot-loader ellipsis copy,
   explicit transition properties for the remaining Tailwind all-property
   transition utilities, keyboard-operable trailer tiles, plus copy/compositor

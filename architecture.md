@@ -721,6 +721,11 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   were silently consuming half that budget as six publicly-invokable no-op routes.
   `src/__tests__/apiModules.test.js` enforces both halves of that rule (count ≤ 12,
   no nested modules), so a stray helper fails CI instead of failing the build.
+  `api/health.js` is the shallow liveness probe for the keepalive cron. The cron
+  warms `/api/health`, `POST /api/stream {"action":"capabilities"}`,
+  `/api/tmdb/configuration` and the worker `/health` with body assertions:
+  every function has its own cold start, and the old `/health` ping resolved
+  to `index.html` through the SPA rewrite, so it warmed nothing.
 - `server/` — shared server-side modules, outside `api/` so Vercel bundles them
 into each function through the import graph instead of deploying them as
    endpoints: `db` (Mongo pool), `logger` (`withLog`), `rateLimit`, `syncToken`,

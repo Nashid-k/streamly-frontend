@@ -1,13 +1,19 @@
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { fileURLToPath, URL } from 'node:url'
+import { resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL, URL } from 'node:url'
 
 function apiDevServerPlugin() {
   // Path -> module. Any api/ function missing here silently falls through to the
   // SPA fallback in dev (and 404s in production), which looks exactly like a
   // broken backend. Keep this list in sync with vercel.json's `functions`.
+  //
+  // Vite bundles this config into node_modules/.vite-temp, so a relative
+  // import() specifier resolves there, not at the repo root. Resolve the path
+  // against process.cwd() and import it as a file: URL.
   const handlers = {
+    '/api/health': './api/health.js',
     '/api/register': './api/register.js',
     '/api/verifyEmail': './api/verifyEmail.js',
     '/api/login': './api/login.js',
@@ -25,7 +31,8 @@ function apiDevServerPlugin() {
         const endpoint = handlers[url.pathname];
         if (endpoint) {
           try {
-            const { default: handler } = await import(endpoint);
+            const target = pathToFileURL(resolve(process.cwd(), endpoint)).href;
+            const { default: handler } = await import(target);
             let body = {};
             if (req.method === 'POST') {
               const buffers = [];
