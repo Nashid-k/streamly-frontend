@@ -5,10 +5,10 @@ const RELAY = "https://streamly-proxy.nashidk1999.workers.dev";
 const SEARCH = "https://rest.opensubtitles.org/search/imdbid-35538033";
 const DOWNLOAD = "https://dl.opensubtitles.org/en/download/src-api/vrf-abc/filead/1.gz";
 
-/* OpenSubtitles is the one upstream a browser cannot serve alone: the search
-   API intermittently answers without CORS headers, and the .gz download 401s
-   unless the legacy TemporaryUserAgent rides along (JS cannot set User-Agent).
-   Both calls are relay-first with a direct fallback. */
+/* OpenSubtitles search is relay-first: the API intermittently answers without
+   CORS headers. Downloads are direct-first: dl.opensubtitles.org is CORS-open,
+   and the relay can 401 because the upstream bot wall challenges Worker egress
+   (measured 2026-11-19). */
 
 function srtBody() {
   return "1\n00:00:01,000 --> 00:00:04,000\nHello\n";
@@ -103,7 +103,7 @@ describe("SubtitleFetcher.searchAvailableSubtitles", () => {
 });
 
 describe("SubtitleFetcher.downloadAndDecompress", () => {
-  it("reads a relay body as plain text — the worker strips content-encoding after decompressing", async () => {
+  it("fetches the download directly — dl.opensubtitles.org is CORS-open", async () => {
     vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
     const calls = [];
     stubFetch(async (url) => {
@@ -118,7 +118,7 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
 
     const text = await SubtitleFetcher.downloadAndDecompress(DOWNLOAD);
 
-    expect(calls).toEqual([`${RELAY}?url=${encodeURIComponent(DOWNLOAD)}`]);
+    expect(calls).toEqual([DOWNLOAD]);
     expect(text).toBe(srtBody());
   });
 
@@ -129,12 +129,7 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
     ).arrayBuffer();
     const calls = [];
     stubFetch(async (url) => {
-      const to = String(url);
-      calls.push(to);
-      if (to.includes("workers.dev")) {
-        // Relay down → direct answer, still gzip-encoded.
-        return { ok: false, status: 502, headers: { get: () => null }, body: { cancel: async () => {} } };
-      }
+      calls.push(String(url));
       return {
         ok: true,
         status: 200,
@@ -145,14 +140,37 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
 
     const text = await SubtitleFetcher.downloadAndDecompress(DOWNLOAD);
 
-    expect(calls).toEqual([`${RELAY}?url=${encodeURIComponent(DOWNLOAD)}`, DOWNLOAD]);
+    expect(calls).toEqual([DOWNLOAD]);
+    expect(text).toBe(srtBody());
+  });
+
+  it("falls back to the relay when the direct download is refused", async () => {
+    vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    const calls = [];
+    stubFetch(async (url) => {
+      const to = String(url);
+      calls.push(to);
+      if (to.includes("workers.dev")) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          arrayBuffer: async () => new TextEncoder().encode(srtBody()).buffer,
+        };
+      }
+      return { ok: false, status: 401, headers: { get: () => null }, body: { cancel: async () => {} } };
+    });
+
+    const text = await SubtitleFetcher.downloadAndDecompress(DOWNLOAD);
+
+    expect(calls).toEqual([DOWNLOAD, `${RELAY}?url=${encodeURIComponent(DOWNLOAD)}`]);
     expect(text).toBe(srtBody());
   });
 
   it("decompresses gzip bytes served WITHOUT content-encoding (the dl.opensubtitles.org shape)", async () => {
     // Live proof from the console: the .gz arrives 200 with no
-    // content-encoding (the relay passes headers through), so a header-only
-    // gunzip decision reads gzip bytes as text and finds zero cues.
+    // content-encoding, so a header-only gunzip decision reads gzip bytes as
+    // text and finds zero cues.
     vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
     const gzipped = await new Response(
       new Response(srtBody()).body.pipeThrough(new CompressionStream("gzip")),
@@ -180,9 +198,11 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
     await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBe(srtBody());
   });
 
-  it("returns null when the download is refused (e.g. relay without the UA injection)", async () => {
+  it("returns null when the direct and relay legs both refuse", async () => {
     vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
+    const calls = [];
     stubFetch(async (url) => {
+      calls.push(String(url));
       if (String(url).includes("workers.dev")) {
         return { ok: false, status: 401, headers: { get: () => null }, body: { cancel: async () => {} } };
       }
@@ -190,9 +210,10 @@ describe("SubtitleFetcher.downloadAndDecompress", () => {
     });
 
     await expect(SubtitleFetcher.downloadAndDecompress(DOWNLOAD)).resolves.toBeNull();
+    expect(calls).toEqual([DOWNLOAD, `${RELAY}?url=${encodeURIComponent(DOWNLOAD)}`]);
   });
 
-  it("refuses a 200 body with no timestamp lines (relay error page, not captions)", async () => {
+  it("refuses a 200 body with no timestamp lines (upstream error page, not captions)", async () => {
     vi.stubEnv("VITE_STREAMLY_RELAY_URL", RELAY);
     stubFetch(async () => ({
       ok: true,

@@ -1,31 +1,61 @@
 import { logError, logWarn } from "../utils/debugLogger";
 import { relayProxyConfig } from "./relayProxy.js";
 
-/* OpenSubtitles is the one upstream the browser cannot serve on its own: the
-   search API intermittently answers without CORS headers (the fetch dies as
-   "Failed to fetch"), and the download endpoint UA-gates every .gz — 401 unless
-   the legacy TemporaryUserAgent rides along, which JS can never set. So both
-   calls go relay-first (the Cloudflare worker injects that UA and always adds
-   CORS) and fall back to a direct fetch, which keeps today's behaviour when no
-   relay is configured or the worker is down. */
-async function fetchSubtitleResource(url, init = {}) {
-  const relay = relayProxyConfig();
-  if (relay) {
-    try {
-      const res = await fetch(`${relay.base}?url=${encodeURIComponent(url)}`, {
-        method: "GET",
-        signal: init.signal,
-      });
-      if (res.ok) return res;
-      await res.body?.cancel?.().catch?.(() => {});
-      logWarn("subtitles", `Relay refused a subtitle request (${res.status}) — trying direct.`, {
-        status: res.status,
-      });
-    } catch (error) {
-      logWarn("subtitles", "Subtitle relay unavailable — trying direct.", { message: error?.message });
-    }
+/* OpenSubtitles is the one upstream the browser cannot serve unconditionally:
+   the search API intermittently answers without CORS headers (the fetch dies
+   as "Failed to fetch"), so search stays relay-first with a direct fallback.
+
+   Downloads are the opposite. dl.opensubtitles.org answers with
+   `Access-Control-Allow-Origin: *` and a direct browser fetch returns the .gz
+   (measured 2026-11-19); the Cloudflare relay can still 401 there because
+   OpenSubtitles' bot wall challenges Worker egress. So the direct leg goes
+   first for downloads and the relay is only the fallback. */
+async function fetchViaRelay(relay, url, init) {
+  try {
+    const res = await fetch(`${relay.base}?url=${encodeURIComponent(url)}`, {
+      method: "GET",
+      signal: init.signal,
+    });
+    if (res.ok) return res;
+    await res.body?.cancel?.().catch?.(() => {});
+    logWarn("subtitles", `Relay refused a subtitle request (${res.status}).`, {
+      status: res.status,
+    });
+  } catch (error) {
+    logWarn("subtitles", "Subtitle relay unavailable.", { message: error?.message });
   }
-  return fetch(url, init);
+  return null;
+}
+
+async function fetchSubtitleResource(url, init = {}, { preferDirect = false } = {}) {
+  const direct = () => fetch(url, init);
+  const relay = relayProxyConfig();
+  if (!relay) return direct();
+
+  if (!preferDirect) {
+    const relayed = await fetchViaRelay(relay, url, init);
+    return relayed || direct();
+  }
+
+  let response = null;
+  try {
+    response = await direct();
+    if (response.ok) return response;
+    logWarn("subtitles", `Direct subtitle request refused (${response.status}) — trying relay.`, {
+      status: response.status,
+    });
+  } catch (error) {
+    logWarn("subtitles", "Direct subtitle request failed — trying relay.", {
+      message: error?.message,
+    });
+  }
+
+  const relayed = await fetchViaRelay(relay, url, init);
+  if (relayed) {
+    await response?.body?.cancel?.().catch?.(() => {});
+    return relayed;
+  }
+  return response || direct();
 }
 
 export class SubtitleFetcher {
@@ -108,26 +138,22 @@ export class SubtitleFetcher {
    */
   static async downloadAndDecompress(downloadLink) {
     try {
-      const subRes = await fetchSubtitleResource(downloadLink);
+      const subRes = await fetchSubtitleResource(downloadLink, {}, { preferDirect: true });
       if (!subRes.ok) {
         const err = new Error("Failed to download subtitle file");
         err.status = subRes.status;
-        // A 401 here almost always means the Cloudflare relay is serving
-        // without the OpenSubtitles `User-Agent: TemporaryUserAgent`
-        // injection (JS cannot set User-Agent itself, so the direct fallback
-        // 401s too) — the worker snippet in .env.example must be redeployed.
         if (subRes.status === 401) {
-          logWarn("subtitles", "Subtitle download refused (401) on both legs — the relay is almost certainly missing the OpenSubtitles User-Agent injection. Redeploy the Cloudflare worker snippet from .env.example.", { downloadLink });
+          logWarn("subtitles", "Subtitle download refused (401) on the direct and relay legs — the upstream is blocking this client. Player continues without this track.", { downloadLink });
         }
         throw err;
       }
 
       /* Read raw bytes first, then decide. dl.opensubtitles.org serves the
-         .gz as a plain download WITHOUT content-encoding (and the relay
-         passes headers through), so a header-only gunzip decision reads gzip
-         bytes as text and finds zero cues. Sniff the gzip magic (1F 8B) on
-         the bytes themselves — string-level sniffing is unreliable because
-         text-decoding binary is lossy (0x8B already becomes U+FFFD). */
+         .gz as a plain download WITHOUT content-encoding, so a header-only
+         gunzip decision reads gzip bytes as text and finds zero cues. Sniff
+         the gzip magic (1F 8B) on the bytes themselves — string-level
+         sniffing is unreliable because text-decoding binary is lossy (0x8B
+         already becomes U+FFFD). */
       const buf = await subRes.arrayBuffer();
       const bytes = new Uint8Array(buf);
       const encoding = (subRes.headers.get("content-encoding") || "").toLowerCase();
