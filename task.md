@@ -11,7 +11,7 @@
 > **Archived history:** the full pre-2026-11-17 work log lives in git at
 > `git show b9ae61e:task.md` (the `b9ae61e` commit).
 
-## Current state (2026-11-18)
+## Current state (2026-11-19)
 
 - **Player:** native HLS pipeline under `src/components/player/` (`engine/`,
   `hooks/`, `shell/`, `chrome/`), mounted by `NativePlayerView.jsx`.
@@ -21,26 +21,36 @@
   API/server code, live operator scripts and docs remain. Deployable relay
   sources are grouped under `relays/`; `docs/` is documentation only. The
   unreferenced `BrowseBar` component and `useIsTouch` hook were also deleted.
-- **Server roster (`src/constants/sources.js`):** Server 1 RIVO (multi-audio
-  when its library answers), Server 2 ZXC Valstrax, Server 3 ZXC Alatreon.
+- **Server roster (`src/constants/sources.js`):** Server 1 RIVO (up to 4K /
+  multi-audio when tagged; the provider roster moves), Server 2 ZXC Valstrax,
+  Server 3 ZXC Alatreon.
   Orion, Atlas, Ursa, VidRack and Daedalus are retired on measured evidence.
   The fourth row was removed on 2026-11-18; only the three rows above remain.
   The ZXC relay stays in `server/net.js` and `relays/apps-script/zxc-relay.gs`.
 - **Server 1 identity:** RIVO since `0b3eb99` (2026-11-02). The ZXC family owns
   Servers 2–3.
-- **Measured 2026-11-17:** RIVO's primary library (`server=1`) returns
-  `sources: []` for every tested title; RIVO siblings `server=6`
-  (1080p/720p/480p) and `server=7` (auto) still serve. `handleResolveRivo`
-  therefore tries the requested id first, then 6 → 7, inside the provider. The
-  Server 1 row no longer falls back to ZXC; only the no-pick AUTO path does.
-  The player-level failover advances to the other visible providers after a
-  resolve OR byte-probe failure.
-- **Server 1 playback proof (2026-11-17):** production `resolveRivo`
-  (`server=1`) returns `ok:true, server:"Server 6"`; the RIVO manifest
-  (35,669 bytes) and the first `ts-proxy.ts` segment (2,842,936 bytes,
-  `video/MP2T`) both return 200 through the Cloudflare worker relay. Direct
-  `1.rivo.st` fetches from the local residential IP reset, so the relay is the
-  working playback path.
+- **RIVO upstream re-sync (2026-11-19):** the shipped `f.rivo.st` player reads
+  `/api/servers?v=7` in parallel with the library and walks the advertised ids
+  only; `handleResolveRivo` now discovers that roster on a library miss, tries
+  the measured-fast 3/5/6 first, then every other advertised id, then the
+  aggregate `/api/source/{type}/{id}`. Requested-row identity is preserved for
+  errors; `lookmovie`/`movy` rows are filtered with the provider's all-filtered
+  fallback; only language-tagged rows become `audioTracks` (Server 5's
+  `(6.0 Mbps AAC)` metadata no longer does). Live matrix: library/1 empty on
+  27205, 1339713, 1149791 and 1399 S1E1; 2/4/7/8/9 empty; 3 served 3/4
+  (`auto`, direct), 5 served 4/4 (10-17 rows, 1080p/4K), 6 served 1/4
+  (1080p/720p/480p). Server 1 tag is now "Up to 4K when available · Multi audio
+  when tagged". RIVO's client resolve budget is 10s (generic 7s) because the
+  answering sibling can sit behind empty roster ids.
+- **Server 1 playback proof (2026-11-19):** live `resolveRivo` returned
+  `ok:true, server:"Server 3"` for 27205/1339713/1399 and `server:"Server 5"`
+  for 1149791. Through the Cloudflare worker, Server 3 entry 785 bytes -> variant
+  281,931 bytes -> first segment 6,241,809 bytes `video/mp4`; Server 5 entry
+  710,061 bytes -> first segment 1,311,488 bytes `video/mp2t`. Direct
+  `1.rivo.st` from the local residential IP still resets, so the relay remains
+  the verified playback path.
+- **Gates (2026-11-19):** `npm run lint` exit 0 (warnings only), `npm run test`
+  127/127 files, 1521 passed / 2 skipped, `npm run build` exit 0.
 - **Design:** the Cinejoy-teardown redesign shipped Phases 0–3 (tokens, shell,
   home, browse). Phases 4–7 remain below. No separate redesign plan doc exists;
   this file is the only task board.
@@ -76,6 +86,14 @@
 - **Gates (2026-11-18):** `npm run lint` 0 errors, `npm run test` 126/127 passed (1517 passed / 2 skipped + `playerAudioSwitchStage.test.jsx` 8/8 green in isolation = 127/127, 1518 passed), `npm run build` exit 0.
 
 ## Open work queue (top-down)
+
+- [x] **RIVO upstream re-sync (2026-11-19).** Matched the shipped player's
+      `/api/servers?v=7` roster walk + aggregate fallback; added Server 3/5/6
+      and source-filter regressions; no false Audio tracks from bitrate/codec
+      labels; live manifest + first segment proven through the Cloudflare
+      worker. `api/stream.js`, `src/constants/sources.js`,
+      `src/components/player/engine/useSourceResolve.js`; gates: lint exit 0,
+      test 1521 passed / 2 skipped, build exit 0.
 
 - [x] **Fast playback failover (2026-11-17, verified 2026-11-18).**
       Merged from `fix/fast-four-server-failover` / `fix/fast-four-server-failover-v2`

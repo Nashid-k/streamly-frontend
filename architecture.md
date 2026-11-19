@@ -202,50 +202,69 @@ so changing quality no longer requires switching audio back to Original); only
 a single-rung dub refuses, with a visible note.
 
 **RIVO (`resolveRivo`) is a SIXTH source family and owns Servers-menu Server 1**
-(2026-11-02) — rivo.st's own player backend (f.rivo.st) serves
-`/api/source/{movie|tv}/{tmdbId}?s=&e=&server=` directly with
-`{ provider, server, sources: [{ url, kind, quality, … }], subtitles }`, so the
-player sources from RIVO without the ZXC mint/relay. `api/stream.js` gained the
-`resolveRivo` action, `src/api/streamResolve.js` the matching client resolver
-(`resolveRivo`, same normalize/caching envelope), and `src/constants/sources.js`
-the `rivo-1` row. Every RIVO source is itself a MASTER playlist, so the action
-re-shapes it: `source` is a language-less master when the provider ships one,
-otherwise the master whose quality label matches the film's TMDB
-`original_language` (sent by the resolver), and only then the first master —
-RIVO does NOT order the original first (Premalu `1149791` lists Hindi, then
-Malayalam, so `sources[0]` played Hindi under a row the player had labeled
-Malayalam from TMDB). It keeps `multiLevelMaster: true`; `variants` is that
-master's real ladder (fetched and parsed server-side, one `Auto` rung if the
-fetch fails), and the other language-tagged masters become `audioTracks` — the
-same sibling-full-manifest model the player already switches for ZXC
-Centaurus/NHD. The entry's OWN language is reported as `audioOriginalLang`, so
-row 0 is named from the source rather than guessed from TMDB, and a sibling in
-the entry's language (a lower rung of the same dub) is not listed as a second
-track. Server 1 of RIVO is the multi-audio one: measured live on
-movie 1339713 and tv 1399 S1E1 it returns eight language-tagged 1080p masters
-(English, French, Latin American Spanish, Brazilian Portuguese, Spanish, Yoruba,
-Arabic sub). The upstream contract differs from ZXC's, hence the separate action.
+(2026-11-02; re-synced to the shipped player 2026-11-19) - rivo.st's own player
+backend (f.rivo.st) exposes `/api/servers?v=7` and
+`/api/source/{movie|tv}/{tmdbId}?s=&e=&server=` with
+`{ provider, server, sources: [{ url, kind, quality, subProvider, direct, ... }],
+subtitles }`. `api/stream.js` now follows the provider player's own order: ask
+the requested id first (the Server 1 row sends `server=1`, the library), then if
+it misses, discover the roster and walk the advertised ids before the aggregate
+`/api/source/{type}/{id}` (no `server`) fallback. The requested row's identity is
+kept for the final error while the sibling that actually served is echoed for
+diagnostics. A failed discovery uses a static 1-9 list; an authoritative empty
+roster skips straight to aggregate. `lookmovie`/`movy` rows are dropped with the
+provider's own all-filtered fallback. The integration keeps
+`src/api/streamResolve.js`'s `resolveRivo` envelope/caching contract and
+`src/constants/sources.js`'s single `rivo-1` menu row.
 
-**Servers menu (re-measured 2026-11-15): three rows.** Server 1 RIVO (multi audio,
-the only row that returns alternate tracks), Server 2 ZXC Valstrax, Server 3 ZXC
-Alatreon. Ursa and Orion were removed the same day at 0/3; Atlas and Daedalus
-were already retired on the same evidence. Every row is walked through the real
-handler (`resolve` → `action:"playlist"` → `action:"segment"`, real bytes) before
-it keeps a row, because a menu entry that cannot deliver is a promise the player
-never keeps.
+Every RIVO source is a full playback attempt (its own playlist), not a quality
+rung; the action re-shapes the winning row for the native player. `source` is
+the first untagged row when the provider ships one, otherwise the row whose
+quality label matches the film's TMDB `original_language` (sent by the
+resolver), and only then the first row - RIVO does NOT order the original
+first (Premalu `1149791` once listed Hindi before Malayalam). It keeps
+`multiLevelMaster: true`; `variants` is that entry playlist's real ladder
+(fetched and parsed server-side, one `Auto` rung when it is not a master or the
+fetch fails), and other LANGUAGE-TAGGED rows become `audioTracks` - the same
+sibling-full-manifest model the player switches for ZXC Centaurus/NHD. Only recognised language labels
+count: Server 5 now puts technical metadata such as `(6.0 Mbps AAC)` in the same
+parentheses, and those rows stay untagged instead of inventing Audio tracks. The
+entry's OWN language is reported as `audioOriginalLang`, so row 0 is named from
+the source rather than guessed from TMDB, and a sibling in the entry's language
+(a lower rung of the same dub) is not listed twice. The native pipeline accepts
+HLS only; `direct:true` on Server 3 does not bypass the relay.
 
-**RIVO delivery is relay-only, by upstream design.** Its playlists come from a
-third-party Cloudflare DASH→HLS bridge (host rotates: `dash-hls-bridge.*.workers.dev`)
-which answers with `ACAO: *`, but its media segments live on
-`sacdn.hakunaymatata.com`, which sends **no** `Access-Control-Allow-Origin` — a
-browser can never read them directly. `nativeHlsLoader` therefore relays every
-fragment through `relayProxyConfig()`'s worker (`streamly-proxy…workers.dev`, a
-zero-env default) and only falls to the Vercel `/api/stream` leg if that fails.
-Measured 2026-11-15 on a 997-segment media playlist: worker 126–1663 ms per
-0.2–0.6 MB fragment with `ACAO: *`; Vercel 134–4800 ms with `ACAO: null`. A 4-minute
-unattended Server 1 playback held a 168–411 s forward buffer with zero `pause()`
-calls, so relay latency is not a stall source at the rungs the player actually
-starts on — do not "fix" it by moving these bytes back onto Vercel.
+**Measured RIVO matrix 2026-11-19** (movie `27205`, movie `1339713`, movie
+`1149791`, tv `1399` S1E1): library/`server=1` returned `sources: []` on all
+four; servers 2/4/7/8/9 were empty; server 3 served 3/4 with one `auto` HLS row
+(`direct:true`); server 5 served 4/4 with 10-17 HLS rows (1080p and 4K,
+untagged); server 6 served 1/4 (1080p/720p/480p). The handler therefore tries
+the measured-fast ids 3/5/6 first, then every remaining advertised id, then the
+aggregate. The Server 1 tag is "Up to 4K when available - Multi audio when
+tagged".
+
+**Servers menu (re-measured 2026-11-19): three rows.** Server 1 RIVO (up to 4K
+and multi-audio when the provider tags it; its live roster may move), Server 2
+ZXC Valstrax, Server 3 ZXC Alatreon. Ursa and Orion were removed at 0/3; Atlas
+and Daedalus were already retired on the same evidence. Every row is walked
+through the real handler (`resolve` -> `action:"playlist"` -> `action:"segment"`,
+real bytes) before it keeps a row, because a menu entry that cannot deliver is a
+promise the player never keeps. RIVO gets a 10s client resolve budget (generic is
+7s) because the answering sibling can sit behind several empty roster ids.
+
+**RIVO delivery is relay-first, by measured browser behavior.** Current rows are
+`b.rivo.st/proxy?u=...` (Server 3) and `1.rivo.st/m3u8-proxy.m3u8?p=...` (Server
+5/6), backed by IP-literal origins. Playlists are HLS; Server 3's first media
+segment is `video/mp4`, Server 5's is `video/mp2t`. Direct `1.rivo.st` fetches
+from the local residential IP reset, so `nativeHlsLoader` relays through
+`relayProxyConfig()`'s worker (`streamly-proxy...workers.dev`, a zero-env default)
+and only falls to the Vercel `/api/stream` leg if that fails. Proof on
+2026-11-19 through the worker: Server 3 entry playlist 785 bytes -> variant
+playlist 281,931 bytes -> first segment 6,241,809 bytes `video/mp4`; Server 5
+entry 710,061 bytes -> first segment 1,311,488 bytes `video/mp2t`. The
+server-side master fetch may fail direct and fall back to one Auto rung; playback
+still uses the relayed master. Do not move these bytes back onto Vercel to
+"fix" relay latency.
 
 **The provider origin stays `zxcstream.cc` (re-probed 2026-11-15).** `zxcstream.com`
 is a DIFFERENT app: it serves `/watch` and `/search` but 404s `/player/{type}/{id}`,
@@ -337,17 +356,19 @@ are read per response, not frozen. The seed roster maps each backend to a row:
 
 | row | backend | multi-audio |
 | --- | --- | --- |
-| Server 1 RIVO | `1` | yes |
+| Server 1 RIVO | `1` | when tagged |
 | Server 2 Valstrax | `valstrax` | no |
 | Server 3 Alatreon | `alatreon` | no |
 
-(Server 1 is RIVO's multi-audio backend since 2026-11-02; the ZXC backends serve
+(Server 1 is RIVO's umbrella backend since 2026-11-02; it returned language-tagged
+multi-audio on 2026-11-15 but only untagged 1080p/4K rows on 2026-11-19. The ZXC
+backends serve
 Servers 2–3.)
 
 **The no-pick path starts at Server 1, then falls through the ZXC rotation.** When
 the viewer has NOT picked a row the player resolves through `AUTO_SOURCE`
-(`src/constants/sources.js`): it asks RIVO's multi-audio Server 1 first
-(`resolverivo` with `server:"1"`), and only when RIVO has no source for the title
+(`src/constants/sources.js`): it asks RIVO Server 1 first
+(`resolveRivo` with `server:"1"`), and only when RIVO has no source for the title
 does it call `resolvezxc` with `prefer:"valstrax"` — Server 2 first, then the SAME
 request walks the ZXC backends in health order (healthy first, then
 most-recently-successful, then the Servers-menu order). It used to ask for

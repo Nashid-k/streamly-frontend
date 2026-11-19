@@ -2189,22 +2189,52 @@ async function handleSegment(body, res) {
                        `subtitles` roster rides through untouched. */
 
 const RIVO_SOURCE_BASE = "https://f.rivo.st/api/source";
+const RIVO_SERVERS_URL = "https://f.rivo.st/api/servers?v=7";
 const RIVO_REFERER = "https://f.rivo.st/";
 
-/* RIVO numbers its own backends 1-9. Server 1 is the multi-audio library;
-   it returned empty rosters on 2026-11-17 while siblings 6 and 7 still served.
-   Those two stay first, but any sibling can become the live library without
-   changing the app's menu. Try the remaining provider IDs as a bounded
-   same-provider failover; never turn a Server 1 pick into a ZXC/Orion request. */
-const RIVO_FALLBACK_SERVERS = ["6", "7", "2", "3", "4", "5", "8", "9"];
+/* RIVO numbers its own backends 1-9, but the live roster belongs to the
+   provider: `/api/servers?v=7` is what its own player reads before walking a
+   title. Server 1/library can go empty while a different sibling serves, and
+   new ids can appear without changing our menu row. Discover the roster for
+   every miss, then try only ids the provider still advertises. The static list
+   is a transport-failure fallback, not the source of truth. Measured live on
+   2026-11-19: 1/2/4/7/8/9 empty, 3 and 5 serving most titles, 6 still serving
+   some. The fast ids are tried first to stay inside the player's resolve
+   deadline; every remaining rostered id is still tried before no-source. */
+const RIVO_FALLBACK_SERVERS = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const RIVO_FAST_SERVERS = ["3", "5", "6"];
 const RIVO_ATTEMPT_TIMEOUT_MS = 10_000;
-const RIVO_FALLBACK_TIMEOUT_MS = 4_000;
+const RIVO_FALLBACK_TIMEOUT_MS = 5_000;
+const RIVO_SERVERS_TIMEOUT_MS = 4_000;
+const RIVO_TOTAL_BUDGET_MS = 52_000;
+const RIVO_BLOCKED_SOURCE_RE = /^(lookmovie|movy)/i;
+
+function rivoHeaders() {
+  return {
+    "user-agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    accept: "application/json",
+    origin: "https://f.rivo.st",
+    referer: RIVO_REFERER,
+    "sec-fetch-site": "same-origin",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-dest": "empty",
+  };
+}
 
 /* "1080p (Brazilian Portuguese)" -> "Brazilian Portuguese". A row with no
-   parenthesised language ("Auto", "4K Ultra HD") carries no audio meaning. */
+   language in parentheses ("Auto", "4K Ultra HD") carries no audio meaning —
+   and neither does metadata like "(6.0 Mbps AAC)" or "(HDR)", which live
+   Server 5 rows now put in the same slot. Only a recognised language is a
+   label; otherwise the row is untagged. */
 function rivoAudioLabel(quality) {
-  const match = /\(([^)]+)\)/.exec(String(quality || ""));
-  return match ? match[1].trim() : "";
+  const text = String(quality || "");
+  for (const group of text.match(/\(([^)]+)\)/g) || []) {
+    const label = group.slice(1, -1).trim();
+    if (label && rivoLanguageCode(label)) return label;
+  }
+  if (!/\d/.test(text) && rivoLanguageCode(text)) return text.trim();
+  return "";
 }
 
 /* RIVO lists subtitle variants in the same roster as the audio masters
@@ -2265,7 +2295,69 @@ const RIVO_LANG_CODES = {
   hebrew: "he",
   ukrainian: "uk",
   persian: "fa",
+  yoruba: "yo",
+  afrikaans: "af",
+  swahili: "sw",
+  nepali: "ne",
+  sinhala: "si",
+  burmese: "my",
+  khmer: "km",
+  lao: "lo",
+  azerbaijani: "az",
+  kazakh: "kk",
+  uzbek: "uz",
+  georgian: "ka",
+  armenian: "hy",
+  belarusian: "be",
+  serbian: "sr",
+  croatian: "hr",
+  slovak: "sk",
+  slovenian: "sl",
+  bulgarian: "bg",
+  lithuanian: "lt",
+  latvian: "lv",
+  estonian: "et",
+  icelandic: "is",
+  irish: "ga",
+  welsh: "cy",
+  basque: "eu",
+  catalan: "ca",
+  galician: "gl",
+  albanian: "sq",
+  macedonian: "mk",
+  bosnian: "bs",
 };
+
+/* Provider labels do not always use the bare language name. These aliases
+   still describe a LANGUAGE; bitrate/codec/HDR metadata never becomes one. */
+const RIVO_LANG_ALIASES = {
+  brazilian: "pt",
+  brazilianportuguese: "pt",
+  ptbr: "pt",
+  pb: "pt",
+  latinamericanspanish: "es",
+  latinamerica: "es",
+  latamspanish: "es",
+  castilianspanish: "es",
+  spanishlatino: "es",
+  espaol: "es",
+  francais: "fr",
+  mandarin: "zh",
+  cantonese: "zh",
+  simplifiedchinese: "zh",
+  traditionalchinese: "zh",
+  chinesesimplified: "zh",
+  chinesetraditional: "zh",
+  flemish: "nl",
+  norwegianbokmal: "no",
+  englishsdh: "en",
+  englishus: "en",
+  englishuk: "en",
+};
+const RIVO_LANG_CODE_SET = new Set([
+  ...Object.values(RIVO_LANG_CODES),
+  ...Object.values(RIVO_LANG_ALIASES),
+]);
 
 /* "Malayalam" -> "malayalam" / "TAMIL" -> "tamil" / "pt-BR" -> "ptbr". */
 function rivoLangKey(value) {
@@ -2278,15 +2370,102 @@ function rivoLangKey(value) {
 function rivoLanguageCode(label) {
   const key = rivoLangKey(label);
   if (!key) return "";
-  return RIVO_LANG_CODES[key] || (key.length === 2 ? key : "");
+  if (RIVO_LANG_CODES[key]) return RIVO_LANG_CODES[key];
+  if (RIVO_LANG_ALIASES[key]) return RIVO_LANG_ALIASES[key];
+  if (key.length === 2 && RIVO_LANG_CODE_SET.has(key)) return key;
+  return "";
 }
 
-function rivoMatchesLanguage(source, wantedKey) {
-  const key = rivoLangKey(rivoAudioLabel(source?.quality));
-  if (!key || !wantedKey) return false;
-  if (key === wantedKey) return true;
-  const labelCode = RIVO_LANG_CODES[key];
-  return Boolean(labelCode && labelCode === wantedKey);
+function rivoMatchesLanguage(source, wanted) {
+  const wantedKey = rivoLangKey(wanted);
+  if (!wantedKey) return false;
+  const wantedCode = rivoLanguageCode(wanted) || (wantedKey.length === 2 ? wantedKey : "");
+  if (!wantedCode) return false;
+  const labelCode = rivoLanguageCode(rivoAudioLabel(source?.quality));
+  return Boolean(labelCode && labelCode === wantedCode);
+}
+
+/* The native player is HLS-only. A missing kind is accepted because older
+   RIVO rows omitted it; an explicit mp4/dash row is not playable here. */
+function rivoIsHlsSource(source) {
+  return Boolean(source && (!source.kind || source.kind === "hls"));
+}
+
+/* RIVO's own player drops lookmovie/movy rows; when that is the whole roster
+   it keeps the original list instead of turning a served title into no-source. */
+function rivoFilterSources(sources) {
+  const usable = (Array.isArray(sources) ? sources : []).filter((s) => s && s.url);
+  const allowed = usable.filter(
+    (s) =>
+      !RIVO_BLOCKED_SOURCE_RE.test(String(s.subProvider || "")) &&
+      !RIVO_BLOCKED_SOURCE_RE.test(String(s.provider || "")),
+  );
+  return {
+    sources: allowed.length ? allowed : usable,
+    filtered: usable.length - allowed.length,
+  };
+}
+
+/* `/api/servers?v=7` is the provider's own roster endpoint. `ok:false` means
+   transport/shape failure, so the caller uses the static id list; `ok:true`
+   with no ids is an authoritative empty roster and goes straight to aggregate. */
+async function rivoDiscoverServers() {
+  try {
+    const upstream = await fetch(RIVO_SERVERS_URL, {
+      signal: AbortSignal.timeout(RIVO_SERVERS_TIMEOUT_MS),
+      headers: rivoHeaders(),
+    });
+    const raw = await upstream.text();
+    if (!upstream.ok) {
+      logWarn("rivo", "RIVO server roster returned non-2xx", {
+        status: upstream.status,
+        body: raw.slice(0, 300),
+      });
+      return { ok: false, ids: [] };
+    }
+    let data;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      logWarn("rivo", "RIVO server roster was not JSON", { body: raw.slice(0, 300) });
+      return { ok: false, ids: [] };
+    }
+    const ids = [
+      ...new Set(
+        (Array.isArray(data?.servers) ? data.servers : [])
+          .map((server) => String(server?.id || "").trim())
+          .filter(Boolean),
+      ),
+    ];
+    logInfo("rivo", "RIVO server roster discovered", { count: ids.length, ids });
+    return { ok: true, ids };
+  } catch (error) {
+    logWarn("rivo", "RIVO server roster discovery failed", { message: error?.message });
+    return { ok: false, ids: [] };
+  }
+}
+
+async function rivoFetchPayload({ kind, tmdbId, season, episode, server, timeoutMs }) {
+  const params = new URLSearchParams();
+  if (server) params.set("server", server);
+  if (kind === "tv" && season && episode) {
+    params.set("s", season);
+    params.set("e", episode);
+  }
+  const query = params.toString();
+  const url = `${RIVO_SOURCE_BASE}/${kind}/${tmdbId}${query ? `?${query}` : ""}`;
+  const upstream = await fetch(url, {
+    signal: AbortSignal.timeout(Math.max(1_000, timeoutMs)),
+    headers: rivoHeaders(),
+  });
+  const raw = await upstream.text();
+  let data;
+  try {
+    data = raw ? JSON.parse(raw) : {};
+  } catch {
+    data = null;
+  }
+  return { url, status: upstream.status, ok: upstream.ok, raw, data };
 }
 
 async function handleResolveRivo(body, res) {
@@ -2298,110 +2477,190 @@ async function handleResolveRivo(body, res) {
   }
   const season = String(body.season ?? "").trim();
   const episode = String(body.episode ?? "").trim();
-  const server = String(body.server || "").trim() || "library";
+  const requestedServer = String(body.server || "").trim() || "library";
 
   let sources = [];
   let subtitles;
-  let serverName = server;
+  let serverName = requestedServer;
   // The menu row the caller asked for. RIVO's sibling fallback must not make a
   // Server 1 miss look like "Server 6 has no source" in the final error.
-  let rowServerName = server;
+  let rowServerName = requestedServer;
   let providerName = "rivo";
   let sawOkResponse = false;
+  let sawNonHls = false;
   const startedAt = Date.now();
 
-  const candidates = [server, ...RIVO_FALLBACK_SERVERS.filter((id) => id !== server)];
-  for (const candidate of candidates) {
-    const attemptStarted = Date.now();
-    const params = new URLSearchParams({ server: candidate });
-    if (kind === "tv" && season && episode) {
-      params.set("s", season);
-      params.set("e", episode);
-    }
-    try {
-      /* 10s per attempt — RIVO resolves JSON; hanging on one sibling must not
-         starve the fallback or the rest of the playback pipeline. */
-      const upstream = await fetch(`${RIVO_SOURCE_BASE}/${kind}/${tmdbId}?${params.toString()}`, {
-        signal: AbortSignal.timeout(candidate === server ? RIVO_ATTEMPT_TIMEOUT_MS : RIVO_FALLBACK_TIMEOUT_MS),
-        headers: {
-          "user-agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          accept: "application/json",
-          origin: "https://f.rivo.st",
-          referer: RIVO_REFERER,
-          "sec-fetch-site": "same-origin",
-          "sec-fetch-mode": "cors",
-          "sec-fetch-dest": "empty",
-        },
+  /* Accept one provider payload. Each row is a full playback attempt, not an
+     audio-track group: only a recognised language in the quality label may
+     become an Audio-menu sibling. Server 5's "(6.0 Mbps AAC)" metadata stays
+     metadata instead of inventing bogus tracks. */
+  const acceptPayload = (data, { candidate, status, raw, elapsedMs, aggregate = false }) => {
+    const echoedServer = String(
+      data?.server || (aggregate ? requestedServer : candidate) || requestedServer,
+    );
+    if (candidate === requestedServer) rowServerName = echoedServer;
+    sawOkResponse = true;
+    const allSources = Array.isArray(data?.sources) ? data.sources : [];
+    const kept = rivoFilterSources(allSources);
+    const hlsSources = kept.sources.filter(rivoIsHlsSource);
+    if (!hlsSources.length) {
+      sawNonHls = sawNonHls || kept.sources.length > 0;
+      // The roster came back empty — the case that took Server 1 down. Log
+      // the provider/server echo and raw body so an upstream outage is not
+      // confused with a shape change or an auth failure. Empty body means no
+      // URL leak.
+      logWarn("rivo", "RIVO returned no usable HLS sources", {
+        status,
+        provider: String(data?.provider || "rivo"),
+        server: echoedServer,
+        requestedServer,
+        candidate,
+        aggregate,
+        rawSources: allSources.length,
+        filteredSources: kept.filtered,
+        elapsedMs,
+        body: raw.slice(0, 300),
       });
-      const raw = await upstream.text();
-      let data;
-      try {
-        data = raw ? JSON.parse(raw) : {};
-      } catch (error) {
+      return false;
+    }
+    sources = hlsSources;
+    subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
+    serverName = echoedServer;
+    providerName = String(data?.provider || "rivo");
+    logInfo("rivo", aggregate ? "RIVO aggregate source resolved" : "RIVO source resolved", {
+      status,
+      provider: providerName,
+      server: serverName,
+      requestedServer,
+      candidate,
+      rawSources: allSources.length,
+      filteredSources: kept.filtered,
+      sources: sources.length,
+      subtitles: subtitles?.length || 0,
+      elapsedMs,
+    });
+    return true;
+  };
+
+  const tryServer = async (candidate, timeoutMs) => {
+    const attemptStarted = Date.now();
+    try {
+      const payload = await rivoFetchPayload({
+        kind,
+        tmdbId,
+        season,
+        episode,
+        server: candidate,
+        timeoutMs,
+      });
+      if (!payload.data) {
         // The body is HTML/empty/truncated rather than the JSON contract:
         // surface a bounded preview so a WAF/challenge page is distinguishable
         // from an empty roster. No source URLs can leak here because there are
         // none.
         logWarn("rivo", "RIVO response was not JSON", {
-          status: upstream.status,
+          status: payload.status,
           server: candidate,
           elapsedMs: Date.now() - attemptStarted,
-          body: raw.slice(0, 300),
+          body: payload.raw.slice(0, 300),
         });
-        continue;
+        return false;
       }
-      const echoedServer = String(data?.server || candidate);
-      if (candidate === server) rowServerName = echoedServer;
-      if (!upstream.ok) {
+      const echoedServer = String(payload.data?.server || candidate);
+      if (candidate === requestedServer) rowServerName = echoedServer;
+      if (!payload.ok) {
         logWarn("rivo", "RIVO source resolve returned non-2xx", {
-          status: upstream.status,
+          status: payload.status,
           server: candidate,
-          requestedServer: server,
+          requestedServer,
           elapsedMs: Date.now() - attemptStarted,
-          body: raw.slice(0, 300),
+          body: payload.raw.slice(0, 300),
         });
-        continue;
+        return false;
       }
-      sawOkResponse = true;
-      const allSources = Array.isArray(data?.sources) ? data.sources : [];
-      const usable = allSources.filter((s) => s && s.url);
-      if (!usable.length) {
-        // The roster came back empty — the case that took Server 1 down. Log
-        // the provider/server echo and raw body so an upstream outage is not
-        // confused with a shape change or an auth failure. Empty body means no
-        // URL leak.
-        logWarn("rivo", "RIVO returned no usable sources", {
-          status: upstream.status,
-          provider: String(data?.provider || "rivo"),
-          server: echoedServer,
-          requestedServer: server,
-          candidate,
-          rawSources: allSources.length,
-          elapsedMs: Date.now() - attemptStarted,
-          body: raw.slice(0, 300),
-        });
-        continue;
-      }
-      sources = usable;
-      subtitles = Array.isArray(data?.subtitles) ? data.subtitles : undefined;
-      serverName = echoedServer;
-      providerName = String(data?.provider || "rivo");
-      logInfo("rivo", "RIVO source resolved", {
-        status: upstream.status,
-        provider: providerName,
-        server: serverName,
-        requestedServer: server,
+      return acceptPayload(payload.data, {
         candidate,
-        sources: sources.length,
-        subtitles: subtitles?.length || 0,
+        status: payload.status,
+        raw: payload.raw,
         elapsedMs: Date.now() - startedAt,
       });
-      break;
     } catch (error) {
       logWarn("rivo", "RIVO source resolve failed", {
         server: candidate,
-        requestedServer: server,
+        requestedServer,
+        message: error?.message,
+        elapsedMs: Date.now() - attemptStarted,
+      });
+      return false;
+    }
+  };
+
+  // The requested row gets the generous timeout; the provider's own siblings
+  // share a tighter one so a hanging id cannot starve the rest.
+  if (!(await tryServer(requestedServer, RIVO_ATTEMPT_TIMEOUT_MS))) {
+    const discovery = await rivoDiscoverServers();
+    const rosterIds = discovery.ok ? discovery.ids : RIVO_FALLBACK_SERVERS;
+    const candidates = [];
+    const addCandidate = (id) => {
+      const value = String(id || "").trim();
+      if (value && value !== requestedServer && !candidates.includes(value)) {
+        candidates.push(value);
+      }
+    };
+    // Try last-known-good ids first (3/5/6 were the live servers on
+    // 2026-11-19), then every other id the provider advertises.
+    for (const id of RIVO_FAST_SERVERS) {
+      if (rosterIds.includes(id)) addCandidate(id);
+    }
+    for (const id of rosterIds) addCandidate(id);
+
+    for (const candidate of candidates) {
+      if (Date.now() - startedAt >= RIVO_TOTAL_BUDGET_MS) break;
+      const remaining = RIVO_TOTAL_BUDGET_MS - (Date.now() - startedAt);
+      if (await tryServer(candidate, Math.min(RIVO_FALLBACK_TIMEOUT_MS, remaining))) break;
+    }
+  }
+
+  /* `/api/source/{type}/{id}` without a server is the provider's aggregate
+     fallback. Its own player uses it only when `/api/servers` is empty; we use
+     it after an exhausted roster too, because a single RIVO menu row must not
+     turn an aggregate-served title into a false no-source. */
+  if (!sources.length && Date.now() - startedAt < RIVO_TOTAL_BUDGET_MS) {
+    const attemptStarted = Date.now();
+    try {
+      const payload = await rivoFetchPayload({
+        kind,
+        tmdbId,
+        season,
+        episode,
+        timeoutMs: Math.min(
+          RIVO_FALLBACK_TIMEOUT_MS,
+          RIVO_TOTAL_BUDGET_MS - (Date.now() - startedAt),
+        ),
+      });
+      if (!payload.data) {
+        logWarn("rivo", "RIVO aggregate response was not JSON", {
+          status: payload.status,
+          elapsedMs: Date.now() - attemptStarted,
+          body: payload.raw.slice(0, 300),
+        });
+      } else if (!payload.ok) {
+        logWarn("rivo", "RIVO aggregate resolve returned non-2xx", {
+          status: payload.status,
+          elapsedMs: Date.now() - attemptStarted,
+          body: payload.raw.slice(0, 300),
+        });
+      } else {
+        acceptPayload(payload.data, {
+          candidate: "aggregate",
+          status: payload.status,
+          raw: payload.raw,
+          elapsedMs: Date.now() - startedAt,
+          aggregate: true,
+        });
+      }
+    } catch (error) {
+      logWarn("rivo", "RIVO aggregate resolve failed", {
         message: error?.message,
         elapsedMs: Date.now() - attemptStarted,
       });
@@ -2409,6 +2668,14 @@ async function handleResolveRivo(body, res) {
   }
 
   if (!sources.length) {
+    if (sawNonHls) {
+      json(res, 200, {
+        ok: false,
+        error: `RIVO ${rowServerName} served only non-HLS sources`,
+        code: "unsupported-kind",
+      });
+      return;
+    }
     // A 200 with an empty roster is a title miss. Only when every attempt
     // failed at the transport/status layer is the provider itself unreachable.
     if (!sawOkResponse) {
@@ -2428,15 +2695,16 @@ async function handleResolveRivo(body, res) {
   // Only real audio masters are candidates for the entry: a subtitle variant
   // must never become the stream (it would play the video with no dubbed audio).
   const audioMasters = sources.filter(
-    (s) => s && s.kind === "hls" && !rivoIsSubtitleVariant(s.quality),
+    (s) => rivoIsHlsSource(s) && !rivoIsSubtitleVariant(s.quality),
   );
-  const untaggedMaster = audioMasters.find((s) => !String(s.quality || "").includes("("));
+  const untaggedMaster = audioMasters.find((s) => !rivoAudioLabel(s.quality));
   const languageMaster = requestedLang
     ? audioMasters.find((s) => rivoMatchesLanguage(s, requestedLang))
     : null;
   const entry = untaggedMaster || languageMaster || audioMasters[0] || sources[0];
   const entryLabel = rivoAudioLabel(entry.quality);
-  if (entry.kind && entry.kind !== "hls") {
+  const entryCode = rivoLanguageCode(entryLabel);
+  if (!rivoIsHlsSource(entry)) {
     json(res, 200, { ok: false, error: `RIVO ${serverName} served a non-HLS source`, code: "unsupported-kind" });
     return;
   }
@@ -2446,7 +2714,13 @@ async function handleResolveRivo(body, res) {
   // failed fetch is not fatal — one Auto rung keeps the source playable.
   let variants = [];
   try {
-    const text = await fetchUpstream(entry.url, { referer: RIVO_REFERER });
+    // Variants only feed the Quality menu; hls.js loads the real master itself.
+    // A slow/failing direct fetch must not consume the player's 10s resolve
+    // budget when one Auto rung is still playable through the relay.
+    const text = await fetchUpstream(entry.url, {
+      referer: RIVO_REFERER,
+      timeoutMs: 4_000,
+    });
     variants = parseMasterPlaylist(text, entry.url);
     issueHost(entry.url);
     issueHostsInText(text);
@@ -2465,12 +2739,15 @@ async function handleResolveRivo(body, res) {
   const audioTracks = [];
   for (const source of sources) {
     if (source.url === entry.url) continue;
-    const label = rivoAudioLabel(source.quality);
-    if (!label || source.kind !== "hls") continue;
+    if (!rivoIsHlsSource(source)) continue;
     // Subtitle variants are not dubs — they belong in the subtitle roster.
     if (rivoIsSubtitleVariant(source.quality)) continue;
+    const label = rivoAudioLabel(source.quality);
+    const labelCode = rivoLanguageCode(label);
+    if (!label || !labelCode) continue;
     // A sibling in the ENTRY's own language (Premalu also lists 480p Malayalam)
     // is the same audio at another rung, not a second track.
+    if (entryCode && labelCode === entryCode) continue;
     if (entryLabel && label.toLowerCase() === entryLabel.toLowerCase()) continue;
     if (audioTracks.some((track) => track.label.toLowerCase() === label.toLowerCase())) continue;
     audioTracks.push({ label, uri: source.url });
@@ -2485,7 +2762,7 @@ async function handleResolveRivo(body, res) {
     subtitles,
     // The ENTRY's own language — "" when the provider's original row carries no
     // language tag, which leaves the player's TMDB fallback in charge.
-    audioOriginalLang: rivoLanguageCode(entryLabel),
+    audioOriginalLang: entryCode,
     sourceVariants: [],
     server: serverName,
     provider: providerName,

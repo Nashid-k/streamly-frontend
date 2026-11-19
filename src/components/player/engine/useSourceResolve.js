@@ -32,6 +32,18 @@ import { buildQualityRows } from "../nativePlayerHelpers";
    real overhead inside the estimate, so the factor stays honest. Providers
    that omit `bandwidth` fall back to mainstream H.264 presets. */
 const AUTO_UPGRADE_HEADROOM = 2.2;
+const SOURCE_RESOLVE_TIMEOUT_MS = 7_000;
+/* RIVO's Server 1 may walk the provider's own roster before it finds a live
+   sibling (Server 5 is commonly the last and slowest to answer). Cutting that
+   off at the generic 7s budget turned a real source into a false server
+   failover. Keep the old netmirror exception too. */
+const SLOW_SOURCE_RESOLVE_TIMEOUT_MS = 10_000;
+function sourceResolveTimeout(key) {
+  return key === "netmirror-1" || key === "rivo-1"
+    ? SLOW_SOURCE_RESOLVE_TIMEOUT_MS
+    : SOURCE_RESOLVE_TIMEOUT_MS;
+}
+
 const AUTO_UPGRADE_FALLBACK_BITS = {
   240: 5e5,
   360: 8e5,
@@ -518,7 +530,7 @@ export default function useSourceResolve({
               : null;
           resolved = warm || (await withSourceTimeout(
             (signal) => def.resolve(args, { signal, bypass: bypassCache }),
-            def.key === "netmirror-1" ? 10000 : 7000,
+            sourceResolveTimeout(def.key),
             `${def.label} resolve`,
           ));
         } catch (error) {
@@ -1100,7 +1112,7 @@ export default function useSourceResolve({
               // — a token refresh must actually re-resolve, not replay it.
               fresh = await withSourceTimeout(
                 (signal) => def.resolve(args, { signal, bypass: true }),
-                def.key === "netmirror-1" ? 10000 : 7000,
+                sourceResolveTimeout(def.key),
                 `${def.label} token refresh`,
               );
             } catch {

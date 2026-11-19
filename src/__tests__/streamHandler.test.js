@@ -616,26 +616,39 @@ describe("resolveRivo", () => {
     expect(body.audioOriginalLang).toBe("en");
   });
 
-  it("falls through to RIVO's own live sibling servers before reporting no-source", async () => {
+  it("discovers the live roster and tries its servers instead of a hardcoded list", async () => {
+    const roster = (ids) =>
+      new Response(
+        JSON.stringify({ servers: ids.map((id) => ({ id, label: `Server ${id}` })) }),
+        { status: 200 },
+      );
     const fallback = {
       provider: "rivo",
-      server: "Server 6",
+      server: "Server 3",
       sources: [
-        { url: "https://cdn.example/6/master.m3u8", kind: "hls", quality: "1080p" },
+        {
+          url: "https://b.rivo.st/proxy?u=live",
+          kind: "hls",
+          quality: "auto",
+          subProvider: "Server 3",
+          provider: "rivo",
+          direct: true,
+        },
       ],
       subtitles: [],
     };
     const empty = { provider: "rivo", server: "Server 1", sources: [], subtitles: [] };
     const fetchMock = vi.fn(async (url) => {
       const target = String(url);
+      if (target === "https://f.rivo.st/api/servers?v=7") return roster(["1", "3", "6"]);
       if (target.startsWith("https://f.rivo.st/api/source/")) {
         if (target.includes("server=1")) {
           return new Response(JSON.stringify(empty), { status: 200 });
         }
-        if (target.includes("server=6")) {
+        if (target.includes("server=3")) {
           return new Response(JSON.stringify(fallback), { status: 200 });
         }
-        return new Response(JSON.stringify({ ...empty, server: "Server 7" }), { status: 200 });
+        return new Response(JSON.stringify({ ...empty, server: "Server 6" }), { status: 200 });
       }
       if (target === fallback.sources[0].url) {
         return new Response(MASTER, { status: 200 });
@@ -649,27 +662,33 @@ describe("resolveRivo", () => {
     expect(body.ok).toBe(true);
     expect(body.provider).toBe("rivo");
     // RIVO's internal id is echoed for diagnostics; the menu row stays Server 1.
-    expect(body.server).toBe("Server 6");
+    expect(body.server).toBe("Server 3");
     expect(body.source.url).toBe(fallback.sources[0].url);
     expect(body.variants.map((v) => v.height)).toEqual([1080, 720]);
+    expect(body.audioTracks).toEqual([]);
     const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
-    expect(calledUrls.some((u) => u.includes("server=1"))).toBe(true);
-    expect(calledUrls.some((u) => u.includes("server=6"))).toBe(true);
-    expect(calledUrls.some((u) => u.includes("server=7"))).toBe(false);
+    expect(calledUrls).toContain("https://f.rivo.st/api/servers?v=7");
+    expect(calledUrls.some((u) => u.includes("server=3"))).toBe(true);
+    // Neither 2 nor 5 was advertised, so the handler must not invent requests.
+    expect(calledUrls.some((u) => u.includes("server=2"))).toBe(false);
+    expect(calledUrls.some((u) => u.includes("server=5"))).toBe(false);
   });
 
-  it("keeps searching RIVO siblings when the previously working 6 and 7 are empty", async () => {
+  it("uses the static roster when server discovery is unavailable", async () => {
     const fallback = {
       provider: "rivo",
-      server: "Server 2",
-      sources: [{ url: "https://cdn.example/2/master.m3u8", kind: "hls", quality: "1080p" }],
+      server: "Server 3",
+      sources: [{ url: "https://cdn.example/3/master.m3u8", kind: "hls", quality: "auto" }],
       subtitles: [],
     };
     const empty = { provider: "rivo", server: "empty", sources: [], subtitles: [] };
     const fetchMock = vi.fn(async (url) => {
       const target = String(url);
+      if (target === "https://f.rivo.st/api/servers?v=7") {
+        return new Response("unavailable", { status: 502 });
+      }
       if (target.startsWith("https://f.rivo.st/api/source/")) {
-        if (target.includes("server=2")) return new Response(JSON.stringify(fallback), { status: 200 });
+        if (target.includes("server=3")) return new Response(JSON.stringify(fallback), { status: 200 });
         return new Response(JSON.stringify(empty), { status: 200 });
       }
       if (target === fallback.sources[0].url) return new Response(MASTER, { status: 200 });
@@ -680,13 +699,137 @@ describe("resolveRivo", () => {
     const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "1" });
     const body = JSON.parse(res.body);
     expect(body.ok).toBe(true);
-    expect(body.provider).toBe("rivo");
-    expect(body.server).toBe("Server 2");
+    expect(body.server).toBe("Server 3");
     expect(body.source.url).toBe(fallback.sources[0].url);
+  });
+
+  it("uses the aggregate endpoint when the live roster is empty", async () => {
+    const aggregate = {
+      provider: "rivo-backend",
+      sources: [
+        {
+          url: "https://1.rivo.st/m3u8-proxy.m3u8?p=aggregate",
+          kind: "hls",
+          quality: "1080p Studio Master (6.0 Mbps AAC)",
+          subProvider: "movenerds",
+        },
+      ],
+      subtitles: [],
+    };
+    const empty = { provider: "rivo", server: "empty", sources: [], subtitles: [] };
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target === "https://f.rivo.st/api/servers?v=7") {
+        return new Response(JSON.stringify({ servers: [] }), { status: 200 });
+      }
+      if (target === "https://f.rivo.st/api/source/movie/27205") {
+        return new Response(JSON.stringify(aggregate), { status: 200 });
+      }
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        return new Response(JSON.stringify(empty), { status: 200 });
+      }
+      if (target === aggregate.sources[0].url) return new Response(MASTER, { status: 200 });
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "1" });
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(body.provider).toBe("rivo-backend");
+    expect(body.server).toBe("1");
+    expect(body.source.url).toBe(aggregate.sources[0].url);
+    // The aggregate row's "(6.0 Mbps AAC)" is metadata, not an audio language.
+    expect(body.audioTracks).toEqual([]);
+    expect(body.audioOriginalLang).toBe("");
     const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
-    for (const server of ["1", "6", "7", "2"]) {
-      expect(calledUrls.some((u) => u.includes(`server=${server}`))).toBe(true);
-    }
+    expect(calledUrls).toContain("https://f.rivo.st/api/source/movie/27205");
+  });
+
+  it("keeps Server 5's bitrate metadata out of the Audio menu", async () => {
+    const server5 = {
+      provider: "rivo",
+      server: "Server 5",
+      sources: [
+        {
+          url: "https://cdn.example/5/studio.m3u8",
+          kind: "hls",
+          quality: "1080p Studio Master (6.0 Mbps AAC)",
+        },
+        {
+          url: "https://cdn.example/5/pure.m3u8",
+          kind: "hls",
+          quality: "1080p Pure Studio Master (5.0 Mbps AAC)",
+        },
+        { url: "https://cdn.example/5/ultra.m3u8", kind: "hls", quality: "1080p Ultra FHD" },
+        { url: "https://cdn.example/5/fr.m3u8", kind: "hls", quality: "1080p (French)" },
+      ],
+      subtitles: [],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        const target = String(url);
+        if (target.startsWith("https://f.rivo.st/api/source/")) {
+          return new Response(JSON.stringify(server5), { status: 200 });
+        }
+        if (target === server5.sources[0].url) {
+          return new Response(MASTER, { status: 200 });
+        }
+        return new Response("nope", { status: 404 });
+      }),
+    );
+
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "5" });
+    const body = JSON.parse(res.body);
+    // First row has only technical parentheses, so it is the untagged entry.
+    expect(body.source.url).toBe(server5.sources[0].url);
+    expect(body.audioTracks).toEqual([{ label: "French", uri: server5.sources[3].url }]);
+    expect(body.audioOriginalLang).toBe("");
+  });
+
+  it("drops lookmovie/movy rows before choosing the playback entry", async () => {
+    const server6 = {
+      provider: "rivo",
+      server: "Server 6",
+      sources: [
+        {
+          url: "https://cdn.example/lookmovie.m3u8",
+          kind: "hls",
+          quality: "1080p",
+          subProvider: "lookmovie",
+        },
+        {
+          url: "https://cdn.example/movy.m3u8",
+          kind: "hls",
+          quality: "1080p",
+          provider: "movy",
+        },
+        {
+          url: "https://cdn.example/good.m3u8",
+          kind: "hls",
+          quality: "1080p",
+          subProvider: "movenerds",
+        },
+      ],
+      subtitles: [],
+    };
+    const fetchMock = vi.fn(async (url) => {
+      const target = String(url);
+      if (target.startsWith("https://f.rivo.st/api/source/")) {
+        return new Response(JSON.stringify(server6), { status: 200 });
+      }
+      if (target === server6.sources[2].url) return new Response(MASTER, { status: 200 });
+      return new Response("nope", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await call({ action: "resolveRivo", type: "movie", id: "27205", server: "6" });
+    const body = JSON.parse(res.body);
+    expect(body.source.url).toBe(server6.sources[2].url);
+    const calledUrls = fetchMock.mock.calls.map((c) => String(c[0]));
+    expect(calledUrls).not.toContain(server6.sources[0].url);
+    expect(calledUrls).not.toContain(server6.sources[1].url);
   });
 
   it("reports an unreachable RIVO host when every sibling attempt fails", async () => {

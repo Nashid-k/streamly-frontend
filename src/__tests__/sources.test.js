@@ -53,7 +53,7 @@ describe("PLAYER_SOURCES", () => {
     expect(new Set(servers).size).toBe(servers.length);
   });
 
-  it("keeps the default key pointing at the first row — RIVO's multi-audio Server 1", () => {
+  it("keeps the default key pointing at the first row — RIVO Server 1", () => {
     expect(sourceByKey(DEFAULT_SOURCE_KEY)).toBeTruthy();
     expect(DEFAULT_SOURCE_KEY).toBe("rivo-1");
     // Server 1 is the row the menu leads with, and the key that means "no pick".

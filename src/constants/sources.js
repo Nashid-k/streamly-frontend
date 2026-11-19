@@ -76,6 +76,16 @@ import { logDebug } from "../utils/debugLogger";
      Server 3 Alatreon   served 3/3, TS bytes with no height metadata, no
                          alternate audio.
 
+   RIVO RE-MEASURED 2026-11-19 — the provider still advertises ids 1–9 on
+   `/api/servers?v=7`, but the live source rows moved again: library/server 1
+   was empty on movie 27205, movie 1339713, movie 1149791 and tv 1399 S1E1;
+   server 3 served 3/4 (one `auto` HLS row, direct), server 5 served 4/4
+   (10–17 HLS rows, 1080p/4K, untagged), and server 6 served 1/4
+   (1080p/720p/480p). Servers 2/4/7/8/9 were empty on all four. The handler
+   therefore discovers the roster on every Server 1 miss, tries the measured
+   fast ids (3/5/6) first, then every other advertised id, and finally the
+   provider's aggregate source. No hardcoded sibling list is authoritative.
+
     ZXC Ursa was REMOVED here (2026-11-15) after re-measuring 0/3: every title
     answered "HLS links unreadable" or a 502 from its segment host. ZXC Orion
     (briefly a fifth row the same day) went the same way at 0/3, and the ZXC
@@ -111,26 +121,27 @@ import { logDebug } from "../utils/debugLogger";
    unreachable server-side. CineSrc went with its Chrome mint service — no
    serverless function can mint fingerprint-bound tokens. */
 export const PLAYER_SOURCES = [
-  /* Server 1 is RIVO's multi-audio backend (rivo.st / f.rivo.st): one master
-     PER LANGUAGE, so the Audio menu switches between full sibling manifests.
-     It leads the menu because multi-audio is the capability most viewers pick a
-     server for, and it is the only row MEASURED to return alternate tracks
-     (2026-11-15). */
+  /* Server 1 is RIVO's umbrella row (rivo.st / f.rivo.st). Its library can
+     serve one master PER LANGUAGE for the Audio menu, while some live siblings
+     serve independent 1080p/4K rows with no language tags at all. It leads the
+     menu because it is the only row measured to return alternate tracks
+     (2026-11-15) and the provider's own roster is the widest live net. */
   {
     key: "rivo-1",
     label: "Server 1",
-    // RIVO's primary (multi-audio) library was empty on 2026-11-17 while its
-    // sibling servers still served titles, so "multi audio" is conditional on
-    // the library that answers. The row is still RIVO either way.
-    tag: "Multi audio when available · up to 1080p",
+    // The library is not always the row that answers: on 2026-11-19 it was
+    // empty while server 3/5/6 served. Both capabilities are therefore
+    // conditional, and the row is still RIVO either way.
+    tag: "Up to 4K when available · Multi audio when tagged",
     provider: "RIVO",
     server: "1",
     /* Server 1 means RIVO, full stop. This row used to catch every RIVO miss
        and replay the request on ZXC Valstrax, so an explicit Server 1 pick
-       silently became Server 2. The RIVO handler now falls through to RIVO's
-       own live sibling ids (6 → 7); a real RIVO outage must surface as a
-       no-source on Server 1, not as a different provider. The no-pick
-       AUTO_SOURCE path keeps its own documented RIVO → Server 2 fallback. */
+       silently became Server 2. The RIVO handler now discovers
+       `/api/servers?v=7` and tries the provider's own live ids before the
+       aggregate source; a real RIVO outage must surface as a no-source on
+       Server 1, not as a different provider. The no-pick AUTO_SOURCE path
+       keeps its own documented RIVO → Server 2 fallback. */
     resolve: (a, o) => streamResolve.resolveRivo({ ...a, server: "1" }, o),
   },
 
