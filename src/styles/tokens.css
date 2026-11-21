@@ -257,6 +257,9 @@
   /* The brief's second easing: colour/opacity only, so a tint change settles
      without the springy overshoot of --ease-out. */
   --ease-silk: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Shared-element route morph (streamly_2.0 metric port). Framer Motion owns
+     the route plane; the View Transition owns only this artwork handoff. */
+  --vt-poster-duration: 620ms;
 
   /* Press feedback: how far a surface sinks while held. Three tiers, because
      the depth has to match the target's size — an icon button reads as a

@@ -263,3 +263,52 @@ html[data-theme="tides"] .ambient-sky,
 html[data-theme="aurora"] .ambient-sky {
   background: transparent;
 }
+
+/* ── Route artwork morph (streamly_2.0 metrics) ────────────────────────────
+   Only the poster/artwork is a shared element. Naming the whole route would
+   fight Layout's AnimatePresence plane, so the root snapshot resolves in 1ms
+   and Framer Motion keeps its existing route transition. The navbar and search
+   field are named only so their stale OLD snapshots can be hidden: the header
+   is persistent chrome, not part of the page that changed. */
+.header-row {
+  view-transition-name: navbar;
+}
+.search-bar {
+  view-transition-name: searchbar;
+}
+html[data-poster-morph="true"] .details-hero__art img.hero-bg {
+  view-transition-name: streamly-poster;
+}
+
+::view-transition-group(root),
+::view-transition-group(navbar),
+::view-transition-group(searchbar) {
+  animation-duration: 1ms;
+}
+::view-transition-group(streamly-poster) {
+  animation-duration: var(--vt-poster-duration);
+  animation-timing-function: var(--ease-out);
+}
+::view-transition-old(navbar),
+::view-transition-old(searchbar) {
+  display: none;
+}
+::view-transition-new(navbar),
+::view-transition-new(searchbar) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-group(streamly-poster),
+  ::view-transition-group(navbar),
+  ::view-transition-group(searchbar) {
+    animation-duration: 1ms;
+  }
+}
+html[data-reduce-motion="true"] ::view-transition-group(root),
+html[data-reduce-motion="true"] ::view-transition-group(streamly-poster),
+html[data-reduce-motion="true"] ::view-transition-group(navbar),
+html[data-reduce-motion="true"] ::view-transition-group(searchbar) {
+  animation-duration: 1ms;
+}

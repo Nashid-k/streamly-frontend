@@ -88,14 +88,25 @@ const MovieCard = memo(function MovieCard({
     lower: true,
     strict: true,
   })}`;
-  const navigateToDetails = useCallback(() => openDetails(movie), [openDetails, movie]);
+  const navigateToDetails = useCallback(
+    (event) => {
+      const sourceElement =
+        event?.currentTarget?.querySelector(".movie-poster") ||
+        event?.currentTarget?.querySelector(".poster-wrapper");
+      openDetails(movie, { sourceElement });
+    },
+    [openDetails, movie],
+  );
   // Card activation is context-dependent: select mode toggles selection instead
   // of navigating, so a click (or Enter/Space) mid-selection can never unmount
   // the page and destroy the selection set.
-  const activateCard = useCallback(() => {
-    if (onToggleSelect) onToggleSelect(movie.id);
-    else navigateToDetails();
-  }, [onToggleSelect, navigateToDetails, movie.id]);
+  const activateCard = useCallback(
+    (event) => {
+      if (onToggleSelect) onToggleSelect(movie.id);
+      else navigateToDetails(event);
+    },
+    [onToggleSelect, navigateToDetails, movie.id],
+  );
 
   const handleToggleMyList = useCallback(
     (e) => {
@@ -204,7 +215,7 @@ const MovieCard = memo(function MovieCard({
             if (e.target !== e.currentTarget) return;
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              activateCard();
+              activateCard(e);
             }
           }}
           onMouseEnter={handleMouseEnter}

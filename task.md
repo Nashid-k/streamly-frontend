@@ -130,6 +130,8 @@
         `npm run test` 127/127 passed, `npm run build` exit 0). Real-browser
         LCP/CLS/INP profiling stays tracked under Phase 6/7 below.
 
+- [x] **User-prioritized streamly_2.0 animation-metrics port (2026-11-21).** Ported the measured motion metrics into the React app: poster→detail View Transition at 620ms (`--vt-poster-duration`), root/nav/search snapshots collapsed so Framer Motion keeps the route plane, reduced-motion + support fallbacks, and skeleton geometry parity (`min(78vh,850px)` hero, 200px desktop rail cell). Regression guards in `useDetailView.test.jsx` and `nonPlayerCompositor.test.js`. Real-browser click-through stays in the separate browser-verification box. Gates: `npm run lint` exit 0 (pre-existing warnings only), `npm run test -- --maxWorkers=4 --testTimeout=15000` 131/131 files / 1564 passed + 2 skipped, `npm run build` exit 0.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;

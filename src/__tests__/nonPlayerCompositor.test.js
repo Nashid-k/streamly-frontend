@@ -191,4 +191,30 @@ describe("non-player compositor budget", () => {
     expect(logo).toContain('fetchPriority = "auto"');
   });
 
+  it("matches skeleton geometry to the live hero and rail card sizes", () => {
+    const css = read("src/styles/skeleton.css");
+    const hero = rule(css, ".skeleton-hero");
+    const railItem = rule(css, ".skeleton-rail > div");
+
+    expect(hero).toContain("height: min(78vh, 850px);");
+    expect(hero).toContain("min-height: 480px;");
+    expect(hero).toContain("max-height: 850px;");
+    expect(railItem).toContain("width: 200px;");
+  });
+
+  it("scopes the route morph to artwork and hides stale chrome snapshots", () => {
+    const css = read("src/styles/motion-themes.css");
+    const hook = read("src/hooks/useDetailView.jsx");
+    const tokens = read("src/styles/tokens.css");
+
+    expect(tokens).toContain("--vt-poster-duration: 620ms;");
+    expect(css).toContain('html[data-poster-morph="true"] .details-hero__art img.hero-bg');
+    expect(css).toContain("view-transition-name: streamly-poster;");
+    expect(css).toContain("::view-transition-old(navbar)");
+    expect(css).toContain("::view-transition-old(searchbar)");
+    expect(hook).toContain("document.startViewTransition");
+    expect(hook).toContain("flushSync(commit)");
+    expect(hook).toContain("prefersReducedMotion()");
+  });
+
 });
