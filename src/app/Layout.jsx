@@ -13,7 +13,7 @@ import SpringBlossoms from "../components/SpringBlossoms";
 import SummerGlow from "../components/SummerGlow";
 import MotionBackdrop from "../components/MotionBackdrop";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
-import { useDetailTransition } from "../hooks/useDetailView";
+import { useDetailPopGuard, useDetailTransition } from "../hooks/useDetailView";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import { usePreferenceValue } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
@@ -59,6 +59,7 @@ function Layout({ children }) {
   const prefReduceMotion = usePreferenceValue("reduceMotion", false);
   const reduceMotion = osReduced || !!prefReduceMotion;
   const detailTransition = useDetailTransition();
+  useDetailPopGuard();
   const mainRef = useRef(null);
   /* Previous path is committed in an effect so THIS render still sees it —
      writing during render would erase it before direction is computed. */
@@ -128,7 +129,7 @@ function Layout({ children }) {
 
       {detailTransition.overlay && (
         <div className="detail-transition-overlay" aria-hidden="true">
-          <MovieDetailsSkeleton />
+          <MovieDetailsSkeleton hasBackdrop={detailTransition.session?.hasBackdrop} />
         </div>
       )}
 

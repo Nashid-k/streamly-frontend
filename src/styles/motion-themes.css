@@ -279,13 +279,18 @@ html[data-theme="aurora"] .ambient-sky {
 html[data-poster-morph="true"]:not([data-detail-transition="B"]) .details-hero__art img.hero-bg {
   view-transition-name: streamly-poster;
 }
-html[data-poster-morph="true"] .detail-transition-overlay .details-poster-large {
+/* 1.0 has no 2.0-style detail poster: the shared target is the full-width
+   backdrop. B must therefore be hero-shaped too, or B→C changes geometry and
+   the artwork appears to fly to the wrong place. */
+html[data-poster-morph="true"] .detail-transition-overlay .detail-transition-hero {
   view-transition-name: streamly-poster;
 }
 
 /* Fixed B stage. It paints above the route plane but below the persistent
    header islands, so the nav never ghosts or shifts during the handoff. */
 .detail-transition-overlay {
+  --details-hero-h: clamp(22rem, 72vh, 46rem);
+  --details-hero-aspect: 1.778;
   position: fixed;
   inset: 0;
   z-index: calc(var(--z-sticky) - 1);
@@ -293,10 +298,31 @@ html[data-poster-morph="true"] .detail-transition-overlay .details-poster-large 
   background: #050505;
   pointer-events: none;
 }
-/* The shared poster is the morph target even on narrow viewports, where the
-   real details page hides it. */
-.detail-transition-overlay .details-poster-large {
-  display: block !important;
+.detail-transition-overlay .detail-transition-hero,
+.detail-transition-overlay .detail-transition-hero-shade {
+  width: 100%;
+  height: var(--details-hero-h);
+  margin: 0;
+  border-radius: 0;
+}
+.detail-transition-overlay .detail-transition-hero--fit,
+.detail-transition-overlay .detail-transition-hero-shade--fit {
+  height: calc(100vw / var(--details-hero-aspect));
+}
+@media (max-width: 640px) {
+  .detail-transition-overlay .detail-transition-hero--fit,
+  .detail-transition-overlay .detail-transition-hero-shade--fit {
+    height: clamp(24rem, 62vh, 34rem);
+  }
+}
+/* 200×308 card → full-width hero is an aspect-ratio change; pin the framing
+   instead of letting the browser stretch the snapshot. */
+::view-transition-old(streamly-poster),
+::view-transition-new(streamly-poster) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 35%;
 }
 
 ::view-transition-group(root),

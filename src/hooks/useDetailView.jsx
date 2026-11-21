@@ -1,4 +1,4 @@
-import { useCallback, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import slugify from "slugify";
@@ -6,12 +6,14 @@ import { usePreferenceValue } from "../context/preferences";
 import TitleInfoModal from "../components/TitleInfoModal";
 
 const POSTER_MORPH_NAME = "streamly-poster";
+const RAIL_SELECTOR = "[data-detail-rail], .movie-rail, .track.scroll-x";
 export const DETAIL_B_HOLD_MS = 1090; /* --detail-b-duration: 640 + 55*6 + 120 */
 
 const transitionListeners = new Set();
 let transitionSnapshot = { overlay: false, bypass: false, session: null };
 let activeTransitionTask = null;
 let activeSource = null;
+const popGuard = { active: false, pendingForward: false, timer: 0 };
 
 function publish(overlay, bypass, session) {
   transitionSnapshot = { overlay, bypass, session };
@@ -45,6 +47,99 @@ function prefersReducedMotion() {
     typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
+}
+
+function isDetailsPath(pathname) {
+  return /^\/watch\//.test(pathname || "");
+}
+
+function railKey(rail) {
+  return rail?.dataset?.detailRail || rail?.getAttribute?.("aria-label") || "";
+}
+
+function capturePlace({ sourceElement, movie, from, detailToken }) {
+  const rails = {};
+  document.querySelectorAll(RAIL_SELECTOR).forEach((rail) => {
+    const key = railKey(rail);
+    if (key) rails[key] = rail.scrollLeft;
+  });
+  const sourceRail = sourceElement?.closest?.(RAIL_SELECTOR);
+  return {
+    sourceId: String(sourceElement?.dataset?.detailSource || movie.id),
+    detailToken: String(
+      detailToken ||
+        sourceElement?.dataset?.detailToken ||
+        `${from.pathname}:grid:${movie.id}`,
+    ),
+    fromPath: from.pathname,
+    fromSearch: from.search,
+    scrollY: window.scrollY,
+    railKey: railKey(sourceRail),
+    railScrollLeft: sourceRail?.scrollLeft ?? null,
+    rails,
+    hasBackdrop: Boolean(movie.backdropUrl || movie.posterUrl),
+    backdropUrl: movie.backdropUrl || movie.posterUrl || null,
+  };
+}
+
+function findSessionSource(session) {
+  const candidates = Array.from(
+    document.querySelectorAll("[data-detail-token], [data-detail-source]"),
+  );
+  if (session.detailToken) {
+    const exact = candidates.find((el) => el.dataset.detailToken === session.detailToken);
+    if (exact) return exact;
+  }
+  return candidates.find(
+    (el) => String(el.dataset.detailSource) === String(session.sourceId),
+  );
+}
+
+function restorePlace(session) {
+  if (!session) return null;
+  if (Number.isFinite(session.scrollY)) {
+    window.scrollTo({ top: session.scrollY, left: 0, behavior: "instant" });
+  }
+  const rails = Array.from(document.querySelectorAll(RAIL_SELECTOR));
+  rails.forEach((rail) => {
+    const key = railKey(rail);
+    if (
+      key &&
+      session.rails &&
+      Object.prototype.hasOwnProperty.call(session.rails, key)
+    ) {
+      rail.scrollLeft = session.rails[key];
+    }
+  });
+  if (session.railKey && session.railScrollLeft != null) {
+    const sourceRail = rails.find((rail) => railKey(rail) === session.railKey);
+    if (sourceRail) sourceRail.scrollLeft = session.railScrollLeft;
+  }
+
+  const source = findSessionSource(session);
+  const focusTarget = source?.closest?.("[role='button'], a, button") || source;
+  focusTarget?.focus?.({ preventScroll: true });
+  window.__streamlyDetailScrollRestored = true;
+  return source;
+}
+
+function preloadBackdrop(url) {
+  if (!url) return;
+  const image = new Image();
+  image.src = url;
+}
+
+/* history.go(-1) is processed asynchronously by the router. Keep B on screen
+   until A's cards are actually mounted, otherwise the B→A update callback has
+   no source element to name and the reverse snapshot lands on an empty page. */
+async function waitForSource(session, timeout = 4000) {
+  const started = Date.now();
+  while (Date.now() - started < timeout) {
+    const source = findSessionSource(session);
+    if (source) return source;
+    await delay(50);
+  }
+  return null;
 }
 
 function detailBHoldMs() {
@@ -121,14 +216,12 @@ function enqueue(task) {
   return activeTransitionTask.then(run, run);
 }
 
-async function runForwardDetailTransition({ sourceElement, movie, from, commit }) {
-  const session = {
-    sourceId: String(sourceElement?.dataset?.detailSource || movie.id),
-    fromPath: from.pathname,
-    fromSearch: from.search,
-  };
+async function runForwardDetailTransition({ sourceElement, movie, from, detailToken, commit }) {
+  const session = capturePlace({ sourceElement, movie, from, detailToken });
 
   return enqueue(async () => {
+    delete window.__streamlyDetailScrollRestored;
+    preloadBackdrop(session.backdropUrl);
     activeSource = sourceElement;
     sourceElement.style.viewTransitionName = POSTER_MORPH_NAME;
     document.documentElement.dataset.posterMorph = "true";
@@ -136,12 +229,11 @@ async function runForwardDetailTransition({ sourceElement, movie, from, commit }
     publish(false, true, session);
 
     try {
-      /* A → B: old snapshot is the card route, new snapshot is the fixed
-         shape-matched detail skeleton. B lives in Layout as an overlay, not a
-         new history entry. */
+      /* A → B: old snapshot is the card route, new snapshot is the hero-shaped
+         detail skeleton. B lives in Layout as an overlay, not a history entry. */
       await runViewTransition(() => {
         /* Old snapshot already captured the source poster. Clear it before the
-           new snapshot so only B's skeleton poster owns the shared name. */
+           new snapshot so only B's hero skeleton owns the shared name. */
         sourceElement.style.viewTransitionName = "";
         document.documentElement.dataset.detailTransition = "B";
         publish(true, true, session);
@@ -150,7 +242,7 @@ async function runForwardDetailTransition({ sourceElement, movie, from, commit }
       await delay(detailBHoldMs());
 
       /* B → C: the overlay leaves in the same commit that lands the details
-         route. The destination hero artwork inherits the shared name. */
+         route. The destination hero backdrop inherits the shared name. */
       await runViewTransition(() => {
         document.documentElement.dataset.detailTransition = "C";
         publish(false, true, session);
@@ -175,9 +267,8 @@ async function runReverseDetailTransition({ navigate, location, session }) {
     publish(false, true, session);
 
     try {
-      /* C → B: the loaded page morphs back into the same detail skeleton.
-         The hero name is scoped away while B is on screen so only the
-         skeleton poster is the shared element. */
+      /* C → B: the loaded page morphs back into the same hero skeleton. The
+         hero name is scoped away while B is on screen so only B owns it. */
       await runViewTransition(() => {
         if (hero) hero.style.viewTransitionName = "";
         activeSource = null;
@@ -187,17 +278,21 @@ async function runReverseDetailTransition({ navigate, location, session }) {
 
       await delay(detailBHoldMs());
 
-      /* B → A: pop the history entry, then name the original card poster in
-         the SAME update callback so the browser captures it as the new
-         snapshot. That is what makes the reverse artwork morph land. */
+      /* B → A: pop the history entry first, but keep B on screen until A's
+         cards are mounted. Then restore the saved page/rail geometry and name
+         the EXACT source poster inside the final update callback, so the new
+         snapshot captures the card at its original rail position. */
+      /* Mark the restore before the POP commits so useScrollRestoration's
+         retry timers and MovieRail's remount reset both stand down. */
+      window.__streamlyDetailScrollRestored = true;
+      if (location.key !== "default") navigate(-1);
+      else navigate(session.fromPath || "/");
+      await waitForSource(session);
+
       await runViewTransition(() => {
         document.documentElement.dataset.detailTransition = "A";
         publish(false, true, session);
-        if (location.key !== "default") navigate(-1);
-        else navigate(session.fromPath || "/");
-        const source = Array.from(document.querySelectorAll("[data-detail-source]")).find(
-          (el) => el.dataset.detailSource === String(session.sourceId),
-        );
+        const source = restorePlace(session);
         if (source) {
           activeSource = source;
           source.style.viewTransitionName = POSTER_MORPH_NAME;
@@ -215,17 +310,18 @@ async function runReverseDetailTransition({ navigate, location, session }) {
      · "page"  → navigate to /watch/:id/:slug
      · "modal" → open the shared Streamly-style TitleInfoModal
 
-   Returns openDetails(movie, { forceModal, sourceElement }) plus a `modalHost`
-   node to render once at the call-site root (the modal portals itself to
-   document.body, so its position in the tree doesn't matter and no transformed
-   ancestor can trap it). `forceModal` bypasses the preference for call sites
-   that need instant content with zero loading chrome (e.g. the Random picker).
+   Returns openDetails(movie, { forceModal, sourceElement, detailToken }) plus
+   a `modalHost` node to render once at the call-site root (the modal portals
+   itself to document.body, so its position in the tree doesn't matter and no
+   transformed ancestor can trap it). `forceModal` bypasses the preference for
+   call sites that need instant content with zero loading chrome (e.g. the
+   Random picker).
 
-   A card click with `sourceElement` runs the full 2.0 motion sequence:
-   A (card route) → B (shape-matched skeleton overlay) → C (details route), and
-   the matching reverse on the in-app back control. Framer Motion keeps its
-   route plane for every other navigation; during this sequence Layout switches
-   to instant variants so the View Transition is the only animation. */
+   A card click with `sourceElement` runs the real 1.0 motion sequence:
+   A (card route) → B (hero-shaped skeleton overlay) → C (details backdrop),
+   and the matching reverse on back. Framer Motion keeps its route plane for
+   every other navigation; during this sequence Layout switches to instant
+   variants so the View Transition is the only animation. */
 export default function useDetailView() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -234,7 +330,7 @@ export default function useDetailView() {
   const [modalMovie, setModalMovie] = useState(null);
 
   const openDetails = useCallback(
-    (movie, { forceModal = false, sourceElement } = {}) => {
+    (movie, { forceModal = false, sourceElement, detailToken } = {}) => {
       if (!movie) return;
       if (forceModal || detailViewType === "modal") {
         setModalMovie(movie);
@@ -254,7 +350,13 @@ export default function useDetailView() {
         !prefersReducedMotion();
 
       if (canMorph) {
-        runForwardDetailTransition({ sourceElement, movie, from: location, commit });
+        runForwardDetailTransition({
+          sourceElement,
+          movie,
+          from: location,
+          detailToken,
+          commit,
+        });
       } else {
         commit(null);
       }
@@ -295,5 +397,48 @@ export function useDetailBack() {
     }
 
     runReverseDetailTransition({ navigate, location, session });
+  }, [location, navigate, reduceMotionPref]);
+}
+
+/* Browser Back arrives as a POP before React Router commits the new location.
+   Letting it through would capture A without B; re-forwarding to the details
+   entry keeps C on screen while our reverse controller runs C→B→A. The final
+   navigate(-1) is allowed through because popGuard.active is already set. */
+export function useDetailPopGuard() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const reduceMotionPref = usePreferenceValue("reduceMotion", false);
+
+  useEffect(() => {
+    if (!supportsViewTransitions() || reduceMotionPref) return undefined;
+    const session = location.state?.detailTransition;
+    if (!isDetailsPath(location.pathname) || !session) return undefined;
+
+    const onPop = (event) => {
+      if (popGuard.active) {
+        if (popGuard.pendingForward) {
+          event.stopImmediatePropagation();
+          popGuard.pendingForward = false;
+        }
+        return;
+      }
+
+      event.stopImmediatePropagation();
+      popGuard.active = true;
+      popGuard.pendingForward = true;
+      window.clearTimeout(popGuard.timer);
+      popGuard.timer = window.setTimeout(() => {
+        popGuard.pendingForward = false;
+      }, 300);
+      window.history.forward();
+      runReverseDetailTransition({ navigate, location, session }).finally(() => {
+        popGuard.active = false;
+        popGuard.pendingForward = false;
+        window.clearTimeout(popGuard.timer);
+      });
+    };
+
+    window.addEventListener("popstate", onPop, true);
+    return () => window.removeEventListener("popstate", onPop, true);
   }, [location, navigate, reduceMotionPref]);
 }

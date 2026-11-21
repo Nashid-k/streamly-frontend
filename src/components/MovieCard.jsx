@@ -40,6 +40,7 @@ const isTouchDevice =
 
 const MovieCard = memo(function MovieCard({
   movie,
+  detailToken,
   showProgress = false,
   progressValue = 0,
   compact = false,
@@ -93,9 +94,9 @@ const MovieCard = memo(function MovieCard({
       const sourceElement =
         event?.currentTarget?.querySelector(".movie-poster") ||
         event?.currentTarget?.querySelector(".poster-wrapper");
-      openDetails(movie, { sourceElement });
+      openDetails(movie, { sourceElement, detailToken });
     },
-    [openDetails, movie],
+    [openDetails, movie, detailToken],
   );
   // Card activation is context-dependent: select mode toggles selection instead
   // of navigating, so a click (or Enter/Space) mid-selection can never unmount
@@ -229,6 +230,7 @@ const MovieCard = memo(function MovieCard({
           <div
             className="poster-wrapper"
             data-detail-source={movie.id}
+            data-detail-token={detailToken}
             style={{
               overflow: "hidden",
               background: "var(--bg-surface)",
@@ -335,6 +337,7 @@ const MovieCard = memo(function MovieCard({
                 alt={movie.title}
                 className="movie-poster"
                 data-detail-source={movie.id}
+                data-detail-token={detailToken}
                 loading="lazy"
                 decoding="async"
                 onLoad={() => setIsLoaded(true)}

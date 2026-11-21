@@ -1,6 +1,6 @@
 import MovieCardSkeleton from "./MovieCardSkeleton";
 
-export default function MovieDetailsSkeleton() {
+export default function MovieDetailsSkeleton({ hasBackdrop = true }) {
   return (
     <div
       style={{
@@ -12,21 +12,17 @@ export default function MovieDetailsSkeleton() {
     >
       {/* ── Backdrop skeleton ────────────────────────────────── */}
       <div
-        className="skeleton skeleton-glow"
-        style={{
-          height: "min(85vh, 900px)",
-          width: "100vw",
-          marginLeft: "calc(-50vw + 50%)",
-          borderRadius: 0,
-        }}
+        className={`skeleton skeleton-glow detail-transition-hero${hasBackdrop ? " detail-transition-hero--fit" : ""}`}
       />
       {/* Backdrop gradient overlays */}
-      <div style={{
-        position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
-        width: "100vw", height: "min(85vh, 900px)",
-        background: "linear-gradient(to top, #050505 0%, rgba(5,5,5,0.4) 40%, transparent 70%)",
-        pointerEvents: "none", zIndex: 1,
-      }} />
+      <div
+        className={`detail-transition-hero-shade${hasBackdrop ? " detail-transition-hero-shade--fit" : ""}`}
+        style={{
+          position: "absolute", top: 0, left: 0, width: "100%",
+          background: "linear-gradient(to top, #050505 0%, rgba(5,5,5,0.4) 40%, transparent 70%)",
+          pointerEvents: "none", zIndex: 1,
+        }}
+      />
 
       {/* ── Topbar skeleton ──────────────────────────────────── */}
       <div

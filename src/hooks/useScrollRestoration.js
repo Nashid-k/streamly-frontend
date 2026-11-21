@@ -106,6 +106,10 @@ export function useScrollRestoration() {
   useEffect(() => {
     const previousPath = lastPathRef.current;
     lastPathRef.current = location.pathname;
+    /* A controlled detail reverse already restored page + rail geometry
+       inside its View Transition callback. Restoring again here would yank
+       the captured A snapshot after the morph has landed. */
+    if (navType === "POP" && window.__streamlyDetailScrollRestored) return;
     if (navType === "POP") {
       const savedPosition = readScrollEntry(`scroll-${location.key}`);
       if (savedPosition) {

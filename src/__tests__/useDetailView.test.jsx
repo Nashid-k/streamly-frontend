@@ -53,12 +53,19 @@ const baseMovie = {
   id: "movie-123",
   title: "Test Movie",
   overview: "A test story.",
+  backdropUrl: "/backdrop.jpg",
 };
 
 function makePoster() {
+  const rail = document.createElement("div");
+  rail.dataset.detailRail = "Trending";
+  rail.setAttribute("role", "group");
+  rail.scrollLeft = 120;
   const poster = document.createElement("img");
   poster.dataset.detailSource = baseMovie.id;
-  document.body.appendChild(poster);
+  poster.dataset.detailToken = "Trending:0:movie-123";
+  rail.appendChild(poster);
+  document.body.appendChild(rail);
   return poster;
 }
 
@@ -77,6 +84,8 @@ describe("useDetailView", () => {
     /* Short but nonzero: the first View Transition commits synchronously in
        these stubs, so B can be observed before the hold timer advances. */
     document.documentElement.style.setProperty("--detail-b-duration", "20ms");
+    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 432 });
   });
 
   afterEach(() => {
@@ -86,6 +95,10 @@ describe("useDetailView", () => {
     document.documentElement.removeAttribute("data-detail-transition");
     document.documentElement.removeAttribute("data-route-animating");
     document.querySelectorAll("img").forEach((el) => el.remove());
+    document.querySelectorAll("[data-detail-rail]").forEach((el) => el.remove());
+    delete window.__streamlyDetailScrollRestored;
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
+    vi.restoreAllMocks();
   });
 
   it("opens the info modal when Detail View Type = modal", async () => {
@@ -96,7 +109,7 @@ describe("useDetailView", () => {
     expect(ref.pathname).toBe("/");
   });
 
-  it("runs A→B→C on a card click and clears the motion handoff", async () => {
+  it("captures the exact card token and rail/page geometry on A→B→C", async () => {
     const poster = makePoster();
     let sourceNameAtCapture = "";
     stubViewTransitions(() => {
@@ -106,10 +119,16 @@ describe("useDetailView", () => {
     const ref = renderHarness({ movie: baseMovie, detailViewType: "page", sourceElement: poster });
     fireEvent.click(screen.getByText("open"));
 
-    /* A → B is committed inside the first View Transition callback. */
+    const session = getDetailTransitionSnapshot().session;
     expect(sourceNameAtCapture).toBe("streamly-poster");
     expect(getDetailTransitionSnapshot().overlay).toBe(true);
-    expect(getDetailTransitionSnapshot().session.sourceId).toBe(baseMovie.id);
+    expect(session.sourceId).toBe(baseMovie.id);
+    expect(session.detailToken).toBe("Trending:0:movie-123");
+    expect(session.scrollY).toBe(432);
+    expect(session.railKey).toBe("Trending");
+    expect(session.railScrollLeft).toBe(120);
+    expect(session.rails.Trending).toBe(120);
+    expect(session.hasBackdrop).toBe(true);
     expect(poster.style.viewTransitionName).toBe("");
     expect(document.documentElement.dataset.detailTransition).toBe("B");
 
@@ -118,12 +137,13 @@ describe("useDetailView", () => {
     await waitFor(() => expect(getDetailTransitionSnapshot().bypass).toBe(false));
 
     expect(document.startViewTransition).toHaveBeenCalledTimes(2);
+    expect(getDetailTransitionSnapshot().bypass).toBe(false);
     expect(poster.style.viewTransitionName).toBe("");
     expect(document.documentElement.hasAttribute("data-poster-morph")).toBe(false);
     expect(document.documentElement.hasAttribute("data-detail-transition")).toBe(false);
   });
 
-  it("runs C→B→A on the in-app back control", async () => {
+  it("restores the original card and rail/page geometry on C→B→A", async () => {
     const poster = makePoster();
     stubViewTransitions();
 
@@ -142,6 +162,9 @@ describe("useDetailView", () => {
     await waitFor(() => expect(getDetailTransitionSnapshot().bypass).toBe(false));
 
     expect(document.startViewTransition).toHaveBeenCalledTimes(4);
+    expect(poster.parentElement.scrollLeft).toBe(120);
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 432, left: 0, behavior: "instant" });
+    expect(window.__streamlyDetailScrollRestored).toBe(true);
     expect(poster.style.viewTransitionName).toBe("");
   });
 
@@ -168,7 +191,6 @@ describe("useDetailView", () => {
     expect(ref.current.modalHost).toBeNull();
     fireEvent.click(screen.getByText("open"));
     await waitFor(() => expect(ref.current.modalHost).not.toBeNull());
-    // close through the gateway
     ref.current.closeDetails();
     await waitFor(() => expect(ref.current.isModalOpen).toBe(false));
   });

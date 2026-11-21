@@ -202,12 +202,15 @@ describe("non-player compositor budget", () => {
     expect(railItem).toContain("width: 200px;");
   });
 
-  it("runs the full A→B→C / C→B→A sequence with 2.0 timing tokens", () => {
+  it("morphs a card into the 1.0 hero backdrop and restores its rail position", () => {
     const css = read("src/styles/motion-themes.css");
     const hook = read("src/hooks/useDetailView.jsx");
     const tokens = read("src/styles/tokens.css");
     const layout = read("src/app/Layout.jsx");
     const card = read("src/components/MovieCard.jsx");
+    const rail = read("src/components/rails/MovieRail.jsx");
+    const skeleton = read("src/components/MovieDetailsSkeleton.jsx");
+    const scroll = read("src/hooks/useScrollRestoration.js");
 
     expect(tokens).toContain("--vt-root-duration: 620ms;");
     expect(tokens).toContain("--vt-poster-duration: 780ms;");
@@ -217,16 +220,27 @@ describe("non-player compositor budget", () => {
     expect(css).toContain(".detail-transition-overlay");
     expect(css).toContain('html[data-detail-transition]::view-transition-old(root)');
     expect(css).toContain('html[data-detail-transition]::view-transition-new(root)');
-    expect(css).toContain('.detail-transition-overlay .details-poster-large');
+    expect(css).toContain(".detail-transition-overlay .detail-transition-hero");
+    expect(css).not.toContain(".detail-transition-overlay .details-poster-large");
+    expect(css).toContain("::view-transition-old(streamly-poster)");
+    expect(css).toContain("object-fit: cover");
     expect(css).toContain("::view-transition-old(navbar)");
     expect(css).toContain("::view-transition-old(searchbar)");
     expect(hook).toContain("runForwardDetailTransition");
     expect(hook).toContain("runReverseDetailTransition");
-    expect(hook).toContain("data-detail-source");
+    expect(hook).toContain("function capturePlace");
+    expect(hook).toContain("function restorePlace");
+    expect(hook).toContain("useDetailPopGuard");
     expect(hook).toContain("document.startViewTransition");
     expect(layout).toContain("detailTransition.overlay");
     expect(layout).toContain("detailTransition.bypass");
     expect(card).toContain("data-detail-source={movie.id}");
+    expect(card).toContain("data-detail-token={detailToken}");
+    expect(rail).toContain("data-detail-rail={category.name}");
+    expect(rail).toContain("detailToken={`${category.name}:${index}:${movie.id}`}");
+    expect(rail).toContain("window.__streamlyDetailScrollRestored");
+    expect(skeleton).toContain("detail-transition-hero--fit");
+    expect(scroll).toContain("window.__streamlyDetailScrollRestored");
   });
 
 });

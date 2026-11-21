@@ -68,6 +68,10 @@ const MovieRail = React.memo(
     const throttleTimeoutRef = useRef(null);
 
     useEffect(() => {
+      /* A controlled detail reverse restores this rail's saved scrollLeft
+         inside its final View Transition callback; the remount reset would
+         otherwise throw the card back to the start after the morph lands. */
+      if (window.__streamlyDetailScrollRestored) return;
       setVisibleCount(15);
       if (railRef.current) {
         railRef.current.scrollLeft = 0;
@@ -161,6 +165,7 @@ const MovieRail = React.memo(
               className="movie-rail track scroll-x"
               role="group"
               tabIndex={0}
+              data-detail-rail={category.name}
               aria-label={`${category.name} titles`}
               onScroll={handleScroll}
               style={{
@@ -171,7 +176,7 @@ const MovieRail = React.memo(
                 scrollbarWidth: "none",
               }}
             >
-              {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount                ).map((movie) => (
+              {(Array.isArray(category.movies) ? category.movies : []).slice(0, visibleCount                ).map((movie, index) => (
                 /* No per-card entrance: rivo.st's rows reveal as ONE block
                    (`fadeUp` on the section), and the per-card `whileInView`
                    stagger here animated up to 15 framer nodes per rail on top
@@ -179,7 +184,10 @@ const MovieRail = React.memo(
                    thread work on every scroll. */
                 <div key={movie.id} style={{ flexShrink: 0 }}>
                   <div className="movie-rail-item">
-                    <MovieCard movie={movie} />
+                    <MovieCard
+                      movie={movie}
+                      detailToken={`${category.name}:${index}:${movie.id}`}
+                    />
                   </div>
                 </div>
               ))}
