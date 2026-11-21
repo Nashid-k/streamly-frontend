@@ -13,6 +13,8 @@ import SpringBlossoms from "../components/SpringBlossoms";
 import SummerGlow from "../components/SummerGlow";
 import MotionBackdrop from "../components/MotionBackdrop";
 import { useScrollRestoration } from "../hooks/useScrollRestoration";
+import { useDetailTransition } from "../hooks/useDetailView";
+import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import { usePreferenceValue } from "../context/preferences";
 import { NAV_ITEMS } from "../constants/navigation";
 import {
@@ -56,6 +58,7 @@ function Layout({ children }) {
   const osReduced = useReducedMotion();
   const prefReduceMotion = usePreferenceValue("reduceMotion", false);
   const reduceMotion = osReduced || !!prefReduceMotion;
+  const detailTransition = useDetailTransition();
   const mainRef = useRef(null);
   /* Previous path is committed in an effect so THIS render still sees it —
      writing during render would erase it before direction is computed. */
@@ -102,8 +105,12 @@ function Layout({ children }) {
      also rejected: it delays the enter behind the full exit and still clamps
      the scroll at commit. The `custom` directions both planes share come from
      `routeDirection`; AnimatePresence forwards it to the exiting page. */
-  const variants = reduceMotion ? REDUCED_ROUTE_VARIANTS[variant] : ROUTE_VARIANTS[variant];
-  const enterTransition = reduceMotion ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
+  /* During A→B→C / C→B→A the View Transition owns the screen. Framer Motion
+     must resolve instantly or the route plane would animate under the
+     snapshots and double-expose every handoff. */
+  const instantRoute = reduceMotion || detailTransition.bypass;
+  const variants = instantRoute ? REDUCED_ROUTE_VARIANTS[variant] : ROUTE_VARIANTS[variant];
+  const enterTransition = instantRoute ? REDUCED_ROUTE_TRANSITION : ROUTE_TRANSITIONS[variant];
 
   return (
     <div className="app-container">
@@ -118,6 +125,12 @@ function Layout({ children }) {
       <SpringBlossoms />
       <SummerGlow />
       <OfflineBanner />
+
+      {detailTransition.overlay && (
+        <div className="detail-transition-overlay" aria-hidden="true">
+          <MovieDetailsSkeleton />
+        </div>
+      )}
 
       <main className="app-main" id="main-content" tabIndex={-1} ref={mainRef}>
         <AnimatePresence mode="popLayout" initial={false} custom={dir}>

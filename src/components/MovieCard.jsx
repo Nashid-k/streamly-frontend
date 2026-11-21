@@ -228,6 +228,7 @@ const MovieCard = memo(function MovieCard({
           {/* ── Poster wrapper ───────────────────────────────── */}
           <div
             className="poster-wrapper"
+            data-detail-source={movie.id}
             style={{
               overflow: "hidden",
               background: "var(--bg-surface)",
@@ -333,6 +334,7 @@ const MovieCard = memo(function MovieCard({
                 sizes={posterSrcSet ? CdnImageAdapter.getSizes("card") : undefined}
                 alt={movie.title}
                 className="movie-poster"
+                data-detail-source={movie.id}
                 loading="lazy"
                 decoding="async"
                 onLoad={() => setIsLoaded(true)}

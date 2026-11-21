@@ -132,6 +132,8 @@
 
 - [x] **User-prioritized streamly_2.0 animation-metrics port (2026-11-21).** Ported the measured motion metrics into the React app: poster→detail View Transition at 620ms (`--vt-poster-duration`), root/nav/search snapshots collapsed so Framer Motion keeps the route plane, reduced-motion + support fallbacks, and skeleton geometry parity (`min(78vh,850px)` hero, 200px desktop rail cell). Regression guards in `useDetailView.test.jsx` and `nonPlayerCompositor.test.js`. Real-browser click-through stays in the separate browser-verification box. Gates: `npm run lint` exit 0 (pre-existing warnings only), `npm run test -- --maxWorkers=4 --testTimeout=15000` 131/131 files / 1564 passed + 2 skipped, `npm run build` exit 0.
 
+- [x] **A→B→C / C→B→A detail navigation parity (2026-11-21).** Replaced the poster-only morph with the real three-stage sequence: A card route → B fixed shape-matched detail skeleton overlay → C loaded details route, plus C→B→A on the in-app back control. 2.0 metrics restored: root 620ms, poster 780ms, view ease `cubic-bezier(.4,0,.2,1)`, shimmer 1.8s, B dwell 1090ms (`640 + 55*6 + 120`). Framer Motion route planes resolve instantly only while the View Transition owns the screen; reduced motion bypasses the sequence. Gate run: `npm run lint` exit 0 (warnings only); `npm run test -- --maxWorkers=4 --testTimeout=15000` 131/131 files, 1564 passed + 2 skipped; `npm run build` exit 0. One earlier full-run SearchPage caret assertion flaked under load; its targeted rerun and the final full run passed.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;

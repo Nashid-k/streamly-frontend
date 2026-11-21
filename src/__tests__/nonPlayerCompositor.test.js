@@ -202,19 +202,31 @@ describe("non-player compositor budget", () => {
     expect(railItem).toContain("width: 200px;");
   });
 
-  it("scopes the route morph to artwork and hides stale chrome snapshots", () => {
+  it("runs the full A→B→C / C→B→A sequence with 2.0 timing tokens", () => {
     const css = read("src/styles/motion-themes.css");
     const hook = read("src/hooks/useDetailView.jsx");
     const tokens = read("src/styles/tokens.css");
+    const layout = read("src/app/Layout.jsx");
+    const card = read("src/components/MovieCard.jsx");
 
-    expect(tokens).toContain("--vt-poster-duration: 620ms;");
-    expect(css).toContain('html[data-poster-morph="true"] .details-hero__art img.hero-bg');
-    expect(css).toContain("view-transition-name: streamly-poster;");
+    expect(tokens).toContain("--vt-root-duration: 620ms;");
+    expect(tokens).toContain("--vt-poster-duration: 780ms;");
+    expect(tokens).toContain("--vt-view-ease: cubic-bezier(0.4, 0, 0.2, 1);");
+    expect(tokens).toContain("--detail-b-duration: 1090ms;");
+    expect(read("src/styles/skeleton.css")).toContain("animation: shimmer-wave 1.8s");
+    expect(css).toContain(".detail-transition-overlay");
+    expect(css).toContain('html[data-detail-transition]::view-transition-old(root)');
+    expect(css).toContain('html[data-detail-transition]::view-transition-new(root)');
+    expect(css).toContain('.detail-transition-overlay .details-poster-large');
     expect(css).toContain("::view-transition-old(navbar)");
     expect(css).toContain("::view-transition-old(searchbar)");
+    expect(hook).toContain("runForwardDetailTransition");
+    expect(hook).toContain("runReverseDetailTransition");
+    expect(hook).toContain("data-detail-source");
     expect(hook).toContain("document.startViewTransition");
-    expect(hook).toContain("flushSync(commit)");
-    expect(hook).toContain("prefersReducedMotion()");
+    expect(layout).toContain("detailTransition.overlay");
+    expect(layout).toContain("detailTransition.bypass");
+    expect(card).toContain("data-detail-source={movie.id}");
   });
 
 });

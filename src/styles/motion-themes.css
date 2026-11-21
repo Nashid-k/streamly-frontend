@@ -264,20 +264,39 @@ html[data-theme="aurora"] .ambient-sky {
   background: transparent;
 }
 
-/* ── Route artwork morph (streamly_2.0 metrics) ────────────────────────────
-   Only the poster/artwork is a shared element. Naming the whole route would
-   fight Layout's AnimatePresence plane, so the root snapshot resolves in 1ms
-   and Framer Motion keeps its existing route transition. The navbar and search
-   field are named only so their stale OLD snapshots can be hidden: the header
-   is persistent chrome, not part of the page that changed. */
+/* ── A→B→C / C→B→A detail navigation (streamly_2.0 metrics) ─────────────────
+   A is the card route, B is the fixed shape-matched detail skeleton, C is the
+   loaded details page (or the route being restored on back). Ordinary routes
+   still belong to Framer Motion: root/nav/search snapshots resolve in 1ms
+   unless `data-detail-transition` is set, which means this controller owns
+   the screen and Layout has switched to instant route variants. */
 .header-row {
   view-transition-name: navbar;
 }
 .search-bar {
   view-transition-name: searchbar;
 }
-html[data-poster-morph="true"] .details-hero__art img.hero-bg {
+html[data-poster-morph="true"]:not([data-detail-transition="B"]) .details-hero__art img.hero-bg {
   view-transition-name: streamly-poster;
+}
+html[data-poster-morph="true"] .detail-transition-overlay .details-poster-large {
+  view-transition-name: streamly-poster;
+}
+
+/* Fixed B stage. It paints above the route plane but below the persistent
+   header islands, so the nav never ghosts or shifts during the handoff. */
+.detail-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-sticky) - 1);
+  overflow: hidden;
+  background: #050505;
+  pointer-events: none;
+}
+/* The shared poster is the morph target even on narrow viewports, where the
+   real details page hides it. */
+.detail-transition-overlay .details-poster-large {
+  display: block !important;
 }
 
 ::view-transition-group(root),
@@ -287,7 +306,7 @@ html[data-poster-morph="true"] .details-hero__art img.hero-bg {
 }
 ::view-transition-group(streamly-poster) {
   animation-duration: var(--vt-poster-duration);
-  animation-timing-function: var(--ease-out);
+  animation-timing-function: var(--vt-view-ease);
 }
 ::view-transition-old(navbar),
 ::view-transition-old(searchbar) {
@@ -296,6 +315,22 @@ html[data-poster-morph="true"] .details-hero__art img.hero-bg {
 ::view-transition-new(navbar),
 ::view-transition-new(searchbar) {
   animation: none;
+}
+
+html[data-detail-transition]::view-transition-group(root) {
+  animation-duration: var(--vt-root-duration);
+}
+html[data-detail-transition]::view-transition-old(root) {
+  animation: streamly-vt-out var(--vt-root-duration) var(--vt-view-ease) both;
+}
+html[data-detail-transition]::view-transition-new(root) {
+  animation: streamly-vt-in var(--vt-root-duration) var(--vt-view-ease) both;
+}
+@keyframes streamly-vt-out {
+  to { opacity: 0; transform: scale(0.97); }
+}
+@keyframes streamly-vt-in {
+  from { opacity: 0; transform: translateY(28px) scale(0.985); }
 }
 
 @media (prefers-reduced-motion: reduce) {

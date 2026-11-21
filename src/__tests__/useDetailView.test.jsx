@@ -1,19 +1,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { useLocation, Routes, Route } from "react-router-dom";
-import useDetailView from "../hooks/useDetailView";
+import useDetailView, {
+  useDetailBack,
+  getDetailTransitionSnapshot,
+} from "../hooks/useDetailView";
 import { renderWithProviders } from "../test/testUtils";
 
 /* Harness: exposes the hook's returns + renders its modal host, exactly
    like a real call site (hero banner, rail card, banner rows) would. */
 function Harness({ onReady, movie, sourceElement }) {
   const detail = useDetailView();
+  const detailBack = useDetailBack();
   onReady(detail);
   return (
     <div>
       <button onClick={() => detail.openDetails(movie, { sourceElement })}>open</button>
+      <button onClick={detailBack}>back</button>
       {detail.modalHost}
       <Routes>
+        <Route path="/" element={<div>home-page</div>} />
         <Route path="/watch/:id/:slug?" element={<div>details-page</div>} />
       </Routes>
     </div>
@@ -51,19 +57,34 @@ const baseMovie = {
 
 function makePoster() {
   const poster = document.createElement("img");
+  poster.dataset.detailSource = baseMovie.id;
   document.body.appendChild(poster);
   return poster;
+}
+
+function stubViewTransitions(onCapture) {
+  document.startViewTransition = vi.fn((commit) => {
+    onCapture?.();
+    commit();
+    return { finished: Promise.resolve() };
+  });
 }
 
 describe("useDetailView", () => {
   beforeEach(() => {
     cleanup();
     localStorage.clear();
+    /* Short but nonzero: the first View Transition commits synchronously in
+       these stubs, so B can be observed before the hold timer advances. */
+    document.documentElement.style.setProperty("--detail-b-duration", "20ms");
   });
 
   afterEach(() => {
     delete document.startViewTransition;
+    document.documentElement.style.removeProperty("--detail-b-duration");
     document.documentElement.removeAttribute("data-poster-morph");
+    document.documentElement.removeAttribute("data-detail-transition");
+    document.documentElement.removeAttribute("data-route-animating");
     document.querySelectorAll("img").forEach((el) => el.remove());
   });
 
@@ -75,44 +96,58 @@ describe("useDetailView", () => {
     expect(ref.pathname).toBe("/");
   });
 
-  it("navigates to the details page when Detail View Type = page", async () => {
-    const ref = renderHarness({ movie: baseMovie, detailViewType: "page" });
-    fireEvent.click(screen.getByText("open"));
-    await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
-    expect(ref.current.isModalOpen).toBe(false);
-    expect(screen.queryByTestId("title-info-modal")).not.toBeInTheDocument();
-  });
-
-  it("morphs the supplied poster into the detail hero and clears the handoff", async () => {
+  it("runs A→B→C on a card click and clears the motion handoff", async () => {
     const poster = makePoster();
-    let resolveFinished;
-    const finished = new Promise((resolve) => {
-      resolveFinished = resolve;
-    });
-    document.startViewTransition = vi.fn((commit) => {
-      commit();
-      return { finished };
+    let sourceNameAtCapture = "";
+    stubViewTransitions(() => {
+      sourceNameAtCapture = poster.style.viewTransitionName;
     });
 
     const ref = renderHarness({ movie: baseMovie, detailViewType: "page", sourceElement: poster });
     fireEvent.click(screen.getByText("open"));
 
-    await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
-    expect(document.startViewTransition).toHaveBeenCalledTimes(1);
-    expect(poster.style.viewTransitionName).toBe("streamly-poster");
-    expect(document.documentElement.getAttribute("data-poster-morph")).toBe("true");
+    /* A → B is committed inside the first View Transition callback. */
+    expect(sourceNameAtCapture).toBe("streamly-poster");
+    expect(getDetailTransitionSnapshot().overlay).toBe(true);
+    expect(getDetailTransitionSnapshot().session.sourceId).toBe(baseMovie.id);
+    expect(poster.style.viewTransitionName).toBe("");
+    expect(document.documentElement.dataset.detailTransition).toBe("B");
 
-    resolveFinished();
-    await waitFor(() => expect(poster.style.viewTransitionName).toBe(""));
+    await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
+    await waitFor(() => expect(getDetailTransitionSnapshot().overlay).toBe(false));
+    await waitFor(() => expect(getDetailTransitionSnapshot().bypass).toBe(false));
+
+    expect(document.startViewTransition).toHaveBeenCalledTimes(2);
+    expect(poster.style.viewTransitionName).toBe("");
     expect(document.documentElement.hasAttribute("data-poster-morph")).toBe(false);
+    expect(document.documentElement.hasAttribute("data-detail-transition")).toBe(false);
   });
 
-  it("skips the view transition when the in-app reduced-motion preference is on", async () => {
+  it("runs C→B→A on the in-app back control", async () => {
     const poster = makePoster();
-    document.startViewTransition = vi.fn((commit) => {
-      commit();
-      return { finished: Promise.resolve() };
-    });
+    stubViewTransitions();
+
+    const ref = renderHarness({ movie: baseMovie, detailViewType: "page", sourceElement: poster });
+    fireEvent.click(screen.getByText("open"));
+    await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
+    await waitFor(() => expect(getDetailTransitionSnapshot().overlay).toBe(false));
+    await waitFor(() => expect(getDetailTransitionSnapshot().bypass).toBe(false));
+
+    fireEvent.click(screen.getByText("back"));
+    expect(getDetailTransitionSnapshot().overlay).toBe(true);
+    expect(document.documentElement.dataset.detailTransition).toBe("B");
+
+    await waitFor(() => expect(ref.pathname).toBe("/"));
+    await waitFor(() => expect(getDetailTransitionSnapshot().overlay).toBe(false));
+    await waitFor(() => expect(getDetailTransitionSnapshot().bypass).toBe(false));
+
+    expect(document.startViewTransition).toHaveBeenCalledTimes(4);
+    expect(poster.style.viewTransitionName).toBe("");
+  });
+
+  it("skips the view transitions when the in-app reduced-motion preference is on", async () => {
+    const poster = makePoster();
+    stubViewTransitions();
 
     const ref = renderHarness({
       movie: baseMovie,
@@ -124,8 +159,8 @@ describe("useDetailView", () => {
 
     await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
     expect(document.startViewTransition).not.toHaveBeenCalled();
+    expect(getDetailTransitionSnapshot().overlay).toBe(false);
     expect(poster.style.viewTransitionName).toBe("");
-    expect(document.documentElement.hasAttribute("data-poster-morph")).toBe(false);
   });
 
   it("exposes the modal host only while a movie is open", async () => {

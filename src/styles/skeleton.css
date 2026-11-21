@@ -28,7 +28,7 @@
      it runs; the permanent hint held a layer for every mounted-but-offscreen
      blur-up skeleton (66 on a populated home page) whose poster would not load
      until scrolled near. */
-  animation: shimmer-wave 2s ease-in-out infinite;
+  animation: shimmer-wave 1.8s ease-in-out infinite;
 }
 
 @keyframes shimmer-wave {

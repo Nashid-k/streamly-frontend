@@ -257,9 +257,14 @@
   /* The brief's second easing: colour/opacity only, so a tint change settles
      without the springy overshoot of --ease-out. */
   --ease-silk: cubic-bezier(0.2, 0.8, 0.2, 1);
-  /* Shared-element route morph (streamly_2.0 metric port). Framer Motion owns
-     the route plane; the View Transition owns only this artwork handoff. */
-  --vt-poster-duration: 620ms;
+  /* A→B→C / C→B→A detail navigation (streamly_2.0 metrics). Framer Motion
+     owns ordinary routes; while these transitions run, Layout resolves
+     instantly and the View Transition owns the snapshots. 1090ms = the 2.0
+     skeleton dwell formula: 640ms content + 55ms*6 stagger + 120ms tail. */
+  --vt-root-duration: 620ms;
+  --vt-poster-duration: 780ms;
+  --vt-view-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --detail-b-duration: 1090ms;
 
   /* Press feedback: how far a surface sinks while held. Three tiers, because
      the depth has to match the target's size — an icon button reads as a
