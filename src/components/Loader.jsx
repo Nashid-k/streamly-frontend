@@ -23,7 +23,18 @@ export default function Loader({ variant = "page", size }) {
     if (variant !== "global") return;
     let timer;
     if (isGlobalLoading) {
-      timer = setTimeout(() => setShowGlobal(true), 400);
+      timer = setTimeout(() => {
+        // Suppress global spinner on detail/watch pages or during detail view transitions
+        // where MovieDetailsSkeleton provides the full UX loading state
+        const isDetails =
+          typeof window !== "undefined" &&
+          (window.location.pathname.startsWith("/watch") ||
+            document.documentElement.dataset.detailTransition != null ||
+            document.documentElement.dataset.posterMorph === "true");
+        if (!isDetails) {
+          setShowGlobal(true);
+        }
+      }, 400);
     } else {
       setShowGlobal(false);
     }

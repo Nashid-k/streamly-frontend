@@ -328,7 +328,12 @@ export default function TitleDetails() {
     };
   }, [stateMovie, id]);
 
-  const { data: rawMovie, isLoading: loading, error: movieError } = useQuery({
+  const {
+    data: rawMovie,
+    isLoading,
+    isPlaceholderData,
+    error: movieError,
+  } = useQuery({
     queryKey: ["movie", id],
     queryFn: () => movieService.getMovieDetails(id),
     // Details are immutable per day (mirrors the proxy's s-maxage=86400 split,
@@ -337,6 +342,8 @@ export default function TitleDetails() {
     refetchOnWindowFocus: false,
     placeholderData: passedMovie ? () => passedMovie : undefined,
   });
+
+  const loading = isLoading || isPlaceholderData;
 
   useEffect(() => {
     if (movieError) {
@@ -850,7 +857,7 @@ export default function TitleDetails() {
 
 
   if (loading) {
-    return <MovieDetailsSkeleton />;
+    return <MovieDetailsSkeleton hasBackdrop={Boolean(passedMovie?.backdropUrl || passedMovie?.posterUrl)} />;
   }
 
   if (!movie) {

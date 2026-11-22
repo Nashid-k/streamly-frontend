@@ -3,84 +3,61 @@ import MovieCardSkeleton from "./MovieCardSkeleton";
 export default function MovieDetailsSkeleton({ hasBackdrop = true }) {
   return (
     <div
+      className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)]"
       style={{
-        position: "relative",
         marginTop: 0,
         paddingTop: 0,
-        minHeight: "100vh",
       }}
     >
-      {/* ── Backdrop skeleton ────────────────────────────────── */}
-      <div
-        className={`skeleton skeleton-glow detail-transition-hero${hasBackdrop ? " detail-transition-hero--fit" : ""}`}
-      />
-      {/* Backdrop gradient overlays */}
-      <div
-        className={`detail-transition-hero-shade${hasBackdrop ? " detail-transition-hero-shade--fit" : ""}`}
-        style={{
-          position: "absolute", top: 0, left: 0, width: "100%",
-          background: "linear-gradient(to top, #050505 0%, rgba(5,5,5,0.4) 40%, transparent 70%)",
-          pointerEvents: "none", zIndex: 1,
-        }}
-      />
-
-      {/* ── Topbar skeleton ──────────────────────────────────── */}
-      <div
-        style={{
-          position: "sticky", top: 56, zIndex: 10,
-          padding: "0.75rem clamp(1rem, 2.5vw, 2.5rem) 0.5rem",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-        }}
-      >
-        {/* Left: Back + breadcrumb */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <div className="skeleton" style={{ width: "76px", height: "32px", borderRadius: "8px" }} />
-          <div className="skeleton" style={{ width: "90px", height: "12px", borderRadius: "4px", opacity: 0.6 }} />
-        </div>
-        {/* Right: Share / Like / Dislike */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <div className="skeleton skeleton-circle" style={{ width: "36px", height: "36px" }} />
-          <div className="skeleton skeleton-circle" style={{ width: "36px", height: "36px" }} />
-          <div className="skeleton skeleton-circle" style={{ width: "36px", height: "36px" }} />
-        </div>
-      </div>
-
-      {/* ── Main content (mirrors .details-hero__body.details-gutter) ──── */}
-      <div className="details-hero__body details-gutter">
-        {/* Left Column matching TitleDetailsPage */}
-        <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
-          {/* Logo/Title placeholder */}
+      {/* ── Details Hero (matches TitleDetailsPage .details-hero exactly) ── */}
+      <div className={`relative w-full details-hero${hasBackdrop ? " details-hero--fit" : ""}`}>
+        {/* Artwork treatment matches home & watch banners: .details-hero__art + .hero-bg + .details-hero__shade */}
+        <div className="details-hero__art">
           <div
-            className="skeleton"
-            style={{
-              width: "min(380px, 80%)",
-              height: "clamp(2.5rem, 4vw, 3.8rem)",
-              borderRadius: "10px",
-              marginBottom: "1.25rem",
-            }}
+            className={`skeleton skeleton-glow hero-bg detail-transition-hero${hasBackdrop ? " detail-transition-hero--fit" : ""}`}
+            style={{ width: "100%", height: "100%" }}
           />
+          <div className="hero-overlay hero-overlay--apple" />
+          <div className="details-hero__shade" aria-hidden="true" />
+        </div>
 
-          {/* Genre pills / meta row */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
-            {[80, 65, 90].map((w, i) => (
-              <div key={i} className="skeleton" style={{ width: `${w}px`, height: "24px", borderRadius: "4px" }} />
-            ))}
-          </div>
+        {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}
+        <div className="details-hero__body details-gutter">
+          {/* Left Column matching TitleDetailsPage */}
+          <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
+            {/* Logo/Title placeholder */}
+            <div
+              className="skeleton"
+              style={{
+                width: "min(380px, 80%)",
+                height: "clamp(2.5rem, 4vw, 3.8rem)",
+                borderRadius: "10px",
+                marginBottom: "1.25rem",
+              }}
+            />
 
-          {/* Actions row: Play + Add to list + Watched + Ratings */}
-          <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginBottom: "1.5rem", alignItems: "center" }}>
-            <div className="skeleton skeleton-glow" style={{ width: "140px", height: "46px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "110px", height: "36px", borderRadius: "10px" }} />
-          </div>
+            {/* Genre pills / meta row */}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+              {[80, 65, 90].map((w, i) => (
+                <div key={i} className="skeleton" style={{ width: `${w}px`, height: "24px", borderRadius: "4px" }} />
+              ))}
+            </div>
 
-          {/* Description lines */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", width: "100%", maxWidth: "650px", marginBottom: "2rem" }}>
-            <div className="skeleton" style={{ width: "100%", height: "13px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "95%", height: "13px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "85%", height: "13px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "70%", height: "13px", borderRadius: "4px" }} />
+            {/* Actions row: Play + Add to list + Watched + Ratings */}
+            <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginBottom: "1.5rem", alignItems: "center" }}>
+              <div className="skeleton skeleton-glow" style={{ width: "140px", height: "46px", borderRadius: "var(--radius-full)" }} />
+              <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
+              <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
+              <div className="skeleton" style={{ width: "110px", height: "36px", borderRadius: "10px" }} />
+            </div>
+
+            {/* Description lines */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", width: "100%", maxWidth: "650px", marginBottom: "2rem" }}>
+              <div className="skeleton" style={{ width: "100%", height: "13px", borderRadius: "4px" }} />
+              <div className="skeleton" style={{ width: "95%", height: "13px", borderRadius: "4px" }} />
+              <div className="skeleton" style={{ width: "85%", height: "13px", borderRadius: "4px" }} />
+              <div className="skeleton" style={{ width: "70%", height: "13px", borderRadius: "4px" }} />
+            </div>
           </div>
         </div>
       </div>
