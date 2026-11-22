@@ -51,7 +51,9 @@ export default function AtlanticEmbedPlayer({
   const idleTimerRef = useRef(null);
   const embedTimerRef = useRef(null);
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   const url = atlanticEmbedUrl({ type, id, season, episode });
 

@@ -127,7 +127,9 @@ export default function usePlayerChrome({ videoRef, playing, endedRef }) {
 
   // Mirror for call sites that bind once (the unmount path, long-lived effects).
   const pokeRef = useRef(poke);
-  pokeRef.current = poke;
+  useEffect(() => {
+    pokeRef.current = poke;
+  });
 
   /* Drop the auto-hide deadline without touching the still-watching countdown.
      The play/pause-flip effect calls this on cleanup so a deadline armed while

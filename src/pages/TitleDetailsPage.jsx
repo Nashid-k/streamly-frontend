@@ -19,7 +19,7 @@ import Loader from "../components/Loader";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback, lazy, Suspense } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import {
   Play,
   Plus,
@@ -59,6 +59,7 @@ import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import SeasonDropdown from "../components/detail/SeasonDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 import DetailTitleRail from "../components/detail/DetailTitleRail";
+import WhereToWatch from "../components/detail/WhereToWatch";
 
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday, LOCAL_RELEASE } from "../utils/timezone";
@@ -310,6 +311,23 @@ export default function TitleDetails() {
     }
   };
 
+  const location = useLocation();
+  const stateMovie = location.state?.movie;
+  const passedMovie = useMemo(() => {
+    if (!stateMovie) return undefined;
+    const match =
+      String(stateMovie.id) === String(id) ||
+      String(stateMovie.id).replace(/^(movie-|tv-)/, "") === String(id).replace(/^(movie-|tv-)/, "");
+    if (!match) return undefined;
+    return {
+      ...stateMovie,
+      genres: Array.isArray(stateMovie.genres) ? stateMovie.genres : EMPTY_ARRAY,
+      cast: Array.isArray(stateMovie.cast) ? stateMovie.cast : EMPTY_ARRAY,
+      runtime: stateMovie.runtime || null,
+      durationMins: stateMovie.durationMins || stateMovie.runtime || null,
+    };
+  }, [stateMovie, id]);
+
   const { data: rawMovie, isLoading: loading, error: movieError } = useQuery({
     queryKey: ["movie", id],
     queryFn: () => movieService.getMovieDetails(id),
@@ -317,6 +335,7 @@ export default function TitleDetails() {
     // PLAN.md P1.2): repeat visits must paint from cache, never re-fetch.
     staleTime: 1000 * 60 * 60 * 24,
     refetchOnWindowFocus: false,
+    placeholderData: passedMovie ? () => passedMovie : undefined,
   });
 
   useEffect(() => {
@@ -2028,6 +2047,12 @@ export default function TitleDetails() {
         </motion.section>
       )}
 
+      {/* ── Where to Watch ─────────────────────────────────────────────────── */}
+      {movie.watchProviders && (
+        <ErrorBoundary>
+          <WhereToWatch watchProviders={movie.watchProviders} />
+        </ErrorBoundary>
+      )}
 
       {/* ── Part of <franchise> ────────────────────────────────────────────────
           Release-ordered parts of the franchise this title belongs to, placed

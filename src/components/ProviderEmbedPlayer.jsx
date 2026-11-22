@@ -73,7 +73,9 @@ export default function ProviderEmbedPlayer({
   // identity between renders; read it through a ref so the Escape handler binds
   // once and still calls the latest close.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   const url = providerEmbedUrl({ type, id, season, episode });
 

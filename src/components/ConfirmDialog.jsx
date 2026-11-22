@@ -15,7 +15,9 @@ export function useConfirmDialog() {
   const [queue, setQueue] = useState([]);
   const queueRef = useRef(queue);
   const panelRef = useRef(null);
-  queueRef.current = queue;
+  useEffect(() => {
+    queueRef.current = queue;
+  }, [queue]);
   const dialog = queue[0] || null;
 
   // Cleanup: resolve any pending dialog as false on unmount to prevent memory leaks

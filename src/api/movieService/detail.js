@@ -16,7 +16,7 @@ export const getMovieDetails = async (id) => {
   try {
     const [detail, externalIds] = await Promise.all([
       tmdb(`/${endpoint}/${rid}`, {
-        append_to_response: `credits,videos,images,${isTV ? 'content_ratings' : 'release_dates'}`,
+        append_to_response: `credits,videos,images,watch/providers,${isTV ? 'content_ratings' : 'release_dates'}`,
         include_image_language: 'en,null',
       }),
       // Ratings enrich the page but should not make a perfectly usable title
@@ -125,6 +125,7 @@ export const getMovieDetails = async (id) => {
     status: detail.status || null,
     certification: certificationFromDetail(detail, isTV),
     networks: (detail.networks || []).map(n => n.name),
+    watchProviders: detail['watch/providers']?.results || null,
   };
   } catch (error) {
     logServiceError('getMovieDetails', error, { id });

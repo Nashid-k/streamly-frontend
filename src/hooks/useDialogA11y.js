@@ -36,11 +36,14 @@ export default function useDialogA11y(open, panelRef, onClose, options = {}) {
   // Keep the latest onClose without re-running the effect (rebinding mid-flight
   // would re-capture the "opener" as the dialog's own focused control).
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const closeOnEscapeRef = useRef(closeOnEscape);
-  closeOnEscapeRef.current = closeOnEscape;
   const initialFocusRef = useRef(initialFocus);
-  initialFocusRef.current = initialFocus;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    closeOnEscapeRef.current = closeOnEscape;
+    initialFocusRef.current = initialFocus;
+  });
 
   // Shared by the effect cleanup AND by callers that dismiss a panel kept
   // mounted by an exit animation. Idempotent: it nulls both captured values.

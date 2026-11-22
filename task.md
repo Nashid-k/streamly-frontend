@@ -136,6 +136,8 @@
 
 - [x] **Hero-shape morph and exact rail return (2026-11-21).** Reworked B into a full-width hero skeleton so B→C matches 1.0's `.details-hero__art img.hero-bg` instead of 2.0's portrait detail poster. Captured a stable `<rail>:<index>:<movie.id>` token plus page `scrollY` and every rail's `scrollLeft`; reverse now waits for A's cards to mount before the final View Transition callback restores geometry and names the exact source card. Added browser-Back interception and made `useScrollRestoration` / `MovieRail` stand down during the controlled reverse. Gates: `npm run lint` exit 0 (141 pre-existing warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000` 131/131 files, 1564 passed + 2 skipped (174.16s), `npm run build` exit 0 (2.98s). Obscura CDP click-through (in-app back and browser Back separately): B and C both `1280×720`; forward token `Trending Movies:1:movie-1300968`; both reverse paths restored `scrollY=480`, `railScrollLeft=240`, and source rect `(68,330)` exactly. Obscura's headless build lacks native `document.startViewTransition`, so the browser run shimmed that API to verify controller order, DOM state, and geometry; native compositor CSS remains guarded by Vitest.
 
+- [x] **A→B→C / C→B→A motion physics & skeleton parity refine (2026-11-22).** Fixed root cause of 28px vertical jump on B→C and C→B by scoping in-place cross-dissolve to stage C (`streamly-dissolve-out` 220ms, `streamly-dissolve-in` 320ms) and scale-return to stage A (`streamly-return-in` 420ms). Aligned `MovieDetailsSkeleton.jsx` directly to `TitleDetailsPage.jsx`'s `.details-hero__body.details-gutter` (removed legacy 380px poster layout). Reduced reverse hold from 1090ms to 100ms and added responsive query dwell on forward navigation. Cleared 10 React Compiler render-body ref mutations across player and dialog components. Implemented Where-to-Watch provider rail (`WhereToWatch.jsx`, `detail.js`, `TitleDetailsPage.jsx`). Gates: `npm run lint` 0 errors, `npx vitest run --maxWorkers=4 --testTimeout=15000` 467/467 suites, 1568/1568 passed (2 skipped), `npm run build` exit 0.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;
@@ -189,8 +191,8 @@
       `POST /api/stream capabilities` → 200 verified. `apiModules.test.js`
       now sees 10/12 Hobby functions.
 
-- [ ] **Phase 4 — Detail.** Where-to-watch (grouped stream/rent/buy with price
-      and quality — the biggest remaining gap); detail hero at full art
+- [ ] **Phase 4 — Detail.** Where-to-watch (grouped stream/rent/buy with provider
+      logos and JustWatch attribution — shipped 2026-11-22); detail hero at full art
       resolution; cast with character names and trailer durations (partial);
       sticky in-page tabs with scroll spy; read-only comments with a sign-in
       CTA (never a dead input).
@@ -229,10 +231,11 @@
       extended `streamTuning`, the loader observer, and a quality-switch
       walker regression. Gates: see the Phase 2 gate line.
 
-- [ ] **Lint-warning reduction.** ~141 warnings remain, mostly React Compiler
-      / `react-hooks` advisories (`set-state-in-effect`, `exhaustive-deps`)
-      that need component restructuring. Player files were previously
-      off-limits; re-check before touching them.
+- [ ] **Lint-warning reduction.** Reduced from 141 to 131 warnings (cleared
+      React Compiler render-body ref mutations across player HUD/chrome,
+      embed players, dialog a11y, and confirm dialogs). Remaining warnings are
+      mostly React Compiler / `react-hooks` advisories (`set-state-in-effect`,
+      `exhaustive-deps`) in page and rail components.
 
 - [ ] **AutoFlip reset — needs a pointer.** No `AutoFlip` identifier, component
       or preference exists anywhere in the tree. The item cannot be worked

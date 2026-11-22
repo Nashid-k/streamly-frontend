@@ -41,7 +41,9 @@ export default function usePlaybackExtras({ videoRef, screenRef, onSleepEnd }) {
   // Kept in a ref so the sleep timer (a stable useCallback, because the resolve
   // effect depends on its identity) still calls the CURRENT handler.
   const sleepEndRef = useRef(onSleepEnd);
-  sleepEndRef.current = onSleepEnd;
+  useEffect(() => {
+    sleepEndRef.current = onSleepEnd;
+  });
 
   const pipSupported =
     typeof document !== "undefined" && document.pictureInPictureEnabled;

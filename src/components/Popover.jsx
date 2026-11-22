@@ -21,7 +21,9 @@ export default function Popover({
   // Kept in refs so re-renders (inline onClose is the norm here) cannot re-run
   // the effect and yank focus back to the first item mid-interaction.
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   // Unconditional: the popover's own motion.div mounts inside `{isOpen && ...}`.
   const L = new MotionLeaf();
 

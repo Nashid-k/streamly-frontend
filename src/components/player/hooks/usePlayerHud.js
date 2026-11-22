@@ -66,7 +66,9 @@ export default function usePlayerHud({ duration = HUD_MS } = {}) {
   // same pattern the component uses for its value refs, so a HUD flash from a
   // stale closure still lands on the live setter.
   const showHudRef = useRef(showHud);
-  showHudRef.current = showHud;
+  useEffect(() => {
+    showHudRef.current = showHud;
+  });
 
   useEffect(
     () => () => {

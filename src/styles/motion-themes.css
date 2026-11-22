@@ -323,6 +323,7 @@ html[data-poster-morph="true"] .detail-transition-overlay .detail-transition-her
   height: 100%;
   object-fit: cover;
   object-position: center 35%;
+  border-radius: inherit;
 }
 
 ::view-transition-group(root),
@@ -333,6 +334,8 @@ html[data-poster-morph="true"] .detail-transition-overlay .detail-transition-her
 ::view-transition-group(streamly-poster) {
   animation-duration: var(--vt-poster-duration);
   animation-timing-function: var(--vt-view-ease);
+  overflow: hidden;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
 }
 ::view-transition-old(navbar),
 ::view-transition-old(searchbar) {
@@ -352,11 +355,39 @@ html[data-detail-transition]::view-transition-old(root) {
 html[data-detail-transition]::view-transition-new(root) {
   animation: streamly-vt-in var(--vt-root-duration) var(--vt-view-ease) both;
 }
+
+/* Stage C (B → C): in-place cross-dissolve with zero vertical jolt */
+html[data-detail-transition="C"]::view-transition-old(root) {
+  animation: streamly-dissolve-out 220ms var(--vt-view-ease) both;
+}
+html[data-detail-transition="C"]::view-transition-new(root) {
+  animation: streamly-dissolve-in 320ms var(--vt-view-ease) both;
+}
+
+/* Stage A (B → A): smooth return to home position without downward drop */
+html[data-detail-transition="A"]::view-transition-old(root) {
+  animation: streamly-dissolve-out 200ms var(--vt-view-ease) both;
+}
+html[data-detail-transition="A"]::view-transition-new(root) {
+  animation: streamly-return-in 420ms var(--vt-view-ease) both;
+}
+
 @keyframes streamly-vt-out {
-  to { opacity: 0; transform: scale(0.97); }
+  to { opacity: 0; transform: scale(0.98); }
 }
 @keyframes streamly-vt-in {
-  from { opacity: 0; transform: translateY(28px) scale(0.985); }
+  from { opacity: 0; transform: translateY(20px) scale(0.985); }
+}
+@keyframes streamly-dissolve-out {
+  to { opacity: 0; }
+}
+@keyframes streamly-dissolve-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes streamly-return-in {
+  from { opacity: 0; transform: scale(0.985); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @media (prefers-reduced-motion: reduce) {

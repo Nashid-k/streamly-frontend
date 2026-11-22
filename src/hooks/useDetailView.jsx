@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import slugify from "slugify";
 import { usePreferenceValue } from "../context/preferences";
 import TitleInfoModal from "../components/TitleInfoModal";
+import { queryClient } from "../queryClient";
+import { movieService } from "../api/movieService";
 
 const POSTER_MORPH_NAME = "streamly-poster";
 const RAIL_SELECTOR = "[data-detail-rail], .movie-rail, .track.scroll-x";
@@ -129,6 +131,19 @@ function preloadBackdrop(url) {
   image.src = url;
 }
 
+function prefetchMovieDetails(id) {
+  if (!id) return;
+  try {
+    queryClient.prefetchQuery({
+      queryKey: ["movie", String(id)],
+      queryFn: () => movieService.getMovieDetails(id),
+      staleTime: 1000 * 60 * 60 * 24,
+    });
+  } catch {
+    // best-effort prefetch
+  }
+}
+
 /* history.go(-1) is processed asynchronously by the router. Keep B on screen
    until A's cards are actually mounted, otherwise the B→A update callback has
    no source element to name and the reverse snapshot lands on an empty page. */
@@ -142,12 +157,30 @@ async function waitForSource(session, timeout = 4000) {
   return null;
 }
 
-function detailBHoldMs() {
+function detailBHoldMs(isReverse = false) {
   if (typeof window === "undefined") return DETAIL_B_HOLD_MS;
   const token = getComputedStyle(document.documentElement)
     .getPropertyValue("--detail-b-duration")
     .trim();
-  return parseFloat(token) || DETAIL_B_HOLD_MS;
+  const parsed = parseFloat(token) || DETAIL_B_HOLD_MS;
+  if (isReverse) return Math.min(parsed, 100);
+  return parsed;
+}
+
+async function waitForDetailDwell(id) {
+  const maxWait = detailBHoldMs(false);
+  const minWait = Math.min(maxWait, 360);
+  await delay(minWait);
+
+  const remaining = maxWait - minWait;
+  if (remaining <= 0) return;
+
+  const start = Date.now();
+  while (Date.now() - start < remaining) {
+    const cached = queryClient.getQueryData(["movie", String(id)]);
+    if (cached) break;
+    await delay(30);
+  }
 }
 
 function delay(ms) {
@@ -222,6 +255,7 @@ async function runForwardDetailTransition({ sourceElement, movie, from, detailTo
   return enqueue(async () => {
     delete window.__streamlyDetailScrollRestored;
     preloadBackdrop(session.backdropUrl);
+    prefetchMovieDetails(movie?.id);
     activeSource = sourceElement;
     sourceElement.style.viewTransitionName = POSTER_MORPH_NAME;
     document.documentElement.dataset.posterMorph = "true";
@@ -239,7 +273,7 @@ async function runForwardDetailTransition({ sourceElement, movie, from, detailTo
         publish(true, true, session);
       });
 
-      await delay(detailBHoldMs());
+      await waitForDetailDwell(movie?.id);
 
       /* B → C: the overlay leaves in the same commit that lands the details
          route. The destination hero backdrop inherits the shared name. */
@@ -276,7 +310,7 @@ async function runReverseDetailTransition({ navigate, location, session }) {
         publish(true, true, session);
       });
 
-      await delay(detailBHoldMs());
+      await delay(detailBHoldMs(true));
 
       /* B → A: pop the history entry first, but keep B on screen until A's
          cards are mounted. Then restore the saved page/rail geometry and name
@@ -336,6 +370,8 @@ export default function useDetailView() {
         setModalMovie(movie);
         return;
       }
+
+      prefetchMovieDetails(movie?.id);
 
       const slug = slugify(movie.title || "title", { lower: true, strict: true });
       const path = `/watch/${movie.id}/${slug}`;
@@ -410,7 +446,7 @@ export function useDetailPopGuard() {
   const reduceMotionPref = usePreferenceValue("reduceMotion", false);
 
   useEffect(() => {
-    if (!supportsViewTransitions() || reduceMotionPref) return undefined;
+    if (!supportsViewTransitions() || reduceMotionPref || prefersReducedMotion()) return undefined;
     const session = location.state?.detailTransition;
     if (!isDetailsPath(location.pathname) || !session) return undefined;
 

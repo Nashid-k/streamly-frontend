@@ -398,6 +398,32 @@ it("normalizes production companies with rich logo metadata", async () => {
     });
   });
 
+  it("surfaces watch providers for where-to-watch", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: 7,
+          title: "Chapter One",
+          "watch/providers": {
+            results: {
+              US: {
+                link: "https://www.themoviedb.org/movie/7/watch?locale=en-US",
+                flatrate: [{ provider_id: 8, provider_name: "Netflix", logo_path: "/netflix.jpg" }],
+                rent: [{ provider_id: 2, provider_name: "Apple TV", logo_path: "/appletv.jpg" }],
+              },
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({}, false));
+    vi.stubGlobal("fetch", fetch);
+
+    const title = await movieService.getMovieDetails("movie-7");
+    expect(title.watchProviders?.US?.flatrate).toHaveLength(1);
+    expect(title.watchProviders?.US?.flatrate[0].provider_name).toBe("Netflix");
+  });
+
   it("getCollection returns the parts in release order with playable ids", async () => {
     const fetch = vi.fn().mockResolvedValue(
       jsonResponse({

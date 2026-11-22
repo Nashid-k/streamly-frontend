@@ -45,116 +45,62 @@ export default function MovieDetailsSkeleton({ hasBackdrop = true }) {
         </div>
       </div>
 
-      {/* ── Main content (mirrors .details-content-wrapper) ──── */}
-      <div className="details-content-wrapper">
-        {/* Poster skeleton — reuse .details-poster-large so it sizes
-            and hides responsively exactly like the real poster */}
-        <div className="skeleton details-poster-large" />
-
-        {/* Text content skeleton */}
-        <div className="details-text" style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-          {/* LIVE SEASON badge (conditional in real UI) */}
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "1.5rem" }}>
-            <div className="skeleton" style={{ width: "104px", height: "24px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "190px", height: "14px", borderRadius: "4px" }} />
-          </div>
-
-          {/* Logo/Title (real: minHeight 80px, clamp up to 4rem) */}
+      {/* ── Main content (mirrors .details-hero__body.details-gutter) ──── */}
+      <div className="details-hero__body details-gutter">
+        {/* Left Column matching TitleDetailsPage */}
+        <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
+          {/* Logo/Title placeholder */}
           <div
+            className="skeleton"
             style={{
-              minHeight: "80px",
-              display: "flex",
-              alignItems: "center",
-              marginBottom: "1.5rem",
+              width: "min(380px, 80%)",
+              height: "clamp(2.5rem, 4vw, 3.8rem)",
+              borderRadius: "10px",
+              marginBottom: "1.25rem",
             }}
-          >
-            <div
-              className="skeleton"
-              style={{
-                width: "min(400px, 70%)",
-                height: "clamp(2.5rem, 4vw, 3.6rem)",
-                borderRadius: "8px",
-              }}
-            />
-          </div>
+          />
 
-          {/* Platform badge */}
-          <div className="skeleton" style={{ width: "110px", height: "30px", borderRadius: "8px", marginBottom: "1rem" }} />
-
-          {/* Meta pills row (first is the gold IMDb badge in real UI) */}
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-            <div className="skeleton skeleton-glow" style={{ width: "110px", height: "34px", borderRadius: "10px" }} />
-            <div className="skeleton" style={{ width: "90px", height: "34px", borderRadius: "8px" }} />
-            <div className="skeleton" style={{ width: "80px", height: "34px", borderRadius: "8px" }} />
-            <div className="skeleton" style={{ width: "60px", height: "34px", borderRadius: "8px" }} />
-            <div className="skeleton" style={{ width: "95px", height: "34px", borderRadius: "8px" }} />
-          </div>
-
-          {/* Genre pills */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-            {[90, 70, 100, 60, 80].map((w, i) => (
-              <div key={i} className="skeleton" style={{ width: `${w}px`, height: "30px", borderRadius: "var(--radius-full)", animationDelay: `${i * 0.05}s` }} />
+          {/* Genre pills / meta row */}
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
+            {[80, 65, 90].map((w, i) => (
+              <div key={i} className="skeleton" style={{ width: `${w}px`, height: "24px", borderRadius: "4px" }} />
             ))}
           </div>
 
+          {/* Actions row: Play + Add to list + Watched + Ratings */}
+          <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginBottom: "1.5rem", alignItems: "center" }}>
+            <div className="skeleton skeleton-glow" style={{ width: "140px", height: "46px", borderRadius: "var(--radius-full)" }} />
+            <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
+            <div className="skeleton" style={{ width: "46px", height: "46px", borderRadius: "var(--radius-full)" }} />
+            <div className="skeleton" style={{ width: "110px", height: "36px", borderRadius: "10px" }} />
+          </div>
+
           {/* Description lines */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginBottom: "1.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", width: "100%", maxWidth: "650px", marginBottom: "2rem" }}>
             <div className="skeleton" style={{ width: "100%", height: "13px", borderRadius: "4px" }} />
             <div className="skeleton" style={{ width: "95%", height: "13px", borderRadius: "4px" }} />
             <div className="skeleton" style={{ width: "85%", height: "13px", borderRadius: "4px" }} />
             <div className="skeleton" style={{ width: "70%", height: "13px", borderRadius: "4px" }} />
           </div>
-
-          {/* Tags */}
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="skeleton" style={{ width: `${50 + i * 8}px`, height: "22px", borderRadius: "6px", animationDelay: `${i * 0.04}s` }} />
-            ))}
-          </div>
-
-          {/* Info grid: Director / Writers / Budget / Locations / Studio / Awards */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "1rem", marginBottom: "1.5rem" }}>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  borderRadius: "10px",
-                  padding: "12px 14px",
-                  border: "1px solid rgba(255,255,255,0.04)",
-                }}
-              >
-                <div className="skeleton" style={{ width: "45%", height: "10px", borderRadius: "4px", marginBottom: "8px" }} />
-                <div className="skeleton" style={{ width: "70%", height: "12px", borderRadius: "4px" }} />
-              </div>
-            ))}
-          </div>
-
-          {/* CTA Buttons */}
-          <div style={{ display: "flex", gap: "0.85rem", flexWrap: "wrap", marginTop: "0.75rem", marginBottom: "3.5rem", alignItems: "center" }}>
-            <div className="skeleton" style={{ width: "160px", height: "48px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "48px", height: "48px", borderRadius: "var(--radius-full)" }} />
-          </div>
-
-          {/* Cast & Crew rail skeleton (mirrors CastRail) */}
-          <section style={{ marginTop: "3rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
-              <div className="skeleton" style={{ width: "3px", height: "22px", borderRadius: "var(--radius-full)" }} />
-              <div className="skeleton" style={{ width: "130px", height: "24px", borderRadius: "6px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "1rem", overflow: "hidden" }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="skeleton-cast">
-                  <div className="skeleton sk-avatar" />
-                  <div className="skeleton sk-name" />
-                  <div className="skeleton sk-character" />
-                </div>
-              ))}
-            </div>
-          </section>
         </div>
       </div>
+
+      {/* Cast & Crew rail skeleton (mirrors CastRail) */}
+      <section style={{ position: "relative", zIndex: 1, padding: "0 clamp(1rem, 2.5vw, 2.5rem)", maxWidth: "1600px", margin: "2rem auto 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.25rem" }}>
+          <div className="skeleton" style={{ width: "3px", height: "22px", borderRadius: "var(--radius-full)" }} />
+          <div className="skeleton" style={{ width: "130px", height: "24px", borderRadius: "6px" }} />
+        </div>
+        <div style={{ display: "flex", gap: "1rem", overflow: "hidden" }}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="skeleton-cast">
+              <div className="skeleton sk-avatar" />
+              <div className="skeleton sk-name" />
+              <div className="skeleton sk-character" />
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ── Episodes section skeleton ───────────────────────── */}
       <div
