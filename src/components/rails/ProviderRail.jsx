@@ -67,7 +67,7 @@ function ProviderRail({ mediaType = "movie" }) {
 
   const movies = useMemo(() => asArray(data), [data]);
 
-  if (isLoading) return <SkeletonRail cards={8} />;
+  if (isLoading) return <SkeletonRail cards={8} headerType="selector" />;
 
   const header = (
     <RailMenu
