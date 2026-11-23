@@ -384,13 +384,56 @@ textarea:focus-visible {
   z-index: 30;
 }
 
-/* Keyboard parity for the hover panel. The Resume pill is the card's only
-   play control; without this the panel stayed at opacity 0 while a keyboard
-   user tabbed into an invisible button. */
+/* Continue Watching uses the same lift, artwork zoom, timing curve and
+   bottom-curtain reveal as MovieCard. Its progress bar and Resume action remain
+   rail-specific content; only the motion language is shared. */
+.cw-rail__poster {
+  box-shadow: 0 18px 30px -18px rgba(var(--black-rgb), 0.85);
+  transform: scale(1);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow 0.3s ease-out;
+}
+.cw-rail__poster-image {
+  transform: scale(1);
+  transition: transform 0.5s var(--anim-hover-ease);
+}
+.cw-rail__panel {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition:
+    opacity var(--duration-fast) var(--ease-tv),
+    transform var(--duration-fast) var(--ease-tv);
+}
+@media (hover: hover) and (pointer: fine) {
+  .cw-rail__card:hover .cw-rail__poster {
+    transform: scale(1.035);
+    box-shadow:
+      0 26px 56px -14px rgba(var(--black-rgb), 0.85),
+      0 0 0 1px rgba(var(--white-rgb), 0.14),
+      0 0 30px -16px rgba(var(--white-rgb), 0.18);
+    transition: transform var(--anim-hover-time) var(--anim-hover-ease),
+      box-shadow 0.3s ease-out;
+  }
+  .cw-rail__card:hover .cw-rail__poster-image {
+    transform: scale(1.02);
+  }
+  .cw-rail__card:hover .cw-rail__panel {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+/* Keyboard users receive the same panel reveal and focus remains visible. */
 .cw-rail__card:focus-within .cw-rail__panel {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+.cw-rail__card:focus-within .cw-rail__poster {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
 }
 
 /* Edit toggle — a real 36px control (44px on touch), not the 28px glyph box
@@ -719,10 +762,10 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
-  transition: transform var(--duration-normal) var(--ease-tv), border-color var(--duration-normal) var(--ease-out);
+  transition: transform var(--anim-hover-time) var(--anim-hover-ease), border-color var(--duration-normal) var(--ease-out);
 }
 .provider:hover .provider__logo {
-  transform: scale(1.08);
+  transform: scale(1.035);
   border-color: rgba(255, 255, 255, 0.3);
 }
 .provider__logo img {
