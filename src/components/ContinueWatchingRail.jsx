@@ -165,11 +165,11 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                   onClick={(e) => {
                     if (editMode) e.preventDefault();
                   }}
-                  className="block w-full aspect-video rounded-2xl overflow-hidden cursor-pointer bg-[#1a1a1a] relative shadow-lg shadow-black/40 transition-transform duration-300 ease-out origin-bottom active:scale-95 group-hover/card:scale-[1.07] group-hover/card:shadow-2xl group-hover/card:shadow-black/70"
+                  className="cw-rail__poster block w-full aspect-video rounded-2xl overflow-hidden cursor-pointer bg-[#1a1a1a] relative"
                 >
                   {art ? (
                     <img
-                      className="block w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-105"
+                      className="cw-rail__poster-image block w-full h-full object-cover"
                       src={art}
                       srcSet={CdnImageAdapter.getSrcSet(artPath, "card")}
                       sizes="(max-width: 768px) 240px, 288px"
@@ -211,7 +211,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) 
                       sat below this panel's z-10 scrim, which is what made it
                       look clipped/dimmed as the panel slid up. */}
                   {!editMode && (
-                    <div className="cw-rail__panel absolute inset-x-0 bottom-0 z-10 translate-y-2 opacity-0 pointer-events-none transition-[transform,opacity] duration-300 ease-out group-hover/card:translate-y-0 group-hover/card:opacity-100 group-hover/card:pointer-events-auto">
+                    <div className="cw-rail__panel absolute inset-x-0 bottom-0 z-10">
                       <div
                         className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
                         style={{
