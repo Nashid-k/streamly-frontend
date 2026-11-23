@@ -86,6 +86,9 @@ const HomeRails = React.memo(function HomeRails({
           )}
           <SkeletonRail variant="provider" cards={8} />
           <SkeletonRail headerType="selector" cards={8} />
+          <SkeletonRail headerType="selector" cards={8} />
+          <SkeletonRail headerType="selector" cards={8} />
+          <SkeletonRail cards={8} />
           <SkeletonRail cards={8} />
           <SkeletonRail cards={8} />
         </div>
