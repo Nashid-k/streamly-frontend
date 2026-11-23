@@ -80,8 +80,14 @@ const HomeRails = React.memo(function HomeRails({
       )}
 
       {loading ? (
-        <div className="home-rails-skeleton">
-          {[1, 2, 3, 4].map((rail) => <SkeletonRail key={rail} cards={8} />)}
+        <div className="home-rails-skeleton" aria-label="Loading home recommendations">
+          {continueWatching?.length > 0 && (
+            <SkeletonRail variant="continue" cards={5} />
+          )}
+          <SkeletonRail variant="provider" cards={8} />
+          <SkeletonRail headerType="selector" cards={8} />
+          <SkeletonRail cards={8} />
+          <SkeletonRail cards={8} />
         </div>
       ) : (
         <>
