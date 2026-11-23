@@ -319,6 +319,32 @@
   pointer-events: auto;
 }
 
+/* Touch interaction parity: hover does not exist on phones/tablets. Give a
+   real pressed state to poster cards so the same cinematic feedback is present
+   when a viewer taps rather than hovers. The reveal is intentionally scoped to
+   the active press; it never leaves a sticky hover state after navigation. */
+@media (hover: none), (pointer: coarse) {
+  .movie-card:active {
+    transform: scale(0.975);
+    z-index: 20;
+    transition: transform 120ms var(--ease-out);
+  }
+  .movie-card:active .movie-poster {
+    transform: scale(1.035);
+  }
+  .movie-card:active .card-veil {
+    opacity: 1;
+  }
+  .movie-card:active .card-curtain {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .movie-card:active .card-play-disc {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Press sink — last so it beats the matching :hover/:focus-visible lift while
    held (same 0.97 the framer whileTap used, tokenised). */
 .movie-card:active {
