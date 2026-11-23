@@ -63,29 +63,8 @@
   );
 }
 
-/* Skeleton stagger — the same rhythm as the real cardEnter wave (grids.css),
-   so the placeholder grid and the landed grid beat identically. */
-.skeleton-card {
-  animation: skeleton-wave-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-.skeleton-card:nth-child(1) { animation-delay: 0.03s; }
-.skeleton-card:nth-child(2) { animation-delay: 0.06s; }
-.skeleton-card:nth-child(3) { animation-delay: 0.09s; }
-.skeleton-card:nth-child(4) { animation-delay: 0.12s; }
-.skeleton-card:nth-child(5) { animation-delay: 0.15s; }
-.skeleton-card:nth-child(6) { animation-delay: 0.18s; }
-.skeleton-card:nth-child(7) { animation-delay: 0.21s; }
-.skeleton-card:nth-child(8) { animation-delay: 0.24s; }
-.skeleton-card:nth-child(9) { animation-delay: 0.27s; }
-.skeleton-card:nth-child(10) { animation-delay: 0.30s; }
-.skeleton-card:nth-child(11) { animation-delay: 0.33s; }
-.skeleton-card:nth-child(12) { animation-delay: 0.36s; }
-
-@keyframes skeleton-wave-in {
-  0% { opacity: 0; transform: translateY(12px) scale(0.97); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-}
-
+/* Skeletons stay still apart from the shared shimmer: the real card
+   entrance stagger was removed to keep the loading-to-content handoff calm. */
 .skeleton-hero {
   width: 100%;
   height: min(78vh, 850px);
@@ -111,24 +90,81 @@
   z-index: 1;
 }
 
+/* ── Layout-matched rail skeletons ─────────────────────────────────────── */
+.skeleton-rail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 24px;
+  padding: 0 var(--gutter, 24px);
+  margin-bottom: 14px;
+}
+@media (min-width: 1024px) {
+  .skeleton-rail-head {
+    padding-left: var(--gutter, 64px);
+    padding-right: var(--gutter, 64px);
+  }
+}
+.skeleton-rail-title {
+  width: clamp(132px, 20vw, 220px);
+  height: 1.25rem;
+  border-radius: 5px;
+}
+.skeleton-rail-action {
+  width: 62px;
+  height: 0.8rem;
+  border-radius: 4px;
+  opacity: 0.72;
+}
+.skeleton-selector-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.skeleton-selector-label {
+  width: clamp(88px, 12vw, 138px);
+  height: 1.1rem;
+  border-radius: 4px;
+}
+.skeleton-selector-value {
+  width: clamp(90px, 14vw, 156px);
+  height: 1.55rem;
+  border-radius: 6px;
+}
 .skeleton-rail {
   display: flex;
-  gap: 1.5rem;
+  align-items: flex-start;
+  gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-  padding: 0.25rem 0.5rem 1rem;
+  padding: 16px var(--gutter, 24px) 8px;
+  scroll-snap-type: x proximity;
 }
 .skeleton-rail::-webkit-scrollbar {
   display: none;
 }
-.skeleton-rail > div {
-  width: 200px;
-  flex-shrink: 0;
+.skeleton-rail-card {
+  width: 140px;
+  flex: 0 0 140px;
+  scroll-snap-align: start;
+}
+@media (min-width: 1024px) {
+  .skeleton-rail {
+    gap: 18px;
+    padding-left: var(--gutter, 64px);
+    padding-right: var(--gutter, 64px);
+  }
+  .skeleton-rail-card {
+    width: 200px;
+    flex-basis: 200px;
+  }
 }
 
-/* Movie-card-shaped skeleton — mirrors MovieCard:
-   poster (2/3) + title line + subtitle line, sized like .movie-grid cells */
+/* MovieCard rails show artwork only until the curtain is opened; no fake
+   title rows below the posters. Grid/search variants can opt into metadata. */
 .skeleton-moviecard {
   display: flex;
   flex-direction: column;
@@ -139,22 +175,106 @@
   width: 100%;
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-card);
-  border: 1px solid rgba(var(--white-rgb), 0.04);
+  border: 1px solid rgba(var(--white-rgb), 0.06);
+}
+.skeleton-moviecard__info {
+  padding: 0 2px;
 }
 .skeleton-moviecard .sk-line {
   height: 0.8rem;
   border-radius: 4px;
   margin-top: 0.5rem;
 }
-.skeleton-moviecard .sk-line--w70 {
-  width: 70%;
-}
-.skeleton-moviecard .sk-line--w40 {
-  width: 40%;
-}
+.skeleton-moviecard .sk-line--w70 { width: 70%; }
+.skeleton-moviecard .sk-line--w40 { width: 40%; }
 .skeleton-moviecard .sk-line--sub {
   height: 0.65rem;
   margin-top: 0.35rem;
+}
+
+/* Continue Watching uses landscape 16:9 cards, a bottom info scrim and the
+   persistent progress strip — the loading shape reserves those exact areas. */
+.skeleton-continue-rail { min-width: 0; }
+.skeleton-continue-heading {
+  width: clamp(150px, 22vw, 240px);
+  height: 1.3rem;
+  border-radius: 5px;
+}
+.skeleton-continue-track {
+  display: flex;
+  gap: clamp(0.75rem, 1.1vw, 1.125rem);
+  overflow: hidden;
+  padding: 1rem var(--gutter, 24px) 0.5rem;
+}
+.skeleton-continue-card {
+  flex: 0 0 clamp(15rem, 40vw, 18rem);
+}
+.skeleton-continue-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.skeleton-continue-scrim {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 2.5rem 0.85rem 0.85rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.82), rgba(0,0,0,0.28), transparent);
+}
+.skeleton-continue-title { width: 62%; height: 0.8rem; border-radius: 4px; }
+.skeleton-continue-meta { width: 38%; height: 0.55rem; border-radius: 4px; opacity: 0.75; }
+.skeleton-continue-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.22);
+}
+
+/* Provider picker rail: the real UI is a row of square service marks with
+   centered labels, not movie poster placeholders. */
+.skeleton-provider-track {
+  display: flex;
+  gap: 20px;
+  overflow: hidden;
+  padding: 16px var(--gutter, 24px) 8px;
+}
+.skeleton-provider-item {
+  flex: 0 0 76px;
+  width: 76px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.skeleton-provider-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+}
+.skeleton-provider-name {
+  width: 48px;
+  height: 0.55rem;
+  border-radius: 4px;
+}
+@media (min-width: 1024px) {
+  .skeleton-provider-track {
+    padding-left: var(--gutter, 64px);
+    padding-right: var(--gutter, 64px);
+  }
+  .skeleton-provider-item {
+    flex-basis: 92px;
+    width: 92px;
+  }
+  .skeleton-provider-logo {
+    width: 80px;
+    height: 80px;
+  }
 }
 
 /* Cast-style circular avatar skeleton (mirrors CastRail 90px circles) */
@@ -184,17 +304,13 @@
 }
 
 @media (max-width: 768px) {
-  .skeleton-rail > div {
-    width: 165px;
-  }
   .skeleton-rail {
-    padding: 0.25rem 0.5rem 1rem;
+    padding: 16px var(--gutter, 24px) 8px;
   }
 }
 
 .skeleton-card {
-  width: 220px;
-  height: 330px;
+  width: 100%;
   flex-shrink: 0;
 }
 
