@@ -425,6 +425,23 @@ textarea:focus-visible {
     pointer-events: auto;
   }
 }
+/* Touch parity: there is no hover state on touchscreens. Keep the same
+   lift/artwork motion while a card is pressed and reveal its resume panel for
+   the duration of the tap. */
+@media (hover: none), (pointer: coarse) {
+  .cw-rail__card:active .cw-rail__poster {
+    transform: scale(0.985);
+    transition: transform 120ms var(--ease-out);
+  }
+  .cw-rail__card:active .cw-rail__poster-image {
+    transform: scale(1.035);
+  }
+  .cw-rail__card:active .cw-rail__panel {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
 /* Keyboard users receive the same panel reveal and focus remains visible. */
 .cw-rail__card:focus-within .cw-rail__panel {
   opacity: 1;
