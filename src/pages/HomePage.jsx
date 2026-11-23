@@ -852,6 +852,11 @@ export default function Home({ filter = "all", title }) {
             transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             onTouchStart={handleHeroTouchStart}
             onTouchEnd={handleHeroTouchEnd}
+            /* The entire banner is an interactive surface, not just its CTA
+               buttons. Give pointer/touch activation a restrained press response
+               before the shared detail-view transition takes over. */
+            whileTap={{ scale: 0.995 }}
+            transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             onClick={() => openDetails(activeFeaturedMovie)}
             onMouseEnter={() => { isHeroHoveredRef.current = true; }}
             onMouseLeave={() => { isHeroHoveredRef.current = false; }}
