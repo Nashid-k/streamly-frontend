@@ -344,10 +344,24 @@ html[data-detail-transition="A"] .home-rails-section .provider-icon,
   margin: -4px 0 0 -14px;
   border-radius: 4px;
   background-color: rgba(255, 255, 255, 0.42);
-  background-image: linear-gradient(var(--lbl), var(--lbl));
-  background-repeat: no-repeat;
-  background-size: 0% 100%;
+  background-image: none;
+  animation: none;
+}
+.home-page > .hero .dots.glass button[aria-current="true"]::before {
+  display: block;
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 28px;
+  height: 8px;
+  margin: -4px 0 0 -14px;
+  border-radius: 4px;
+  background: var(--lbl);
+  transform-origin: 0 50%;
   animation: homeDotProgress var(--hero-rotate-duration, 9s) linear forwards;
+  z-index: 1;
+  pointer-events: none;
 }
 .home-page > .hero .dots.glass button:not([aria-current="true"]):hover::after {
   transform: scale(1.4);
@@ -364,8 +378,8 @@ html[data-detail-transition="A"] .home-rails-section .provider-icon,
 }
 
 @keyframes homeDotProgress {
-  from { background-size: 0% 100%; }
-  to { background-size: 100% 100%; }
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .home-page .hero-live {
@@ -1535,6 +1549,7 @@ html[data-detail-transition="A"] .home-rails-section .sh.in .rail > .cw {
   .home-page > .hero .hbd,
   .home-page > .hero .hx > *,
   .home-page > .hero .dots.glass button[aria-current="true"]::after,
+  .home-page > .hero .dots.glass button[aria-current="true"]::before,
   .home-page > .hero.sk-hero,
   .home-page > .hero.sk-hero .hx > *,
   .home-page > .hero.sk-hero .dots,
@@ -1546,8 +1561,8 @@ html[data-detail-transition="A"] .home-rails-section .sh.in .rail > .cw {
   .home-rails-section .rail-menu__item {
     animation: none;
   }
-  .home-page > .hero .dots.glass button[aria-current="true"]::after {
-    background-size: 100% 100%;
+  .home-page > .hero .dots.glass button[aria-current="true"]::before {
+    transform: scaleX(1);
   }
 }
 

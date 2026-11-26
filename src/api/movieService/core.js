@@ -32,6 +32,27 @@ export function collectSettled(results, method, context = {}) {
   return values;
 }
 
+// Bounded form of Promise.allSettled for catalogue sweeps. Tasks are lazy so
+// only `limit` requests are in flight at once, but the returned array keeps the
+// original order and settled shape that collectSettled/callers already expect.
+export async function settledWithConcurrency(tasks, limit = 4) {
+  const results = new Array(tasks.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < tasks.length) {
+      const index = cursor++;
+      try {
+        results[index] = { status: "fulfilled", value: await tasks[index]() };
+      } catch (reason) {
+        results[index] = { status: "rejected", reason };
+      }
+    }
+  };
+  const workers = Math.min(Math.max(limit, 1), tasks.length);
+  await Promise.all(Array.from({ length: workers }, worker));
+  return results;
+}
+
 // Helper: detect if a TMDB id refers to a TV show
 export function isTvId(id) {
   if (typeof id !== 'string') return false;

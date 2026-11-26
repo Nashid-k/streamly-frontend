@@ -98,22 +98,31 @@ export const ratingService = {
     const { tmdbId, type } = ratingService.identFromId(movie.id);
     const kind = type === "series" ? "tv" : "movie";
     try {
-      const external = await tmdb(`/${kind}/${tmdbId}/external_ids`);
-      if (!external?.imdb_id) {
+      // getMovieDetails already fetches /external_ids for the details page and
+      // normalizes it onto `imdbId`. Reusing it removes one serial TMDB leg on
+      // the ratings hot path without touching the normalized field contract.
+      let imdbId = movie.imdbId || movie.imdb_id || null;
+      if (imdbId) {
+        logDebug("ratings", `Using normalized IMDb id for ${movie.id} — skipped /external_ids.`, { id: movie.id, imdbId });
+      } else {
+        const external = await tmdb(`/${kind}/${tmdbId}/external_ids`);
+        imdbId = external?.imdb_id || null;
+      }
+      if (!imdbId) {
         logDebug("ratings", `No IMDb id for ${movie.id} — showing TMDB score only.`, { id: movie.id });
         writeCache(movie.id, null);
         return null;
       }
-      const omdb = await fetchOmdbByImdbId(external.imdb_id, type);
+      const omdb = await fetchOmdbByImdbId(imdbId, type);
       const result = omdb
         ? {
-            imdbId: external.imdb_id,
+            imdbId,
             imdb: pickRating(omdb.Ratings, "Internet Movie Database"),
             rt: pickRating(omdb.Ratings, "Rotten Tomatoes"),
           }
         : null;
       if (!result || (result.imdb == null && result.rt == null)) {
-        logDebug("ratings", `OMDb returned no usable IMDb/RT scores for ${movie.id} — showing TMDB score only.`, { id: movie.id, imdbId: external.imdb_id });
+        logDebug("ratings", `OMDb returned no usable IMDb/RT scores for ${movie.id} — showing TMDB score only.`, { id: movie.id, imdbId });
       }
       writeCache(movie.id, result);
       return result;

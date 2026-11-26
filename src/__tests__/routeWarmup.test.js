@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { pageLoaders } from "../app/routeLoaders";
-import { routeLoaderForPath, WARM_ORDER, startRouteWarmup } from "../app/routeWarmup";
+import {
+  routeLoaderForPath,
+  WARM_ORDER,
+  IDLE_WARM_ORDER,
+  startRouteWarmup,
+} from "../app/routeWarmup";
 
 /* The warm-up has two halves: a pure path→loader map (this file's main
    surface) and a side-effecting bootstrap. The map is what makes hover
@@ -44,11 +49,18 @@ describe("routeLoaderForPath", () => {
 });
 
 describe("WARM_ORDER", () => {
-  it("covers every page loader so idle warm-up can never miss a page", () => {
+  it("covers every page loader so hover/focus warm-up can never miss a page", () => {
     const warmed = new Set(WARM_ORDER);
     for (const [name, loader] of Object.entries(pageLoaders)) {
       expect(warmed.has(loader), `${name} is missing from WARM_ORDER`).toBe(true);
     }
+  });
+
+  it("caps speculative idle work to the three likeliest destinations", () => {
+    expect(IDLE_WARM_ORDER).toHaveLength(3);
+    const all = new Set(WARM_ORDER);
+    for (const loader of IDLE_WARM_ORDER) expect(all.has(loader)).toBe(true);
+    expect(new Set(IDLE_WARM_ORDER).size).toBe(IDLE_WARM_ORDER.length);
   });
 });
 

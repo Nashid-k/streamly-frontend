@@ -262,14 +262,15 @@ export default function TitleDetails() {
       alive = false;
     };
   }, []);
-  const hasExplicitEpisodeStyle = (() => {
+  // Read once on mount; the effect below handles later preference changes.
+  const [hasExplicitEpisodeStyle] = useState(() => {
     try {
       const saved = localStorage.getItem("setting-episodeViewStyle");
       return saved === '"grid"' || saved === '"carousel"' || saved === '"list"';
     } catch {
       return false;
     }
-  })();
+  });
   const [episodeLayout, setEpisodeLayout] = useState(() => (
     hasExplicitEpisodeStyle && (episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel")
       ? episodeViewStyle
@@ -1621,9 +1622,12 @@ export default function TitleDetails() {
 
           <div className="relative group/episodes">
           <AnimatePresence mode="wait">
+          {/* Remount only on season/layout changes. Fetch state is refreshed by
+              the layout effect above, so a re-fetch no longer tears down every
+              episode card in the middle of a season switch. */}
           <motion.div
             ref={episodeLayout === "carousel" ? epRailRef : undefined}
-            key={`season-${selectedSeason}-${episodesFetching}-${episodeLayout}`}
+            key={`season-${selectedSeason}-${episodeLayout}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

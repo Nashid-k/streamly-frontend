@@ -5,9 +5,9 @@ import { logDebug, logWarn } from "../utils/debugLogger";
    `data-sveltekit-preload-data="hover"` + install-time route precache.
 
    Two triggers, one shared promise map:
-   1. IDLE: after window load, every page chunk is imported one per idle slice,
-      so the first click on any nav item or card finds the module already in
-      the registry and Suspense never drops a full-page Loader.
+   1. IDLE: after window load, only the likeliest page chunks are imported one
+      per idle slice. Hover/focus still warms every other destination, so a
+      cold Home load does not compete with the hero for bandwidth.
    2. HOVER/FOCUS on any same-origin link: the destination's chunk starts
       downloading the moment a pointer lands on (or a keyboard focuses) its
       anchor — navigation after that is instant.
@@ -53,9 +53,8 @@ export function routeLoaderForPath(pathname) {
   return null;
 }
 
-// Idle order: the home page (already in flight at boot) first, then every nav
-// destination, then the rail/card destinations (details beats person — card
-// clicks dwarf person-link clicks), then the long-tail collection routes.
+// Full map retained for the contract test: every lazy page must be reachable
+// from a hover/focus warm, even though idle no longer speculates on all of them.
 export const WARM_ORDER = [
   pageLoaders.home,
   pageLoaders.discovery,
@@ -71,6 +70,14 @@ export const WARM_ORDER = [
   pageLoaders.publicCollection,
   pageLoaders.exploreCollections,
   pageLoaders.notFound,
+];
+
+// Idle budget: the three destinations a first-session viewer is most likely to
+// open without a prior anchor hover. Long-tail chunks stay click/hover-lazy.
+export const IDLE_WARM_ORDER = [
+  pageLoaders.discovery,
+  pageLoaders.search,
+  pageLoaders.titleDetails,
 ];
 
 const started = new Map();
@@ -107,7 +114,7 @@ function warmDisabled() {
 
 const nextIdle = (cb) =>
   "requestIdleCallback" in window
-    ? window.requestIdleCallback(cb, { timeout: 5000 })
+    ? window.requestIdleCallback(cb)
     : window.setTimeout(cb, 300);
 
 function loaderForAnchor(anchor) {
@@ -142,8 +149,8 @@ export function startRouteWarmup() {
   document.addEventListener("focusin", warmFromEvent, { passive: true });
 
   let cancelled = false;
-  const warmAll = async () => {
-    for (const loader of WARM_ORDER) {
+  const warmLikely = async () => {
+    for (const loader of IDLE_WARM_ORDER) {
       if (cancelled) return;
       await warm(loader);
       await new Promise((resolve) => {
@@ -151,7 +158,7 @@ export function startRouteWarmup() {
         else nextIdle(resolve);
       });
     }
-    if (!cancelled) logDebug("routeWarmup", "All route chunks warmed during idle.");
+    if (!cancelled) logDebug("routeWarmup", "Likely route chunks warmed during idle.");
   };
   // Give the live page first claim on the network/main thread: the hero image,
   // the first rails and their fonts are what LCP and the first interaction
@@ -160,7 +167,7 @@ export function startRouteWarmup() {
   const kick = () => {
     if (cancelled) return;
     window.setTimeout(() => {
-      if (!cancelled) warmAll();
+      if (!cancelled) warmLikely();
     }, WARM_START_DELAY_MS);
   };
   if (document.readyState === "complete") kick();

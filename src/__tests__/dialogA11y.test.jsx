@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import RatingsTable from "../components/RatingsTable";
 import Popover from "../components/Popover";
 import GlobalShortcuts from "../components/GlobalShortcuts";
@@ -20,6 +21,13 @@ vi.mock("../api/movieService", () => ({
   },
 }));
 
+const renderRatingsTable = (ui) =>
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      {ui}
+    </QueryClientProvider>,
+  );
+
 beforeEach(() => {
   localStorage.clear();
 });
@@ -31,14 +39,14 @@ afterEach(() => {
 
 describe("RatingsTable behaves like the modal it announces", () => {
   it("moves focus into the panel on open", () => {
-    render(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={() => {}} />);
+    renderRatingsTable(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={() => {}} />);
 
     const dialog = screen.getByRole("dialog", { name: /episode ratings/i });
     expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
   it("keeps Tab inside the panel when it is on the last control", () => {
-    render(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={() => {}} />);
+    renderRatingsTable(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={() => {}} />);
 
     const dialog = screen.getByRole("dialog", { name: /episode ratings/i });
     const close = screen.getByRole("button", { name: /close ratings/i });
@@ -53,14 +61,14 @@ describe("RatingsTable behaves like the modal it announces", () => {
 
   it("closes on Escape", () => {
     const onClose = vi.fn();
-    render(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={onClose} />);
+    renderRatingsTable(<RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={onClose} />);
 
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("locks background scroll while open and releases it on unmount", () => {
-    const { unmount } = render(
+    const { unmount } = renderRatingsTable(
       <RatingsTable movie={{ id: 1, title: "Test Show" }} seasons={[]} onClose={() => {}} />,
     );
     expect(document.body.style.overflow).toBe("hidden");

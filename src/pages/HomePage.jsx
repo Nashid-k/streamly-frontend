@@ -744,11 +744,15 @@ export default function Home({ filter = "all", title }) {
     };
   }, [armHeroRotation, featuredIndex, totalFeatured]);
 
-  // Preload every slide in the five-title rotation once, not just the next
-  // one. The Set is keyed by art URL so a pool refresh never re-fetches it.
+  // Keep the active slide and its successor ready for an instant 9s rotation,
+  // but defer the rest of the five-title pool to idle. A cold Home load no
+  // longer puts four full-width backdrops in the first paint's network budget.
   const preloadedArtRef = useRef(new Set());
   useEffect(() => {
-    finalPool.slice(0, HERO_LIMIT).forEach((movie) => {
+    const slides = finalPool.slice(0, HERO_LIMIT);
+    if (slides.length === 0) return undefined;
+
+    const loadArt = (movie) => {
       const src = movie?.backdropUrl || movie?.posterUrl || movie?.poster;
       if (!src || preloadedArtRef.current.has(src)) return;
       preloadedArtRef.current.add(src);
@@ -758,8 +762,35 @@ export default function Home({ filter = "all", title }) {
       img.onload = () => markMediaUrlLoaded(url);
       img.src = url;
       if (img.complete && img.naturalWidth > 0) markMediaUrlLoaded(url);
-    });
-  }, [finalPool]);
+    };
+
+    const active = featuredIndex % slides.length;
+    const next = (active + 1) % slides.length;
+    loadArt(slides[active]);
+    loadArt(slides[next]);
+
+    const rest = slides.filter((_, i) => i !== active && i !== next);
+    if (rest.length === 0) return undefined;
+
+    let cancelled = false;
+    let idleId = 0;
+    let timerId = 0;
+    const loadRest = () => {
+      if (!cancelled) rest.forEach(loadArt);
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(loadRest);
+    } else {
+      timerId = window.setTimeout(loadRest, 800);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timerId) window.clearTimeout(timerId);
+    };
+  }, [finalPool, featuredIndex]);
 
   const heroTouchStartRef = useRef({ x: 0, y: 0 });
   const heroTouchPauseTimeoutRef = useRef(null);

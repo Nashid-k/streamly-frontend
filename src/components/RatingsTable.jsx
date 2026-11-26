@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { MotionFade, MotionLeaf } from "./MotionLeaf";
 import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
+import { logError } from "../utils/debugLogger";
 import useDialogA11y from "../hooks/useDialogA11y";
 
 const RATING_LEGEND = [
@@ -16,11 +18,17 @@ const RATING_LEGEND = [
 ];
 
 const NO_RATING_COLOR = "rgba(255, 255, 255, 0.06)";
+const episodesKey = (id, season) => ["episodes", id, season];
+const EPISODES_STALE_MS = 1000 * 60 * 60 * 24;
+// The heatmap is below the fold in a modal: three concurrent season requests
+// fill it progressively without flooding TMDB the way one request per season did.
+const MAX_CONCURRENT_SEASONS = 3;
 
 // SeriesGraph-style heatmap: seasons run down the vertical axis (S1, S2, …)
 // and episodes run across the horizontal axis (E1, E2, …); each cell is
 // colored by that episode's rating. No votes, titles or rows — pure grid.
 const RatingsTable = ({ movie, seasons = [], onClose }) => {
+  const queryClient = useQueryClient();
   const seasonNumbers = useMemo(() => {
     const src =
       seasons.length > 0 ? seasons : [{ seasonNumber: 1, name: "Season 1" }];
@@ -42,38 +50,73 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
   // page behind cannot scroll, and focus returns to the ratings button.
   useDialogA11y(true, panelRef, onClose);
 
-  // Fetch every season once (cached) so the full grid renders progressively.
+  const applySeason = useCallback(
+    (num, res) => {
+      const episodes = Array.isArray(res)
+        ? res
+        : Array.isArray(res?.episodes)
+          ? res.episodes
+          : [];
+      loadedRef.current[num] = episodes;
+      setLoaded((prev) => ({ ...prev, [num]: episodes }));
+    },
+    [],
+  );
+
+  // Use the same frozen query key as the season tab so a title already open on
+  // that season contributes its cached result instead of issuing a second call.
+  const loadSeason = useCallback(
+    async (num, { fresh = false } = {}) => {
+      const res = await queryClient.fetchQuery({
+        queryKey: episodesKey(movie.id, num),
+        queryFn: () => movieService.getSeasonEpisodes(movie.id, num),
+        staleTime: fresh ? 0 : EPISODES_STALE_MS,
+        retry: 1,
+      });
+      applySeason(num, res);
+    },
+    [applySeason, movie.id, queryClient],
+  );
+
+  // Fetch seasons with a small worker pool so the full grid renders
+  // progressively without one unbounded request burst per modal open.
   useEffect(() => {
-    if (seasonOptions.length === 0) return;
+    if (seasonOptions.length === 0) return undefined;
     let alive = true;
-    seasonOptions.forEach((season) => {
-      const num = season.seasonNumber;
-      if (loadedRef.current[num]) return;
-      movieService
-        .getSeasonEpisodes(movie.id, num)
-        .then((res) => {
+    let cursor = 0;
+    const worker = async () => {
+      while (alive && cursor < seasonOptions.length) {
+        const num = seasonOptions[cursor++].seasonNumber;
+        if (loadedRef.current[num]) continue;
+        try {
+          await loadSeason(num);
+        } catch (error) {
           if (!alive) return;
-          loadedRef.current[num] = res.episodes || [];
-          setLoaded((prev) => ({ ...prev, [num]: loadedRef.current[num] }));
-        })
-        .catch(() => {
-          if (alive) setFailed((prev) => ({ ...prev, [num]: true }));
-        });
+          logError("RatingsTable", `Season ${num} ratings failed — cell will show no rating.`, error, {
+            id: movie.id,
+            season: num,
+          });
+          setFailed((prev) => ({ ...prev, [num]: true }));
+        }
+      }
+    };
+    Array.from({ length: Math.min(MAX_CONCURRENT_SEASONS, seasonOptions.length) }, () => {
+      void worker();
     });
     return () => {
       alive = false;
     };
-  }, [movie.id, seasonOptions]);
+  }, [loadSeason, movie.id, seasonOptions]);
 
   const retrySeason = (num) => {
     setFailed((prev) => ({ ...prev, [num]: false }));
-    movieService
-      .getSeasonEpisodes(movie.id, num)
-      .then((res) => {
-        loadedRef.current[num] = res.episodes || [];
-        setLoaded((prev) => ({ ...prev, [num]: loadedRef.current[num] }));
-      })
-      .catch(() => setFailed((prev) => ({ ...prev, [num]: true })));
+    loadSeason(num, { fresh: true }).catch((error) => {
+      logError("RatingsTable", `Season ${num} ratings retry failed.`, error, {
+        id: movie.id,
+        season: num,
+      });
+      setFailed((prev) => ({ ...prev, [num]: true }));
+    });
   };
 
   const rows = useMemo(() => {

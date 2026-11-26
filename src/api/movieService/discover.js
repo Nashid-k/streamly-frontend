@@ -1,7 +1,7 @@
 import tmdb from '../tmdbClient';
 import { CdnImageAdapter } from '../cdnImageAdapter';
 import { logEmptyData, logWarn } from '../../utils/debugLogger';
-import { logServiceError, warnIfEmpty, collectSettled } from './core';
+import { logServiceError, warnIfEmpty, collectSettled, settledWithConcurrency } from './core';
 import { normalizeResult, REGIONAL_PRIMARY_LANGUAGES } from './normalize';
 
 // Resolve a browse filter set to TMDB request params. Kept tiny and pure so
@@ -251,9 +251,9 @@ export const getNewReleases = async (pastDays = 90) => {
           ? { 'first_air_date.gte': startStr, 'first_air_date.lte': endStr }
           : { 'release_date.gte': startStr, 'release_date.lte': endStr, with_release_type: '4' };
       const dateKey = mediaType === 'tv' ? 'first_air_date' : 'release_date';
-      const pages = await Promise.allSettled(
+      const pages = await settledWithConcurrency(
         langs.flatMap((lang) =>
-          [1, 2].map((page) =>
+          [1, 2].map((page) => () =>
             tmdb(`/discover/${mediaType}`, {
               page,
               sort_by: mediaType === 'tv' ? 'first_air_date.desc' : 'release_date.desc',
@@ -262,6 +262,7 @@ export const getNewReleases = async (pastDays = 90) => {
             }),
           ),
         ),
+        4,
       );
       const out = [];
       const seen = new Set();
@@ -319,9 +320,9 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
     const end = new Date(now);
     end.setDate(now.getDate() + windowDays);
     const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
-    const pages = await Promise.allSettled(
+    const pages = await settledWithConcurrency(
       REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
-        [1, 2, 3].map((page) =>
+        [1, 2, 3].map((page) => () =>
           tmdb('/discover/movie', {
             page,
             sort_by: 'primary_release_date.asc',
@@ -331,6 +332,7 @@ export const getRegionalUpcoming = async (windowDays = 90) => {
           }),
         ),
       ),
+      4,
     );
     const out = [];
     const seen = new Set();
@@ -366,27 +368,30 @@ export const getTvUpcoming = async (windowDays = 120) => {
     const end = new Date(now);
     end.setDate(now.getDate() + windowDays);
     const endStr = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
-    const pages = await Promise.allSettled([
-      ...[1, 2].map((page) =>
-        tmdb('/discover/tv', {
-          page,
-          sort_by: 'first_air_date.asc',
-          'first_air_date.gte': start,
-          'first_air_date.lte': endStr,
-        }),
-      ),
-      ...REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
-        [1, 2].map((page) =>
+    const pages = await settledWithConcurrency(
+      [
+        ...[1, 2].map((page) => () =>
           tmdb('/discover/tv', {
             page,
             sort_by: 'first_air_date.asc',
             'first_air_date.gte': start,
             'first_air_date.lte': endStr,
-            with_original_language: lang,
           }),
         ),
-      ),
-    ]);
+        ...REGIONAL_PRIMARY_LANGUAGES.flatMap((lang) =>
+          [1, 2].map((page) => () =>
+            tmdb('/discover/tv', {
+              page,
+              sort_by: 'first_air_date.asc',
+              'first_air_date.gte': start,
+              'first_air_date.lte': endStr,
+              with_original_language: lang,
+            }),
+          ),
+        ),
+      ],
+      4,
+    );
     const out = [];
     const seen = new Set();
     for (const data of collectSettled(pages, 'getTvUpcoming', { windowDays, languages: REGIONAL_PRIMARY_LANGUAGES.join(',') })) {

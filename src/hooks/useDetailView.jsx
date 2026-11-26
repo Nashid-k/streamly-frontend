@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import slugify from "slugify";
@@ -503,6 +503,13 @@ export default function useDetailView() {
   const reduceMotionPref = usePreferenceValue("reduceMotion", false);
   const [modalMovie, setModalMovie] = useState(null);
 
+  // Location identity changes on every history entry. Reading it through a ref
+  // keeps openDetails stable so every memoized card does not re-render on nav.
+  const locationRef = useRef(location);
+  useEffect(() => {
+    locationRef.current = location;
+  }, [location]);
+
   const openDetails = useCallback(
     (movie, { forceModal = false, sourceElement, detailToken, heroIndex } = {}) => {
       if (!movie) return;
@@ -529,7 +536,7 @@ export default function useDetailView() {
         runForwardDetailTransition({
           sourceElement,
           movie,
-          from: location,
+          from: locationRef.current,
           detailToken,
           heroIndex,
           commit,
@@ -538,7 +545,7 @@ export default function useDetailView() {
         commit(null);
       }
     },
-    [detailViewType, location, navigate, reduceMotionPref],
+    [detailViewType, navigate, reduceMotionPref],
   );
 
   const closeDetails = useCallback(() => setModalMovie(null), []);

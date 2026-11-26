@@ -112,6 +112,13 @@ const HomeCard = memo(function HomeCard({
     }, 320);
   }, [clearPlayTimer]);
 
+  // Cold Home loads mount dozens of cards. Details are only valuable once the
+  // viewer shows intent, so the heavy detail + similar queries ride the hover /
+  // focus path instead of firing for every card in a rail.
+  const warmDetails = useCallback(() => {
+    PrefetchAdapter.prefetchMovieDetails(movie.id);
+  }, [movie.id]);
+
   const handlePointerMove = useCallback((event) => {
     if (event.pointerType === "touch" || isTouchDevice || reducedMotion()) return;
     tiltPointRef.current = { x: event.clientX, y: event.clientY };
@@ -224,10 +231,6 @@ const HomeCard = memo(function HomeCard({
     }
   }, [posterSrc]);
 
-  useEffect(() => {
-    PrefetchAdapter.prefetchMovieDetails(movie.id);
-  }, [movie.id]);
-
   useEffect(
     () => () => {
       clearBumpTimers();
@@ -260,7 +263,11 @@ const HomeCard = memo(function HomeCard({
                 open(event);
               }
             }}
-            onPointerEnter={schedulePlayReady}
+            onPointerEnter={() => {
+              schedulePlayReady();
+              warmDetails();
+            }}
+            onFocus={warmDetails}
             onPointerMove={handlePointerMove}
             onPointerLeave={() => {
               clearTilt();

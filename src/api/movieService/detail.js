@@ -1,6 +1,6 @@
 import tmdb from '../tmdbClient';
 import { logDebug, logEmptyData, logWarn } from '../../utils/debugLogger';
-import { logServiceError, warnIfEmpty, isTvId, rawId } from './core';
+import { logServiceError, warnIfEmpty, isTvId, rawId, settledWithConcurrency } from './core';
 import {
   normalizeResult,
   certificationFromDetail,
@@ -301,8 +301,8 @@ const ENRICH_CAP = 20;
 // failed look-up (or a title with no announced next episode) falls back to the
 // plain item, so enrichment never deletes titles from the on-air rail.
 function enrichAiringSlice(slice) {
-  return Promise.allSettled(
-    slice.slice(0, Math.min(ENRICH_CAP, slice.length)).map(async (item) => {
+  return settledWithConcurrency(
+    slice.slice(0, Math.min(ENRICH_CAP, slice.length)).map((item) => async () => {
       const rid = rawId(item.id);
       const brief = await tmdb(`/tv/${rid}`, { append_to_response: 'next_episode_to_air' });
       const nx = brief.next_episode_to_air;
@@ -318,6 +318,7 @@ function enrichAiringSlice(slice) {
         airingSeasonNumber: nx.season_number || null,
       };
     }),
+    4,
   );
 }
 
@@ -338,25 +339,28 @@ export const getRegionalAiring = async (limit = 20) => {
     from.setDate(now.getDate() - 30);
     const fromStr = `${from.getFullYear()}-${pad(from.getMonth() + 1)}-${pad(from.getDate())}`;
     const toStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    const pages = await Promise.allSettled([
-      ...REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
-        tmdb('/discover/tv', {
-          page: 1,
-          sort_by: 'popularity.desc',
-          with_status: '0',
-          with_original_language: lang,
-        }),
-      ),
-      ...REGIONAL_PRIMARY_LANGUAGES.map((lang) =>
-        tmdb('/discover/tv', {
-          page: 1,
-          sort_by: 'popularity.desc',
-          'air_date.gte': fromStr,
-          'air_date.lte': toStr,
-          with_original_language: lang,
-        }),
-      ),
-    ]);
+    const pages = await settledWithConcurrency(
+      [
+        ...REGIONAL_PRIMARY_LANGUAGES.map((lang) => () =>
+          tmdb('/discover/tv', {
+            page: 1,
+            sort_by: 'popularity.desc',
+            with_status: '0',
+            with_original_language: lang,
+          }),
+        ),
+        ...REGIONAL_PRIMARY_LANGUAGES.map((lang) => () =>
+          tmdb('/discover/tv', {
+            page: 1,
+            sort_by: 'popularity.desc',
+            'air_date.gte': fromStr,
+            'air_date.lte': toStr,
+            with_original_language: lang,
+          }),
+        ),
+      ],
+      4,
+    );
     const base = [];
     const seen = new Set();
     for (const res of pages) {

@@ -197,18 +197,60 @@ function Header() {
     };
   }, []);
 
-  /* Canonical `.glass` pointer glow for the two always-on shell surfaces. */
+  /* Canonical `.glass` pointer glow. Geometry is cached per surface and writes
+     are coalesced to one rAF — a blurred surface must not be re-rasterized by
+     every pointermove, and getBoundingClientRect() must never be a per-frame
+     layout flush on the global move path. */
   useEffect(() => {
+    let rects = new WeakMap();
+    let frame = 0;
+    let activeSurface = null;
+    let activeRect = null;
+    let pending = null;
+
+    const invalidateRects = () => {
+      rects = new WeakMap();
+      activeRect = null;
+    };
+
+    const applyGlow = () => {
+      frame = 0;
+      if (!activeSurface || !activeRect || !pending) return;
+      activeSurface.style.setProperty("--mx", `${pending.x - activeRect.left}px`);
+      activeSurface.style.setProperty("--my", `${pending.y - activeRect.top}px`);
+      pending = null;
+    };
+
     const handlePointerMove = (event) => {
       if (!(event.target instanceof Element)) return;
       const surface = event.target.closest(".sq.glass, .tb.glass");
-      if (!surface) return;
-      const rect = surface.getBoundingClientRect();
-      surface.style.setProperty("--mx", `${event.clientX - rect.left}px`);
-      surface.style.setProperty("--my", `${event.clientY - rect.top}px`);
+      if (!surface) {
+        activeSurface = null;
+        activeRect = null;
+        pending = null;
+        return;
+      }
+      if (surface !== activeSurface) {
+        activeSurface = surface;
+        activeRect = rects.get(surface) || null;
+        if (!activeRect) {
+          activeRect = surface.getBoundingClientRect();
+          rects.set(surface, activeRect);
+        }
+      }
+      pending = { x: event.clientX, y: event.clientY };
+      if (!frame) frame = window.requestAnimationFrame(applyGlow);
     };
+
     window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    return () => window.removeEventListener("pointermove", handlePointerMove);
+    window.addEventListener("scroll", invalidateRects, { passive: true });
+    window.addEventListener("resize", invalidateRects, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("scroll", invalidateRects);
+      window.removeEventListener("resize", invalidateRects);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   const shellSearchOpen = shellFocused || shellHasText;

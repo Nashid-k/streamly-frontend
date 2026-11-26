@@ -115,12 +115,9 @@ if ('serviceWorker' in navigator) {
             });
           }
         });
-        setInterval(() => {
-          if (document.visibilityState !== 'visible') return;
-          reg.update().catch((error) => {
-            logDebug("sw", "Background service worker update check failed.", { message: error?.message });
-          });
-        }, 60000);
+        // The browser already schedules update checks. A 60s app-level poll
+        // added background network/main-thread churn without changing when a
+        // new worker actually activates; focus/visibility is the useful hook.
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState !== 'visible') return;
           reg.update().catch((error) => {
