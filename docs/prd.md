@@ -78,7 +78,11 @@ audio picker) are superseded by PLAYER V2, which is web-only.
   stream-service calls intentionally resolve to `''`). The app reuses the
   existing Cloudflare worker and the deployed resolver — it adds no new
   provider or extraction path.
-- ❌ Design-system rewrite (dark cinematic theme + Tailwind v4 tokens stay).
+- ❌ Design-system rewrite **for its own sake**. The UI/UX *target* is now
+  root `streamly_2.0.html` (user order 2026-11-25, see §7): it is the actual
+  Streamly UI, not a reference. This is a visual/motion migration only; the
+  capability set, TMDB data contract, React/Vite/Tailwind v4 stack, and frozen
+  React Query/localStorage/route contracts do not change.
 - ❌ Features that break Vercel static deploy (`npm run build` → `dist/`).
 - ❌ Shipping the stream resolver inside a mobile binary, or any bundled secret
   that isn't already a public read token.
@@ -94,10 +98,13 @@ player whose control surface never got a clean design. The rewrite replaces the
 current capability is carried over deliberately; the rewrite earns the right to
 delete code by passing the Phase 6 parity checklist, not by assuming parity.
 
-This does **not** contradict §5's "no design-system rewrite": the dark
-cinematic theme and Tailwind v4 tokens stay, and every colour in the new player
-is a token (`--accent-primary` lime) rather than a new palette. What changes is
-one component's internal structure.
+This does **not** contradict §5: "no design-system rewrite" now means no
+unplanned visual churn outside the canonical target. The old "dark cinematic
+theme stays" wording is superseded for UI/UX by §7 and `streamly_2.0.html`;
+Tailwind v4 tooling and token discipline stay, and every colour in the new
+player remains a token (`--accent-primary` lime) rather than a new palette.
+What changes here is one component's internal structure, aligned with the 2.0
+fade/idle HUD vocabulary.
 
 **Kept:** every source/server option, resume, prev/next episode across seasons,
 subtitle language + font/size/colour, audio/dub + delay sync, quality, PiP,
@@ -125,3 +132,31 @@ hand-rolled decorative arcs, and spring/scroll-jacking motion.
 **Rollout:** new player is the default; `VITE_PLAYER_LEGACY` +
 `localStorage["streamly-player-legacy"]` can only force the *old* player back,
 and both are deleted in Phase 6 — see `architecture.md` §2b.
+
+## 7. Canonical UI/UX target — `streamly_2.0.html`
+
+Root `streamly_2.0.html` is the **actual desired Streamly UI**, not design
+inspiration. Every agent must treat it as the executable specification for
+layout, visual language, interaction choreography, and animation timing.
+`docs/vibecoder.md` §6 is the enforced agent checklist; `AGENTS.md` carries the
+same rule so every harness follows one contract.
+
+Scope of the migration:
+
+- **In scope:** the iOS-like glass surfaces, Inter/SF stack, bottom pill nav,
+  expanding search, hero/backdrop/dots, `2/3` card grid and rails with 3D tilt
+  + quick-action overlays, scene-coloured skeletons, detail grid/facts/cast/
+  seasons, and fade/idle player HUD. Timings and easing are exact, never
+  approximated (see `vibecoder.md` §6.1).
+- **Out of scope:** the demo's Lumen branding/data, its `lumen*` localStorage
+  keys, its hardcoded TMDB key, and any capability change. The React app keeps
+  TMDB via `normalizeResult`, the frozen query keys, Streamly localStorage
+  keys, routes, email accounts, and desktop-only web target.
+- **Adaptation already locked in:** the HTML's portrait shared detail poster
+  becomes 1.0's full-width `.details-hero__art img.hero-bg`; the source card is
+  stable as `<rail>:<index>:<movie.id>`; reverse restores page scroll, every
+  rail scroll, source rail, hero index, and focus. Do not regress this to the
+  HTML's portrait geometry.
+- **Conflict rule:** for appearance or motion, `streamly_2.0.html` wins over any
+  older 1.0-era design note. For data, routes, storage, and capability
+  contracts, the frozen contracts in `architecture.md` win.

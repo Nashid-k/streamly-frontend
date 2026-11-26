@@ -16,19 +16,14 @@
   left: 0;
   height: 100%;
   background: var(--accent-gradient, linear-gradient(90deg, var(--accent-color), #5ce21c));
-  /* Matches the 8s autoplay tick in HomePage; keep the two in sync. */
-  animation: bannerProgress 8s linear forwards;
+  /* Matches the 9s autoplay tick in the home and browse heroes; keep all three in sync. */
+  animation: bannerProgress 9s linear forwards;
   transform-origin: left;
   width: 100%;
 }
 
 /* The old `.animate-spin` utility is gone: loading states spin the branded
    StreamlyLoader ring instead (see components/StreamlyLoader.jsx). */
-
-/* Hide mobile bottom nav by default on desktop */
-.mobile-bottom-nav {
-  display: none;
-}
 
 /* Genre filter horizontal scroll with fade edges */
 
@@ -152,10 +147,9 @@ body::after {
 }
 
 /* ── Shared browse-page hierarchy ──────────────────────────────────────── */
-.nav-link:focus-visible,
 .nav-icon-btn:focus-visible,
 .app-brand-link:focus-visible,
-.bottom-nav-item:focus-visible,
+.tb a:focus-visible,
 .page-back:focus-visible,
 .page-danger-action:focus-visible,
 .card-remove-button:focus-visible,

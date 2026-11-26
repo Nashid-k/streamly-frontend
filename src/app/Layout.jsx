@@ -5,7 +5,6 @@ import BackToTop from "../components/BackToTop";
 import Footer from "../components/Footer";
 import OfflineBanner from "../components/OfflineBanner";
 import Header from "./Header";
-import ScrollProgressBar from "../components/ScrollProgressBar";
 import MobileBottomNav from "./MobileBottomNav";
 import Snowfall from "../components/Snowfall";
 import FallingLeaves from "../components/FallingLeaves";
@@ -77,7 +76,11 @@ function Layout({ children }) {
 
   useEffect(() => {
     const main = mainRef.current;
-    if (main?.contains(document.activeElement)) return;
+    const active = document.activeElement;
+    if (main?.contains(active)) return;
+    // The shell search survives route changes and owns focus while the viewer
+    // types; the page shell must not pull the caret away from it.
+    if (active?.closest?.(".sq")) return;
     main?.focus({ preventScroll: true });
     // Pathname only: a query-string update is in-page state, so it must not
     // yank focus out of a live input (the search box) into the page shell.
@@ -119,7 +122,6 @@ function Layout({ children }) {
         Skip to content
       </a>
       <Header />
-      <ScrollProgressBar />
       <MotionBackdrop />
       <Snowfall />
       <FallingLeaves />
@@ -129,7 +131,10 @@ function Layout({ children }) {
 
       {detailTransition.overlay && (
         <div className="detail-transition-overlay" aria-hidden="true">
-          <MovieDetailsSkeleton hasBackdrop={detailTransition.session?.hasBackdrop} />
+          <MovieDetailsSkeleton
+            session={detailTransition.session}
+            hasBackdrop={detailTransition.session?.hasBackdrop}
+          />
         </div>
       )}
 

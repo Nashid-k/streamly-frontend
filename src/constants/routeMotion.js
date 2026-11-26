@@ -74,24 +74,24 @@ export const ROUTE_VARIANTS = {
 
 export const REDUCED_ROUTE_VARIANTS = {
   "fade-up-subtle": {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
+    initial: { opacity: 0, translateZ: 0 },
+    animate: { opacity: 1, translateZ: 0 },
+    exit: { opacity: 0, translateZ: 0 },
   },
   "fade-up": {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
+    initial: { opacity: 0, translateZ: 0 },
+    animate: { opacity: 1, translateZ: 0 },
+    exit: { opacity: 0, translateZ: 0 },
   },
   "fade-only": {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
+    initial: { opacity: 0, translateZ: 0 },
+    animate: { opacity: 1, translateZ: 0 },
+    exit: { opacity: 0, translateZ: 0 },
   },
   crossfade: {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
+    initial: { opacity: 0, translateZ: 0 },
+    animate: { opacity: 1, translateZ: 0 },
+    exit: { opacity: 0, translateZ: 0 },
   },
 };
 

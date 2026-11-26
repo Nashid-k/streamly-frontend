@@ -22,16 +22,14 @@
 
 .movie-grid {
   display: grid;
-  contain: layout paint;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 400px;
+  contain: layout style;
   /* RIVO browse grid: 2 → 3 → 4 → 6 columns with wide clamp-based gutters.
      Streamly used an auto-fill minmax approximation; the reference site pins
      explicit breakpoints, which also keeps the column count stable across
      browsers when the gutter is vw-driven. */
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(1.5rem, 3vw, 3rem) clamp(16px, 2.4vw, 48px);
-  padding: 0 0.15rem;
+  padding: 16px 0.5rem 0;
 }
 @media (min-width: 640px) {
   .movie-grid {
@@ -380,6 +378,259 @@
   }
 }
 
+/* ── Streamly 2.0 card surface (additive) ─────────────────────────────────
+   MovieCard emits both vocabularies. The legacy curtain rules above stay
+   authoritative for call sites that only carry the old classes; these canonical
+   hooks win on the card that also carries .cd/.po/.qp/.qa. */
+.cd.cw {
+  position: relative;
+  flex: none;
+  width: 100%;
+  scroll-snap-align: auto;
+}
+
+.cd {
+  display: block;
+  perspective: 700px;
+  transition: transform var(--dur-tap) var(--ease);
+}
+/* In 2.0 the lift lives on the poster, not on the whole card shell. */
+.cd:hover,
+.cd:focus-visible {
+  transform: none;
+}
+
+.cd .po {
+  --a: 212;
+  --b: 265;
+  --s: 1;
+  --ty: 0px;
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 30%;
+  --my: 0%;
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 3;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(160deg, hsl(var(--a) 66% 46%), hsl(var(--b) 55% 20%));
+  box-shadow:
+    inset 0 .5px 0 rgba(var(--white-rgb), .5),
+    0 10px 24px rgba(var(--black-rgb), .25);
+  transform:
+    translateY(var(--ty))
+    rotateX(var(--rx))
+    rotateY(var(--ry))
+    scale(var(--s));
+  transform-origin: center;
+  transition:
+    transform var(--dur-tap) var(--sp),
+    box-shadow var(--dur-tap) var(--ease);
+}
+.cd .po::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background:
+    radial-gradient(180px circle at var(--mx) var(--my), rgba(var(--white-rgb), .28), transparent 60%),
+    linear-gradient(transparent 50%, rgba(var(--black-rgb), .4));
+  pointer-events: none;
+}
+.cd:hover .po,
+.cd:focus-visible .po {
+  --s: 1.04;
+  --ty: -3px;
+  box-shadow:
+    inset 0 .5px 0 rgba(var(--white-rgb), .55),
+    0 18px 38px rgba(var(--black-rgb), .32);
+}
+.cd:active .po,
+.cd:hover:active .po {
+  --s: .985;
+}
+.cd .po.tilting {
+  transition: transform 0.16s var(--ease), box-shadow var(--dur-tap) var(--ease);
+}
+/* Keep the artwork still under the poster transform. */
+.cd:hover .movie-poster,
+.cd:focus-visible .movie-poster {
+  transform: none;
+}
+
+.qp,
+.card-play-disc,
+.card-play-disc__btn {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 56px;
+  height: 56px;
+  min-width: 0;
+  margin: -28px 0 0 -28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 15;
+  opacity: 0;
+  transform: scale(.82);
+  transform-origin: center;
+  pointer-events: none;
+  color: var(--lbl, rgba(var(--white-rgb), .9));
+  background: rgba(var(--black-rgb), .48);
+  cursor: pointer;
+  transition:
+    opacity var(--dur-reveal) var(--ease),
+    transform var(--dur-reveal) var(--ease),
+    background var(--dur-state) var(--ease);
+}
+.qp svg,
+.card-play-disc svg,
+.card-play-disc__btn svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.cw:hover .qp,
+.cw:focus-within .qp,
+.cw.play-ready .qp,
+.cd:hover .qp,
+.cd:focus-within .qp,
+.cd.play-ready .qp,
+.movie-card:hover .qp,
+.movie-card:focus-within .qp {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.movie-card:hover .card-play-disc,
+.movie-card:focus-within .card-play-disc,
+.movie-card:hover .card-play-disc__btn,
+.movie-card:focus-within .card-play-disc__btn {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.qp:hover,
+.card-play-disc:hover,
+.card-play-disc__btn:hover {
+  transform: scale(1.08);
+}
+.qp:active,
+.card-play-disc:active,
+.card-play-disc__btn:active {
+  transform: scale(.94);
+}
+
+.qa,
+.card-quick-list {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 16;
+  opacity: 0;
+  transform: scale(.7);
+  pointer-events: none;
+  color: var(--white);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    opacity var(--dur-reveal) var(--ease),
+    transform var(--dur-reveal) var(--sp),
+    color var(--dur-state) var(--ease);
+}
+.qa svg,
+.card-quick-list svg {
+  box-sizing: border-box;
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: 50%;
+  background: rgba(var(--black-rgb), .48);
+}
+.cw:hover .qa svg,
+.cw:focus-within .qa svg,
+.cd:hover .qa svg,
+.cd:focus-within .qa svg,
+.movie-card:hover .qa svg,
+.movie-card:focus-within .qa svg,
+.qa[aria-pressed="true"] svg,
+.card-quick-list[aria-pressed="true"] svg {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.cw:hover .qa,
+.cw:focus-within .qa,
+.cd:hover .qa,
+.cd:focus-within .qa,
+.movie-card:hover .qa,
+.movie-card:focus-within .qa,
+.qa[aria-pressed="true"],
+.card-quick-list[aria-pressed="true"] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.qa:hover,
+.card-quick-list:hover {
+  transform: scale(1.04);
+}
+.qa:active,
+.card-quick-list:active {
+  transform: scale(.94);
+}
+@keyframes bump {
+  40% { transform: scale(1.4); }
+}
+.qa.bump svg,
+.card-quick-list.bump svg {
+  animation: bump var(--dur-tap) var(--sp);
+}
+
+@media (hover: none) {
+  .qp,
+  .card-play-disc,
+  .card-play-disc__btn {
+    display: none;
+  }
+  .qa,
+  .card-quick-list {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd,
+  .cd .po,
+  .cd .po.tilting,
+  .qp,
+  .qa {
+    transition: none;
+  }
+  .cd:hover .po,
+  .cd:active .po,
+  .cd:focus-visible .po {
+    transform: none;
+  }
+  .qa.bump svg {
+    animation: none;
+  }
+}
+
 .movie-info {
   margin-top: 10px;
   padding: 0 2px;
@@ -504,14 +755,15 @@
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-  padding: 1rem 8px 1.5rem;
+  padding: 22px 10px 26px;
+  margin: -6px -2px 0;
   overflow-x: auto;
   overflow-y: clip;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
-  scroll-padding-left: 8px;
+  scroll-padding-left: 10px;
   scrollbar-width: none;
-  /* Fade the RIGHT edge only: the first card starts 8px in, so a left-edge
+  /* Fade the RIGHT edge only: the first card starts 10px in, so a left-edge
      fade would dim it while there is nothing behind it to reveal. */
   -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
   mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 24px), transparent 100%);
@@ -524,6 +776,10 @@
   flex: 0 0 auto;
   width: 140px;
   scroll-snap-align: start;
+}
+.detail-rail__item:hover,
+.detail-rail__item:focus-within {
+  z-index: 20;
 }
 @media (min-width: 1024px) {
   .detail-rail__item {

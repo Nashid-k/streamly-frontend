@@ -21,7 +21,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import Loader from "./Loader";
 import { logError } from "../utils/debugLogger";
 
 /* The single provider host we embed. Kept as its own export so the URL builder
@@ -190,18 +189,16 @@ export default function ProviderEmbedPlayer({
           slow embed reads as "loading", not "broken". */}
       {url && !loaded && !timedOut && (
         <div
+          className="sk"
+          aria-hidden="true"
           style={{
             position: "absolute",
             inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#050505",
+            background: "rgba(18, 18, 22, 0.94)",
+            borderRadius: 0,
             zIndex: 2,
           }}
-        >
-          <Loader variant="inline" size="40px" />
-        </div>
+        />
       )}
 
       {/* The only failure a cross-origin frame can report is "never loaded".

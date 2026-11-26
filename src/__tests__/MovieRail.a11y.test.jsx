@@ -5,12 +5,8 @@ import MovieRail from "../components/rails/MovieRail";
 
 const refreshRail = vi.hoisted(() => vi.fn());
 
-vi.mock("../components/MovieCard", () => ({
+vi.mock("../components/home/HomeCard", () => ({
   default: ({ movie }) => <div>{movie.title}</div>,
-}));
-vi.mock("../components/RailArrow", () => ({ default: () => null }));
-vi.mock("../components/rails/SectionHeader", () => ({
-  default: ({ title }) => <div>{title}</div>,
 }));
 vi.mock("../hooks/useRailArrows", () => ({
   default: () => ({ canScrollLeft: false, canScrollRight: false, refresh: refreshRail }),

@@ -10,8 +10,8 @@ import {
   resolveRailRequest,
 } from "../../data/homeRailDomains";
 import ErrorBoundary from "../ErrorBoundary";
+import HomeSkeletonRail from "../home/HomeSkeletonRail";
 import MovieRail from "./MovieRail";
-import FadeInSection from "./FadeInSection";
 
 /* ── The rotating tail of the home feed ────────────────────────────────────
    Ten "domain" rails — a decade, a language, a mood, a medium — picked for the
@@ -35,7 +35,7 @@ function RotatingRailRow({ domain, dayKey }) {
   const request = useMemo(() => resolveRailRequest(domain), [domain]);
   const queryKey = useMemo(() => ["home-rail", dayKey, domain.key], [dayKey, domain.key]);
 
-  const { data, isError, error } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey,
     queryFn: () => movieService.getDiscoverRail(request),
     enabled: nearViewport,
@@ -56,13 +56,13 @@ function RotatingRailRow({ domain, dayKey }) {
 
   return (
     <div ref={sentinelRef}>
-      {movies.length >= MIN_TITLES && (
-        <FadeInSection>
-          <ErrorBoundary>
-            <MovieRail category={{ name: domain.label, movies, dynamic: true }} />
-          </ErrorBoundary>
-        </FadeInSection>
-      )}
+      {nearViewport && isLoading ? (
+        <HomeSkeletonRail cards={8} label={domain.label} scene="discover" />
+      ) : movies.length >= MIN_TITLES ? (
+        <ErrorBoundary>
+          <MovieRail category={{ name: domain.label, movies, dynamic: true }} />
+        </ErrorBoundary>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { CdnImageAdapter } from "../../api/cdnImageAdapter";
 
-function ProductionCompaniesBlock({ companies }) {
+function ProductionCompaniesBlock({ companies, variant = "grid" }) {
   if (!companies || companies.length === 0) return null;
 
   const normalized = companies
@@ -23,6 +23,23 @@ function ProductionCompaniesBlock({ companies }) {
   if (normalized.length === 0) return null;
 
   const displayCompanies = normalized.slice(0, 6);
+
+  if (variant === "brands") {
+    return (
+      <div className="brands">
+        {displayCompanies.map((company) => (
+          <div key={company.id} title={company.name} className="brand-item">
+            <img
+              loading="lazy"
+              src={company.logoUrl}
+              alt={company.name}
+              className="brand-logo"
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4 grid gap-2 grid-cols-2">

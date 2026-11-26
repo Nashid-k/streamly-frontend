@@ -1,24 +1,20 @@
-import React, { useState, useRef, memo } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Clock, ChevronRight, Play, X } from "lucide-react";
-import slugify from "slugify";
-import { useAppAuth } from "../context/auth";
-import { CdnImageAdapter } from "../api/cdnImageAdapter";
-import useRailArrows from "../hooks/useRailArrows";
-import RailArrow from "./RailArrow";
-import SectionHeader from "./rails/SectionHeader";
-import { progressPct, remainingSeconds } from "../utils/resumeProgress";
-import { useI18n } from "../i18n/index.jsx";
+import { memo, useState } from "react";
 
-const fmtTimeLeft = (seconds) => {
+import { useAppAuth } from "../context/auth";
+import HomeCard from "./home/HomeCard";
+import HomeRail from "./home/HomeRail";
+import { useI18n } from "../i18n/index.jsx";
+import { progressPct, remainingSeconds } from "../utils/resumeProgress";
+
+const formatTimeLeft = (seconds) => {
   if (!seconds || seconds <= 0) return null;
-  const mins = Math.max(1, Math.round(seconds / 60));
-  if (mins >= 60) {
-    const h = Math.floor(mins / 60);
-    const m = mins % 60;
-    return m ? `${h}hr ${m}m left` : `${h}hr left`;
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    return rest ? `${hours}hr ${rest}m left` : `${hours}hr left`;
   }
-  return `${mins}m left`;
+  return `${minutes}m left`;
 };
 
 const episodeLabel = (item) =>
@@ -26,278 +22,70 @@ const episodeLabel = (item) =>
     ? `S${item.savedSeason}:E${item.savedEpisode}`
     : null;
 
-const remainingLabel = (item) => {
-  const rem = remainingSeconds(item);
-  return rem != null ? fmtTimeLeft(rem) : null;
-};
-
-const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [] }) {
+const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [], rowIndex = 0 }) {
   const { t } = useI18n();
   const { removeFromContinueWatching } = useAppAuth();
-  const scrollRef = useRef(null);
-  const navigate = useNavigate();
   const [editMode, setEditMode] = useState(false);
-  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
-
-  const scroll = (dir) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const amount = el.clientWidth > 800 ? el.clientWidth * 0.8 : el.clientWidth * 0.9;
-    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
-    refresh();
-  };
-
-  const handleRemove = (e, item) => {
-    e.preventDefault();
-    e.stopPropagation();
-    removeFromContinueWatching(item.id);
-  };
 
   if (!items || items.length === 0) return null;
 
-  // Which edges need the fade is state, not geometry: rails.css owns the
-  // gradient and its width (--cw-fade), so no pixel values live in JS.
-  const fade =
-    canScrollLeft && canScrollRight
-      ? "both"
-      : canScrollLeft
-        ? "start"
-        : canScrollRight
-          ? "end"
-          : "none";
-
-  const editToggle = (
-    <button
-      type="button"
-      className="cw-edit-btn"
-      onClick={() => setEditMode((v) => !v)}
-      aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
-      title={editMode ? t("common.doneEditing") : t("common.editList")}
-      aria-pressed={editMode}
-    >
-      {editMode ? (
-        <span className="cw-edit-btn__label">{t("common.done")}</span>
-      ) : (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="cw-edit-btn__icon"
-          width="1em"
-          height="1em"
-          viewBox="0 0 512 512"
-          aria-hidden="true"
-        >
-          <path
-            fill="currentColor"
-            d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"
-          />
-        </svg>
-      )}
-    </button>
+  const title = t("home.rails.continueWatching");
+  const header = (
+    <div className="home-rail-head">
+      <h2>{title}</h2>
+      <button
+        type="button"
+        className="cw-edit-btn"
+        onClick={() => setEditMode((value) => !value)}
+        aria-label={editMode ? t("common.doneEditing") : t("common.editList")}
+        title={editMode ? t("common.doneEditing") : t("common.editList")}
+        aria-pressed={editMode}
+      >
+        {editMode ? (
+          <span className="cw-edit-btn__label">{t("common.done")}</span>
+        ) : (
+          <svg
+            className="cw-edit-btn__icon"
+            width="1em"
+            height="1em"
+            viewBox="0 0 512 512"
+            aria-hidden="true"
+          >
+            <path
+              fill="currentColor"
+              d="M362.7 19.3L314.3 67.7 444.3 197.7l48.4-48.4c25-25 25-65.5 0-90.5L453.3 19.3c-25-25-65.5-25-90.5 0zm-71 71L58.6 323.5c-10.4 10.4-18 23.3-22.2 37.4L1 481.2C-1.5 489.7 .8 498.8 7 505s15.3 8.5 23.7 6.1l120.3-35.4c14.1-4.2 27-11.8 37.4-22.2L421.7 220.3 291.7 90.3z"
+            />
+          </svg>
+        )}
+      </button>
+    </div>
   );
 
   return (
-    <div className="cw-rail group/row">
-      {/* ── Section Header — linked title left; edit toggle + quiet "See all" right. ── */}
-      <SectionHeader
-        actions={editToggle}
-        title={
-          <Link
-            to="/continue-watching"
-            className="group/title group/label flex items-center gap-1 min-w-0 transition-colors duration-300"
-          >
-            <h2 className="cw-rail__title">
-              {t("home.rails.continueWatching")}
-            </h2>
-            <ChevronRight className="lucide-icon lucide lucide-chevron-right w-5 h-5 text-white/70 shrink-0 opacity-0 -translate-x-1 transition-[opacity,transform,color] duration-300 group-hover/title:opacity-100 group-hover/title:translate-x-0 group-hover/label:text-white" />
-          </Link>
-        }
-        seeAllTo="/continue-watching"
-      />
-
-      {/* ── Rail with Left/Right Arrows ── */}
-      <div className="relative">
-        {canScrollLeft && (
-          <RailArrow
-            dir="left"
-            onClick={() => scroll("left")}
-            revealOnHover
-            hoverClass="group-hover/row:opacity-100"
-            className="z-[60]"
-            label="Continue Watching"
+    <HomeRail
+      className="home-rails-lead"
+      title={title}
+      header={header}
+      rowIndex={rowIndex}
+      movies={items}
+      renderItem={(item, index, detailToken) => {
+        const remaining = formatTimeLeft(remainingSeconds(item));
+        const label = episodeLabel(item);
+        return (
+          <HomeCard
+            key={item.id}
+            movie={item}
+            index={index}
+            detailToken={detailToken}
+            progressValue={progressPct(item)}
+            progressLabel={[label, remaining].filter(Boolean).join(" · ")}
+            editMode={editMode}
+            onRemove={() => removeFromContinueWatching(item.id)}
           />
-        )}
-
-        {canScrollRight && (
-          <RailArrow
-            dir="right"
-            onClick={() => scroll("right")}
-            revealOnHover
-            hoverClass="group-hover/row:opacity-100"
-            className="z-[60]"
-            label="Continue Watching"
-          />
-        )}
-
-        <div ref={scrollRef} className="cw-rail__track" data-fade={fade}>
-          {items.map((item) => {
-            const pct = progressPct(item);
-            const label = episodeLabel(item);
-            const remaining = remainingLabel(item);
-            const artPath = item.backdropUrl || item.posterUrl || item.poster;
-            // These cards are 240px (mobile) / 288px (md) wide, so the old flat
-            // w780 frame was ~3x the pixels the row actually shows. w500 plus a
-            // srcSet lets a retina window pick w780 and everyone else stop
-            // paying for it.
-            const art = CdnImageAdapter.getUrl(artPath, "w500");
-            const watchTo = `/watch/${item.id}/${slugify(item.title || "watch", {
-              lower: true,
-              strict: true,
-            })}`;
-
-            return (
-              <div
-                key={item.id}
-                role="group"
-                className="cw-rail__card group/card"
-              >
-                <Link
-                  to={editMode ? undefined : watchTo}
-                  onClick={(e) => {
-                    if (editMode) e.preventDefault();
-                  }}
-                  className="cw-rail__poster block w-full aspect-video rounded-2xl overflow-hidden cursor-pointer bg-[#1a1a1a] relative"
-                >
-                  {art ? (
-                    <img
-                      className="cw-rail__poster-image block w-full h-full object-cover"
-                      src={art}
-                      srcSet={CdnImageAdapter.getSrcSet(artPath, "card")}
-                      sizes="(max-width: 768px) 240px, 288px"
-                      alt={item.title}
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-600">
-                      <Play size={28} fill="currentColor" stroke="none" />
-                    </div>
-                  )}
-
-                  {/* 3px Progress Bar — above the panel's scrim (z-20) so the
-                      resume percentage stays readable while the panel is open. */}
-                  <div className="absolute bottom-0 left-0 right-0 z-20 h-[3px] bg-white/20">
-                    <div
-                      className="h-full theme-progress-bar rounded-r-full transition-[width] duration-300"
-                      style={{ width: `${pct}%`, background: "var(--progress)" }}
-                    />
-                  </div>
-
-                  {/* Remove Button in Edit Mode */}
-                  {editMode && (
-                    <button
-                      className="cw-remove-btn"
-                      onClick={(e) => handleRemove(e, item)}
-                      aria-label={`Remove ${item.title} from continue watching`}
-                    >
-                      <X size={15} strokeWidth={3} />
-                    </button>
-                  )}
-
-                  {/* Hover preview panel — Cinejoy-style popup that slides up
-                      over the thumbnail: gradient scrim, title, episode +
-                      remaining + pct, and a solid-white Resume pill. This is the
-                      card's ONE play affordance: the old decorative centre disc
-                      (pointer-events-none, so never clickable) duplicated it and
-                      sat below this panel's z-10 scrim, which is what made it
-                      look clipped/dimmed as the panel slid up. */}
-                  {!editMode && (
-                    <div className="cw-rail__panel absolute inset-x-0 bottom-0 z-10">
-                      <div
-                        className="absolute inset-x-0 bottom-0 h-28 pointer-events-none"
-                        style={{
-                          background:
-                            "linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.45) 55%, transparent)",
-                        }}
-                      />
-                      <div className="relative p-3 md:p-3.5">
-                        <p className="truncate text-sm font-semibold text-white drop-shadow-md">
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 text-[0.7rem] text-white/70 flex items-center gap-1.5">
-                          {label && (
-                            <span className="font-medium text-white/85">{label}</span>
-                          )}
-                          {remaining && (
-                            <>
-                              <span className="text-white/35" aria-hidden="true">•</span>
-                              <span>{remaining}</span>
-                            </>
-                          )}
-                          {pct > 0 && (
-                            <>
-                              <span className="text-white/35" aria-hidden="true">•</span>
-                              <span className="font-semibold text-white">{Math.round(pct)}%</span>
-                            </>
-                          )}
-                        </p>
-                        <button
-                          type="button"
-                          className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-[0.75rem] font-bold text-black shadow-lg cursor-pointer transition-transform duration-150 active:scale-95 hover:bg-white/90"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigate(watchTo);
-                          }}
-                          aria-label={`Resume ${item.title}`}
-                        >
-                          <Play size={12} className="ml-0.5" fill="currentColor" stroke="none" />
-                          Resume
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </Link>
-
-                {/* Metadata Below Thumbnail */}
-                <Link
-                  to={editMode ? undefined : watchTo}
-                  onClick={(e) => {
-                    if (editMode) e.preventDefault();
-                  }}
-                  className="block mt-2 px-0.5"
-                >
-                  <p
-                    className="text-sm font-medium text-white/90 truncate group-hover/card:text-white transition-colors"
-                    title={item.title}
-                  >
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-white/50 mt-0.5 flex items-center gap-1 overflow-hidden">
-                    {label && (
-                      <>
-                        <span className="shrink-0 font-medium text-white/70">{label}</span>
-                        {remaining && <span className="text-white/30">•</span>}
-                      </>
-                    )}
-                    {remaining && (
-                      <>
-                        <Clock
-                          className="lucide-icon lucide lucide-clock w-3 h-3 shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span className="shrink-0">{remaining}</span>
-                      </>
-                    )}
-                  </p>
-                </Link>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+        );
+      }}
+    />
   );
 });
 
 export default ContinueWatchingRail;
-

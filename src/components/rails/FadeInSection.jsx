@@ -18,7 +18,7 @@ const FadeInSection = React.memo(function FadeInSection({
   return (
     <div
       ref={ref}
-      className={`fade-in-section${isVisible ? " is-visible" : ""}${className ? ` ${className}` : ""}`}
+      className={`fade-in-section sh rv${isVisible ? " is-visible in" : ""}${className ? ` ${className}` : ""}`}
       style={{ ...style, transitionDelay: `${delay}s` }}
     >
       {children}

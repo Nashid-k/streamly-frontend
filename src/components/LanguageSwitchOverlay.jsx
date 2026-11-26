@@ -3,7 +3,6 @@ import { DURATION, EASE_OUT } from "../constants/motion";
 import { motion } from "framer-motion";
 import { useIsFetching } from "@tanstack/react-query";
 import { LANGUAGE_SENSITIVE_QUERY_PREFIXES } from "../context/preferencesConstants";
-import Loader from "./Loader";
 import BrandWordmark from "./BrandWordmark";
 
 /* ── LanguageSwitchOverlay ────────────────────────────────────────────────
@@ -100,7 +99,11 @@ export default function LanguageSwitchOverlay({ active, onDone }) {
       transition={{ duration: DURATION.FAST, ease: EASE_OUT }}
     >
       <BrandWordmark className="language-switch-overlay__wordmark logo-legible" />
-      <Loader variant="inline" size="52px" />
+      <div
+        className="streamly-skel-bar"
+        aria-hidden="true"
+        style={{ width: "min(200px, 56vw)", height: "6px" }}
+      />
       <p className="language-switch-overlay__label">Switching language…</p>
       <p className="language-switch-overlay__hint">
         Loading titles in your new language. This only takes a moment.

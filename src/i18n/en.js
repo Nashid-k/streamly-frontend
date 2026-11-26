@@ -70,6 +70,7 @@ export const en = {
       addMyList: "Add to My List",
       removeMyList: "Remove from My List",
       inMyList: "In My List",
+      details: "Details",
       moreInfo: "More Info",
       watched: "{pct}% Watched",
     },
@@ -98,6 +99,9 @@ export const en = {
       becauseWatched: "Because you watched",
       providerMovies: "Movies on {name}",
       providerShows: "TV Series on {name}",
+      providerEmptyMovies: "No movies on {name} right now. Pick another service.",
+      providerEmptyShows: "No series on {name} right now. Pick another service.",
+      providerError: "Couldn’t load titles from {name}. Pick another service or try again.",
     },
   },
   search: {

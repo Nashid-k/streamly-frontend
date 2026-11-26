@@ -15,7 +15,41 @@ const transitionListeners = new Set();
 let transitionSnapshot = { overlay: false, bypass: false, session: null };
 let activeTransitionTask = null;
 let activeSource = null;
+let pendingRestoreSession = null;
+let pendingRestoreTimer = 0;
 const popGuard = { active: false, pendingForward: false, timer: 0 };
+
+export function isDetailRestoring() {
+  return Boolean(
+    pendingRestoreSession ||
+    (typeof window !== "undefined" && window.__streamlyDetailScrollRestored),
+  );
+}
+
+export function getSavedDetailHeroIndex() {
+  if (!pendingRestoreSession) return null;
+  return Number.isFinite(pendingRestoreSession.heroIndex)
+    ? pendingRestoreSession.heroIndex
+    : null;
+}
+
+export function getSavedDetailRailScroll(label) {
+  if (!label || !pendingRestoreSession) return null;
+  if (
+    pendingRestoreSession.railKey === label &&
+    Number.isFinite(pendingRestoreSession.railScrollLeft)
+  ) {
+    return pendingRestoreSession.railScrollLeft;
+  }
+  if (
+    pendingRestoreSession.rails &&
+    Object.prototype.hasOwnProperty.call(pendingRestoreSession.rails, label) &&
+    Number.isFinite(pendingRestoreSession.rails[label])
+  ) {
+    return pendingRestoreSession.rails[label];
+  }
+  return null;
+}
 
 function publish(overlay, bypass, session) {
   transitionSnapshot = { overlay, bypass, session };
@@ -59,37 +93,90 @@ function railKey(rail) {
   return rail?.dataset?.detailRail || rail?.getAttribute?.("aria-label") || "";
 }
 
-function capturePlace({ sourceElement, movie, from, detailToken }) {
+function flushViewTransitionName(el) {
+  if (!el || typeof el.offsetWidth !== "number") return;
+  void el.offsetWidth;
+  if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+    void window.getComputedStyle(el).viewTransitionName;
+  }
+}
+
+function clearStrayViewTransitionNames() {
+  if (typeof document === "undefined") return;
+  document
+    .querySelectorAll("[data-detail-token], [data-detail-source], [data-vt], .dp .dh > .po, .detail-transition-poster")
+    .forEach((node) => {
+      if (node.style && node.style.viewTransitionName) {
+        node.style.viewTransitionName = "";
+      }
+    });
+}
+
+function clearCardTiltState(el) {
+  if (!el?.classList) return;
+  el.classList.remove("tilting");
+  el.style?.removeProperty?.("--rx");
+  el.style?.removeProperty?.("--ry");
+  const hero = el.closest?.(".hero");
+  hero?.classList?.remove?.("sw");
+}
+
+function capturePlace({ sourceElement, movie, from, detailToken, heroIndex }) {
   const rails = {};
   document.querySelectorAll(RAIL_SELECTOR).forEach((rail) => {
     const key = railKey(rail);
     if (key) rails[key] = rail.scrollLeft;
   });
   const sourceRail = sourceElement?.closest?.(RAIL_SELECTOR);
+  const resolvedToken = String(
+    detailToken ||
+      sourceElement?.dataset?.detailToken ||
+      sourceElement?.dataset?.vt ||
+      `${from.pathname}:grid:${movie.id}`,
+  );
+  let resolvedHeroIndex = Number.isFinite(heroIndex) ? heroIndex : null;
+  if (resolvedHeroIndex == null && typeof document !== "undefined") {
+    const heroAttr = document.querySelector(".home-page > .hero[data-hero-index]")?.dataset?.heroIndex;
+    const parsedHero = heroAttr != null ? Number.parseInt(heroAttr, 10) : NaN;
+    if (Number.isFinite(parsedHero)) resolvedHeroIndex = parsedHero;
+  }
   return {
     sourceId: String(sourceElement?.dataset?.detailSource || movie.id),
-    detailToken: String(
-      detailToken ||
-        sourceElement?.dataset?.detailToken ||
-        `${from.pathname}:grid:${movie.id}`,
-    ),
+    movieId: movie?.id ?? null,
+    title: movie?.title || "",
+    detailToken: resolvedToken,
     fromPath: from.pathname,
     fromSearch: from.search,
     scrollY: window.scrollY,
     railKey: railKey(sourceRail),
     railScrollLeft: sourceRail?.scrollLeft ?? null,
     rails,
+    heroIndex: resolvedHeroIndex,
+    isHero: Boolean(
+      sourceElement?.classList?.contains?.("hbd") ||
+      resolvedToken.startsWith("hero:"),
+    ),
     hasBackdrop: Boolean(movie.backdropUrl || movie.posterUrl),
+    isTv: Boolean(
+      movie?.isSeries ||
+      movie?.type === "tv" ||
+      String(movie?.id || "").startsWith("tmdb-tv-"),
+    ),
+    posterUrl: movie.posterUrl || movie.backdropUrl || movie.poster || null,
     backdropUrl: movie.backdropUrl || movie.posterUrl || null,
   };
 }
 
 function findSessionSource(session) {
   const candidates = Array.from(
-    document.querySelectorAll("[data-detail-token], [data-detail-source]"),
+    document.querySelectorAll("[data-detail-token], [data-vt], [data-detail-source]"),
   );
   if (session.detailToken) {
-    const exact = candidates.find((el) => el.dataset.detailToken === session.detailToken);
+    const exact = candidates.find(
+      (el) =>
+        el.dataset.detailToken === session.detailToken ||
+        el.dataset.vt === session.detailToken,
+    );
     if (exact) return exact;
   }
   return candidates.find(
@@ -97,8 +184,8 @@ function findSessionSource(session) {
   );
 }
 
-function restorePlace(session) {
-  if (!session) return null;
+function restoreScrollGeometry(session) {
+  if (!session) return;
   if (Number.isFinite(session.scrollY)) {
     window.scrollTo({ top: session.scrollY, left: 0, behavior: "instant" });
   }
@@ -117,9 +204,17 @@ function restorePlace(session) {
     const sourceRail = rails.find((rail) => railKey(rail) === session.railKey);
     if (sourceRail) sourceRail.scrollLeft = session.railScrollLeft;
   }
+}
+
+function restorePlace(session) {
+  if (!session) return null;
+  restoreScrollGeometry(session);
 
   const source = findSessionSource(session);
-  const focusTarget = source?.closest?.("[role='button'], a, button") || source;
+  const focusTarget =
+    (session.isHero && document.querySelector(`[data-focus="${session.detailToken}"]`)) ||
+    source?.closest?.("[role='button'], a, button") ||
+    source;
   focusTarget?.focus?.({ preventScroll: true });
   window.__streamlyDetailScrollRestored = true;
   return source;
@@ -150,11 +245,19 @@ function prefetchMovieDetails(id) {
 async function waitForSource(session, timeout = 4000) {
   const started = Date.now();
   while (Date.now() - started < timeout) {
+    restoreScrollGeometry(session);
     const source = findSessionSource(session);
     if (source) return source;
-    await delay(50);
+    await delay(32);
   }
   return null;
+}
+
+function nextFrame() {
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 }
 
 function detailBHoldMs(isReverse = false) {
@@ -163,23 +266,29 @@ function detailBHoldMs(isReverse = false) {
     .getPropertyValue("--detail-b-duration")
     .trim();
   const parsed = parseFloat(token) || DETAIL_B_HOLD_MS;
-  if (isReverse) return Math.min(parsed, 100);
+  if (isReverse) return Math.min(parsed, 80);
   return parsed;
 }
 
-async function waitForDetailDwell(id) {
-  const maxWait = detailBHoldMs(false);
-  const minWait = Math.min(maxWait, 360);
-  await delay(minWait);
+async function waitForDetailDwell(id, bStartedAt = performance.now()) {
+  const totalBudget = detailBHoldMs(false);
+  const elapsed = performance.now() - bStartedAt;
+  const remainingBudget = Math.max(0, totalBudget - elapsed);
+  const minTail = totalBudget < 100 ? totalBudget : Math.min(remainingBudget, 180);
 
-  const remaining = maxWait - minWait;
+  if (minTail > 0) {
+    await delay(minTail);
+  }
+
+  const afterMinElapsed = performance.now() - bStartedAt;
+  const remaining = Math.max(0, totalBudget - afterMinElapsed);
   if (remaining <= 0) return;
 
-  const start = Date.now();
-  while (Date.now() - start < remaining) {
+  const deadline = performance.now() + remaining;
+  while (performance.now() < deadline) {
     const cached = queryClient.getQueryData(["movie", String(id)]);
     if (cached) break;
-    await delay(30);
+    await delay(25);
   }
 }
 
@@ -202,8 +311,10 @@ function clearRouteAnimating() {
 function cleanupMorph() {
   if (activeSource) activeSource.style.viewTransitionName = "";
   activeSource = null;
+  clearStrayViewTransitionNames();
   delete document.documentElement.dataset.posterMorph;
   delete document.documentElement.dataset.detailTransition;
+  delete document.documentElement.dataset.detailDirection;
   clearRouteAnimating();
 }
 
@@ -213,11 +324,16 @@ function runViewTransition(commit) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    const transition = document.startViewTransition(() => {
+    try {
+      const transition = document.startViewTransition(() => {
+        flushSync(commit);
+      });
+      const done = () => resolve();
+      transition.finished.then(done, done);
+    } catch {
       flushSync(commit);
-    });
-    const done = () => resolve();
-    transition.finished.then(done, done);
+      resolve();
+    }
   });
 }
 
@@ -249,18 +365,23 @@ function enqueue(task) {
   return activeTransitionTask.then(run, run);
 }
 
-async function runForwardDetailTransition({ sourceElement, movie, from, detailToken, commit }) {
-  const session = capturePlace({ sourceElement, movie, from, detailToken });
+async function runForwardDetailTransition({ sourceElement, movie, from, detailToken, heroIndex, commit }) {
+  const session = capturePlace({ sourceElement, movie, from, detailToken, heroIndex });
 
   return enqueue(async () => {
     delete window.__streamlyDetailScrollRestored;
+    preloadBackdrop(session.posterUrl);
     preloadBackdrop(session.backdropUrl);
     prefetchMovieDetails(movie?.id);
+    clearStrayViewTransitionNames();
+    clearCardTiltState(sourceElement);
     activeSource = sourceElement;
     sourceElement.style.viewTransitionName = POSTER_MORPH_NAME;
     document.documentElement.dataset.posterMorph = "true";
+    document.documentElement.dataset.detailDirection = "forward";
     markRouteAnimating();
-    publish(false, true, session);
+    flushViewTransitionName(sourceElement);
+    const bStartedAt = performance.now();
 
     try {
       /* A → B: old snapshot is the card route, new snapshot is the hero-shaped
@@ -273,12 +394,17 @@ async function runForwardDetailTransition({ sourceElement, movie, from, detailTo
         publish(true, true, session);
       });
 
-      await waitForDetailDwell(movie?.id);
+      await waitForDetailDwell(movie?.id, bStartedAt);
 
       /* B → C: the overlay leaves in the same commit that lands the details
-         route. The destination hero backdrop inherits the shared name. */
+         route. The destination hero poster inherits the shared name. */
       await runViewTransition(() => {
         document.documentElement.dataset.detailTransition = "C";
+        try {
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        } catch {
+          // jsdom/no-op
+        }
         publish(false, true, session);
         commit(session);
       });
@@ -291,18 +417,21 @@ async function runForwardDetailTransition({ sourceElement, movie, from, detailTo
 
 async function runReverseDetailTransition({ navigate, location, session }) {
   return enqueue(async () => {
-    const hero = document.querySelector(".details-hero__art img.hero-bg");
+    clearStrayViewTransitionNames();
+    const hero =
+      document.querySelector(".dp .dh > .po") ||
+      document.querySelector(".details-hero__art img.hero-bg");
     if (hero) {
       activeSource = hero;
       hero.style.viewTransitionName = POSTER_MORPH_NAME;
+      flushViewTransitionName(hero);
     }
     document.documentElement.dataset.posterMorph = "true";
+    document.documentElement.dataset.detailDirection = "reverse";
     markRouteAnimating();
-    publish(false, true, session);
 
     try {
-      /* C → B: the loaded page morphs back into the same hero skeleton. The
-         hero name is scoped away while B is on screen so only B owns it. */
+      /* C → B: the loaded page morphs back into the poster-preserving hero skeleton. */
       await runViewTransition(() => {
         if (hero) hero.style.viewTransitionName = "";
         activeSource = null;
@@ -312,26 +441,37 @@ async function runReverseDetailTransition({ navigate, location, session }) {
 
       await delay(detailBHoldMs(true));
 
-      /* B → A: pop the history entry first, but keep B on screen until A's
-         cards are mounted. Then restore the saved page/rail geometry and name
-         the EXACT source poster inside the final update callback, so the new
-         snapshot captures the card at its original rail position. */
-      /* Mark the restore before the POP commits so useScrollRestoration's
-         retry timers and MovieRail's remount reset both stand down. */
+      /* B → A: pop the history entry behind the opaque B overlay, restore the
+         saved page/rail scroll immediately so lazily virtualized cards mount,
+         wait a frame in real browsers for layout stability, then run B → A. */
       window.__streamlyDetailScrollRestored = true;
+      pendingRestoreSession = session;
+      window.clearTimeout(pendingRestoreTimer);
+      pendingRestoreTimer = window.setTimeout(() => {
+        if (pendingRestoreSession === session) pendingRestoreSession = null;
+      }, 2500);
       if (location.key !== "default") navigate(-1);
       else navigate(session.fromPath || "/");
       await waitForSource(session);
+      if (detailBHoldMs(false) >= 100) {
+        restoreScrollGeometry(session);
+        await nextFrame();
+      }
 
       await runViewTransition(() => {
         document.documentElement.dataset.detailTransition = "A";
         publish(false, true, session);
         const source = restorePlace(session);
         if (source) {
+          clearCardTiltState(source);
           activeSource = source;
           source.style.viewTransitionName = POSTER_MORPH_NAME;
+          flushViewTransitionName(source);
         }
       });
+      if (typeof window !== "undefined") {
+        window.requestAnimationFrame(() => restorePlace(session));
+      }
     } finally {
       cleanupMorph();
       publish(false, false, null);
@@ -364,7 +504,7 @@ export default function useDetailView() {
   const [modalMovie, setModalMovie] = useState(null);
 
   const openDetails = useCallback(
-    (movie, { forceModal = false, sourceElement, detailToken } = {}) => {
+    (movie, { forceModal = false, sourceElement, detailToken, heroIndex } = {}) => {
       if (!movie) return;
       if (forceModal || detailViewType === "modal") {
         setModalMovie(movie);
@@ -391,6 +531,7 @@ export default function useDetailView() {
           movie,
           from: location,
           detailToken,
+          heroIndex,
           commit,
         });
       } else {

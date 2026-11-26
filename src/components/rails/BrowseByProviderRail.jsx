@@ -1,88 +1,85 @@
-import React, { useRef, memo } from "react";
+import { memo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import { BROWSE_PROVIDERS } from "../../data/homeRailDomains";
 import useRailArrows from "../../hooks/useRailArrows";
-import RailArrow from "../RailArrow";
-import SectionHeader from "./SectionHeader";
+import { getRailScrollBehavior } from "../home/HomeRail";
 
-const BrowseByProviderRail = memo(function BrowseByProviderRail() {
-  const scrollRef = useRef(null);
-  const { canScrollLeft, canScrollRight, refresh } = useRailArrows(scrollRef);
+const BrowseByProviderRail = memo(function BrowseByProviderRail({ rowIndex = 0 }) {
+  const trackRef = useRef(null);
+  useRailArrows(trackRef, { enabled: true, syncEdges: true });
 
-  const scroll = (dir) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const amount = el.clientWidth > 800 ? el.clientWidth * 0.75 : el.clientWidth * 0.85;
-    el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" });
-    refresh();
-  };
+  const scroll = useCallback((direction) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const amount = track.clientWidth > 600 ? track.clientWidth * 0.8 : track.clientWidth * 0.9;
+    const appReducedMotion =
+      typeof document !== "undefined" &&
+      document.documentElement?.dataset?.reduceMotion === "true";
+    const systemReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+    track.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: getRailScrollBehavior({ appReducedMotion, systemReducedMotion }),
+    });
+  }, []);
 
   return (
-    <section className="row-section row-section--provider relative group/row" aria-label="Browse by Provider">
-      <SectionHeader
-        title={
-          <h2 className="rail-title text-xl font-bold tracking-tight text-white m-0">
-            Browse by Provider
-          </h2>
-        }
-      />
-
-      <div className="track-wrap relative">
-        {canScrollLeft && (
-          <RailArrow
-            dir="left"
-            onClick={() => scroll("left")}
-            revealOnHover
-            hoverClass="group-hover/row:opacity-100"
-            className="z-30 -left-3"
-            label="Browse by Provider"
-          />
-        )}
-        {canScrollRight && (
-          <RailArrow
-            dir="right"
-            onClick={() => scroll("right")}
-            revealOnHover
-            hoverClass="group-hover/row:opacity-100"
-            className="z-30 -right-3"
-            label="Browse by Provider"
-          />
-        )}
-
-        <div
-          ref={scrollRef}
-          className="track scroll-x flex overflow-x-auto overflow-y-hidden scroll-smooth"
-          style={{
-            scrollbarWidth: "none",
-            msOverflowStyle: "none",
-            WebkitOverflowScrolling: "touch",
-            gap: "20px",
-            padding: "16px var(--gutter, 24px) 8px",
-          }}
-        >
-          {BROWSE_PROVIDERS.map((p) => (
-            <Link
-              key={p.id}
-              to={`/provider/${p.id}`}
-              className="provider flex-none w-[76px] lg:w-[92px] flex flex-col items-center gap-2 group cursor-pointer text-decoration-none select-none"
-              aria-label={p.name}
-              title={p.name}
-            >
-              <div className="provider__logo w-16 h-16 lg:w-20 lg:h-20 rounded-[20px] overflow-hidden bg-white/5 border border-white/10 shadow-lg shadow-black/50 transition-[transform,border-color,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:scale-108 group-hover:border-white/30 group-hover:shadow-black/70">
-                <img
-                  src={p.logo}
-                  alt={p.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <span className="provider__name text-[11px] lg:text-xs font-medium text-white/60 text-center leading-tight line-clamp-2 transition-colors duration-300 group-hover:text-white">
-                {p.name}
-              </span>
-            </Link>
-          ))}
-        </div>
+    <section
+      className="sh rv home-rail provider-browse in"
+      style={{ "--row-i": Math.min(rowIndex, 5) }}
+      aria-label="Browse by Provider"
+    >
+      <div className="sh-head">
+        <h2>Browse by Provider</h2>
+      </div>
+      <button
+        type="button"
+        className="ar l glass"
+        aria-label="Scroll Browse by Provider left"
+        onClick={() => scroll("left")}
+      >
+        <ChevronLeft size={22} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="ar r glass"
+        aria-label="Scroll Browse by Provider right"
+        onClick={() => scroll("right")}
+      >
+        <ChevronRight size={22} aria-hidden="true" />
+      </button>
+      <div
+        ref={trackRef}
+        className="provider-icon-grid"
+        role="group"
+        tabIndex={0}
+        aria-label="Streaming providers"
+      >
+        {BROWSE_PROVIDERS.map((provider, index) => (
+          <Link
+            key={provider.id}
+            className="provider-icon"
+            style={{ "--i": Math.min(index, 6) }}
+            data-initial={provider.name.charAt(0)}
+            to={`/provider/${provider.id}`}
+            aria-label={provider.name}
+            title={provider.name}
+          >
+            <img
+              src={provider.logo}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              draggable="false"
+              onError={(event) => {
+                event.currentTarget.closest(".provider-icon")?.setAttribute("data-failed", "true");
+              }}
+            />
+          </Link>
+        ))}
       </div>
     </section>
   );

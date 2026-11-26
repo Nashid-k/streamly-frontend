@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import HomeRails from "../components/rails/HomeRails";
 import { renderWithProviders } from "../test/testUtils";
 
 /* The home feed's rail order is a product decision, not an accident of render
    order: Trending Movies → Trending Series → Movies on <provider> → TV Series
    on <provider> → … → the rotating tail. This pins that order, and pins that
-   the retired Top 10 / "Browse by Provider" rows stay gone. */
+   Browse by Provider is an animated brand-icon grid, not a poster-card rail. */
 
 vi.mock("../api/movieService", () => ({
   movieService: {
@@ -85,10 +85,16 @@ describe("HomeRails", () => {
     expect((await screen.findAllByText("Trending Film")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Trending Show").length).toBeGreaterThan(0);
     // The provider rails paint their dropdown head only once their first page
-    // lands (before that they are a skeleton).
-    expect(await screen.findByText("Movies on")).toBeInTheDocument();
+    // lands (before that the accessible skeleton is aria-hidden).
+    await waitFor(() => {
+      expect(screen.getByText("Movies on")).toBeInTheDocument();
+    });
 
-    const heads = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    // Provider rails inline their prefix in the trigger instead of a separate
+    // heading, so the order check reads both canonical heads and inline labels.
+    const heads = [...document.querySelectorAll(".sh-head h2, .rail-menu--inline .rail-menu__label")].map(
+      (h) => h.textContent,
+    );
     const at = (text) => heads.indexOf(text);
 
     expect(at("Because you watched")).toBeGreaterThanOrEqual(0);
@@ -98,9 +104,17 @@ describe("HomeRails", () => {
     expect(at("Movies on")).toBeLessThan(at("TV Series on"));
   });
 
-  it("renders the Browse by Provider rail and no longer renders Top 10", () => {
+  it("renders Browse by Provider as brand icons and no longer renders Top 10", () => {
     renderRails();
     expect(screen.queryByText(/top 10/i)).toBeNull();
-    expect(screen.getByText(/browse by provider/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Browse by Provider" })).toBeInTheDocument();
+
+    const grid = document.querySelector(".provider-icon-grid");
+    expect(grid).not.toBeNull();
+    expect(grid.querySelectorAll(".provider-icon")).toHaveLength(17);
+    expect(grid.querySelector(".provider-icon")?.getAttribute("href")).toMatch(/^\/provider\//);
+    expect(grid.querySelector(".provider-icon img")).not.toBeNull();
+    expect(grid.querySelector("li, .provider-icon span")).toBeNull();
+    expect(grid.querySelector(".po, .cw")).toBeNull();
   });
 });

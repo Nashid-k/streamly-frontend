@@ -48,24 +48,26 @@ export default function SkeletonRail({
   }
 
   return (
-    <section className="skeleton-movie-rail" aria-hidden="true">
+    <section className="skeleton-movie-rail sh in" aria-hidden="true">
       <div className="skeleton-rail-head">
         {headerType === "selector" ? (
           <div className="skeleton-selector-heading">
-            <div className="skeleton skeleton-selector-label" />
+            <div className="skeleton skeleton-selector-label sk sk-h2" />
             <div className="skeleton skeleton-selector-value" />
           </div>
         ) : (
-          <div className="skeleton skeleton-rail-title" />
+          <div className="skeleton skeleton-rail-title sk sk-h2" />
         )}
         {headerType === "standard" && (
           <div className="skeleton skeleton-rail-action" />
         )}
       </div>
-      <div className="skeleton-rail">
+      <span className="ar l glass sk-ar" aria-hidden="true" />
+      <span className="ar r glass sk-ar" aria-hidden="true" />
+      <div className="skeleton-rail rail">
         {Array.from({ length: cards }, (_, i) => (
           <div className="skeleton-rail-card" key={i}>
-            <MovieCardSkeleton />
+            <MovieCardSkeleton index={Math.min(i, 6)} />
           </div>
         ))}
       </div>

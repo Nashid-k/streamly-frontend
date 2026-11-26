@@ -1,10 +1,10 @@
 import SEO from "../components/SEO";
-import { DURATION, EASE_OUT, PRESS_SCALE } from "../constants/motion";
+import { DURATION_2, EASE_2, PRESS_SCALE } from "../constants/motion";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Play, Check, Plus, Info, Calendar, Heart } from "lucide-react";
+import { Play, Check, Plus, Info } from "lucide-react";
 import {
   motion,
   AnimatePresence,
@@ -15,16 +15,19 @@ import { useQuery } from "@tanstack/react-query";
 import { movieService } from "../api/movieService";
 import { progressPct } from "../utils/resumeProgress";
 import AmbientBackground from "../components/AmbientBackground";
-import HeroTitleLogo from "../components/HeroTitleLogo";
-import useDetailView from "../hooks/useDetailView";
+import HeroTitleLogo, { HeroTokenContext } from "../components/HeroTitleLogo";
+import useDetailView, {
+  getSavedDetailHeroIndex,
+  isDetailRestoring,
+} from "../hooks/useDetailView";
 import { useNearViewport } from "../hooks/useNearViewport";
-import RatingsCluster from "../components/RatingsCluster";
 
 import { asArray, EMPTY_ARRAY } from "../utils";
 import { setBannerMemory } from "../utils/bannerMemory";
 import { useI18n } from "../i18n/index.jsx";
 import { logEmptyData, logError, reportQueryError } from "../utils/debugLogger";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
+import { hasLoadedMediaUrl, markMediaUrlLoaded } from "../utils/posterCache";
 import HomeRails from "../components/rails/HomeRails";
 
 // Shared content-type predicates: anime folds into Movies/TV Shows by whether
@@ -46,9 +49,11 @@ const isAnime = (m) =>
 // Regional rail language name → TMDB original-language code. normalizeResult
 // emits `originalLanguage` (it never populates audioLanguages/languages), so a
 // name-only match left every regional rail empty.
-/* Banner dwell. Keep in sync with `.dot-filler` (search.css) and the
-   `bannerProgress` keyframes — the pill fill IS the countdown for this timer. */
-const HERO_DWELL_MS = 10000;
+/* Banner dwell. The 2.0 target rotates every 9s (`--hero-rotate-duration` in
+   tokens.css); `.dot-filler` (search.css) and `dotlive` (hero.css) paint the
+   same countdown. DURATION_2.REVEAL owns the slide-swap fade. */
+const HERO_DWELL_MS = 9000;
+const HERO_LIMIT = 5;
 
 const REGIONAL_LANGUAGE_CODES = {
   malayalam: "ml",
@@ -61,7 +66,9 @@ const REGIONAL_LANGUAGE_CODES = {
 // gone, so it no longer doubles as one.
 export default function Home({ filter = "all", title }) {
   const { t } = useI18n();
-  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [restoredFromDetail] = useState(() => isDetailRestoring());
+  const [featuredIndex, setFeaturedIndex] = useState(() => getSavedDetailHeroIndex() ?? 0);
+  const prevFilterRef = useRef(filter);
   const navigate = useNavigate();
   const reduceMotion = useReducedMotion();
   const [activeGenre, setActiveGenre] = useState("All");
@@ -182,10 +189,15 @@ export default function Home({ filter = "all", title }) {
      Detail View Type is — that setting governs card clicks, not this button. */
 
   useEffect(() => {
-    // Reset the genre tab and featured index when the filter changes
+    if (prevFilterRef.current === filter) return;
+    prevFilterRef.current = filter;
+    // Reset the genre tab and featured index only when the filter actually changes
+    // (never on a Back remount where useDetailView restores scroll + hero index).
     setActiveGenre("All");
-    setFeaturedIndex(0);
-    window.scrollTo({ top: 0, behavior: "auto" });
+    if (!isDetailRestoring()) {
+      setFeaturedIndex(0);
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
   }, [filter]);
 
   const categories = useMemo(() => {
@@ -420,7 +432,11 @@ export default function Home({ filter = "all", title }) {
     return lastWatched;
   }, [pickedAnchorId, continueWatching, lastWatched]);
 
-  const { data: rawRecommendations, error: recommendationsError } = useQuery({
+  const {
+    data: rawRecommendations,
+    isLoading: recommendationsLoading,
+    error: recommendationsError,
+  } = useQuery({
     queryKey: ["recommendations", becauseAnchor?.id],
     queryFn: () => movieService.getRecommendations(becauseAnchor.id),
     enabled: Boolean(becauseAnchor && becauseAnchor.id),
@@ -569,7 +585,7 @@ export default function Home({ filter = "all", title }) {
       rIdx = 0,
       recIdx = 0;
     while (
-      pool.length < 7 &&
+      pool.length < HERO_LIMIT &&
       (nrIdx < newReleasesReady.length ||
         gIdx < globalPool.length ||
         rIdx < regionalPool.length ||
@@ -581,7 +597,7 @@ export default function Home({ filter = "all", title }) {
       pushToPool(recommendedPool[recIdx++]);
     }
 
-    // 5. Always find better: If the pool didn't reach 7 banner-ready items,
+    // 5. Always find better: If the pool didn't reach the five-slide target,
     // backfill from any featured movie that is banner-ready.
     //
     // The tab filter has to be re-applied here. `globalPool` was filtered at the
@@ -596,30 +612,30 @@ export default function Home({ filter = "all", title }) {
       if (filter === "movies") return !m.isSeries;
       return true;
     };
-    if (pool.length < 7 && featuredMovies.length > 0) {
+    if (pool.length < HERO_LIMIT && featuredMovies.length > 0) {
       for (const fm of featuredMovies) {
-        if (pool.length >= 7) break;
+        if (pool.length >= HERO_LIMIT) break;
         if (matchesTab(fm) && bannerReady(fm)) {
           pushToPool(fm);
         }
       }
     }
 
-    // 6. Last resort: if we still didn't hit 7, pull from ANY source movie
-    // with an image so the hero always has a full rotation.
-    if (pool.length < 7) {
+    // 6. Last resort: if we still didn't hit the five-slide target, pull from
+    // ANY source movie with an image so the hero always has a full rotation.
+    if (pool.length < HERO_LIMIT) {
       const allCandidates = [...tabFilteredMovies, ...featuredMovies];
       for (const m of allCandidates) {
-        if (pool.length >= 7) break;
+        if (pool.length >= HERO_LIMIT) break;
         if (matchesTab(m) && (m.backdropUrl || m.posterUrl || m.poster)) {
           pushToPool(m);
         }
       }
     }
 
-    // Brief: no more than six slides — the rotation is a showcase, not a
+    // Canonical 2.0: heroIds().slice(0,5) — the rotation is a showcase, not a
     // carousel of the whole catalogue, and every extra slide dilutes dwell time.
-    return pool.slice(0, 6);
+    return pool.slice(0, HERO_LIMIT);
     } catch (e) {
       logError("HomePage", "hero-pool memo failed — hero falls back to empty.", e, { filter });
       return [];
@@ -667,65 +683,83 @@ export default function Home({ filter = "all", title }) {
       : null;
   const resumePct = cwResumeEntry ? Math.round(progressPct(cwResumeEntry)) : 0;
 
-  // Auto-rotation: use ref for hover state to avoid stale closures and unnecessary interval restarts.
-  // `totalFeatured` is read through a ref inside the tick so that data still
-  // streaming in (which grows finalPool and used to reset this interval on every
-  // change) can no longer restart the 15s clock — that reset was why the progress
-  // pill filled but the banner never advanced.
+  // Auto-rotation: a re-armable 9s timeout (not a fixed interval), so an auto
+  // tick, a dot click or a swipe each give the selected slide its full dwell.
+  // `totalFeatured` is read through a ref so streaming data cannot restart the
+  // clock mid-dwell; the dot's progress fill restarts with the active tick.
   const totalFeaturedRef = useRef(totalFeatured);
   useEffect(() => {
     totalFeaturedRef.current = totalFeatured;
   });
 
-  /* Manual paging (brief P2-3) with a dwell guarantee.
-     The earlier build removed arrows and clickable ticks because a jump could
-     fire before the title logo finished loading. Here every slide change — auto
-     OR manual — re-arms the rotation timer, so the slide the viewer picked gets
-     the same full 8s window as an automatic one (and the dot's progress fill
-     restarts because it remounts with the newly active tick). */
-  const goToSlide = useCallback((next) => {
-    const tf = totalFeaturedRef.current;
-    if (tf <= 1) return;
-    setFeaturedIndex(((next % tf) + tf) % tf);
-  }, []);
+  const heroTimerRef = useRef(null);
+  const armHeroRotation = useCallback(() => {
+    if (heroTimerRef.current) clearTimeout(heroTimerRef.current);
+    heroTimerRef.current = null;
+    if (reduceMotion || totalFeaturedRef.current <= 1) return;
+    heroTimerRef.current = setTimeout(() => {
+      heroTimerRef.current = null;
+      // Pause on hover, keyboard focus, hidden tab, active route transition, or
+      // once scrolled past the hero banner. Re-arm afterwards so the viewer gets
+      // a full dwell on return instead of inheriting the interrupted remainder.
+      if (
+        isHeroHoveredRef.current ||
+        document.hidden ||
+        window.scrollY > window.innerHeight ||
+        window.__streamlyRouteAnimating ||
+        Boolean(document.documentElement.dataset.detailTransition)
+      ) {
+        armHeroRotation();
+        return;
+      }
+      const tf = totalFeaturedRef.current;
+      if (tf <= 1) return;
+      setFeaturedIndex((prev) => (prev + 1) % tf);
+    }, HERO_DWELL_MS);
+  }, [reduceMotion]);
 
-  // Live mirror of featuredIndex for the auto-rotation / swipe handlers, which
-  // close over a stale `featuredIndex` because their effect deps are stable.
+  const goToSlide = useCallback(
+    (next) => {
+      const tf = totalFeaturedRef.current;
+      if (tf <= 1) return;
+      setFeaturedIndex(((next % tf) + tf) % tf);
+      armHeroRotation();
+    },
+    [armHeroRotation],
+  );
+
+  // Live mirror of featuredIndex for the swipe handler, which closes over a
+  // stale `featuredIndex` because its effect deps are stable.
   const featuredIndexRef = useRef(featuredIndex);
   useEffect(() => {
     featuredIndexRef.current = featuredIndex;
   }, [featuredIndex]);
   const nextSlide = useCallback(() => featuredIndexRef.current + 1, []);
 
-  const hasMultipleFeatured = totalFeatured > 1;
   useEffect(() => {
-    if (reduceMotion || !hasMultipleFeatured) return;
-    const timer = setInterval(() => {
-      // Pause on hover, keyboard focus, hidden tab, or once scrolled past the
-      // hero banner — rotating an off-screen hero wastes a full re-render and
-      // stagger animation pass every 10s while the viewer browses rails below.
-      if (isHeroHoveredRef.current || document.hidden || window.scrollY > window.innerHeight) return;
-      const tf = totalFeaturedRef.current;
-      if (tf <= 1) return;
-      // Rotate the live index (represents the next slide); if the user interrupted
-      // with a manual tick last frame, `featuredIndex` may already be ahead of us.
-      setFeaturedIndex((prev) => (nextSlide() < tf ? nextSlide() : (prev + 1) % tf));
-    }, HERO_DWELL_MS);
-    return () => clearInterval(timer);
-  }, [reduceMotion, hasMultipleFeatured]);
+    armHeroRotation();
+    return () => {
+      if (heroTimerRef.current) clearTimeout(heroTimerRef.current);
+      heroTimerRef.current = null;
+    };
+  }, [armHeroRotation, featuredIndex, totalFeatured]);
 
-  // Preload next hero image to eliminate flash on slide change.
-  // Triggers on slide changes only (featuredIndex) and a fresh pool so a
-  // newly-loaded title's art is still warmable — keep the loop small to stay
-  // out of the render window the pool-leak test inspects.
-  const nextMovie = finalPool.length > 1 ? finalPool[(featuredIndex + 1) % totalFeatured] : null;
+  // Preload every slide in the five-title rotation once, not just the next
+  // one. The Set is keyed by art URL so a pool refresh never re-fetches it.
+  const preloadedArtRef = useRef(new Set());
   useEffect(() => {
-    const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
-    if (!preloadUrl) return;
-    const img = new window.Image();
-    img.fetchPriority = "low";
-    img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
-  }, [featuredIndex, finalPool.length, nextMovie]);
+    finalPool.slice(0, HERO_LIMIT).forEach((movie) => {
+      const src = movie?.backdropUrl || movie?.posterUrl || movie?.poster;
+      if (!src || preloadedArtRef.current.has(src)) return;
+      preloadedArtRef.current.add(src);
+      const url = CdnImageAdapter.getBackdropUrl(src);
+      const img = new window.Image();
+      img.fetchPriority = "low";
+      img.onload = () => markMediaUrlLoaded(url);
+      img.src = url;
+      if (img.complete && img.naturalWidth > 0) markMediaUrlLoaded(url);
+    });
+  }, [finalPool]);
 
   const heroTouchStartRef = useRef({ x: 0, y: 0 });
   const heroTouchPauseTimeoutRef = useRef(null);
@@ -739,6 +773,171 @@ export default function Home({ filter = "all", title }) {
     activeFeaturedMovie?.poster ||
     null;
   const heroArtUrl = heroArtSrc ? CdnImageAdapter.getBackdropUrl(heroArtSrc) : null;
+
+  const description =
+    activeFeaturedMovie?.description ||
+    activeFeaturedMovie?.longDescription ||
+    activeFeaturedMovie?.overview ||
+    null;
+
+  /* Canonical 2.0 hero token. The backdrop carries it; the wordmark waits for
+     nav idle before swapping, and only while this exact token is still mounted
+     — a late lookup for a slide the viewer left cannot repaint that slide. */
+  const heroScope = filter === "all" ? "home" : filter;
+  const heroIndex = totalFeatured > 0 ? featuredIndex % totalFeatured : 0;
+  const heroToken = activeFeaturedMovie
+    ? `hero:${heroScope}:${heroIndex}:${activeFeaturedMovie.id}`
+    : null;
+
+  const heroMeta = useMemo(() => {
+    if (!activeFeaturedMovie) return "";
+    const parts = [];
+    const rating = Number(activeFeaturedMovie.imdbRating);
+    if (rating > 0) parts.push(`${rating.toFixed(1)} ★`);
+    const year = String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year || "").substring(0, 4);
+    if (year) parts.push(year);
+    const duration = activeFeaturedMovie.duration;
+    if (duration && !/^\d{4}-\d{2}-\d{2}$/.test(duration)) parts.push(duration);
+    if (activeFeaturedMovie.genres?.[0]) parts.push(activeFeaturedMovie.genres[0]);
+    else if (activeFeaturedMovie.maturityRating) parts.push(activeFeaturedMovie.maturityRating);
+    return parts.join("  ·  ");
+  }, [activeFeaturedMovie]);
+
+  const descWrapRef = useRef(null);
+  const descRef = useRef(null);
+  const [descOverflow, setDescOverflow] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+
+  useEffect(() => {
+    setDescExpanded(false);
+  }, [activeFeaturedMovie?.id]);
+
+  useEffect(() => {
+    const wrap = descWrapRef.current;
+    const el = descRef.current;
+    if (!wrap || !el) {
+      setDescOverflow(false);
+      return undefined;
+    }
+    const measure = () => {
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 27;
+      const full = el.scrollHeight;
+      wrap.style.setProperty("--hdmax", `${full}px`);
+      setDescOverflow(full > lineHeight * 3 + 2);
+    };
+    const raf = window.requestAnimationFrame(measure);
+    return () => window.cancelAnimationFrame(raf);
+  }, [description, activeFeaturedMovie?.id]);
+
+  /* One-frame .sw pulse on slide change: CSS fades .hbd/.hx out and back in
+     over --dur-reveal while the content's own Framer fade stays opacity-only. */
+  const [swapping, setSwapping] = useState(false);
+  const [heroArtReady, setHeroArtReady] = useState(() => hasLoadedMediaUrl(heroArtUrl));
+  const heroBgImgRef = useRef(null);
+  const firstSlideRef = useRef(true);
+  const heroHxRef = useRef(null);
+  const heroHbdRef = useRef(null);
+  const heroSectionRef = useRef(null);
+
+  useLayoutEffect(() => {
+    const img = heroBgImgRef.current;
+    if (heroArtUrl && (hasLoadedMediaUrl(heroArtUrl) || (img?.complete && img?.naturalWidth > 0))) {
+      markMediaUrlLoaded(heroArtUrl);
+      setHeroArtReady(true);
+    } else {
+      setHeroArtReady(false);
+    }
+  }, [heroArtUrl]);
+
+  /* Scroll-driven hero parallax & fade (streamly_2.0.html:761-762).
+     Runs synchronously via useLayoutEffect on mount (so B->A return lands with
+     exact scroll-matched parallax) and locks during forward transitions so
+     B->C's scrollTo(0) never snaps .hx back to full opacity while leaving. */
+  useLayoutEffect(() => {
+    const resetHero = () => {
+      const hx = heroHxRef.current;
+      const hbd = heroHbdRef.current;
+      const heroEl = heroSectionRef.current;
+      if (hx) {
+        hx.style.transform = "";
+        hx.style.removeProperty("--o");
+      }
+      if (hbd) {
+        hbd.style.backgroundPosition = "";
+      }
+      if (heroEl) {
+        heroEl.classList.remove("hero--offscreen", "hx-swap");
+      }
+    };
+    if (reduceMotion) {
+      resetHero();
+      return undefined;
+    }
+    const applyScroll = () => {
+      if (document.documentElement.dataset.detailDirection === "forward") {
+        return;
+      }
+      const y = window.scrollY;
+      const hx = heroHxRef.current;
+      const hbd = heroHbdRef.current;
+      const heroEl = heroSectionRef.current;
+      const isOffscreen = y > window.innerHeight * 0.85;
+      if (heroEl) {
+        heroEl.classList.toggle("hero--offscreen", isOffscreen);
+        if (y > 4) {
+          heroEl.classList.remove("hx-swap");
+        }
+      }
+      if (!isOffscreen) {
+        if (hx) {
+          hx.style.transform = `translateY(${y * 0.08}px)`;
+          hx.style.setProperty("--o", String(Math.max(0, 1 - y / 340)));
+        }
+        if (hbd) {
+          hbd.style.backgroundPosition = `center ${Math.min(92, 50 + y * 0.02)}%`;
+        }
+      }
+    };
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        ticking = false;
+        applyScroll();
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    applyScroll();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [reduceMotion]);
+
+  useEffect(() => {
+    if (reduceMotion || firstSlideRef.current) {
+      firstSlideRef.current = false;
+      return undefined;
+    }
+    if (window.__streamlyRouteAnimating || document.documentElement.dataset.detailTransition) {
+      return undefined;
+    }
+    const heroEl = heroSectionRef.current;
+    heroEl?.classList.add("hx-swap");
+    setSwapping(true);
+    let swapDoneTimer;
+    const raf = window.requestAnimationFrame(() => {
+      setSwapping(false);
+      swapDoneTimer = window.setTimeout(() => {
+        heroEl?.classList.remove("hx-swap");
+      }, 460);
+    });
+    return () => {
+      window.cancelAnimationFrame(raf);
+      if (swapDoneTimer) clearTimeout(swapDoneTimer);
+      heroEl?.classList.remove("hx-swap");
+    };
+  }, [featuredIndex, reduceMotion]);
 
   useEffect(() => {
     return () => {
@@ -778,109 +977,121 @@ export default function Home({ filter = "all", title }) {
   }, [featuredIndex, goToSlide]);
 
   return (
-    <div className="main-content main-content--has-hero main" style={{ paddingBottom: "120px" }}>
-      <AmbientBackground src={ambientSrc} />
+    <div
+      className={`home-page main-content main-content--has-hero main${restoredFromDetail ? " home-page--restored" : ""}`}
+      style={{ paddingBottom: "120px" }}
+    >
+      <AmbientBackground src={ambientSrc} fallback />
       <SEO title={title || "Discover Movies & TV Shows"} />
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="popLayout" initial={!restoredFromDetail}>
         {loading && !activeFeaturedMovie ? (
-          <motion.div
+          <motion.section
             key="skeleton-hero"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="skeleton skeleton-hero"
-            style={{ overflow: "hidden" }}
+            transition={restoredFromDetail ? { duration: 0 } : { duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
+            className="hero sk-hero skeleton-hero"
+            data-sk-scene="home"
+            role="region"
+            aria-label="Featured title"
           >
-            <div className="hero-content" style={{ zIndex: 2 }}>
-              <div
-                className="skeleton"
-                style={{
-                  width: "min(420px, 70%)",
-                  height: "clamp(2.2rem, 4vw, 3.4rem)",
-                  borderRadius: "8px",
-                  marginBottom: "1.2rem",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  flexWrap: "wrap",
-                  marginBottom: "1.1rem",
-                }}
-              >
-                {[70, 95, 60, 85].map((w, i) => (
-                  <div
-                    key={i}
-                    className="skeleton"
-                    style={{ width: `${w}px`, height: "22px", borderRadius: "6px" }}
-                  />
-                ))}
+            <div className="hbd sk sk-hbd" aria-hidden="true" />
+            <div className="hx" aria-hidden="true">
+              <div className="hh"><span className="sk sk-ht" /></div>
+              <p className="hm"><span className="sk sk-hm" /></p>
+              <div className="hdw">
+                <p className="hd sk-hd">
+                  <span className="sk sk-line" />
+                  <span className="sk sk-line" />
+                  <span className="sk sk-line short" />
+                </p>
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.45rem",
-                  marginBottom: "1.5rem",
-                  maxWidth: "560px",
-                }}
-              >
-                <div className="skeleton" style={{ width: "100%", height: "12px", borderRadius: "4px" }} />
-                <div className="skeleton" style={{ width: "86%", height: "12px", borderRadius: "4px" }} />
-                <div className="skeleton" style={{ width: "62%", height: "12px", borderRadius: "4px" }} />
-              </div>
-              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-                <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "var(--radius-full)" }} />
-                <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "var(--radius-full)" }} />
+              <div className="btns">
+                <span className="btn p sk sk-btn" />
+                <span className="btn g sk sk-btn sm" />
+                <span className="btn g sk sk-btn lg" />
               </div>
             </div>
-          </motion.div>
+            <div className="dots glass sk-dots" aria-hidden="true">
+              {Array.from({ length: HERO_LIMIT }, (_, index) => (
+                <button key={index} type="button" tabIndex={-1} disabled>
+                  <span className={`sk sk-dot${index ? " dot-idle" : ""}`} />
+                </button>
+              ))}
+            </div>
+          </motion.section>
         ) : activeFeaturedMovie ? (
           <ErrorBoundary>
-          {/* Persistent hero shell — key is static so slide changes crossfade
-              the backdrop and content layers instead of remounting the whole
-              hero (which blanked it for ~1.3s with mode="wait"). The shell
-              mounts once on load and stays mounted while titles rotate. */}
-          <motion.div
-            key="hero"
-            className="hero-container"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: DURATION.MED, ease: EASE_OUT }}
-            onTouchStart={handleHeroTouchStart}
-            onTouchEnd={handleHeroTouchEnd}
-            /* The entire banner is an interactive surface, not just its CTA
-               buttons. Give pointer/touch activation a restrained press response
-               before the shared detail-view transition takes over. */
-            whileTap={{ scale: 0.995, transition: { duration: 0.12, ease: EASE_OUT } }}
-            onClick={() => openDetails(activeFeaturedMovie)}
-            onMouseEnter={() => { isHeroHoveredRef.current = true; }}
-            onMouseLeave={() => { isHeroHoveredRef.current = false; }}
-            onFocus={() => { isHeroHoveredRef.current = true; }}
-            onBlur={(event) => {
-              if (event.currentTarget.contains(event.relatedTarget)) return;
-              isHeroHoveredRef.current = false;
-            }}
-            onKeyDown={(event) => {
-              // Manual switching is disabled (see the removed arrows above) so the
-              // banner keeps its dwell time for the title logo to load. Only Enter
-              // activates the hero; arrow keys no longer advance slides.
-              if (event.key === "Enter" && activeFeaturedMovie) {
-                event.preventDefault();
-                openDetails(activeFeaturedMovie);
+            <motion.section
+              ref={heroSectionRef}
+              key="hero"
+              className={`hero${swapping ? " sw" : ""}`}
+              data-hero-token={heroToken || undefined}
+              data-hero-index={heroIndex}
+              role="region"
+              aria-label={`Featured ${activeFeaturedMovie.title}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={restoredFromDetail ? { duration: 0 } : { duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
+              onTouchStart={handleHeroTouchStart}
+              onTouchEnd={handleHeroTouchEnd}
+              whileTap={{ scale: PRESS_SCALE.ROW }}
+              onClick={() =>
+                openDetails(activeFeaturedMovie, {
+                  sourceElement: heroHbdRef.current,
+                  detailToken: heroToken,
+                  heroIndex,
+                })
               }
-            }}
-          >
-            {/* Backdrop — keyed crossfade. The next slide's frame is preloaded
-                a slide ahead, and old/new frames stack (both absolutely
-                positioned) so the outgoing one fades out beneath the incoming
-                one. No hero remount, no blank gap. */}
-            <AnimatePresence>
-              <motion.img
-                key={activeFeaturedMovie.id}
+              onMouseEnter={() => {
+                isHeroHoveredRef.current = true;
+              }}
+              onMouseLeave={() => {
+                isHeroHoveredRef.current = false;
+              }}
+              onFocus={() => {
+                isHeroHoveredRef.current = true;
+              }}
+              onBlur={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) return;
+                isHeroHoveredRef.current = false;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && activeFeaturedMovie) {
+                  event.preventDefault();
+                  openDetails(activeFeaturedMovie, {
+                    sourceElement: heroHbdRef.current,
+                    detailToken: heroToken,
+                    heroIndex,
+                  });
+                }
+              }}
+            >
+              <div
+                ref={heroHbdRef}
+                className="hbd"
+                data-art-ready={heroArtReady ? "true" : undefined}
+                data-vt={heroToken || undefined}
+                style={{
+                  "--a": 212,
+                  "--b": 265,
+                  "--hero-art": heroArtUrl ? `url("${heroArtUrl}")` : "none",
+                }}
+                aria-hidden="true"
+              >
+                {heroArtUrl ? (
+                  <span
+                    className="hbd-art"
+                    style={{ backgroundImage: `url("${heroArtUrl}")` }}
+                  />
+                ) : null}
+              </div>
+
+              {/* Frozen shared-detail target stays mounted but never paints on Home. */}
+              <img
+                ref={heroBgImgRef}
                 src={heroArtUrl}
                 srcSet={CdnImageAdapter.getSrcSet(heroArtSrc, "backdrop")}
                 sizes={CdnImageAdapter.getSizes("backdrop")}
@@ -889,221 +1100,177 @@ export default function Home({ filter = "all", title }) {
                 fetchPriority={featuredIndex === 0 ? "high" : "auto"}
                 loading="eager"
                 decoding="async"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: DURATION.SLOW, ease: EASE_OUT }}
+                onLoad={() => {
+                  markMediaUrlLoaded(heroArtUrl);
+                  setHeroArtReady(true);
+                }}
               />
-            </AnimatePresence>
 
-            {/* Apple-style gradient overlay — gradient from bottom and left, no hard black */}
-            <div className="hero-overlay hero-overlay--apple" />
+              <div ref={heroHxRef} className="hx">
+                <HeroTokenContext.Provider value={heroToken}>
+                  <div className="hh">
+                    <HeroTitleLogo
+                      movie={activeFeaturedMovie}
+                      fetchPriority={featuredIndex === 0 ? "high" : "auto"}
+                    />
+                  </div>
 
-            {/* Prev / Next arrows removed: manual switching cut the banner's
-                dwell time short, so the title logo never had time to load and
-                the banner flashed the styled text title. Auto-rotation (below)
-                still advances slides on its own cadence. */}
+                  {heroMeta && <p className="hm">{heroMeta}</p>}
 
-            {/* ── Apple Hero Content ─────────────────────────────────────── */}
-            <AnimatePresence>
-            {/* CSS owns the per-child stagger; keep the parent fade-only so its
-                transform does not stack with each child's heroReveal. */}
-            <motion.div
-              key={activeFeaturedMovie.id + "-content"}
-              className="hero-content hero-content--apple"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
-            >
-                {/* Title / Logo — real show wordmark, lazy-fetched on demand */}
-                <HeroTitleLogo movie={activeFeaturedMovie} fetchPriority={featuredIndex === 0 ? "high" : "auto"} />
-
-                {/* Eyebrow — genre tags, sits below the logo */}
-                <div className="hero-eyebrow">
-                  {activeFeaturedMovie.genres?.slice(0, 2).map((g) => (
-                    <span key={g} className="hero-eyebrow-tag">{g}</span>
-                  ))}
-                </div>
-
-                {/* Meta row — gold star rating · calendar year · genre · runtime */}
-                <div className="hero-meta hero-meta--apple">
-                  {activeFeaturedMovie.imdbRating > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderRight: '1px solid rgba(255,255,255,0.2)', paddingRight: '16px', marginRight: '4px' }}>
-                      <RatingsCluster movie={activeFeaturedMovie} size="lg" itemClassName="hero-meta-item" />
+                  {description && (
+                    <div ref={descWrapRef} className={`hdw${descExpanded ? " exp" : ""}`}>
+                      <p ref={descRef} id="hero-desc" className="hd">
+                        {description}
+                      </p>
+                      <button
+                        type="button"
+                        className="rm"
+                        aria-expanded={descExpanded}
+                        aria-controls="hero-desc"
+                        hidden={!descOverflow}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDescExpanded((previous) => !previous);
+                        }}
+                      >
+                        {descExpanded ? "Read less" : "Read more"}
+                      </button>
                     </div>
                   )}
-                  {(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year) && (
-                    <span className="hero-meta-item">
-                      <Calendar size={14} />
-                      {String(activeFeaturedMovie.releaseYear || activeFeaturedMovie.year).substring(0, 4)}
-                    </span>
-                  )}
-                  {activeFeaturedMovie.genres?.[0] ? (
-                    <span className="hero-meta-item">
-                      <Heart size={14} fill="currentColor" />
-                      {activeFeaturedMovie.genres[0]}
-                    </span>
-                  ) : (
-                    <span className="maturity-badge">{activeFeaturedMovie.maturityRating || "TV-MA"}</span>
-                  )}
-                  {activeFeaturedMovie.duration && !activeFeaturedMovie.duration.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && (
-                    <span className="hero-meta-item">{activeFeaturedMovie.duration}</span>
-                  )}
-                </div>
 
-                {/* Description */}
-                {(activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview) && (
-                  <p className="hero-desc hero-desc--apple">
-                    {activeFeaturedMovie.description || activeFeaturedMovie.longDescription || activeFeaturedMovie.overview}
-                  </p>
-                )}
-
-                {/* Resume progress for continue-watching banner titles */}
-                {cwResumeEntry && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: "var(--radius-full)", background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
-                      <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
+                  {cwResumeEntry && (
+                    <div className="hero-resume">
+                      <span style={{ "--resume-pct": `${resumePct}%` }} />
+                      <span>{t("home.hero.watched", { pct: resumePct })}</span>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
-                      {t("home.hero.watched", { pct: resumePct })}
-                    </span>
-                  </div>
-                )}
+                  )}
 
-                {/* CTA row — white Play pill · single pill with list toggle | info */}
-                <div className="hero-ctas">
-                  <motion.button
-                    className="hero-cta-play"
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: PRESS_SCALE.CONTROL }}
-                    onClick={(e) => { e.stopPropagation(); navigate(`/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, { lower: true, strict: true })}`); }}
-                  >
-                    <Play size={20} strokeWidth={2.5} fill="currentColor" stroke="none" />
-                    {cwResumeEntry ? t("home.hero.resume") : t("home.hero.play")}
-                  </motion.button>
-
-                  <div className="hero-action-pill inline-flex items-stretch shrink-0 rounded-full border border-white/10 shadow-lg shadow-black/5">
-                    <motion.button
-                      className="hero-cta-secondary-icon"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: PRESS_SCALE.ICON }}
-                      onClick={(e) => { e.stopPropagation(); toggleMyList(activeFeaturedMovie); }}
-                      aria-label={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
-                      title={isInList(activeFeaturedMovie?.id) ? t("home.hero.removeMyList") : t("home.hero.addMyList")}
+                  <div className="btns">
+                    <button
+                      type="button"
+                      className="btn p"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(
+                          `/watch/${activeFeaturedMovie.id}/${slugify(activeFeaturedMovie.title, {
+                            lower: true,
+                            strict: true,
+                          })}`,
+                        );
+                      }}
                     >
-                      {isInList(activeFeaturedMovie?.id) ? <Check size={18} strokeWidth={2.5} /> : <Plus size={18} strokeWidth={2.5} />}
-                    </motion.button>
-                    <span className="hero-cta-separator" aria-hidden="true">|</span>
-                    <motion.button
-                      className="hero-cta-secondary-icon"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: PRESS_SCALE.ICON }}
-                      aria-label={t("home.hero.moreInfo")}
-                      title={t("home.hero.moreInfo")}
-                      onClick={(e) => { e.stopPropagation(); openDetails(activeFeaturedMovie); }}
+                      <Play size={20} fill="currentColor" stroke="none" aria-hidden="true" />
+                      {cwResumeEntry ? t("home.hero.resume") : t("home.hero.play")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn g"
+                      data-focus={heroToken || undefined}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openDetails(activeFeaturedMovie, {
+                          sourceElement: heroHbdRef.current,
+                          detailToken: heroToken,
+                          heroIndex,
+                        });
+                      }}
                     >
-                      <Info size={18} strokeWidth={2.5} />
-                    </motion.button>
+                      {t("home.hero.details", "Details")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn g"
+                      aria-pressed={isInList(activeFeaturedMovie?.id)}
+                      aria-label={
+                        isInList(activeFeaturedMovie?.id)
+                          ? t("home.hero.removeMyList")
+                          : t("home.hero.addMyList")
+                      }
+                      title={
+                        isInList(activeFeaturedMovie?.id)
+                          ? t("home.hero.removeMyList")
+                          : t("home.hero.addMyList")
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleMyList(activeFeaturedMovie);
+                      }}
+                    >
+                      {isInList(activeFeaturedMovie?.id) ? (
+                        <>
+                          <Check size={18} aria-hidden="true" />
+                          <span>{t("home.hero.inMyList", "In My list")}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={18} aria-hidden="true" />
+                          <span>{t("home.hero.addMyList", "Add to My list")}</span>
+                        </>
+                      )}
+                    </button>
                   </div>
-                </div>
-            </motion.div>
-            </AnimatePresence>
+                </HeroTokenContext.Provider>
+              </div>
 
-            {/* Manual paging: clickable ticks, each a 44px target. The banner is
-                also swipeable; arrows were removed per user direction. */}
-            {totalFeatured > 1 && (
-              <>
-                <div
-                  className="hero-dots hero-dots--apple hero-nav"
-                  role="group"
-                  aria-label="Featured titles"
-                >
-                  <div className="hero-dots__ticks">
-                    {Array.from({ length: totalFeatured }).map((_, i) => {
-                      const isActive = i === featuredIndex % totalFeatured;
-                      const title = finalPool[i]?.title || `featured title ${i + 1}`;
+              {totalFeatured > 1 && (
+                <>
+                  <div className="dots glass hero-dots" role="group" aria-label="Featured titles">
+                    {Array.from({ length: totalFeatured }).map((_, index) => {
+                      const isActive = index === featuredIndex % totalFeatured;
+                      const slideTitle = finalPool[index]?.title || `featured title ${index + 1}`;
                       return (
                         <button
                           type="button"
-                          key={i}
+                          key={index}
                           aria-current={isActive ? "true" : undefined}
-                          aria-label={`Show ${title}`}
-                          className={`hero-dot${isActive ? " hero-dot--active" : ""}`}
+                          aria-label={`Show ${slideTitle}`}
                           onClick={(event) => {
                             event.stopPropagation();
-                            goToSlide(i);
+                            goToSlide(index);
                           }}
                           onKeyDown={(event) => {
                             if (event.key === "Enter" || event.key === " ") event.stopPropagation();
                           }}
-                        >
-                          <span className="hero-dot__bar" aria-hidden="true">
-                            {isActive && <span className="dot-filler" />}
-                          </span>
-                        </button>
+                        />
                       );
                     })}
                   </div>
-                </div>
-                {/* Announced on every slide change; the visual hero is animated
-                    in/out, so screen readers get a stable live region instead. */}
-                <p className="hero-live" aria-live="polite" aria-atomic="true">
-                  {activeFeaturedMovie
-                    ? `${activeFeaturedMovie.title}, featured title ${(featuredIndex % totalFeatured) + 1} of ${totalFeatured}`
-                    : ""}
-                </p>
-              </>
-            )}
-          </motion.div>
+                  <p className="hero-live" aria-live="polite" aria-atomic="true">
+                    {`${activeFeaturedMovie.title}, featured title ${(featuredIndex % totalFeatured) + 1} of ${totalFeatured}`}
+                  </p>
+                </>
+              )}
+            </motion.section>
           </ErrorBoundary>
         ) : (
-          <motion.div
+          <motion.section
             key="empty-hero"
-            className="hero-container"
+            className="hero hero--empty"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              minHeight: "min(82vh, 900px)",
-              background:
-                "radial-gradient(ellipse 60% 50% at 50% 40%, rgba(149,255,80,0.08) 0%, transparent 70%), #050505",
-            }}
+            role="region"
+            aria-label="Featured title"
           >
-            <div style={{ textAlign: "center", padding: "2rem" }}>
-              <div className="logo-icon" style={{ margin: "0 auto 1rem", width: "56px", height: "56px" }}>
-                <Play size={28} fill="currentColor" stroke="none" />
-              </div>
-              <h2 style={{ color: "var(--white)", marginBottom: "0.5rem" }}>
-                {hasInitialLoadError ? t("home.loadError") : t("home.welcome")}
-              </h2>
-              <p style={{ color: "var(--text-secondary)", maxWidth: "420px", margin: "0 auto" }}>
-                {hasInitialLoadError
-                  ? t("home.heroError")
-                  : t("home.heroEmpty")}
-              </p>
+            <div className="hero-empty-copy">
+              <h2>{hasInitialLoadError ? t("home.loadError") : t("home.welcome")}</h2>
+              <p>{hasInitialLoadError ? t("home.heroError") : t("home.heroEmpty")}</p>
               {hasInitialLoadError && (
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ marginTop: "1.25rem" }}
+                  className="btn g"
                   onClick={() => {
                     refetchFeatured();
                     refetchCategories();
                   }}
                 >
                   {t("home.tryAgain")}
-                  </button>
+                </button>
               )}
             </div>
-          </motion.div>
+          </motion.section>
         )}
       </AnimatePresence>
 
-      {/* Rails live in HomeRails: memoised so hero rotation/hover ticks stop
-          at this boundary instead of re-rendering a dozen rails. */}
       <HomeRails
         loading={loading}
         filter={filter}
@@ -1113,10 +1280,9 @@ export default function Home({ filter = "all", title }) {
         becauseAnchor={becauseAnchor}
         onBecauseAnchorChange={setPickedAnchorId}
         recommendations={recommendations}
+        recommendationsLoading={recommendationsLoading}
       />
 
-      {/* Streamly-style info modal — Detail View Type governs whether the
-          hero (banner click / Info button) opens this or navigates. */}
       {modalHost}
     </div>
   );

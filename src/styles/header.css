@@ -1,43 +1,38 @@
-/* ── Header row: two independent floating islands ──────────────────────────
-   Cinejoy .header-row — a transparent full-width frame (NO connected bar).
-   Brand-mark hangs alone on the left; the desktop-nav glass pill floats at
-   the right. Row is pointer-events:none so it never blocks clicks, children
-   re-enable it. */
+/* ── 2.0 shell ─────────────────────────────────────────────────────────────
+   Transparent fixed header frame (pointer-events:none) with only three live
+   islands: brand/back at the left, the compact utility capsule, and the
+   top-right expanding search. Navigation lives in the bottom pill. */
 .header-row {
   position: fixed;
   inset: 0 0 auto 0;
   z-index: var(--z-sticky);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 18px var(--gutter, 24px);
+  /* env() in a fixed inset is unreliable in some embedded Chromium shells, so
+     the safe-area lift is a margin: identical geometry in Chrome, and the
+     canonical 14px still lands when env() resolves to 0. */
+  margin-top: env(safe-area-inset-top, 0px);
+  padding: 14px clamp(14px, 3vw, 40px) 18px;
   pointer-events: none;
-}
-@media (min-width: 1024px) {
-  .header-row {
-    padding: 18px var(--gutter, 64px);
-  }
+  font-family: var(--font-ui);
 }
 .header-row:hover,
 .header-row:has(:focus-visible) {
   --row-hover: 1;
 }
 
-/* ── RIVO scroll-progress rail (rivo.st) ─────────────────────────────────
-   Fixed top hairline, 3px, white with a soft glow, width = scroll fraction.
-   Scroll-driven instead of JS-driven: the root scroller's own position is the
-   animation timeline, so the rail tracks every pixel with zero scroll
-   listeners (React state used to re-render the whole header every frame).
-   Engines without scroll timelines keep the scaleX(0) rail — a decorative
-   loss only. z-index sits under the nav pill (--z-sticky) so the pill keeps
-   painting above the rail, like the reference. */
-/* Brand — standalone floating logo at the left end (Cinejoy .brand-mark) */
+/* Brand and back — the only remaining left-edge controls. */
 .header-brand-cluster {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs, 4px);
+  gap: 4px;
   pointer-events: auto;
   flex-shrink: 0;
+  transition:
+    opacity var(--dur-2) var(--ease),
+    transform var(--dur-2) var(--ease),
+    visibility var(--dur-2) var(--ease);
 }
 
 .app-brand-link-wrap {
@@ -52,6 +47,7 @@
   border-radius: var(--radius-full);
   line-height: 0;
 }
+
 /* Streamly brand lockup — the transparent PNG mark (glyph over the outlined
    wordmark), sized by height in every placement (header, curtain, footer). */
 .brand-wordmark {
@@ -60,7 +56,7 @@
   width: auto;
   user-select: none;
   transform-origin: top left;
-  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+  transition: transform var(--dur-2) var(--ease);
 }
 .header-row.scrolled .brand-wordmark {
   transform: scale(0.9);
@@ -82,50 +78,51 @@
   transform-origin: top left;
   transform: scale(1);
   filter: drop-shadow(0 2px 10px rgba(var(--black-rgb), 0.45));
-  /* Condense on scroll is a transform-only scale (44 → 38px optically):
-     never animates height/layout, so the fixed header never reflows. */
-  transition: transform var(--anim-hover-time) var(--anim-hover-ease);
+  /* Condense on scroll is a transform-only scale: the fixed header never
+     reflows. */
+  transition: transform var(--dur-2) var(--ease);
 }
 .header-row.scrolled .brand-mark {
   transform: scale(0.864);
 }
 
-/* Cinejoy .logo-legible — soft glow so the mark stays crisp over art */
+/* Cinejoy .logo-legible — stays crisp over artwork. */
 .logo-legible {
   filter: drop-shadow(0 0 2px rgba(var(--black-rgb), 0.65)) drop-shadow(0 2px 12px rgba(var(--white-rgb), 0.16));
 }
 
-/* Cinejoy-style back arrow — glass circle docked beside the brand logo.
-   Both it and the mark feed `--header-h`, so the island's footprint is
-   declared once (tokens.css) and never drifts from what a page clears. */
+/* Back arrow — iOS glass circle docked beside the brand. */
 .back-btn {
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
   width: 38px;
   height: 38px;
+  margin-right: 4px;
   border-radius: 50%;
-  color: var(--text-strong, #ffffff);
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  color: var(--ui-label);
+  background: var(--ui-glass);
+  border: 0;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 8px 30px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
   cursor: pointer;
   pointer-events: auto;
-  margin-right: var(--spacing-sm);
-  transition: background-color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+  transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
-.back-btn:hover {
-  background: rgba(0, 0, 0, 0.6);
-  transform: scale(1.08);
-}
+  .back-btn:hover {
+    transform: scale(1.08);
+  }
 }
 .back-btn:active {
   transform: scale(0.94);
 }
 .back-btn:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
+  outline: 2px solid var(--ui-tint);
   outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -134,272 +131,86 @@
   }
 }
 
-/* ── Desktop nav — right-docked floating glass pill (Cinejoy .desktop-nav
-   + .glass-header): padding condenses with --nav-pad on scroll, and the
-   frosting deepens. NOT connected to the brand island. */
-.navbar {
-  position: relative;
-  margin-left: auto;
+/* ── Shell utilities — notifications / settings / account ──────────────────
+   A second compact glass capsule clears the search at every width. When the
+   search expands, the capsule slides out of its way on desktop and hides on
+   narrow screens; both return as soon as the search clears. */
+.shell-utility-cluster {
+  position: fixed;
+  top: 14px;
+  margin-top: env(safe-area-inset-top, 0px);
+  right: calc(clamp(14px, 3vw, 40px) + 56px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 44px;
+  padding: 0 4px;
+  border-radius: 999px;
   pointer-events: auto;
-  z-index: var(--z-sticky);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  max-width: fit-content;
-  border-radius: var(--radius-full);
-  /* Flat translucent fill instead of a 20px backdrop blur.
-     The ambient blobs behind the header animate continuously, so blurring the
-     backdrop here re-sampled and re-blurred the whole island on EVERY frame —
-     even at idle. The opacity below reads the same over the dark stage
-     gradient; blur is now reserved for transient surfaces (menus, modals). */
-  background: var(--header-fill, rgba(12, 10, 20, 0.82));
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
-  transition: border-color var(--duration-fast) var(--ease-out),
-              background-color var(--duration-fast) var(--ease-out),
-              box-shadow var(--duration-fast) var(--ease-out);
+  background: var(--ui-glass);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 8px 30px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  transition:
+    opacity var(--dur-2) var(--ease),
+    transform var(--dur-3) var(--ease),
+    visibility var(--dur-2) var(--ease);
 }
-.navbar.scrolled {
-  background: var(--header-fill, rgba(12, 10, 20, 0.82));
-  border-color: var(--glass-border, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 14px 36px -8px rgba(0, 0, 0, 0.7);
+@media (min-width: 640px) {
+  .header-row.shell-search-open .shell-utility-cluster {
+    /* Expanded .sq grows left by 280px - 44px = 236px; match that delta so
+       the 12px gap between settings and search never opens into dead space. */
+    transform: translateX(-236px);
+  }
 }
-@media (min-width: 1024px) {
-  .navbar:not(.scrolled):hover {
-    border-color: rgba(var(--white-rgb), 0.14);
+@media (max-width: 639px) {
+  .header-row.shell-search-open .shell-utility-cluster {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(8px);
+  }
+  /* Below 640px the expanded 280px field starts at x≈100, so the back arrow
+     and wordmark would paint underneath it. The search owns this strip. */
+  .header-row.shell-search-open .header-brand-cluster {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-8px);
   }
 }
 
-/* Right zone — nav links + icons grouped together inside the pill.
-   No mix-blend-mode here: blending five text nodes against a translucent
-   backdrop forced the whole island to re-composite every frame while the
-   ambient blobs drift behind it. The active pill paints its own dark ink. */
-.nav-cluster {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
-/* Cinejoy-style divider between the tabs and the utility icon cluster */
-.nav-separator {
-  position: relative;
-  z-index: 1;
-  width: 1px;
-  height: 22px;
-  margin: 0 6px;
-  flex: 0 0 auto;
-  background: var(--line, rgba(255, 255, 255, 0.10));
-  border-radius: 1px;
-}
-
-/* ── Right nav links ─────────────────────────────────────────────────── */
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.nav-link {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-muted, rgba(var(--white-rgb), 0.6));
-  text-decoration: none;
-  border-radius: var(--radius-full);
-  letter-spacing: -0.01em;
-  transition: color var(--duration-fast) var(--ease-out);
-  white-space: nowrap;
-}
-@media (hover: hover) and (pointer: fine) {
-.nav-link:hover {
-  color: var(--text-strong, #ffffff);
-}
-}
-.nav-link:active {
-  transform: scale(0.96);
-}
-
-/* Active state */
-.nav-link--home {
-  gap: 8px;
-  padding: 0 16px;
-}
-.nav-link--active {
-  color: #04120b !important;
-}
-.nav-link--active .nav-link-icon {
-  color: #04120b !important;
-}
-
-/* Cinejoy .nav-pill - ONE shared highlight that glides between items.
-   Position is driven by JS-measured CSS custom properties (--pill-x, --pill-w)
-   on the navbar. Transition is GATED by data-pill-moving: enabled only when
-   the active tab changes (smooth glide), disabled for geometry-only updates
-   (avatar swap, font load, ResizeObserver) so late settles reposition
-   INSTANTLY with no jitter. Measured synchronously in useLayoutEffect before
-   paint, so the pill is correct on first paint - no 2-3s settle. Opacity is
-   an instant toggle (no transition) to avoid flicker on rapid route changes. */
-.nav-active-pill {
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  transform: translateX(var(--pill-x, 0px));
-  width: var(--pill-w, 0px);
-  border-radius: var(--radius-full);
-  background: var(--accent-color, #95ff50);
-  box-shadow: 0 6px 18px -6px rgba(149, 255, 80, 0.6);
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0;
-}
-
-/* Reveal once an active tab exists (set synchronously in useLayoutEffect). */
-.navbar[data-has-active] .nav-active-pill {
-  opacity: 1;
-}
-
-/* Smooth glide only when the active tab actually changes.
-   TRANSFORM ONLY: a compositor-owned animation keeps gliding at 60fps even
-   while the incoming page mounts (cached pages do all their heaviest work in
-   the same 300ms as this move). Transitioning width forced a style + layout
-   pass on the main thread every frame, so the glide inherited the page's
-   jank and visibly stuttered on revisits. Width now snaps to the new tab
-   (≤10px between tabs) and the left edge glides. */
-.navbar[data-pill-moving="true"] .nav-active-pill {
-  will-change: transform;
-  transition: transform var(--duration-normal) var(--ease-out);
-}
-
-/* Geometry-only updates (same active): snap, no glide. */
-.navbar:not([data-pill-moving="true"]) .nav-active-pill {
-  transition: none;
-}
-
-/* Reduced motion: snap, no glide. */
-@media (prefers-reduced-motion: reduce) {
-  .nav-active-pill { transition: none; }
-}
-html[data-reduce-motion="true"] .nav-active-pill {
-  transition: none;
-}
-/* ── Nav hover (Cinejoy): hovering anywhere on the pill whitens every
-   non-active label — no background chips on individual items, and the
-   shared white active pill stays exactly as it is (black ink). */
-@media (hover: hover) and (pointer: fine) {
-.nav-link:hover {
-  color: var(--text-strong, #ffffff);
-}
-.nav-icon-btn:hover {
-  color: var(--text-strong, #ffffff);
-  background: rgba(255, 255, 255, 0.08);
-}
-.nav-link--active:hover,
-.nav-icon-btn--active:hover {
-  color: #04120b !important;
-}
-}
-.nav-link:focus-visible,
-.nav-icon-btn:focus-visible {
-  outline: 2px solid var(--focus-ring-color);
-  outline-offset: 2px;
-}
-/* Text-only tabs (2026-11-11): the icon renders beside the label on the
-   ACTIVE tab only. display:none lifts it out of flex flow, so inactive tabs
-   are pure text with no phantom gap, and measurePill re-measures the new
-   geometry in the same commit the class flips. The label (and the active
-   icon) sit above the pill. */
-.nav-link .nav-link-icon {
-  display: none;
-}
-.nav-link--active .nav-link-icon {
-  display: inline-block;
-}
-.nav-link-label,
-.nav-link--active .nav-link-icon {
-  position: relative;
-  z-index: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .navbar,
-  .header-row,
-  .brand-mark {
-    transition: none !important;
-  }
-}
-@media (max-width: 880px) {
-  .nav-links {
-    gap: 4px;
-  }
-  .nav-cluster {
-    gap: 8px;
-  }
-  .nav-link {
-    padding: 0 9px;
-    gap: 0;
-    /* Icon-sized touch targets on the compact strip. */
-    min-width: 44px;
-  }
-  .nav-link-label {
-    display: none !important;
-  }
-  /* The compact strip is icon-only, so EVERY tab shows its icon here — not
-     just the active one. */
-  .nav-link .nav-link-icon {
-    display: inline-block;
-  }
-  .nav-link--home {
-    padding: 0 9px;
-  }
-}
-
-/* ── Right icon cluster — plain ghost icons (16px apart) ───────────────── */
-.nav-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 4px;
-}
-
-/* Ghost icon buttons — Cinejoy `.nav-item.is-icon` 40px circles */
+/* Ghost icon buttons in the utility capsule. */
 .nav-icon-btn {
   position: relative;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-full);
-  color: var(--text-muted, rgba(var(--white-rgb), 0.6));
+  color: var(--ui-label-2);
   background: transparent;
   border: none;
   cursor: pointer;
   text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
   flex-shrink: 0;
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
 @media (hover: hover) and (pointer: fine) {
-.nav-icon-btn:hover {
-  color: var(--text-strong, #ffffff);
-  background: rgba(255, 255, 255, 0.08);
-}
+  .nav-icon-btn:hover {
+    color: var(--ui-label);
+    background: color-mix(in srgb, var(--ui-label) 9%, transparent);
+  }
 }
 .nav-icon-btn--active {
-  color: #04120b !important;
+  color: var(--ui-tint) !important;
 }
-/* The avatar is a photo: it keeps its natural colours on the accent pill. */
 .nav-icon-btn--avatar {
   mix-blend-mode: normal;
 }
@@ -412,13 +223,424 @@ html[data-reduce-motion="true"] .nav-active-pill {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--accent-gradient);
-  color: var(--black);
+  background: var(--ui-tint);
+  color: #fff;
   font-size: var(--text-2xs);
   font-weight: 800;
   line-height: 1;
   text-transform: uppercase;
 }
 
-/* Account header inside the merged settings menu */
+.nav-icon-btn:focus-visible {
+  outline: 2px solid var(--ui-tint);
+  outline-offset: 2px;
+}
 
+/* ── Top-right expanding search (canonical `.sq`) ──────────────────────────
+   Collapsed: a 44px glass circle with the magnifier. Focus or a live term
+   expands it to 280px and reveals the input. A 250ms debounce in Header owns
+   the URL sync; loading uses the canonical conic ring. */
+.sq.glass {
+  position: fixed;
+  z-index: 3;
+  top: 14px;
+  margin-top: env(safe-area-inset-top, 0px);
+  right: clamp(14px, 3vw, 40px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 44px;
+  height: 44px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ui-glass);
+  color: var(--ui-label-2);
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 8px 30px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  color-scheme: var(--ui-color-scheme, light);
+  cursor: text;
+  pointer-events: auto;
+  isolation: isolate;
+  font-family: var(--font-ui);
+  transition:
+    width var(--dur-3) var(--ease),
+    box-shadow var(--dur-1) var(--ease),
+    background var(--dur-1) var(--ease);
+  animation: sqin var(--dur-4) var(--ease) var(--stagger) backwards;
+}
+.sq.glass:focus-within,
+.sq.glass.has {
+  width: min(280px, calc(100vw - 28px));
+}
+.sq.glass:focus-within {
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 8px 30px rgba(0, 0, 0, 0.18),
+    0 0 0 3px color-mix(in srgb, var(--ui-tint) 32%, transparent);
+}
+.sq.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(130px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.32), transparent 70%);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .sq.glass:hover::before {
+    opacity: 1;
+  }
+}
+.sq.glass svg {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  color: var(--ui-label-2);
+  transition: color var(--dur-1) var(--ease);
+}
+.sq.glass:focus-within svg {
+  color: var(--ui-tint);
+}
+.sq.glass.loading::after {
+  content: "";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--ui-label-2) 0 75%, transparent 75%);
+  -webkit-mask: radial-gradient(farthest-side, transparent 56%, #000 57%);
+  mask: radial-gradient(farthest-side, transparent 56%, #000 57%);
+  animation: shellspin 1s linear infinite;
+}
+.sq.glass.loading input {
+  padding-right: 34px !important;
+}
+.sq.glass input {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0 !important;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: var(--ui-label);
+  font: inherit;
+  font-size: 16px;
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+.sq.glass:focus-within input,
+.sq.glass.has input {
+  opacity: 1;
+}
+.sq.glass input::placeholder {
+  color: var(--ui-label-2);
+}
+.sq.glass input:focus-visible {
+  box-shadow: none;
+}
+
+/* ── Bottom pill navigation (canonical `#tb`) ──────────────────────────────
+   Primary navigation at every width. One shared #pill glides with
+   --dur-nav/--sp; a sheen crosses it in the travel direction and the
+   destination links scrub a staggered navwave. */
+.tb {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: var(--z-sticky);
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 22px;
+  transform: translateX(-50%);
+  isolation: isolate;
+  pointer-events: auto;
+  font-family: var(--font-ui);
+  animation: tbin var(--dur-4) var(--ease) backwards;
+}
+.tb.glass {
+  background: var(--ui-glass);
+  border: 0;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 8px 30px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+}
+.tb.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(150px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.18), transparent 72%);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tb.glass:hover::before {
+    opacity: 1;
+  }
+}
+.tb a {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: clamp(62px, 7vw, 86px);
+  min-height: 42px;
+  padding: 4px 12px;
+  border-radius: 18px;
+  color: var(--ui-label-2);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    transform var(--dur-tap) var(--ease),
+    background var(--dur-state) var(--ease),
+    color var(--dur-state) var(--ease),
+    min-height var(--dur-tap) var(--ease);
+}
+.tb a::after {
+  content: "";
+  position: absolute;
+  inset: 2px 0;
+  z-index: -1;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(65% 110% at 50% 50%, rgba(255, 255, 255, 0.22), transparent 76%);
+  opacity: 0;
+  transition: opacity var(--dur-state) var(--ease);
+}
+.tb a:hover {
+  transform: scale(1.03);
+}
+.tb a:hover::after {
+  opacity: 1;
+}
+.tb a:not([aria-current="page"]):hover {
+  background: none;
+}
+.tb a:active {
+  transform: scale(0.94);
+}
+.tb a[aria-current="page"] {
+  background: none;
+  color: var(--ui-tint);
+}
+.tb a svg {
+  width: 20px;
+  height: 20px;
+}
+.tb a span {
+  max-height: 14px;
+  overflow: hidden;
+  transition:
+    max-height var(--dur-tap) var(--ease),
+    opacity var(--dur-state) var(--ease);
+}
+.tb.sc a {
+  min-height: 36px;
+}
+.tb.sc a span {
+  max-height: 0;
+  opacity: 0;
+}
+
+#pill {
+  position: absolute;
+  z-index: -1;
+  top: 5px;
+  bottom: 5px;
+  left: 0;
+  width: var(--pill-w, 0px);
+  border-radius: 18px;
+  background: rgba(127, 127, 127, 0.28);
+  box-shadow: none;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateX(var(--pill-x, 0px));
+  transition:
+    transform var(--dur-nav) var(--sp),
+    width var(--dur-nav) var(--sp),
+    opacity var(--dur-state) var(--ease);
+}
+.tb[data-has-active] #pill {
+  opacity: 1;
+}
+.tb[data-pill-moving="true"] #pill {
+  will-change: transform;
+}
+#pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.26), transparent);
+  opacity: 0;
+  transform: translateX(-120%);
+}
+.tb.go #pill::after {
+  animation: pillsheen var(--dur-nav) var(--ease);
+}
+.tb.back #pill::after {
+  animation: pillsheen-back var(--dur-nav) var(--ease);
+}
+.tb a.wave {
+  animation: navwave var(--dur-nav) var(--sp) var(--wave-delay, 0ms) both;
+}
+
+@keyframes tbin {
+  from {
+    transform: translate(-50%, 120px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%);
+    opacity: 1;
+  }
+}
+@keyframes sqin {
+  from {
+    transform: translateY(-70px) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes shellspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes navwave {
+  0% {
+    transform: none;
+  }
+  28% {
+    transform: translateY(-3px) scale(1.05);
+  }
+  62% {
+    transform: translateY(1px) scale(0.985);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes pillsheen {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+@keyframes pillsheen-back {
+  0% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .tb {
+    gap: 3px;
+    padding: 4px;
+  }
+  .tb a {
+    min-width: 54px;
+    min-height: 38px;
+    padding: 4px 8px;
+  }
+  .tb.sc a {
+    min-height: 34px;
+  }
+  .sq.glass {
+    top: 10px;
+    right: 10px;
+  }
+  .shell-utility-cluster {
+    top: 10px;
+    right: 66px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sq.glass,
+  .tb,
+  .tb a,
+  .tb a span,
+  #pill,
+  .shell-utility-cluster,
+  .header-brand-cluster,
+  .header-row,
+  .brand-mark {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tb a.wave,
+  .tb.go #pill::after,
+  .tb.back #pill::after {
+    animation: none !important;
+  }
+}
+html[data-reduce-motion="true"] .sq.glass,
+html[data-reduce-motion="true"] .tb,
+html[data-reduce-motion="true"] .tb a,
+html[data-reduce-motion="true"] .tb a span,
+html[data-reduce-motion="true"] #pill,
+html[data-reduce-motion="true"] .shell-utility-cluster,
+html[data-reduce-motion="true"] .header-brand-cluster {
+  animation: none !important;
+  transition: none !important;
+}
+html[data-reduce-motion="true"] .tb a.wave,
+html[data-reduce-motion="true"] .tb.go #pill::after,
+html[data-reduce-motion="true"] .tb.back #pill::after {
+  animation: none !important;
+}

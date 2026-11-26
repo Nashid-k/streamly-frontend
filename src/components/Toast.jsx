@@ -288,3 +288,9 @@ export function useToast() {
   if (!ctx) throw new Error("useToast must be used within a ToastProvider");
   return ctx;
 }
+
+// Optional variant for surfaces that can render outside the app shell (tests,
+// embedded previews). Callers fall back to a no-op so the action still works.
+export function useOptionalToast() {
+  return useContext(ToastContext) || { toast: () => {} };
+}

@@ -84,14 +84,15 @@ describe("non-player compositor budget", () => {
 
   it("keeps the Home hero parent fade-only while CSS staggers its children", () => {
     const home = read("src/pages/HomePage.jsx");
-    const content = home.slice(home.indexOf('key={activeFeaturedMovie.id + "-content"}'));
-    const parentMotion = content.slice(0, content.indexOf("</motion.div>"));
+    const start = home.indexOf('key="hero"');
+    const content = home.slice(start, home.indexOf("</motion.section>", start));
 
-    expect(parentMotion).toMatch(/initial=\{\{ opacity: 0 \}\}/);
-    expect(parentMotion).toMatch(/animate=\{\{ opacity: 1 \}\}/);
-    expect(parentMotion).toMatch(/exit=\{\{ opacity: 0 \}\}/);
-    expect(parentMotion).not.toMatch(/\by:\s*(?:18|0)\b/);
-    expect(read("src/styles/hero.css")).toContain("animation: heroReveal 0.48s");
+    expect(content).toMatch(/initial=\{\{ opacity: 0 \}\}/);
+    expect(content).toMatch(/animate=\{\{ opacity: 1 \}\}/);
+    expect(content).toMatch(/exit=\{\{ opacity: 0 \}\}/);
+    expect(content).not.toMatch(/\by:\s*(?:18|0)\b/);
+    expect(read("src/styles/home.css")).toContain("animation: homeHeroRise var(--dur-content) var(--ease) backwards");
+    expect(read("src/styles/home.css")).toContain(".hx > :nth-child(5) { animation-delay: 240ms; }");
   });
 
   it("keeps poster artwork visible beneath the hover affordance without filter rasterisation", () => {
@@ -138,7 +139,7 @@ describe("non-player compositor budget", () => {
     expect(stripComments(rule(read("src/styles/hero.css"), ".hero-eyebrow-tag"))).not.toMatch(/backdrop-filter/);
     expect(stripComments(rule(read("src/styles/hero.css"), ".hero-action-pill"))).not.toMatch(/backdrop-filter/);
     expect(stripComments(rule(read("src/styles/hero.css"), ".hero-circle-btn"))).not.toMatch(/backdrop-filter/);
-    expect(stripComments(rule(read("src/styles/header.css"), ".nav-active-pill"))).not.toMatch(/will-change/);
+    expect(stripComments(rule(read("src/styles/header.css"), "#pill"))).not.toMatch(/will-change/);
     expect(stripComments(rule(read("src/styles/discovery.css"), ".random-btn"))).not.toMatch(/max-width/);
     expect(stripComments(rule(read("src/styles/motion-themes.css"), ".motion-backdrop__layer"))).not.toMatch(/backface-visibility/);
   });
@@ -186,7 +187,9 @@ describe("non-player compositor budget", () => {
 
     expect(home).toContain('fetchPriority={featuredIndex === 0 ? "high" : "auto"}');
     expect(browse).toContain('fetchPriority={index === 0 ? "high" : "auto"}');
-    expect(home).toContain('<HeroTitleLogo movie={activeFeaturedMovie} fetchPriority={featuredIndex === 0 ? "high" : "auto"} />');
+    expect(home).toMatch(
+      /<HeroTitleLogo\s+movie=\{activeFeaturedMovie\}\s+fetchPriority=\{featuredIndex === 0 \? "high" : "auto"\}\s*\/>/,
+    );
     expect(browse).toContain('<HeroTitleLogo movie={active} fetchPriority={index === 0 ? "high" : "auto"} />');
     expect(logo).toContain('fetchPriority = "auto"');
   });
@@ -194,22 +197,28 @@ describe("non-player compositor budget", () => {
   it("matches skeleton geometry to the live hero and rail card sizes", () => {
     const css = read("src/styles/skeleton.css");
     const hero = rule(css, ".skeleton-hero");
-    const railItem = rule(css, ".skeleton-rail > div");
+    const railItem = rule(css, ".skeleton-rail-card");
+    const railDesktop = [...css.matchAll(/@media \(min-width: 1024px\)\s*\{([\s\S]*?)\n\}/g)]
+      .map(([, block]) => block)
+      .find((block) => /\.skeleton-rail-card\s*\{/.test(block))
+      ?.match(/\.skeleton-rail-card\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(hero).toContain("height: min(78vh, 850px);");
     expect(hero).toContain("min-height: 480px;");
     expect(hero).toContain("max-height: 850px;");
-    expect(railItem).toContain("width: 200px;");
+    expect(railItem).toContain("width: 140px;");
+    expect(railDesktop).toContain("width: 200px;");
   });
 
-  it("morphs a card into the 1.0 hero backdrop and restores its rail position", () => {
+  it("morphs a 2:3 card poster into the 2.0 detail poster via phase B skeleton and restores its rail position", () => {
     const css = read("src/styles/motion-themes.css");
     const hook = read("src/hooks/useDetailView.jsx");
     const tokens = read("src/styles/tokens.css");
     const layout = read("src/app/Layout.jsx");
-    const card = read("src/components/MovieCard.jsx");
-    const rail = read("src/components/rails/MovieRail.jsx");
+    const card = read("src/components/home/HomeCard.jsx");
+    const rail = read("src/components/home/HomeRail.jsx");
     const skeleton = read("src/components/MovieDetailsSkeleton.jsx");
+    const detailCss = read("src/styles/detail.css");
     const scroll = read("src/hooks/useScrollRestoration.js");
 
     expect(tokens).toContain("--vt-root-duration: 620ms;");
@@ -220,12 +229,14 @@ describe("non-player compositor budget", () => {
     expect(css).toContain(".detail-transition-overlay");
     expect(css).toContain('html[data-detail-transition]::view-transition-old(root)');
     expect(css).toContain('html[data-detail-transition]::view-transition-new(root)');
-    expect(css).toContain(".detail-transition-overlay .detail-transition-hero");
+    expect(css).toContain(".dp .dh > .po");
+    expect(css).toContain(".detail-transition-overlay .detail-transition-poster");
     expect(css).not.toContain(".detail-transition-overlay .details-poster-large");
     expect(css).toContain("::view-transition-old(streamly-poster)");
     expect(css).toContain("object-fit: cover");
     expect(css).toContain("::view-transition-old(navbar)");
     expect(css).toContain("::view-transition-old(searchbar)");
+    expect(hook).toContain(".dp .dh > .po");
     expect(hook).toContain("runForwardDetailTransition");
     expect(hook).toContain("runReverseDetailTransition");
     expect(hook).toContain("function capturePlace");
@@ -236,10 +247,12 @@ describe("non-player compositor budget", () => {
     expect(layout).toContain("detailTransition.bypass");
     expect(card).toContain("data-detail-source={movie.id}");
     expect(card).toContain("data-detail-token={detailToken}");
-    expect(rail).toContain("data-detail-rail={category.name}");
-    expect(rail).toContain("detailToken={`${category.name}:${index}:${movie.id}`}");
+    expect(rail).toContain("data-detail-rail={label}");
+    expect(rail).toContain("renderItem(movie, index, `${label}:${index}:${movie.id}`)");
     expect(rail).toContain("window.__streamlyDetailScrollRestored");
-    expect(skeleton).toContain("detail-transition-hero--fit");
+    expect(skeleton).toContain("sk-detail");
+    expect(skeleton).toContain("detail-transition-poster");
+    expect(detailCss).toContain("aspect-ratio: 2 / 3");
     expect(scroll).toContain("window.__streamlyDetailScrollRestored");
   });
 

@@ -91,6 +91,25 @@ export const EASE_OUT = [0.16, 1, 0.3, 1];
 /** Ease-in for exits — pages accelerate off-screen (opposite of EASE_OUT). */
 export const EASE_IN = [0.4, 0, 1, 1];
 
+/* Canonical streamly_2.0 vocabulary (root HTML :278-280). `DURATION`/`EASE_OUT`
+   above still drive today's components; the 2.0 build phases read these names
+   instead, so the legacy scale can be retired surface by surface without a
+   big-bang swap. Values are seconds for framer-motion, matching `DURATION`. */
+export const DURATION_2 = Object.freeze({
+  STATE: 0.22,
+  TAP: 0.3,
+  REVEAL: 0.4,
+  CONTENT: 0.64,
+  VIEW: 0.62,
+  POSTER: 0.78,
+  NAV: 0.52,
+});
+export const EASE_2 = Object.freeze({
+  IN_OUT: [0.4, 0, 0.2, 1],
+  UI: [0.22, 1, 0.36, 1],
+  SPRING: [0.34, 1.25, 0.64, 1],
+});
+
 /* Shared enter/exit shapes. Duplicated `initial`/`exit` objects drift: the same
    badge grew different exit values in two files. These are the canonical ones,
    so a HUD and a pill now read as siblings. */

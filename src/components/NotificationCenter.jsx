@@ -48,22 +48,26 @@ export default function NotificationCenter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx]);
 
-  /* The panel portals to document.body: .navbar clips every descendant with
-     overflow:hidden + contain:paint and roots a backdrop-filter context, so a
-     panel inside the navbar paints only within the 44px strip — an "open"
-     panel that is invisible. Fixed coords are measured off the bell (the same
-     contract as AccountMenu) and re-measured while open if the viewport
-     resizes. panelPos is deliberately not reset on close so Popover's exit
-     clone keeps its coordinates. */
+  /* The panel portals to document.body: the shell utility capsule clips its
+     descendants, so a panel inside it paints only within the 36px strip. Fixed
+     coords are measured off the bell (the same contract as AccountMenu) and
+     re-measured while open if the viewport resizes. The left edge is clamped
+     so the 360px panel stays on-screen when the bell sits in the top-right
+     corner of a phone. panelPos is deliberately not reset on close so
+     Popover's exit clone keeps its coordinates. */
   useEffect(() => {
     if (!open) return undefined;
     const measure = () => {
       const btn = btnRef.current;
       if (!btn) return;
       const rect = btn.getBoundingClientRect();
+      const width = Math.min(360, window.innerWidth - 24);
       setPanelPos({
         top: rect.bottom + 8,
-        right: Math.max(8, window.innerWidth - rect.right),
+        left: Math.min(
+          Math.max(8, rect.right - width),
+          Math.max(8, window.innerWidth - width - 8),
+        ),
       });
     };
     measure();
@@ -106,9 +110,10 @@ export default function NotificationCenter() {
           className="notif-panel"
           role="dialog"
           aria-label="Notifications"
+          align="left"
           style={
             panelPos
-              ? { position: "fixed", top: panelPos.top, right: panelPos.right }
+              ? { position: "fixed", top: panelPos.top, left: panelPos.left }
               : undefined
           }
         >

@@ -17,25 +17,8 @@
     height: 320px;
   }
 
-  /* Desktop nav pill sits inside the header row — just keep comfortable gutters */
-  .header-row {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
   .main-content {
     padding: 0 2rem 4rem;
-  }
-}
-
-/* Tablet viewport between 769px and 1024px — keep compact nav sleek and prevent collision with brand */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .nav-cluster {
-    gap: 8px;
-  }
-  .nav-link {
-    padding: 0 9px;
-    font-size: 0.82rem;
-    gap: 5px;
   }
 }
 
@@ -100,110 +83,6 @@
   .main-content.main-content--has-hero,
   .main-content.main-content--has-hero[style] {
     padding-top: 0 !important;
-  }
-
-  /* Mobile: bottom bar is primary — the desktop nav pill hides, brand floats
-     alone top-left exactly like the real mobile header. The island's compact
-     padding/mark size now come from --header-inset / --header-mark-h in
-     tokens.css, so nothing here repeats them. */
-  .header-row .navbar {
-    display: none;
-  }
-  .nav-icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-  }
-  .nav-icon-btn:active {
-    transform: scale(0.96);
-  }
-
-  /* Mobile Bottom Nav — floating frosted glass pill */
-  .mobile-bottom-nav {
-    display: flex !important;
-    position: fixed;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
-    left: 0 !important;
-    right: 0 !important;
-    transform: none !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
-    width: min(calc(100vw - 1.25rem), 430px);
-    /* 70px instead of 62px: the dock now carries a label under each icon
-       (Cinejoy's six-icon strip made Search and Settings guesswork). */
-    height: 70px;
-    background: var(--header-fill, rgba(12, 10, 20, 0.82)) !important;
-    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
-    border-radius: var(--radius-full);
-    box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7);
-    z-index: var(--z-sticky);
-    justify-content: space-around;
-    align-items: center;
-    padding: 4px 6px;
-  }
-  .bottom-nav-item {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: 1 1 0;
-    max-width: 58px;
-    height: 56px;
-    flex-direction: column;
-    gap: 2px;
-    border-radius: var(--radius-full);
-    padding: 0;
-    color: #9ca3af;
-    text-decoration: none;
-    /* Same ink rule as the desktop dock: the active item paints its own dark
-       foreground on the accent pill instead of blending every icon. */
-    transition: background var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1), transform var(--duration-fast) cubic-bezier(0.16, 1, 0.3, 1);
-    position: relative;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .bottom-nav-item:active {
-    transform: scale(0.96);
-  }
-  .bottom-nav-item:hover {
-    color: var(--white);
-  }
-  .bottom-nav-item.active {
-    color: #04120b !important;
-    background: var(--accent-color, #95ff50);
-    border-radius: var(--radius-pill, 9999px) !important;
-    box-shadow: 0 4px 14px -3px rgba(149, 255, 80, 0.5);
-    font-weight: 700;
-    mix-blend-mode: normal !important;
-  }
-  .bottom-nav-item.active svg {
-    color: #04120b !important;
-    mix-blend-mode: normal !important;
-  }
-  .bottom-nav-label {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--text-2xs);
-    font-weight: 600;
-    line-height: 1;
-    letter-spacing: -0.01em;
-    opacity: 0.9;
-  }
-  .bottom-nav-item.active .bottom-nav-label {
-    color: #04120b !important;
-    opacity: 1;
-    mix-blend-mode: normal !important;
-  }
-  .bottom-nav-item--avatar {
-    mix-blend-mode: normal;
-  }
-  body {
-    /* Dock height (70px) + its 1rem gap + a 10px breath so the last content
-       row never touches the glass. */
-    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-    letter-spacing: -0.01em;
   }
 
   /* Hero Banner — Full-width edge-to-edge */
@@ -408,7 +287,7 @@
   .btn:hover {
     transform: none !important;
   }
-  .bottom-nav-item:hover {
+  .tb a:hover {
     transform: none !important;
   }
 }

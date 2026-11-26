@@ -266,6 +266,45 @@
   --vt-view-ease: cubic-bezier(0.4, 0, 0.2, 1);
   --detail-b-duration: 1090ms;
 
+  /* Canonical streamly_2.0 metric vocabulary. Source of truth is the root
+     HTML (:278-280), not these aliases. Existing --duration-* values stay in
+     place until each build phase migrates its call sites; new UI/motion work
+     must read these names so the two scales never drift by hand. */
+  --dur-1: 220ms;
+  --dur-2: 300ms;
+  --dur-3: 400ms;
+  --dur-4: 640ms;
+  --dur-view: 620ms;
+  --dur-poster: 780ms;
+  --dur-nav: 520ms;
+  --dur-state: var(--dur-1);
+  --dur-tap: var(--dur-2);
+  --dur-reveal: var(--dur-3);
+  --dur-content: var(--dur-4);
+  --stagger: 55ms;
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --sp: cubic-bezier(0.34, 1.25, 0.64, 1);
+  --shimmer-duration: 1.8s;
+  --hero-rotate-duration: 9s;
+  --hero-ken-burns-duration: 32s;
+  --cww: clamp(250px, 27vw, 380px);
+
+  /* Canonical 2.0 shell palette (root HTML :14-18). These are scoped to the
+     floating shell while the catalogue surfaces migrate phase by phase: the
+     app stage stays dark here, and the glass chrome follows the OS appearance
+     until the later phases can flip the content surfaces safely. */
+  --ui-h: 212;
+  --ui-bg: #f2f2f7;
+  --ui-surface: #ffffff;
+  --ui-label: #000000;
+  --ui-label-2: rgba(60, 60, 67, 0.72);
+  --ui-sep: rgba(60, 60, 67, 0.22);
+  --ui-tint: #007aff;
+  --ui-glass: rgba(255, 255, 255, 0.62);
+  --ui-glow: 0.28;
+  --ui-color-scheme: light;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Inter, system-ui, sans-serif;
+
   /* Press feedback: how far a surface sinks while held. Three tiers, because
      the depth has to match the target's size — an icon button reads as a
      button because it moves, while a full-width menu row that shrank as hard
@@ -300,6 +339,33 @@
   --z-toast: 11000;      /* notifications outrank dialogs */
   --z-curtain: 12000;    /* language-switch wait curtain, full-page loader */
   --z-tooltip: 13000;    /* tooltips outrank everything */
+}
+
+/* Canonical 2.0 dark shell (root HTML :17-18). An explicit light choice wins
+   over the OS; every other app theme leaves the shell on the OS appearance. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ui-bg: #000000;
+    --ui-surface: #1c1c1e;
+    --ui-label: #ffffff;
+    --ui-label-2: rgba(235, 235, 245, 0.66);
+    --ui-sep: rgba(84, 84, 88, 0.65);
+    --ui-tint: #0a84ff;
+    --ui-glass: rgba(58, 58, 62, 0.5);
+    --ui-glow: 0.5;
+    --ui-color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ui-bg: #000000;
+  --ui-surface: #1c1c1e;
+  --ui-label: #ffffff;
+  --ui-label-2: rgba(235, 235, 245, 0.66);
+  --ui-sep: rgba(84, 84, 88, 0.65);
+  --ui-tint: #0a84ff;
+  --ui-glass: rgba(58, 58, 62, 0.5);
+  --ui-glow: 0.5;
+  --ui-color-scheme: dark;
 }
 
 /* ── RIVO design language tokens (reverse-engineered from rivo.st, ported
@@ -462,16 +528,18 @@ button {
 }
 
 body {
-  font-family:
-    "Inter",
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-ui);
   /* The stage gradient lives on the fixed `body::before` layer below. A
      gradient painted directly on <body> with `background-attachment: fixed`
      cannot be composited: every scroll frame repaints the whole viewport. */
   background-color: var(--stage-bottom);
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  /* Canonical 2.0 shell leaves room for the fixed bottom pill at every width.
+     120px already clears the home-indicator inset, and keeping env() out of
+     the shorthand avoids inset-resolver bugs in embedded Chromium shells. */
+  padding-bottom: 120px;
   /* Ratings, runtimes, counts and episode numbers must not reflow as digits
      change (Phase 0). Applies app-wide; letterforms are unaffected. */
   font-variant-numeric: tabular-nums;
@@ -642,31 +710,7 @@ a {
   }
 }
 
-/* === Scroll progress bar (Cinejoy-style) === */
-/* One definition only. The bar animates `transform: scaleX()` against the
-   scroll timeline, so it stays on the compositor; the old duplicate block
-   animated `width` (a layout property) and silently overrode this one. */
-.scroll-progress {
-  position: fixed;
-  top: 0;
-  left: 0;
-  height: 2px;
-  background: var(--accent-color);
-  z-index: calc(var(--z-sticky) + 10);
-  width: 100%;
-  transform-origin: left center;
-  transform: scaleX(0);
-  box-shadow: 0 0 8px rgba(149, 255, 80, 0.5);
-  pointer-events: none;
-  /* CSS scroll-driven animation — no JS needed */
-  animation: scroll-progress-track linear;
-  animation-timeline: scroll(root block);
-  animation-range: 0% 100%;
-}
-@keyframes scroll-progress-track {
-  from { transform: scaleX(0); }
-  to   { transform: scaleX(1); }
-}
+
 
 /* === Page enter/leave transitions (Cinejoy-style) ===================== */
 @keyframes pageEnter {
@@ -689,8 +733,7 @@ a {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* === Scroll progress bar (Cinejoy-style) === */
-/* (Single definition lives above, next to its keyframes.) */
+
 
 @media (min-width: 1024px) {
   :root {

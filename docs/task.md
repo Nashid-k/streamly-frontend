@@ -138,6 +138,183 @@
 
 - [x] **A→B→C / C→B→A motion physics & skeleton parity refine (2026-11-22).** Fixed root cause of 28px vertical jump on B→C and C→B by scoping in-place cross-dissolve to stage C (`streamly-dissolve-out` 220ms, `streamly-dissolve-in` 320ms) and scale-return to stage A (`streamly-return-in` 420ms). Aligned `MovieDetailsSkeleton.jsx` directly to `TitleDetailsPage.jsx`'s `.details-hero` and `.details-hero__body.details-gutter` (exact `--details-hero-lift` parity; removed fake topbar). Eliminated secondary loader flash on card click by suppressing global spinner on `/watch` routes (`Loader.jsx`) and holding `MovieDetailsSkeleton` until full TMDB query arrives (`isLoading || isPlaceholderData`). Cleared 10 React Compiler render-body ref mutations across player and dialog components. Implemented Where-to-Watch provider rail (`WhereToWatch.jsx`, `detail.js`, `TitleDetailsPage.jsx`). Gates: `npm run lint` 0 errors, `npx vitest run --maxWorkers=4 --testTimeout=15000` 467/467 suites, 1568/1568 passed (2 skipped), `npm run build` exit 0.
 
+- [x] **Canonical streamly_2.0 UI/UX + motion prompt lock (2026-11-25).** User order: root `streamly_2.0.html` is the **actual target UI**, not a design reference. `AGENTS.md:9` carries the universal rule plus exact tokens; `docs/vibecoder.md:116` is the enforced checklist (tokens, View Transition/snapshot sequence, source tokens, place restoration, hero/card/skeleton/detail/player inventory, Obscura verification); `docs/prd.md:136` frames the visual/motion migration and supersedes the old “dark cinematic theme stays” wording; `docs/architecture.md:846` freezes the contract without touching data/query/storage/route contracts. Added NEVER rules against importing Lumen demo data and against staging the untracked HTML (hardcoded TMDB key at line 492). Also cleared the two pre-existing motion/skeleton assertion drifts that blocked the gates: `HomePage.jsx` now uses `PRESS_SCALE.ROW`, and `nonPlayerCompositor.test.js` reads `.skeleton-rail-card` in its `min-width:1024px` block. Gates: `npm run lint` exit 0 (131 pre-existing warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000` 132/132 files / 1568 passed + 2 skipped (241.44s), `npm run build` exit 0 (2.25s). One earlier full run flaked on a 10s `HomePage.test.jsx` timeout under parallel load; the isolated rerun and final full run passed.
+
+## User-prioritised Streamly 2.0 UI build (2026-11-25)
+
+> User order: start building the canonical UI now, in phases. This supersedes
+> the two verification boxes below for sequencing only — they stay open and
+> move behind the 2.0 build. `streamly_2.0.html` is the target; data/query/
+> storage/route contracts remain frozen. Do not work a later phase early.
+
+- [x] **Phase 0: token + motion guard foundation (2026-11-25).** Published the exact 2.0 vocabulary additively in `src/styles/tokens.css` (`--dur-1..4`, `--dur-view/poster/nav`, `--dur-state/tap/reveal/content`, `--stagger`, `--ease-in-out`, `--sp`, shimmer `1.8s`, hero rotation `9s`, Ken Burns `32s`) and `src/constants/motion.js` (`DURATION_2`, `EASE_2`). Legacy `--duration-*`/`DURATION` scales remain until each phase migrates its call sites. Added `motion.test.js` guards for every exact value and the `1090ms` dwell formula; no component visuals changed yet. Gates: `npm run lint` exit 0 (131 pre-existing warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000` 132/132 files / 1571 passed + 2 skipped (210.02s), `npm run build` exit 0 (2.56s).
+
+- [x] **Phase 1: shell, nav and search (2026-11-25).** Re-skinned the global
+      shell to the 2.0 glass vocabulary: `src/app/Header.jsx` now owns the
+      back/brand cluster, expanding `.sq`, top-right utility capsule/account
+      menu, Ctrl+K and 250ms URL-synced search; `src/app/MobileBottomNav.jsx`
+      renders the persistent `#tb` pill with measured `offsetLeft/offsetWidth`
+      geometry, `navwave`/sheen, scroll compaction and reduced-motion bypass.
+      `src/styles/header.css` carries the surfaces, safe-area margins, `520ms`
+      nav glide and mobile brand/search overlap handling; conflicting legacy
+      nav/search rules were removed from `responsive.css`, `search.css`,
+      `discovery.css` and `settings.css`. `SearchPage` defers `autoFocus` while
+      the shell owns focus, `Layout` guards pathname focus changes, and
+      `NotificationCenter` clamps its portal to the viewport. Routes, frozen
+      `NAV_ITEMS`, query keys, storage keys and hidden `.tb`/`.sq` View
+      Transition snapshots are unchanged. Obscura CDP verification covered
+      390/768/1280/1440 widths, light/dark shell, search open/closed,
+      desktop `-324px` utility shift, mobile utility/brand hiding, nav click
+      and `.sc` scroll compaction, account menu and notification panel; search
+      commit/focus/loading-ring was checked at 390/768. The local `/api/tmdb`
+      proxy still returns 502, so catalogue shots used Obscura's direct TMDB
+      fallback; its headless build reports no interpolation, so CSS/JS contracts
+      and state attributes were verified instead of inferred motion. Gates:
+      `npm run lint` exit 0 (130 pre-existing warnings),
+      `npm run test -- --maxWorkers=4 --testTimeout=15000` 132/132 files /
+      1571 passed + 2 skipped (250.24s), `npm run build` exit 0 (2.73s).
+
+- [x] **Phase 2: home hero, cards, rails and skeletons (2026-11-25).** Matched
+      `.hbd/.hx/.dots` with five featured titles, a re-armable `9s` rotation,
+      token-guarded logo swap, all-neighbour preload and three-line Read more;
+      converted posters to `2/3` `.po` with `qp/qa`, rAF-coalesced pointer tilt,
+      `play-ready` after `320ms`, `.ar` rail arrows and `--fl/--fr` edge fades;
+      applied scene-coloured skeletons with `1.8s` shimmer. Live and skeleton
+      heroes now use canonical `min(84vh,760px)` geometry at every width, and
+      the five-dot capsule stays visible/horizontal at 390 and 768 where the
+      old banner hid it. Frozen `data-detail-token` shape and A→B→C contract
+      are unchanged. Added source assertions in `src/__tests__/motion.test.js`
+      for the hero, cards, rails and skeletons. Gates: `npm run lint` exit 0
+      (133 pre-existing warnings), `npm run test -- --maxWorkers=4
+      --testTimeout=15000` 132/132 files / 1575 passed + 2 skipped (230.08s),
+      `npm run build` exit 0 (3.94s). Obscura CDP sweep at 390/768/1280/1440
+      on the rebuilt bundle (`index-TgytDMcv.js`, `index-CP7bzSmI.css`):
+      hero heights 709/760/672/756px = `min(84vh,760px)`, five dots in a
+      140×40 capsule at every width, zero horizontal overflow, 30–60
+      `.movie-card.cd` with matching `data-detail-token` counts and one
+      `.qp`/`.qa` per card, poster ratios 0.665–0.667, `--fl:0px`/`--fr:16px`
+      with `.at-start` on the leading rail. Cold state showed
+      `.hero.sk-hero .hbd.sk.sk-hbd`, `.sk-dots` with five `.sk-dot`, six
+      `.skeleton-movie-rail.sh.in` and 48 `.skeleton-moviecard.cw.sk-cw`. A dot
+      click changed the token from `hero:home:0:…` to
+      `hero:home:2:movie-1300968`. Local `/api/tmdb` still answers 502, so the
+      populated shots used the app's direct-TMDB fallback; the headless
+      browser reports no-hover, so hover-only overlay opacity was verified by
+      the CSS/source guards rather than inferred from the screenshot. The home
+      card was then corrected from a poster-only grey block to the full 2.0
+      structure: `.home-rails-section .sk-cw .sk-ctitle/.sk-cmeta` now use
+      `display:block`, and `MovieRail` opts `MovieCard` into the below-poster
+      `.movie-info` row with 14px title / 13px meta. Other surfaces keep their
+      legacy artwork-only skeleton and hover-only metadata. Obscura CDP at
+      1440px confirmed a 342px skeleton card with 164×14 title / 96×12 meta
+      shimmer rows, plus 60 loaded home cards each with a 41px `.movie-info`
+      row (20px title, 19px meta). Frozen `data-detail-token` shape is
+      unchanged. User closeup `Screenshot 2026-11-25 171929.png` (739×651)
+      independently showed legible below-poster rows on two rails:
+      `Avengers: Doomsday` / `2026` and `The Hunger Games: Su…` / `7.8 2026`.
+      Final gates on the rebuilt bundle (`index-zOAqZxkM.js`,
+      `index-BdvMghxr.css`): `npm run lint` exit 0 (133 pre-existing
+      warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000`
+      132/132 files / 1575 passed + 2 skipped (221.52s), `npm run build` exit 0
+      (11.59s).
+
+      **Final cascade/geometry closeout (2026-11-25).** The legacy
+      `hero.css` rule `.hero.sk-hero { min-height: 0 !important }` was still
+      flattening the cold skeleton while the populated hero used the 2.0
+      value; the mobile `min-height` overrides in `home.css` also departed
+      from the canonical metric. `src/styles/home.css` now pins
+      `min-height: min(84vh, 760px) !important` on both the hero and
+      `sk-hero` and drops the 820/560px height overrides. The apparent
+      `padding: 0px` in the first Obscura probe was a shorthand-serialisation
+      artifact, not a cascade defect: longhands read
+      `120px / 51.2px / 40px / 51.2px` at 1280 and the equivalent fluid
+      `--gutter` values at 390/768/1440. Updated the source guard in
+      `src/__tests__/motion.test.js` to the exact `!important` declaration.
+      Final Obscura CDP sweep at 390/768/1280/1440 (900px viewport): cold and
+      populated hero `min-height` 756px at every width, five skeleton dots in
+      the cold state, five active-capable dots with `Avengers: Doomsday` active
+      in the populated state, hidden `img.hero-bg` `opacity: 0`, 32 cold
+      skeleton cards, 45–61 populated cards across five rails, and no
+      horizontal overflow. Final gates on the shipped bundle
+      (`index-D6hdR83_.js`, `index-SYsqO_Zx.css`): `npm run lint` exit 0
+      (136 pre-existing warnings, 0 errors), `npm run test --
+      --maxWorkers=4 --testTimeout=15000` 132/132 files / 1575 passed + 2
+      skipped (197.59s), `npm run build` exit 0 (11.85s). One SearchPage caret
+      assertion flaked under parallel load; its isolated rerun was 20/20 green
+      and the final full run passed.
+
+      **Browse-by-provider follow-up (2026-11-25).** User order: replace the
+      poster-shaped provider cards with proper animated brand icons, and stop
+      the "Movies on X" / "TV Series on X" rails leaving only a dropdown when
+      their catalogue is empty or failing. `BrowseByProviderRail.jsx` now emits
+      a `.provider-icon-grid` of 17 glass icon tiles with loaded TMDB brand
+      marks plus monogram fallbacks; each icon still routes to `/provider/:id`.
+      `home.css` adds `homeProviderIconIn` with the canonical `55ms` stagger cap
+      and `homeRailMenuIn` for the rail picker, with both `prefers-reduced-motion`
+      and `html[data-reduce-motion="true"]` bypasses. `HomeRail.jsx` renders the
+      first five cards before intersection and accepts an `empty` slot, so a
+      mounted selector never owns an unexplained blank shelf. `ProviderRail.jsx`
+      keeps the picker mounted and renders a `.rail-empty` status with a retry
+      button when discover returns no titles or errors; `en.js` gained
+      `providerEmptyMovies`/`providerEmptyShows`/`providerError`. No
+      `normalizeResult`, query key, Streamly storage key, route, detail token or
+      Phase 3–5 surface changed. Targeted tests: 4 files / 84 tests green.
+      Obscura CDP at 390/1280 confirmed 17 icons, 17 loaded logos, zero
+      `.po/.cw/.provider-tile` artifacts, 18px icon corners, six picker options,
+      no horizontal overflow, and both CSSOM animation declarations; the
+      stealth headless runtime disables CSS animation globally (synthetic probe
+      proved it), so keyframes/reduced-motion remain source-guarded in Vitest.
+      At 1280 both provider rails filled with 15 cards; at 390, where the local
+      TMDB bridge timed out, the rails showed the visible retry state instead
+      of bare dropdowns. Final gates on bundle `index-sBpg3SFQ.js` /
+      `index-DDwpBMqZ.css`: `npm run lint` exit 0 (136 pre-existing warnings,
+      0 errors), `npm run test -- --maxWorkers=4 --testTimeout=15000` 132/132
+      files / 1575 passed + 2 skipped (209.63s), `npm run build` exit 0
+      (4.24s).
+
+- [x] **Phase 3: details, detail skeleton, and 2:3 A→B→C / C→B→A transitions (2026-11-26).**
+      Restyled `TitleDetailsPage.jsx` to 2.0 `.dp` (`src/styles/detail.css`, `.bdp`,
+      `.lk`, `.dh` with `2:3` `.po`, `.dtx`, `.chips`, `.dt`, `.tag`, `.btns`,
+      `.brands`, `.dg` Overview + circular Cast + frosted `<dl class="facts glass">`,
+      `.eps-s` `.stabs` + `.eps` with `EP_LIMIT = 8` Show more/less and 2.0 `.dp-shelves`).
+      Migrated `MovieDetailsSkeleton.jsx` to `.dp.sk-detail` (`detail-transition-poster`,
+      `1090ms` dwell at `55ms` stagger) and aligned `motion-themes.css` +
+      `useDetailView.jsx` (`capturePlace`/`restorePlace`, `HomeRail` `getSavedDetailRailScroll`)
+      for true `2:3` `.po` ↔ `.detail-transition-poster` ↔ `.dh > .po` morphing on
+      A→B→C and C→B→A (`.lk` back and browser Back). Gates: `npm run lint` exit 0
+      (140 warnings, 0 errors), `npx vitest run --maxWorkers=4 --testTimeout=15000`
+      133/133 files (`1577 passed | 2 skipped`), `npm run build` exit 0 (`3.50s`).
+
+      **Trailers/Where-to-Watch removal, A→B→C / C→B→A artwork continuity & 2.0 loader swap (2026-11-26).**
+      Removed the Trailers grid and `<WhereToWatch>` block from `TitleDetailsPage.jsx`
+      and cleaned up unused `.dp` CSS in `detail.css`. Deep-fixed Home ↔ Details
+      View Transitions: added `.hbd` / `heroIndex` hero transition support (`HomePage.jsx`,
+      `useDetailView.jsx`), preserved source poster + scene backdrop artwork and
+      `--a/--b` scene hues inside `MovieDetailsSkeleton.jsx` across phase B, flushed
+      `viewTransitionName` styles synchronously and cleared hover tilt prior to capture,
+      shared `posterCache.js` across `HomeCard.jsx`, `HeroTitleLogo.jsx`, `HomePage.jsx`,
+      and `TitleDetailsPage.jsx` so back navigation restores crisp cached artwork and
+      wordmarks on frame 0 without resetting scroll or replaying `.hero`/`.hx`/card/provider
+      stagger (`.home-page--restored` + paused exit rotation/scroll parallax), aligned
+      `translateZ(0)` in `REDUCED_ROUTE_VARIANTS`, and pinned
+      `.header-brand-cluster`/`.shell-utility-cluster` alongside `.tb`/`.sq` in
+      `motion-themes.css`. Replaced `index.html` `#initial-loader`, `App.jsx`
+      `<Loader variant="global" />`, `RouteFallback.jsx`, `RatingsTable.jsx`,
+      `LanguageSwitchOverlay.jsx`, embed/trailer waits, and neon play-ring visuals
+      (`StreamlyLoader.jsx`/`streamly-loader.css`) with 2.0 `.sk` skeletal surfaces
+      and subtle monochrome frosted indicators matching `streamly_2.0.html`.
+
+- [ ] **Phase 4: player shell and HUD.** Migrate only presentation to the 2.0
+      fade/idle HUD, modal inert chrome, focus trap, ARIA seek bar, and
+      `2600ms` idle hide. Keep engine, source resolution, audio/subtitle/quality
+      capability logic unchanged.
+
+- [ ] **Phase 5: View Transition choreography + final QA.** Lock the `vt(f)`
+      queue, source-name cleanup, `620ms` root / `780ms` poster / eases,
+      A→B→C and reverse, scroll/rail/source/hero/focus restoration, and
+      reduced-motion bypass. Verify every surface against `streamly_2.0.html`
+      with Obscura, then run final gates and record results here.
+
 - [ ] **Player browser verification (do this first).** Vitest renders no real
       video or manifest. On a covered episode (e.g. Breaking Bad S1E1) verify:
       cold open shows the blurred backdrop + centred poster + title + one ring;

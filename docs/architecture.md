@@ -705,8 +705,12 @@ Streamly supports clean `@/` root path aliasing mapped to `src/` (configured in 
   `AR_GLYPH` stays index-aligned to it — and `SPRING_SNAPPY`).
 - `src/styles/` — global CSS sliced by concern and imported from `main.jsx` in cascade order
   (`{tokens,header,primitives,hero,buttons,grids,skeleton,rails,responsive,search,collections,
-  settings,ui-kit,player,settings-ui,modals,discovery}.css`). Tailwind v4 `@source "../"`
-  roots content detection back at `src/`.
+  settings,ui-kit,player,settings-ui,modals,discovery,provider}.css`) plus `motion-themes.css`
+  for View Transition/shared-element rules, `home.css` for the 2.0 Home shell,
+  and `detail.css` for the 2.0 `.dp`/`.sk-detail` details surface. Tailwind v4 `@source "../"` roots
+  content detection back at `src/`. Visual/motion values are governed by root
+  `streamly_2.0.html` (see invariant 7 and `vibecoder.md` §6), not by the old
+  1.0-era design notes.
 - `src/utils/` — shared utilities (`@/utils`). `index.js` barrel. `debugLogger.js` (**all console output
   goes through here**), `index.js` (`asArray`/`EMPTY_ARRAY` null-safety + re-exports), `timezone`,
   `searchRanking`, `genreResults`, `releaseCalendar`, `ratings`, `notificationEngine`, `subtitleEngine`,
@@ -840,4 +844,19 @@ when they come near the viewport and hide themselves below six titles.
    `MovieCard`, `FadeInSection`, `DiscoveryPage`) additionally branch on
    `useReducedMotion`. Skeleton shimmer, countdown ring, ambient hero blobs
    and the card curtain stay GPU-friendly by design. (Task 91.)
+7. **The visual/motion contract is `streamly_2.0.html`** — root file is the
+   target UI, not a reference (user order 2026-11-25). Exact values:
+   `220/300/400/640ms` state/tap/reveal/content, `620ms` root View Transition,
+   `780ms` shared poster, `520ms` nav, `55ms` stagger,
+   `cubic-bezier(.4,0,.2,1)` View Transition ease,
+   `cubic-bezier(.22,1,.36,1)` ordinary ease,
+   `cubic-bezier(.34,1.25,.64,1)` spring; shimmer `1.8s`, hero rotation `9s`,
+   detail dwell `1090ms` (`640 + 55*6 + 120`). `vt(f)` owns route changes,
+   nav/search snapshots are hidden, the shared token is
+   `${scope}:${index}:${id}` (React: `data-detail-token`), and reverse restores
+   page/rail scroll, source rail, hero index, and focus before the final
+   snapshot. The full-width 1.0 details hero is the correct shared target.
+   Only visual/motion behaviour transfers — `normalizeResult`, query keys,
+   Streamly localStorage keys, routes, and the desktop-only web target stay
+   frozen. See `vibecoder.md` §6 for the enforced checklist.
 

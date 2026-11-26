@@ -1,10 +1,7 @@
-/* Streamly compact loader — CSS-driven neon ring (lime→green→cyan conic sweep)
-   with a gradient play-triangle centre. Resolution-independent, theme-aware,
-   and it parks under prefers-reduced-motion (the ring stops instead of
-   spinning). Used for routine navigation and data loading; the player's cold
-   open uses its own small ring under the title art (see LoadingStage). */
+/* Streamly 2.0 activity indicator — matches streamly_2.0.html's subtle monochrome
+   frosted arc (conic-gradient + radial donut mask) with zero neon logo ring. */
 
-export function StreamlyLoader({ size = 42, label = "Loading", className = "" }) {
+export function StreamlyLoader({ size = 18, label = "Loading", className = "" }) {
   const labelled = label !== "";
   return (
     <span
@@ -15,22 +12,8 @@ export function StreamlyLoader({ size = 42, label = "Loading", className = "" })
         : { "aria-hidden": true })}
     >
       <span className="streamly-loader__ring" aria-hidden="true" />
-      <span className="streamly-loader__center" aria-hidden="true">
-        <span className="streamly-loader__play" />
-      </span>
       {labelled && <span className="streamly-loader__sr-only">{label}</span>}
     </span>
-  );
-}
-
-export function StreamlyLoadingScreen() {
-  return (
-    <div className="streamly-loading-screen">
-      <StreamlyLoader size={58} label="Loading Streamly" />
-      <span className="streamly-loading-screen__label">
-        Loading your experience
-      </span>
-    </div>
   );
 }
 

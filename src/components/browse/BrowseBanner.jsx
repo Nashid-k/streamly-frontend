@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Calendar, Check, Heart, Info, Play, Plus } from "lucide-react";
 import slugify from "slugify";
-import { DURATION, EASE_OUT, PRESS_SCALE } from "../../constants/motion";
+import { DURATION_2, EASE_2, PRESS_SCALE } from "../../constants/motion";
 import { CdnImageAdapter } from "../../api/cdnImageAdapter";
 import { useAppAuth } from "../../context/auth";
 import useDetailView from "../../hooks/useDetailView";
-import HeroTitleLogo from "../HeroTitleLogo";
+import HeroTitleLogo, { HeroTokenContext } from "../HeroTitleLogo";
 import RatingsCluster from "../RatingsCluster";
 import { useI18n } from "../../i18n/index.jsx";
 import { getBannerMemory, setBannerMemory } from "../../utils/bannerMemory";
@@ -24,13 +24,14 @@ import { getBannerMemory, setBannerMemory } from "../../utils/bannerMemory";
  * pool as slide 0 — arriving from home never swaps the banner art or flashes
  * a skeleton (cinejoy parity).
  *
- * Contracts kept from the home banner: 10s dwell (synced with .dot-filler),
- * hover/focus/touch pause, hidden-tab guard, dots are real buttons with a
- * remounting progress fill, 45px horizontal swipe (1.5x vertical guard),
- * Play → /watch/:id/:slug, Info → details, My List toggle.
+ * Contracts kept from the home banner: 9s dwell (synced with .dot-filler and
+ * dotlive), hover/focus/touch pause, hidden-tab guard, dots are real buttons
+ * with a remounting progress fill, 45px horizontal swipe (1.5x vertical
+ * guard), Play → /watch/:id/:slug, Info → details, My List toggle.
  */
 
-const BROWSE_DWELL_MS = 10000;
+const BROWSE_DWELL_MS = 9000;
+const HERO_LIMIT = 5;
 const SWIPE_THRESHOLD_PX = 45;
 
 export default function BrowseBanner({ pool, loading = false, mediaType = null }) {
@@ -55,14 +56,58 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
   }, [mediaType]);
 
   const effectivePool = useMemo(() => {
-    if (!carried) return pool;
-    const rest = pool.filter((m) => m && String(m.id) !== String(carried.id));
-    return [carried, ...rest];
+    const base = carried
+      ? [carried, ...pool.filter((m) => m && String(m.id) !== String(carried.id))]
+      : pool;
+    return (Array.isArray(base) ? base : []).slice(0, HERO_LIMIT);
   }, [carried, pool]);
 
   const total = effectivePool.length;
   const [index, setIndex] = useState(0);
   const active = total > 0 ? effectivePool[index % total] : null;
+  const description =
+    active?.description || active?.longDescription || active?.overview || null;
+  const hasMultiple = total > 1;
+
+  const heroScope = mediaType || "browse";
+  const heroIndex = total > 0 ? index % total : 0;
+  const heroToken = active ? `hero:${heroScope}:${heroIndex}:${active.id}` : null;
+
+  const descWrapRef = useRef(null);
+  const descRef = useRef(null);
+  const [descOverflow, setDescOverflow] = useState(false);
+  const [descExpanded, setDescExpanded] = useState(false);
+  useEffect(() => {
+    setDescExpanded(false);
+  }, [active?.id]);
+  useEffect(() => {
+    const wrap = descWrapRef.current;
+    const el = descRef.current;
+    if (!wrap || !el) {
+      setDescOverflow(false);
+      return undefined;
+    }
+    const measure = () => {
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 27;
+      const full = el.scrollHeight;
+      wrap.style.setProperty("--hdmax", `${full}px`);
+      setDescOverflow(full > lineHeight * 3 + 2);
+    };
+    const raf = window.requestAnimationFrame(measure);
+    return () => window.cancelAnimationFrame(raf);
+  }, [description, active?.id]);
+
+  const [swapping, setSwapping] = useState(false);
+  const firstSlideRef = useRef(true);
+  useEffect(() => {
+    if (reduceMotion || firstSlideRef.current) {
+      firstSlideRef.current = false;
+      return undefined;
+    }
+    setSwapping(true);
+    const raf = window.requestAnimationFrame(() => setSwapping(false));
+    return () => window.cancelAnimationFrame(raf);
+  }, [index, reduceMotion]);
 
   /* A new result set (filter change, mode switch) restarts from the first
      slide instead of leaving the index pointing past a shorter pool. */
@@ -75,7 +120,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
     }
   }, [poolIdentity]);
 
-  /* Live mirrors for the interval / swipe closures (same pattern as home). */
+  /* Live mirrors for the rotation / swipe closures (same pattern as home). */
   const totalRef = useRef(total);
   useEffect(() => {
     totalRef.current = total;
@@ -94,32 +139,51 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
   }, [active, mediaType]);
 
   const pausedRef = useRef(false);
-
-  const hasMultiple = total > 1;
-  useEffect(() => {
-    if (reduceMotion || !hasMultiple) return undefined;
-    const timer = setInterval(() => {
-      if (pausedRef.current || document.hidden) return;
+  const heroTimerRef = useRef(null);
+  const armHeroRotation = useCallback(() => {
+    if (heroTimerRef.current) clearTimeout(heroTimerRef.current);
+    heroTimerRef.current = null;
+    if (reduceMotion || totalRef.current <= 1) return;
+    heroTimerRef.current = setTimeout(() => {
+      heroTimerRef.current = null;
+      if (pausedRef.current || document.hidden) {
+        armHeroRotation();
+        return;
+      }
       setIndex((prev) => (prev + 1) % totalRef.current);
     }, BROWSE_DWELL_MS);
-    return () => clearInterval(timer);
-  }, [reduceMotion, hasMultiple]);
+  }, [reduceMotion]);
 
-  const goToSlide = useCallback((next) => {
-    const tf = totalRef.current;
-    if (tf <= 1) return;
-    setIndex(((next % tf) + tf) % tf);
-  }, []);
+  const goToSlide = useCallback(
+    (next) => {
+      const tf = totalRef.current;
+      if (tf <= 1) return;
+      setIndex(((next % tf) + tf) % tf);
+      armHeroRotation();
+    },
+    [armHeroRotation],
+  );
 
-  /* Preload the next slide's art so a rotation never flashes empty. */
-  const nextMovie = total > 1 ? effectivePool[(index + 1) % total] : null;
   useEffect(() => {
-    const preloadUrl = nextMovie?.backdropUrl || nextMovie?.posterUrl || nextMovie?.poster;
-    if (!preloadUrl) return;
-    const img = new window.Image();
-    img.fetchPriority = "low";
-    img.src = CdnImageAdapter.getBackdropUrl(preloadUrl);
-  }, [index, total, nextMovie]);
+    armHeroRotation();
+    return () => {
+      if (heroTimerRef.current) clearTimeout(heroTimerRef.current);
+      heroTimerRef.current = null;
+    };
+  }, [armHeroRotation, index, total]);
+
+  /* Preload every slide in the rotation once, not just the next one. */
+  const preloadedArtRef = useRef(new Set());
+  useEffect(() => {
+    effectivePool.forEach((movie) => {
+      const src = movie?.backdropUrl || movie?.posterUrl || movie?.poster;
+      if (!src || preloadedArtRef.current.has(src)) return;
+      preloadedArtRef.current.add(src);
+      const img = new window.Image();
+      img.fetchPriority = "low";
+      img.src = CdnImageAdapter.getBackdropUrl(src);
+    });
+  }, [effectivePool]);
 
   const heroArtSrc =
     active?.backdropUrl || active?.posterUrl || active?.poster || null;
@@ -153,25 +217,50 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
   if (loading && !carried) {
     return (
       <div
-        className="hero-container hero-container--browse skeleton-hero"
+        className="hero sk-hero hero-container hero-container--browse skeleton-hero"
+        data-sk-scene={mediaType === "tv" ? "series" : "movies"}
         aria-hidden="true"
-      />
+      >
+        <div className="hbd sk sk-hbd" />
+        <div className="hx hero-content">
+          <div className="hh sk sk-ht" />
+          <div className="hm sk sk-hm" />
+          <div className="hdw">
+            <p className="hd sk-hd">
+              <span className="sk sk-line" />
+              <span className="sk sk-line" />
+              <span className="sk sk-line short" />
+            </p>
+          </div>
+          <div className="btns hero-ctas">
+            <span className="sk sk-btn" />
+            <span className="sk sk-btn sm" />
+            <span className="sk sk-btn sm" />
+          </div>
+        </div>
+        <div className="dots glass sk-dots">
+          {Array.from({ length: HERO_LIMIT }, (_, i) => (
+            <button key={i} type="button" tabIndex={-1} disabled>
+              <span className={`sk sk-dot${i ? " dot-idle" : ""}`} />
+            </button>
+          ))}
+        </div>
+      </div>
     );
   }
   if (!active) return null;
 
   const year = active.releaseYear || active.year;
-  const description =
-    active.description || active.longDescription || active.overview;
 
   return (
     <motion.div
       key="browse-hero"
-      className="hero-container hero-container--browse"
+      className={`hero hero-container hero-container--browse${swapping ? " sw" : ""}`}
+      data-hero-token={heroToken || undefined}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: DURATION.MED, ease: EASE_OUT }}
+      transition={{ duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onClick={() => openDetails(active)}
@@ -195,8 +284,21 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
         }
       }}
     >
-      {/* Keyed crossfade — both frames stack so the outgoing slide fades
-          beneath the incoming one (no blank gap, same as home). */}
+      {/* Canonical 2.0 backdrop: scene wash + mask + 32s Ken Burns, keyed by
+          the hero token so a late logo lookup cannot swap the wrong title. */}
+      <div
+        className="hbd"
+        data-vt={heroToken || undefined}
+        style={{
+          "--a": 212,
+          "--b": 265,
+          "--hero-art": heroArtUrl ? `url("${heroArtUrl}")` : "none",
+        }}
+        aria-hidden="true"
+      />
+
+      {/* Full-width img.hero-bg stays for selector parity with the home and
+          details heroes; the 2.0 art above owns the visible paint here. */}
       <AnimatePresence>
         <motion.img
           key={active.id}
@@ -211,7 +313,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: DURATION.SLOW, ease: EASE_OUT }}
+          transition={{ duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
         />
       </AnimatePresence>
 
@@ -220,13 +322,16 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
       <AnimatePresence>
         <motion.div
           key={active.id + "-content"}
-          className="hero-content hero-content--apple"
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
+          className="hx hero-content hero-content--apple"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: DURATION.MED, delay: 0.12, ease: EASE_OUT }}
+          transition={{ duration: DURATION_2.REVEAL, delay: 0.12, ease: EASE_2.UI }}
         >
+          <HeroTokenContext.Provider value={heroToken}>
+          <div className="hh">
           <HeroTitleLogo movie={active} fetchPriority={index === 0 ? "high" : "auto"} />
+          </div>
 
           <div className="hero-eyebrow">
             {active.genres?.slice(0, 2).map((g) => (
@@ -236,7 +341,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
             ))}
           </div>
 
-          <div className="hero-meta hero-meta--apple">
+          <div className="hm hero-meta hero-meta--apple">
             {active.imdbRating > 0 && (
               <div
                 style={{
@@ -270,9 +375,28 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
             )}
           </div>
 
-          {description && <p className="hero-desc hero-desc--apple">{description}</p>}
+          {description && (
+            <div ref={descWrapRef} className={`hdw${descExpanded ? " exp" : ""}`}>
+              <p ref={descRef} id="browse-hero-desc" className="hd hero-desc hero-desc--apple">
+                {description}
+              </p>
+              <button
+                type="button"
+                className="rm"
+                aria-expanded={descExpanded}
+                aria-controls="browse-hero-desc"
+                hidden={!descOverflow}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDescExpanded((prev) => !prev);
+                }}
+              >
+                {descExpanded ? "Read less" : "Read more"}
+              </button>
+            </div>
+          )}
 
-          <div className="hero-ctas">
+          <div className="btns hero-ctas">
             <motion.button
               className="hero-cta-play"
               whileHover={{ scale: 1.04 }}
@@ -328,13 +452,14 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
               </motion.button>
             </div>
           </div>
+          </HeroTokenContext.Provider>
         </motion.div>
       </AnimatePresence>
 
       {hasMultiple && (
         <>
           <div
-            className="hero-dots hero-dots--apple hero-nav"
+            className="dots glass hero-dots hero-dots--apple hero-nav"
             role="group"
             aria-label="Featured titles"
           >

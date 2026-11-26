@@ -14,7 +14,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import Loader from "./Loader";
 import { logError } from "../utils/debugLogger";
 
 export const ATLANTIC_EMBED_ORIGIN = "https://atlantic.bz";
@@ -160,18 +159,16 @@ export default function AtlanticEmbedPlayer({
 
       {url && !loaded && !timedOut && (
         <div
+          className="sk"
+          aria-hidden="true"
           style={{
             position: "absolute",
             inset: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "#050505",
+            background: "rgba(18, 18, 22, 0.94)",
+            borderRadius: 0,
             zIndex: 2,
           }}
-        >
-          <Loader variant="inline" size="40px" />
-        </div>
+        />
       )}
 
       {url && timedOut && (

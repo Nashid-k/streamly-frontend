@@ -1,15 +1,15 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /**
- * Canonical Streamly rail/stepper arrow — the episodes-carousel ghost chevron.
- * Transparent 48px hit area with a thin 1.5px chevron, vertically centered
- * over the rail. Call sites render it only when the rail can actually scroll
- * in that direction (see useRailArrows).
+ * Streamly rail/stepper arrow. Legacy call sites render it only when the rail
+ * can scroll that way; the 2.0 shell keeps both mounted and lets useRailArrows
+ * disable the edge arrow. `.ar.l`/`.ar.r` are the canonical hooks; the
+ * `.arrow`/`--*` classes stay for the older rails that still use them.
  */
 export default function RailArrow({
   dir,
   onClick,
-  disabled = false,
+  disabled,
   revealOnHover = false,
   hoverClass = "group-hover:opacity-100",
   iconSize = 40,
@@ -25,13 +25,16 @@ export default function RailArrow({
     ? `opacity-0 pointer-coarse:opacity-100 ${hoverClass} focus-visible:opacity-100`
     : "";
   const direction = dir === "left" ? "left" : "right";
+  // Left undefined on canonical rails so the hook owns `disabled`/`tabIndex`;
+  // React must not re-enable an arrow on an unrelated re-render.
+  const disabledAttr = disabled === undefined ? {} : { disabled };
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
+      {...disabledAttr}
       aria-label={label ? `${label}: scroll ${direction}` : `Scroll ${direction}`}
-      className={`arrow arrow--${dir} hidden md:flex items-center justify-center cursor-pointer disabled:cursor-default disabled:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 ${reveal} ${className}`.trim()}
+      className={`arrow arrow--${dir} ar ${direction === "left" ? "l" : "r"} hidden md:flex items-center justify-center cursor-pointer disabled:cursor-default disabled:opacity-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/50 ${reveal} ${className}`.trim()}
     >
       {dir === "left" ? (
         <ChevronLeft size={24} strokeWidth={2} />

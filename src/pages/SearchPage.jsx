@@ -42,6 +42,10 @@ const chipKey = (f) =>
   f === "All" ? "all" : f === "Movies" ? "movies" : f === "TV Shows" ? "tvShows" : "anime";
 const sortKey = (label) =>
   label === "Relevant" ? "relevant" : label === "Rating" ? "rating" : label === "Newest" ? "newest" : "oldest";
+const shellSearchHasFocus = () =>
+  typeof document !== "undefined" &&
+  document.activeElement instanceof Element &&
+  Boolean(document.activeElement.closest(".sq"));
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -73,7 +77,7 @@ export default function SearchPage() {
   /* The last term this box wrote into the URL. React Router round-trips that
      write back through `query`, and the old "URL changed → setLocalQuery"
      effect could not tell the echo from an outside arrival: a character typed
-     while the 300 ms debounce was landing got reverted to the older term (and
+     while the 250 ms debounce was landing got reverted to the older term (and
      the caret was re-focused out of the results grid on every debounce). */
   const lastPushedRef = useRef(query);
 
@@ -83,8 +87,9 @@ export default function SearchPage() {
     if (query === lastPushedRef.current) return;
     lastPushedRef.current = query;
     setLocalQuery(query);
-    // An outside arrival means the viewer wants to type: put the caret back.
-    if (query) searchInputRef.current?.focus();
+    // An outside arrival means the viewer wants to type: put the caret back,
+    // unless the shell search owns focus and is the one driving the URL.
+    if (query && !shellSearchHasFocus()) searchInputRef.current?.focus();
   }, [query]);
 
   // Live / dynamic search — sync the input to the URL query (debounced)
@@ -94,7 +99,7 @@ export default function SearchPage() {
     const t = setTimeout(() => {
       lastPushedRef.current = committed;
       setSearchParams(committed ? { q: committed } : {}, { replace: true });
-    }, 300);
+    }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localQuery]);
@@ -200,7 +205,7 @@ export default function SearchPage() {
   );
 
   /* The list must never answer a term the viewer has already moved past. The
-     grid's results are the committed URL term, and while the 300ms debounce is
+     grid's results are the committed URL term, and while the 250ms debounce is
      in flight the box may be ahead of (or behind) them — offer the list only
      while the two terms still share the prefix. A different word closes it at
      once instead of flashing suggestions for a query the viewer abandoned. */
@@ -295,9 +300,12 @@ export default function SearchPage() {
   /* Header's Ctrl+K shortcut dispatches `streamly:search-focus` a frame after
      navigating here. `autoFocus` only covers a fresh mount, so when /search is
      already up the caret would stay on the nav button — this grabs it (and
-     selects the preserved query so typing replaces it) instead. */
+     selects the preserved query so typing replaces it) instead. The shell
+     search uses the same event with `detail.source = "shell"`: it already owns
+     focus, so this page must not steal it. */
   useEffect(() => {
-    const handleSearchFocus = () => {
+    const handleSearchFocus = (event) => {
+      if (event.detail?.source === "shell" || shellSearchHasFocus()) return;
       const input = searchInputRef.current;
       if (!input) return;
       input.focus();
@@ -557,7 +565,7 @@ export default function SearchPage() {
               autoCapitalize="none"
               spellCheck={false}
               enterKeyHint="search"
-              autoFocus={!isTouchDevice}
+              autoFocus={!isTouchDevice && !shellSearchHasFocus()}
             />
             {localQuery && (
               <button

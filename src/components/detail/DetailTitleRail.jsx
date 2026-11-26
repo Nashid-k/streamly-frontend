@@ -16,11 +16,17 @@ import MovieCard from "../MovieCard";
    that row is included on purpose (a series reads as incomplete without its
    entry point), but it is visibly "you are here" so it can never be mistaken
    for another unwatched part. */
-export default function DetailTitleRail({ titles, currentId = null, badgeLabel = "You're here", ariaLabel }) {
+export default function DetailTitleRail({
+  titles,
+  currentId = null,
+  badgeLabel = "You're here",
+  ariaLabel,
+  railKey = "detail",
+}) {
   if (!Array.isArray(titles) || titles.length === 0) return null;
   return (
     <div className="detail-rail" role="list" aria-label={ariaLabel || undefined}>
-      {titles.map((title) => {
+      {titles.map((title, idx) => {
         const isCurrent = currentId != null && String(title.id) === String(currentId);
         return (
           <div
@@ -28,7 +34,10 @@ export default function DetailTitleRail({ titles, currentId = null, badgeLabel =
             role="listitem"
             className={`detail-rail__item${isCurrent ? " is-current" : ""}`}
           >
-            <MovieCard movie={title} />
+            <MovieCard
+              movie={title}
+              detailToken={`${railKey}:${idx}:${title.id}`}
+            />
             {isCurrent ? <span className="detail-rail__badge">{badgeLabel}</span> : null}
           </div>
         );

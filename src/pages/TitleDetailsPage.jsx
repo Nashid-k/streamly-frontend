@@ -2,7 +2,6 @@ import SEO from "../components/SEO";
 import { DURATION, EASE_OUT, PRESS_SCALE } from "../constants/motion";
 import AmbientBackground from "../components/AmbientBackground";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
-import MovieCardSkeleton from "../components/MovieCardSkeleton";
 import EmptyState from "../components/EmptyState";
 import CastRail from "../components/CastRail";
 import RailArrow from "../components/RailArrow";
@@ -14,8 +13,7 @@ import { useTitleLogo } from "../hooks/useTitleLogo";
 import useFeedSentinel from "../hooks/useFeedSentinel";
 import { warmResolve } from "../api/warmResolve";
 import { useQuery } from "@tanstack/react-query";
-import { movieService, classifyTrailer } from "../api/movieService";
-import Loader from "../components/Loader";
+import { movieService } from "../api/movieService";
 import { CdnImageAdapter } from "../api/cdnImageAdapter";
 import { createPortal } from "react-dom";
 import { useState, useEffect, useRef, useMemo, useLayoutEffect, useCallback, lazy, Suspense } from "react";
@@ -52,14 +50,15 @@ import {
 import { MotionFade, MotionLeaf } from "../components/MotionLeaf";
 import { useAppAuth } from "../context/auth";
 import { useOptionalNotifications } from "../context/notifications";
-import { pickImageWidth } from "../utils/artwork";
+import { useDetailBack } from "../hooks/useDetailView";
+import { pickImageWidth, sceneHues } from "../utils/artwork";
+import { hasLoadedMediaUrl, markMediaUrlLoaded } from "../utils/posterCache";
 import { useToast } from "../components/Toast.jsx";
 import MovieCard from "../components/MovieCard";
 import CollectionPickerDialog from "../components/CollectionPickerDialog";
 import SeasonDropdown from "../components/detail/SeasonDropdown";
 import ProductionCompaniesBlock from "../components/detail/ProductionCompaniesBlock";
 import DetailTitleRail from "../components/detail/DetailTitleRail";
-import WhereToWatch from "../components/detail/WhereToWatch";
 
 import { buildMovieAddedNotification, fireListMilestone } from "../utils/notificationEngine";
 import { formatTMDBDate, getTMDBWeekday, LOCAL_RELEASE } from "../utils/timezone";
@@ -262,23 +261,35 @@ export default function TitleDetails() {
       alive = false;
     };
   }, []);
+  const hasExplicitEpisodeStyle = (() => {
+    try {
+      const saved = localStorage.getItem("setting-episodeViewStyle");
+      return saved === '"grid"' || saved === '"carousel"' || saved === '"list"';
+    } catch {
+      return false;
+    }
+  })();
   const [episodeLayout, setEpisodeLayout] = useState(() => (
-    episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel"
+    hasExplicitEpisodeStyle && (episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel")
       ? episodeViewStyle
-      : "carousel"
+      : "list"
   ));
-  // Live-sync the episode layout when the Appearance setting changes (the
-  // manual toggle below still wins until the preference changes again).
+  const prevEpisodeStyleRef = useRef(episodeViewStyle);
   useEffect(() => {
+    if (prevEpisodeStyleRef.current === episodeViewStyle) return;
+    prevEpisodeStyleRef.current = episodeViewStyle;
     if (episodeViewStyle === "grid" || episodeViewStyle === "list" || episodeViewStyle === "carousel") {
       setEpisodeLayout(episodeViewStyle);
     }
   }, [episodeViewStyle]);
 
+  const EP_LIMIT = 8;
   const EPISODES_CHUNK_SIZE = 24;
+  const [episodesExpanded, setEpisodesExpanded] = useState(false);
   const [visibleEpisodeCount, setVisibleEpisodeCount] = useState(EPISODES_CHUNK_SIZE);
   useEffect(() => {
     setVisibleEpisodeCount(EPISODES_CHUNK_SIZE);
+    setEpisodesExpanded(false);
   }, [selectedSeason, id]);
   const epRailRef = useRef(null);
   const scrollEpRail = (dir) => {
@@ -856,8 +867,86 @@ export default function TitleDetails() {
 
 
 
+  const backdropPreloadUrl = movie?.backdropUrl || movie?.posterUrl || "";
+  const backdropPreloadOptimized = backdropPreloadUrl
+    ? CdnImageAdapter.getBackdropUrl(backdropPreloadUrl)
+    : "";
+  const [backdropReady, setBackdropReady] = useState(() =>
+    hasLoadedMediaUrl(backdropPreloadOptimized),
+  );
+  const [posterError, setPosterError] = useState(false);
+  const posterImgRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!backdropPreloadOptimized) {
+      setBackdropReady(false);
+      return undefined;
+    }
+    if (hasLoadedMediaUrl(backdropPreloadOptimized)) {
+      setBackdropReady(true);
+    } else {
+      setBackdropReady(false);
+    }
+    let cancelled = false;
+    const img = new window.Image();
+    img.onload = () => {
+      markMediaUrlLoaded(backdropPreloadOptimized);
+      if (!cancelled) setBackdropReady(true);
+    };
+    img.src = backdropPreloadOptimized;
+    if (img.complete && img.naturalWidth > 0) {
+      markMediaUrlLoaded(backdropPreloadOptimized);
+      setBackdropReady(true);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [backdropPreloadOptimized]);
+
+  const detailBack = useDetailBack();
+  const [hueA, hueB] = useMemo(() => sceneHues(movie?.id || id), [movie?.id, id]);
+  const resolvedPosterPath =
+    movie?.posterUrl || movie?.backdropUrl || movie?.poster || movie?.backdrop || "";
+  const posterOptimized = useMemo(
+    () =>
+      resolvedPosterPath
+        ? CdnImageAdapter.getUrl(resolvedPosterPath, pickImageWidth("card", { hdThumbs }))
+        : null,
+    [resolvedPosterPath, hdThumbs],
+  );
+  const [posterLoaded, setPosterLoaded] = useState(() =>
+    hasLoadedMediaUrl(posterOptimized),
+  );
+  const posterSrcSet = useMemo(
+    () =>
+      resolvedPosterPath && hdThumbs !== false
+        ? CdnImageAdapter.getSrcSet(resolvedPosterPath, "card")
+        : undefined,
+    [resolvedPosterPath, hdThumbs],
+  );
+
+  useLayoutEffect(() => {
+    setPosterError(false);
+    const img = posterImgRef.current;
+    if (posterOptimized && (hasLoadedMediaUrl(posterOptimized) || (img?.complete && img?.naturalWidth > 0))) {
+      markMediaUrlLoaded(posterOptimized);
+      setPosterLoaded(true);
+    } else {
+      setPosterLoaded(false);
+    }
+  }, [posterOptimized, movie?.id]);
+
   if (loading) {
-    return <MovieDetailsSkeleton hasBackdrop={Boolean(passedMovie?.backdropUrl || passedMovie?.posterUrl)} />;
+    return (
+      <MovieDetailsSkeleton
+        titleId={id}
+        isTv={passedMovie ? Boolean(passedMovie.isSeries || passedMovie.type === "tv") : undefined}
+        hasBackdrop={Boolean(passedMovie?.backdropUrl || passedMovie?.posterUrl)}
+        posterUrl={passedMovie?.posterUrl || passedMovie?.poster || null}
+        backdropUrl={passedMovie?.backdropUrl || null}
+        title={passedMovie?.title || ""}
+      />
+    );
   }
 
   if (!movie) {
@@ -1037,8 +1126,11 @@ export default function TitleDetails() {
    exactly like the home hero. The former `max-md:-mt-[56px]` was a hardcoded
    guess at the header height that cropped the artwork and shoved the title up
    into the back button. */
+  const primaryTrailerKey = movie.trailerUrl || movie.trailer || movie.videos?.[0]?.key || null;
+  const movieOverview = movie.description || movie.longDescription || movie.overview || "";
+
   return (
-    <div ref={pageRef} className="relative min-h-screen font-sans overflow-x-hidden pb-24 bg-[#050505] w-[100vw] ml-[calc(50%-50vw)] page-fade-bottom">
+    <div ref={pageRef} className="min-h-screen bg-[#050505] text-white page-fade-bottom">
       <SEO
         title={movie.title}
         description={movie.description}
@@ -1046,77 +1138,86 @@ export default function TitleDetails() {
         type="video.movie"
       />
 
-      {/* ── Ambient Background ───────────────────────────────────────────────
-          The SAME component the home banner uses — one definition of the
-          blurred backdrop + gradient wash, so the watch page can never drift
-          from the home page's look. It also renders the liquid blobs and the
-          ambient sky, which the previous hand-rolled copy here was missing. */}
       <AmbientBackground src={movie.backdropUrl || movie.posterUrl} alt="" />
 
-      {/* Back is handled globally by the header .back-btn beside the logo */}
-
-      {/* A title WITH a backdrop gets .details-hero--fit: the art box becomes the
-            picture's own height at device width (whole image, no zoom/crop),
-            and the content lift follows from that height. The poster fallback
-            has no landscape art to fit and keeps the plain viewport band. */}
-      <div className={`relative w-full details-hero${backdropOptimized ? " details-hero--fit" : ""}`}>
-        {/* Artwork treatment is the home banner's, verbatim: .hero-bg (fit +
-            mask) and .hero-overlay--apple (the gradient/vignette stack). One
-            style for both banners — do not fork the values here. */}
-        <div className="details-hero__art">
-          <img
-              className="hero-bg"
-              src={backdropOptimized || movie.posterUrl}
-              srcSet={CdnImageAdapter.getSrcSet(backdropSrc || movie.posterUrl, "backdrop")}
-              sizes={CdnImageAdapter.getSizes("backdrop")}
-              alt={movie.title}
-              fetchPriority="high"
-              loading="eager"
-              decoding="async"
+      <article className="dp" style={{ "--a": hueA, "--b": hueB }}>
+        <div
+          className="bdp"
+          data-art-ready={backdropReady && backdropOptimized ? "true" : undefined}
+          style={{ "--a": hueA, "--b": hueB }}
+          aria-hidden="true"
+        >
+          {backdropOptimized && (
+            <div
+              className="bdp-art"
+              style={{ backgroundImage: `url(${backdropOptimized})` }}
             />
-          <div className="hero-overlay hero-overlay--apple" />
-          {/* Extra shading, watch page only: home's overlay is untouched. The
-              title column sits high on this banner (header-anchored), so it needs
-              a bed under the type that the bottom-weighted home gradient doesn't
-              provide — see .details-hero__shade. */}
-          <div className="details-hero__shade" aria-hidden="true" />
+          )}
         </div>
 
-        {/* Content Overlap — the lift + header clearance live in CSS (.details-hero__body) */}
-        <div className="details-hero__body details-gutter">
-          {/* Left Column */}
-          <div className="w-full max-w-[700px] lg:max-w-[650px] lg:min-w-0 flex flex-col items-center lg:items-start">
-            {titleLogoUrl ? (
+        <motion.button
+          type="button"
+          className="lk"
+          whileTap={{ scale: PRESS_SCALE.CONTROL }}
+          onClick={detailBack}
+          aria-label="Go back"
+        >
+          <ChevronLeft size={16} strokeWidth={2.2} aria-hidden="true" />
+          <span>Back</span>
+        </motion.button>
+
+        {/* ── 2.0 Detail Header (.dh: 2:3 poster + .dtx meta & actions) ───── */}
+        <header className="dh">
+          <div
+            className="po"
+            data-detail-source={movie.id}
+            data-initial={(movie.title || "?").trim().charAt(0).toUpperCase()}
+            data-loaded={posterLoaded && !posterError ? "true" : undefined}
+            data-failed={!posterOptimized || posterError ? "true" : undefined}
+            style={{ "--a": hueA, "--b": hueB }}
+          >
+            {posterOptimized && !posterError ? (
               <img
-                className="details-hero__logo drop-shadow-2xl"
-                src={titleLogoUrl}
+                ref={posterImgRef}
+                className="po-img"
+                src={posterOptimized}
+                srcSet={posterSrcSet}
+                sizes="(max-width: 720px) 50vw, 250px"
                 alt={movie.title}
                 loading="eager"
                 fetchPriority="high"
                 decoding="async"
-                onError={onTitleLogoError}
+                onLoad={() => {
+                  markMediaUrlLoaded(posterOptimized);
+                  setPosterLoaded(true);
+                }}
+                onError={() => {
+                  setPosterError(true);
+                  setPosterLoaded(false);
+                }}
               />
-            ) : (
-              <h1 className="details-hero__title font-bold text-white drop-shadow-2xl text-center lg:text-left">
-                {movie.title}
-              </h1>
-            )}
+            ) : null}
+            <em aria-hidden="true">{isTvContent ? "Series" : "Movie"}</em>
+            <b data-title={movie.title} aria-hidden="true" />
+          </div>
 
-            {movie.genres?.length > 0 && (
-              <div className="details-hero__gap flex flex-wrap items-center gap-2 text-sm lg:text-lg text-white/90 font-medium">
-                {movie.genres.map((genre, idx) => (
-                  <span key={genre} className="flex items-center gap-2">
-                    <span>{genre}</span>
-                    {idx < movie.genres.length - 1 && <span className="text-white/40">•</span>}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {seriesIsAiring && (
-              <div className="details-hero__gap flex flex-wrap items-center justify-center lg:justify-start gap-x-4 gap-y-2">
+          <div className="dtx">
+            <div className="chips">
+              {movie.releaseDate && (
+                <span className="chip">{releaseYear(movie)}</span>
+              )}
+              {movie.genres?.slice(0, 3).map((genre) => (
+                <span key={genre} className="chip">{genre}</span>
+              ))}
+              {movie.certification && (
+                <span className="chip">{movie.certification}</span>
+              )}
+              {runtimeLabel && (
+                <span className="chip">{runtimeLabel}</span>
+              )}
+              {seriesIsAiring && (
                 <span
-                  className="content-badge content-badge--tab"
+                  className="chip chip--accent"
                   aria-label={
                     airingSeasonNumber > 1
                       ? `Season ${airingSeasonNumber} Airing`
@@ -1127,40 +1228,58 @@ export default function TitleDetails() {
                     ? `Season ${airingSeasonNumber} Airing`
                     : "Airing"}
                 </span>
-
-                {movie?.nextEpisode?.releaseDate && (
-                  <span
-                    className="text-xs lg:text-sm text-white/70 font-medium"
-                    style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-                  >
-                    New episode{" "}
-                    {getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, releasePlatform)}
-                    <span className="text-white/40 mx-1">·</span>
-                    {formatTMDBDate(movie.nextEpisode.releaseDate, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    }, undefined, releasePlatform)}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Banner-style resume progress for continue-watching entries */}
-            {hasResume && resumePct > 0 && (
-              <div className="details-hero__gap flex items-center gap-2.5">
-                <div style={{ width: "min(200px, 30vw)", height: 4, borderRadius: "var(--radius-full)", background: "rgba(255,255,255,0.22)", overflow: "hidden" }}>
-                  <div style={{ width: `${resumePct}%`, height: "100%", background: "var(--accent-gradient)" }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.3px" }}>
-                  {resumePct}% Watched
+              )}
+              {seriesIsAiring && movie?.nextEpisode?.releaseDate && (
+                <span className="chip">
+                  New episode {getTMDBWeekday(movie.nextEpisode.releaseDate, undefined, releasePlatform)} ·{" "}
+                  {formatTMDBDate(movie.nextEpisode.releaseDate, {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                  }, undefined, releasePlatform)}
                 </span>
+              )}
+              {voteSplit && (
+                <span
+                  className="chip"
+                  aria-label={`${voteSplit.up}% up ${voteSplit.down}% down split`}
+                >
+                  <ArrowUp size={13} className="text-emerald-400" aria-hidden="true" />
+                  <span className="tabular-nums text-emerald-400">{voteSplit.up}%</span>
+                  <ArrowDown size={13} className="text-red-400/90" aria-hidden="true" />
+                  <span className="tabular-nums text-red-400/90">{voteSplit.down}%</span>
+                </span>
+              )}
+            </div>
+
+            <h1 className="dt">
+              {titleLogoUrl ? (
+                <img
+                  className="dt-logo"
+                  src={titleLogoUrl}
+                  alt={movie.title}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  onError={onTitleLogoError}
+                />
+              ) : (
+                movie.title
+              )}
+            </h1>
+
+            {movie.tagline && <p className="tag">{movie.tagline}</p>}
+
+            {hasResume && resumePct > 0 && (
+              <div className="detail-resume-bar">
+                <div className="detail-resume-bar__track">
+                  <div className="detail-resume-bar__fill" style={{ width: `${resumePct}%` }} />
+                </div>
+                <span className="detail-resume-bar__label">{resumePct}% Watched</span>
               </div>
             )}
 
-            {/* Primary action cluster — keep playback, library actions and ratings
-                grouped so the mobile layout has a clear visual priority. */}
-            <div className="details-hero__gap details-hero__actions">
+            <div className="btns details-hero__actions">
               <button
                 type="button"
                 disabled={unreleased}
@@ -1183,17 +1302,14 @@ export default function TitleDetails() {
                     }),
                   );
                 }}
-                className={`details-hero__play relative rounded-full flex items-center justify-center transition-transform duration-200 font-bold tracking-wide h-[44px] px-6 py-3 text-base border-none shadow-xl shadow-black/10 ${
-                  unreleased ? "opacity-45 cursor-not-allowed" : "active:scale-95 hover:scale-105"
-                }`}
-                style={{ background: "var(--btn-bg, rgba(242,242,242,0.96))", color: "var(--btn-ink, var(--black))", boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}
+                className={`btn p details-hero__play${unreleased ? " opacity-45 cursor-not-allowed" : ""}`}
               >
-                <Play className="w-5 h-5 mr-1.5 fill-current" /> {hasResume ? "Resume" : "Play"}
+                <Play size={18} fill="currentColor" stroke="none" aria-hidden="true" />
+                <span>{hasResume ? "Resume" : "Play"}</span>
               </button>
 
-              {/* Cinejoy-style circular actions: Add to List | Mark watched */}
               <div className="details-hero__quick-actions">
-                <div style={{ position: "relative" }} className="flex">
+                <div style={{ position: "relative" }} className="inline-flex">
                   {inAnyCollection && (
                     <span
                       className="title-collection-badge"
@@ -1205,28 +1321,42 @@ export default function TitleDetails() {
                   <button
                     type="button"
                     onClick={() => handleToggleMyList(movie)}
-                    className="hero-circle-btn"
+                    className={`btn g${isInList(movie.id) ? " is-active" : ""}`}
                     aria-label={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
                     title={isInList(movie.id) ? "Remove from My List" : "Add to My List"}
                   >
-                    {isInList(movie.id) ? (
-                      <Check size={20} />
-                    ) : (
-                      <Plus size={20} />
-                    )}
+                    {isInList(movie.id) ? <Check size={18} /> : <Plus size={18} />}
+                    <span>{isInList(movie.id) ? "In My List" : "My List"}</span>
                   </button>
                 </div>
+
+                {primaryTrailerKey && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPlayMode("trailer");
+                      setPlayingTrailerKey(primaryTrailerKey);
+                      setPlayingEpisode(null);
+                      setIsPlaying(true);
+                    }}
+                    className="btn g"
+                  >
+                    <Film size={17} aria-hidden="true" />
+                    <span>Trailer</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
                   onClick={() => handleMarkWatched(movie)}
-                  className="hero-circle-btn"
+                  className={`btn g btn--icon${isMarkedWatched(movie.id) ? " is-active" : ""}`}
                   aria-label={isMarkedWatched(movie.id) ? "Mark as not watched" : "Mark as watched"}
                   title={isMarkedWatched(movie.id) ? "Mark as not watched" : "Mark as watched"}
                 >
-                  {isMarkedWatched(movie.id) ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {isMarkedWatched(movie.id) ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
+
               <div className="details-hero__ratings">
                 <RatingsCluster movie={movie} size="md" itemClassName="title-rating-badge" />
               </div>
@@ -1237,7 +1367,7 @@ export default function TitleDetails() {
                 type="button"
                 onClick={() => setUnreleasedModalOpen(true)}
                 aria-haspopup="dialog"
-                className="details-hero__gap inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5 transition-colors hover:bg-white/[0.11] cursor-pointer"
+                className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] backdrop-blur-md px-3.5 py-1.5 transition-colors hover:bg-white/[0.11] cursor-pointer"
               >
                 <Clock className="w-3.5 h-3.5 text-white/45" aria-hidden="true" />
                 <span className="text-[13px] font-semibold text-white">Not released yet</span>
@@ -1248,275 +1378,267 @@ export default function TitleDetails() {
               </button>
             )}
 
-            {/* Meta: Year · Runtime · Certification · Votes */}
-            <div className="details-hero__gap flex flex-wrap items-center gap-x-3 gap-y-1 text-sm lg:text-base text-white/80 font-medium">
-              {movie.releaseDate && <span>{releaseYear(movie)}</span>}
-              {runtimeLabel && <span>{runtimeLabel}</span>}
-              {movie.certification && (
-                <span className="px-1.5 py-0.5 border border-white/30 rounded text-xs lg:text-sm">
-                  {movie.certification}
-                </span>
-              )}
-              {voteSplit && (
-                <span
-                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-0.5 text-xs font-semibold"
-                  aria-label={`${voteSplit.up}% up ${voteSplit.down}% down split`}
-                >
-                  <span className="inline-flex items-center gap-0.5 text-emerald-400 tabular-nums">
-                    <ArrowUp size={13} aria-hidden="true" />
-                    {voteSplit.up}%
-                  </span>
-                  <span className="inline-flex items-center gap-0.5 text-red-400/90 tabular-nums">
-                    <ArrowDown size={13} aria-hidden="true" />
-                    {voteSplit.down}%
-                  </span>
-                </span>
-              )}
-            </div>
+            <ProductionCompaniesBlock variant="brands" companies={movie.productionCompanies} />
+          </div>
+        </header>
 
-            {movie.director && (
-              <div className="details-hero__gap-tight text-sm lg:text-base text-white/60">
-                <span className="text-white/40">Director:</span>{" "}
-                {movie.directorId ? (
-                  <Link
-                    to={`/person/${movie.directorId}`}
-                    className="text-white/80 hover:text-white hover:underline decoration-white/60 underline-offset-4"
+        {/* ── 2.0 Body Grid (.dg: Overview + Cast | Facts Glass + Trailers) ─ */}
+        <div className="dg">
+          <div className="dg-main">
+            {movieOverview && (
+              <section aria-label="Overview">
+                <h2>Overview</h2>
+                <p className={`ov-text${spoilerFreeMode ? " italic opacity-60" : ""}${showFullDescription ? "" : " line-clamp-4"}`}>
+                  {spoilerFreeMode ? "Synopsis hidden (Spoiler-Free Mode)" : movieOverview}
+                </p>
+                {movieOverview.length > 220 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullDescription((v) => !v)}
+                    className="ov-more"
                   >
-                    {movie.director}
-                  </Link>
-                ) : (
-                  <span className="text-white/80">{movie.director}</span>
-                )}
-              </div>
-            )}
-
-            {/* Overview / Description */}
-            {(movie.description || movie.longDescription || movie.overview) && (
-<div className="details-hero__gap">
-              <p className={`text-sm lg:text-base leading-relaxed ${spoilerFreeMode ? "text-white/40 italic" : "text-white/70"} ${showFullDescription ? "" : "line-clamp-3"}`}>
-                {spoilerFreeMode ? "Synopsis hidden (Spoiler-Free Mode)" : (movie.description || movie.longDescription || movie.overview)}
-              </p>
-              {(movie.description || movie.longDescription || movie.overview).length > 220 && (
-                <button
-                  type="button"
-                  onClick={() => setShowFullDescription((v) => !v)}
-                  className="details-hero__gap-tight block text-sm font-semibold text-white/80 hover:text-white transition-colors"
-                >
-
                     {showFullDescription ? "Show less" : "Show more"}
                   </button>
                 )}
+              </section>
+            )}
+
+            {movie.cast && movie.cast.length > 0 && (
+              <div className="cast">
+                <ErrorBoundary>
+                  <CastRail cast={movie.cast} />
+                </ErrorBoundary>
+              </div>
+            )}
+          </div>
+
+          {(infoRows.length > 0 || movie.director) && (
+            <aside className="dg-side">
+              <dl className="facts glass" aria-label="Details">
+                {infoRows.map((row) => (
+                  <div key={row.label} className="fact-row">
+                    <dt>{row.label}</dt>
+                    <dd className={row.uppercase ? "is-uppercase" : undefined}>
+                      {row.value}
+                      {row.extra && <span className="fact-extra">{row.extra}</span>}
+                    </dd>
+                  </div>
+                ))}
+                {movie.director && (
+                  <div className="fact-row">
+                    <dt>Director</dt>
+                    <dd>
+                      {movie.directorId ? (
+                        <Link
+                          to={`/person/${movie.directorId}`}
+                          className="text-white/90 hover:text-white underline decoration-white/30 underline-offset-4"
+                        >
+                          {movie.director}
+                        </Link>
+                      ) : (
+                        movie.director
+                      )}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </aside>
+          )}
+        </div>
+
+        {/* ── Episodes ─────────────────────────────────────────────────────── */}
+        {isTvContent && hasSeriesEpisodes && (
+          <section className="eps-s" aria-label="Episodes">
+            <div className="eh">
+              <div className="eh-head">
+                <h2>Episodes</h2>
+                {isAiring && releasedEpisodes < totalEpisodes ? (
+                  <span className="eh-count">
+                    ({releasedEpisodes} of {totalEpisodes} released)
+                  </span>
+                ) : episodes.length > 0 ? (
+                  <span className="eh-count">({episodes.length})</span>
+                ) : null}
+              </div>
+
+              <div className="eh-actions">
+                <button
+                  type="button"
+                  onClick={() => setRatingsOpen(true)}
+                  aria-label="View episode ratings"
+                  title="Ratings"
+                  className="ep-ctl-btn"
+                >
+                  <Grid3x3 size={15} />
+                  <span>Ratings</span>
+                </button>
+
+                <div className="relative" ref={sortRef}>
+                  <button
+                    type="button"
+                    onClick={() => setSortOpen((o) => !o)}
+                    aria-haspopup="menu"
+                    aria-expanded={sortOpen}
+                    className="ep-ctl-btn"
+                  >
+                    <ArrowUpDown size={15} />
+                    <span>{sortNewest ? "Newest" : "Oldest"}</span>
+                  </button>
+                  {sortOpen && (
+                    <div
+                      role="menu"
+                      aria-label="Sort episodes"
+                      className="absolute right-0 mt-2 z-50 w-44 rounded-2xl border border-white/15 bg-[#121216]/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+                    >
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={!sortNewest}
+                        onClick={() => { setSortNewest(false); setSortOpen(false); }}
+                        className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 flex items-center justify-between"
+                      >
+                        Oldest {!sortNewest && <Check size={14} />}
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={sortNewest}
+                        onClick={() => { setSortNewest(true); setSortOpen(false); }}
+                        className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 flex items-center justify-between"
+                      >
+                        Newest {sortNewest && <Check size={14} />}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={markSeasonWatched}
+                  className="ep-ctl-btn"
+                >
+                  <Eye size={15} />
+                  <span>Mark watched</span>
+                </button>
+
+                {normalizedSeasonCount > 8 && (
+                  <SeasonDropdown
+                    seasons={availableSeasons}
+                    selectedSeason={selectedSeason}
+                    airingSeasonNumber={airingSeasonNumber}
+                    onSelect={(s) => { setSelectedSeason(s); }}
+                  />
+                )}
+
+                <div
+                  className="inline-flex items-center gap-1 rounded-full bg-white/[0.08] border border-white/15 p-0.5"
+                  role="radiogroup"
+                  aria-label="Episode layout"
+                >
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: PRESS_SCALE.ICON }}
+                    onClick={() => setEpisodeLayout("list")}
+                    aria-pressed={episodeLayout === "list"}
+                    className={`h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors ${episodeLayout === "list" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"}`}
+                    title="List view"
+                  >
+                    <List size={14} />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: PRESS_SCALE.ICON }}
+                    onClick={() => setEpisodeLayout("carousel")}
+                    aria-pressed={episodeLayout === "carousel"}
+                    className={`h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors ${episodeLayout === "carousel" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"}`}
+                    title="Carousel view"
+                  >
+                    <GalleryHorizontal size={14} />
+                  </motion.button>
+                  <motion.button
+                    type="button"
+                    whileTap={{ scale: PRESS_SCALE.ICON }}
+                    onClick={() => setEpisodeLayout("grid")}
+                    aria-pressed={episodeLayout === "grid"}
+                    className={`h-7 w-7 inline-flex items-center justify-center rounded-full transition-colors ${episodeLayout === "grid" ? "bg-white/20 text-white" : "text-white/60 hover:text-white"}`}
+                    title="Grid view"
+                  >
+                    <LayoutGrid size={14} />
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+
+            {normalizedSeasonCount > 0 && (
+              <div className="stabs" role="tablist" aria-label="Seasons">
+                {availableSeasons.map((season) => {
+                  const seasonNumber = season.seasonNumber;
+                  const active = seasonNumber === selectedSeason;
+                  return (
+                    <button
+                      key={seasonNumber}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      className={active ? "is-active" : undefined}
+                      onClick={() => setSelectedSeason(seasonNumber)}
+                    >
+                      <span>Season {seasonNumber}</span>
+                      {seasonNumber === airingSeasonNumber && (
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: active ? "#16a34a" : "var(--accent-primary, #95ff50)",
+                            display: "inline-block",
+                          }}
+                          aria-label="Currently airing"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* Mobile details block */}
-            <div className="details-hero__gap w-full lg:hidden">
-              <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
-                <div className="divide-y divide-white/[0.06]">
-                  {infoRows.map((row) => (
-                    <div key={row.label} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
-                      <span className="text-xs text-white/40 shrink-0">{row.label}</span>
-                      <span className={`text-xs text-white/80 text-right leading-snug ${row.uppercase ? " uppercase" : ""}`}>
-                        {row.value}
-                        {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <ProductionCompaniesBlock companies={movie.productionCompanies} />
-            </div>
-          </div>
-
-          {/* Right Column (Desktop) */}
-          <div className="hidden lg:block w-[280px] shrink-0 details-hero__aside">
-            <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] overflow-hidden backdrop-blur-sm">
-              <div className="divide-y divide-white/[0.06]">
-                {infoRows.map((row) => (
-                  <div key={row.label} className="flex items-start justify-between gap-3 px-4 py-2.5">
-                    <span className="text-xs text-white/40 shrink-0">{row.label}</span>
-                    <span className={`text-xs text-white/80 text-right leading-snug ${row.uppercase ? " uppercase" : ""}`}>
-                      {row.value}
-                      {row.extra && <span className="text-white/50">{" "}{row.extra}</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <ProductionCompaniesBlock companies={movie.productionCompanies} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Cast & Rest ─────────────────────────────────────────────────────────────── */}
-      <div id="title-details-more" className="relative z-20 mt-10 lg:mt-14 details-gutter space-y-10 lg:space-y-14 pb-20">
-      {/* ── Episodes ─────────────────────────────────────────────────────────── */}
-      {isTvContent && hasSeriesEpisodes && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "1.5rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-3 px-2">
-            <motion.h2
-              className="text-xl lg:text-2xl font-bold text-white/90 shrink-0"
-              style={{ margin: 0 }}
-              {...L.Reveal}
-            >
-              Episodes {isAiring && releasedEpisodes < totalEpisodes
-                ? <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({releasedEpisodes} of {totalEpisodes} released)</span>
-                : episodes.length > 0 && <span style={{ fontSize: '0.7em', color: 'var(--text-muted)', fontWeight: 400 }}>({episodes.length})</span>}
-            </motion.h2>
-
-            <div className="flex items-center gap-2 shrink-0 ml-auto flex-wrap">
-              {/* Ratings (opens the per-season episode ratings table) */}
-              <button
-                onClick={() => setRatingsOpen(true)}
-                aria-label="View episode ratings"
-                title="Ratings"
-                className="w-10 sm:w-auto h-10 sm:px-4 inline-flex items-center justify-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
-              >
-                <Grid3x3 size={16} />
-                <span className="hidden sm:inline">Ratings</span>
-              </button>
-
-              {/* Sort (Oldest / Newest) */}
-              <div className="relative" ref={sortRef}>
-                <button
-                  onClick={() => setSortOpen(o => !o)}
-                  aria-haspopup="menu"
-                  aria-expanded={sortOpen}
-                  className="hidden sm:inline-flex h-10 px-4 items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
-                >
-                  <ArrowUpDown size={16} />
-                  {sortNewest ? "Newest" : "Oldest"}
-                </button>
-                <button
-                  onClick={() => setSortOpen(o => !o)}
-                  aria-label="Sort episodes"
-                  aria-haspopup="menu"
-                  aria-expanded={sortOpen}
-                  className="sm:hidden w-10 h-10 inline-flex items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white hover:bg-white/15 transition-colors"
-                >
-                  <ArrowUpDown size={16} />
-                </button>
-                {sortOpen && (
-                  <div
-                    role="menu"
-                    aria-label="Sort episodes"
-                    className="absolute right-0 mt-2 z-50 w-44 rounded-2xl border border-white/10 bg-[#0c0c10] shadow-2xl overflow-hidden"
-                  >
-                    <button
-                      role="menuitemradio"
-                      aria-checked={!sortNewest}
-                      onClick={() => { setSortNewest(false); setSortOpen(false); }}
-                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center justify-between"
-                    >
-                      Oldest {!sortNewest && <Check size={14} />}
-                    </button>
-                    <button
-                      role="menuitemradio"
-                      aria-checked={sortNewest}
-                      onClick={() => { setSortNewest(true); setSortOpen(false); }}
-                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/5 flex items-center justify-between"
-                    >
-                      Newest {sortNewest && <Check size={14} />}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Mark-watched (season toggle, Cinejoy pill) */}
-              <button
-                onClick={markSeasonWatched}
-                className="h-10 px-4 inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-white text-sm font-medium hover:bg-white/15 transition-colors"
-              >
-                <Eye size={16} /> Mark watched
-              </button>
-
-              {/* Season dropdown */}
-              <SeasonDropdown
-                seasons={availableSeasons}
-                selectedSeason={selectedSeason}
-                airingSeasonNumber={airingSeasonNumber}
-                onSelect={(s) => { setSelectedSeason(s); }}
-              />
-
-              {/* Layout toggle — three icon pills */}
-              <div className="inline-flex items-center gap-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 p-1" role="radiogroup" aria-label="Episode layout">
-                <motion.button
-                  whileTap={{ scale: PRESS_SCALE.ICON }}
-                  onClick={() => setEpisodeLayout('carousel')}
-                  aria-pressed={episodeLayout === 'carousel'}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
-                  style={{
-                    background: episodeLayout === 'carousel' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'carousel' ? 'var(--white)' : '#9ca3af',
-                  }}
-                  title="Carousel view"
-                >
-                  <GalleryHorizontal size={15} />
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: PRESS_SCALE.ICON }}
-                  onClick={() => setEpisodeLayout('grid')}
-                  aria-pressed={episodeLayout === 'grid'}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
-                  style={{
-                    background: episodeLayout === 'grid' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'grid' ? 'var(--white)' : '#9ca3af',
-                  }}
-                  title="Grid view"
-                >
-                  <LayoutGrid size={15} />
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: PRESS_SCALE.ICON }}
-                  onClick={() => setEpisodeLayout('list')}
-                  aria-pressed={episodeLayout === 'list'}
-                  className="h-8 w-8 inline-flex items-center justify-center rounded-full transition-colors"
-                  style={{
-                    background: episodeLayout === 'list' ? 'rgba(255,255,255,0.16)' : 'transparent',
-                    color: episodeLayout === 'list' ? 'var(--white)' : '#9ca3af',
-                  }}
-                  title="List view"
-                >
-                  <List size={15} />
-                </motion.button>
-              </div>
-            </div>
-          </div>
-
-          {/* Episode Grid/List/Carousel */}
           <div className="relative group/episodes">
           <AnimatePresence mode="wait">
           <motion.div
-            ref={episodeLayout === 'carousel' ? epRailRef : undefined}
+            ref={episodeLayout === "carousel" ? epRailRef : undefined}
             key={`season-${selectedSeason}-${episodesFetching}-${episodeLayout}`}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
+            exit={{ opacity: 0, y: -8 }}
             transition={{ duration: DURATION.MED, ease: EASE_OUT }}
             style={
-              episodeLayout === 'carousel'
+              episodeLayout === "carousel"
                 ? {
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: '1.5rem',
-                    overflowX: 'auto',
-                    scrollSnapType: 'x mandatory',
-                    padding: '1rem 2rem 3rem',
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: "1.25rem",
+                    overflowX: "auto",
+                    scrollSnapType: "x mandatory",
+                    padding: "0.75rem 0.25rem 2rem",
                   }
-                : {
-                    display: episodeLayout === 'grid' ? 'grid' : 'flex',
-                    flexDirection: episodeLayout === 'list' ? 'column' : undefined,
-                    gridTemplateColumns: episodeLayout === 'grid' ? 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))' : undefined,
-                    gap: episodeLayout === 'grid' ? '0.8rem' : '0.5rem',
-                  }
+                : episodeLayout === "grid"
+                  ? {
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
+                      gap: "1rem",
+                    }
+                  : undefined
             }
-            className={episodeLayout === 'carousel' ? 'episodes-rail-mask scrollbar-hide' : 'episode-grid hide-scrollbar'}
+            className={
+              episodeLayout === "carousel"
+                ? "episodes-rail-mask scrollbar-hide"
+                : episodeLayout === "grid"
+                  ? "episode-grid hide-scrollbar"
+                  : "eps"
+            }
           >
             {episodesFailed ? (
-              <div style={{ gridColumn: episodeLayout === 'grid' ? '1/-1' : undefined }}>
+              <div style={{ gridColumn: episodeLayout === "grid" ? "1/-1" : undefined }}>
                 <EmptyState
                   icon="error"
                   title="Couldn't load episodes"
@@ -1526,19 +1648,7 @@ export default function TitleDetails() {
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: PRESS_SCALE.CONTROL }}
                       onClick={() => refetchEpisodes()}
-                      style={{
-                        background: "rgba(var(--accent-primary-rgb),0.08)",
-                        border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
-                        color: "var(--accent-primary)",
-                        padding: "8px 20px",
-                        borderRadius: "10px",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "6px",
-                      }}
+                      className="btn g"
                     >
                       <RotateCcw size={14} /> Try Again
                     </motion.button>
@@ -1546,84 +1656,31 @@ export default function TitleDetails() {
                 />
               </div>
             ) : episodesFetching ? (
-              // Skeleton placeholders while episodes load (also covers a season
-              // switch: placeholderData keeps the PREVIOUS season's episodes in
-              // `data`, so isFetching — not isLoading — is the real signal).
-              Array.from({ length: 6 }).map((_, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    background: "#0a0a0d",
-                    borderRadius: "12px",
-                    overflow: "hidden",
-                    border: "1px solid rgba(255,255,255,0.04)",
-                  }}
-                >
-                  <div
-                    className="skeleton"
-                    style={{ width: "100%", aspectRatio: "16/9" }}
-                  ></div>
-                  <div
-                    style={{ padding: "0.8rem 1rem", display: "flex", gap: "8px" }}
-                  >
-                    <div
-                      className="skeleton"
-                      style={{
-                        height: "1.5rem",
-                        width: "2rem",
-                        borderRadius: "4px",
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.6rem",
-                      }}
-                    >
-                      <div
-                        className="skeleton"
-                        style={{
-                          height: "1.1rem",
-                          width: "70%",
-                          borderRadius: "4px",
-                        }}
-                      ></div>
-                      <div
-                        className="skeleton"
-                        style={{
-                          height: "0.8rem",
-                          width: "100%",
-                          borderRadius: "4px",
-                        }}
-                      ></div>
-                      <div
-                        className="skeleton"
-                        style={{
-                          height: "0.8rem",
-                          width: "80%",
-                          borderRadius: "4px",
-                        }}
-                      ></div>
-                    </div>
+              Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="ep">
+                  <div className="sk et" />
+                  <div className="eb">
+                    <div className="sk h-4 w-48 mb-2" />
+                    <div className="sk h-3 w-full mb-1.5" />
+                    <div className="sk h-3 w-2/3" />
                   </div>
                 </div>
               ))
             ) : episodes.length === 0 ? (
-              <div style={{ gridColumn: episodeLayout === 'grid' ? '1/-1' : undefined }}>
+              <div style={{ gridColumn: episodeLayout === "grid" ? "1/-1" : undefined }}>
                 <EmptyState
                   icon="tv"
                   title={`No episodes found for Season ${selectedSeason}.`}
                   description={
                     normalizedSeasonCount > 1
-                      ? `This show has ${normalizedSeasonCount} season${normalizedSeasonCount > 1 ? 's' : ''}. Try selecting a different season.`
+                      ? `This show has ${normalizedSeasonCount} season${normalizedSeasonCount > 1 ? "s" : ""}. Try selecting a different season.`
                       : "Episode data may not be available yet."
                   }
                   actions={
                     normalizedSeasonCount > 1 && (
                       <motion.button
-                        whileHover={{ scale: 1.05 }}
+                        type="button"
+                        whileHover={{ scale: 1.04 }}
                         whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => {
                           const currentIndex = availableSeasonNumbers.indexOf(selectedSeason);
@@ -1632,19 +1689,7 @@ export default function TitleDetails() {
                             : 0;
                           setSelectedSeason(availableSeasonNumbers[nextIndex]);
                         }}
-                        style={{
-                          background: "rgba(var(--accent-primary-rgb),0.08)",
-                          border: "1px solid rgba(var(--accent-primary-rgb),0.2)",
-                          color: "var(--accent-primary)",
-                          padding: "8px 20px",
-                          borderRadius: "10px",
-                          fontSize: "0.85rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
+                        className="btn g"
                       >
                         <RotateCcw size={14} /> Try Another Season
                       </motion.button>
@@ -1653,16 +1698,23 @@ export default function TitleDetails() {
                 />
               </div>
             ) : (() => {
-                const isCarouselLayout = episodeLayout === 'carousel';
-                const visibleEps = episodesForLayout.slice(0, isCarouselLayout ? episodesForLayout.length : visibleEpisodeCount);
-                const hasMore = !isCarouselLayout && episodesForLayout.length > visibleEpisodeCount;
-                const isExpanded = !isCarouselLayout && visibleEpisodeCount > EPISODES_CHUNK_SIZE;
-                return (
-                  <>
+              const isCarouselLayout = episodeLayout === "carousel";
+              const isListLayout = episodeLayout === "list";
+              const limit = isListLayout
+                ? (episodesExpanded ? episodesForLayout.length : EP_LIMIT)
+                : isCarouselLayout
+                  ? episodesForLayout.length
+                  : visibleEpisodeCount;
+              const visibleEps = episodesForLayout.slice(0, limit);
+              const hasMoreList = isListLayout && episodesForLayout.length > EP_LIMIT;
+              const hasMoreGrid = !isListLayout && !isCarouselLayout && episodesForLayout.length > visibleEpisodeCount;
+              const isExpandedGrid = !isListLayout && !isCarouselLayout && visibleEpisodeCount > EPISODES_CHUNK_SIZE;
+
+              return (
+                <>
                   {visibleEps.map((ep, idx) => {
-                    const isEpPlaying = isPlaying && playingEpisode === ep.episodeNumber && playMode !== 'trailer';
-                    const isGrid = episodeLayout === 'grid';
-                    const isCard = isGrid || isCarouselLayout;
+                    const isEpPlaying = isPlaying && playingEpisode === ep.episodeNumber && playMode !== "trailer";
+                    const isCard = !isListLayout;
                     const isWatched = isEpisodeWatched(ep);
                     const isLiveWatched = Number(continueEntryForMovie?.savedSeason) === Number(selectedSeason)
                       && continueEntryForMovie?.savedEpisode === ep.episodeNumber
@@ -1670,12 +1722,9 @@ export default function TitleDetails() {
                     const watchedTs = isLiveWatched ? (continueEntryForMovie?.timestamp || 0) : 0;
                     const isAired = isEpAired(ep);
                     const playable = isAired;
-                                        // Upcoming episodes have no TMDB still — fall back to the
-                                        // series artwork so every card shows an image. Catalog objects
-                                        // sometimes store art in the non-Url fields.
                     const epThumb = ep.thumbnailUrl || ep.posterUrl || ep.backdropUrl || movie.backdropUrl || movie.posterUrl || movie.backdrop || movie.poster || movie.thumbnailUrl || null;
-                    const thumbLoadPriority = idx < 6 ? 'high' : undefined;
-                    const thumbLoading = idx < 6 ? 'eager' : 'lazy';
+                    const thumbLoadPriority = idx < 6 ? "high" : undefined;
+                    const thumbLoading = idx < 6 ? "eager" : "lazy";
                     const pctWatched = isWatched && watchedTs <= 0
                       ? 100
                       : Math.min(100, (watchedTs / (ep.durationMins ? ep.durationMins * 60 : 3600)) * 100);
@@ -1687,8 +1736,6 @@ export default function TitleDetails() {
                         { ...movie, source: resolvedPlatform, sourceName },
                         selectedSeason,
                         ep.episodeNumber,
-                        // A different episode starts fresh; reopening the stored
-                        // episode keeps its resume point instead of inheriting it.
                         startPlaybackTimestamp(continueEntryForMovie, {
                           isTv: true,
                           season: selectedSeason,
@@ -1705,15 +1752,14 @@ export default function TitleDetails() {
                     };
 
                     if (isCard) {
-                                          // Grid / carousel card
                       return (
                         <motion.div
                           key={ep.id || idx}
-                          initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                          initial={{ opacity: 0, scale: 0.96, y: 12 }}
                           animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.95, y: -8 }}
-                          transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.04, 0.3), ease: EASE_OUT }}
-                          whileHover={{ y: -4 }}
+                          exit={{ opacity: 0, scale: 0.96, y: -8 }}
+                          transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.035, 0.25), ease: EASE_OUT }}
+                          whileHover={{ y: -3 }}
                           whileTap={playable ? { scale: PRESS_SCALE.CONTROL } : undefined}
                           role={playable ? "button" : undefined}
                           tabIndex={playable ? 0 : undefined}
@@ -1721,15 +1767,14 @@ export default function TitleDetails() {
                           aria-label={playable ? `Play ${ep.title}` : undefined}
                           onClick={playEpisode}
                           onKeyDown={playEpKeyboard}
-                          className="group flex flex-col gap-3 shrink-0 cursor-pointer transition-transform duration-200"
+                          className="group flex flex-col gap-3 shrink-0 cursor-pointer"
                           style={{
-                            opacity: (!isAired) ? 0.45 : 1,
-                            scrollSnapAlign: isCarouselLayout ? 'start' : undefined,
-                            ...(isCarouselLayout ? { flex: '0 0 clamp(220px, 62vw, 300px)' } : {}),
+                            opacity: !isAired ? 0.45 : 1,
+                            scrollSnapAlign: isCarouselLayout ? "start" : undefined,
+                            ...(isCarouselLayout ? { flex: "0 0 clamp(220px, 62vw, 300px)" } : {}),
                           }}
                         >
-                          {/* Thumb */}
-                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/20 shrink-0 border border-white/5 transition-[transform,box-shadow,border-color] duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50">
+                          <div className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/30 shrink-0 border border-white/10 transition-[transform,border-color] duration-300 group-hover:border-white/35">
                             {epThumb ? (
                               <img
                                 src={epThumb}
@@ -1737,530 +1782,339 @@ export default function TitleDetails() {
                                 loading={thumbLoading}
                                 fetchPriority={thumbLoadPriority}
                                 decoding="async"
-                                className="w-full h-full object-cover transition-transform duration-500 group-hover:brightness-110"
-                                style={{ filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }}
+                                className="w-full h-full object-cover"
+                                style={{ filter: !isAired ? "grayscale(0.85) brightness(0.55)" : undefined }}
                               />
                             ) : (
-                              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '5px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
-                                <span style={{ fontSize: '1.7rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
-                                <Film size={18} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-white/5 text-white/45 font-mono text-xl font-bold">
+                                {episodeNumberLabel(ep.episodeNumber)}
                               </div>
                             )}
-                            {/* E badge */}
-                            <span className="absolute top-2 left-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-semibold text-white">
-                              {episodeNumberLabel(ep.episodeNumber)}
-                            </span>
-                            {/* Watched toggle */}
+                            <span className="en">{episodeNumberLabel(ep.episodeNumber)}</span>
+                            {isAired && (
+                              <span className="epl" aria-hidden="true">
+                                <Play size={16} fill="currentColor" stroke="none" />
+                              </span>
+                            )}
                             <button
-                              role="button"
-                              tabIndex={0}
+                              type="button"
                               aria-pressed={isWatched}
                               aria-label={isWatched ? `Mark ${ep.title} as not watched` : `Mark ${ep.title} as watched`}
                               onClick={(e) => { e.stopPropagation(); toggleEpisodeWatched(ep); }}
-                              onKeyDown={(e) => {
-                                e.stopPropagation();
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  toggleEpisodeWatched(ep);
-                                }
-                              }}
-                              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-white hover:bg-black/65 flex items-center justify-center"
+                              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-white hover:bg-black/75 flex items-center justify-center"
                             >
-                              {isWatched ? <EyeOff size={15} /> : <Eye size={15} />}
+                              {isWatched ? <Check size={14} /> : <Eye size={14} />}
                             </button>
-                            {/* Center status */}
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                              {!isAired ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#3c8217', color: 'var(--white)', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
-                                  <Calendar size={12} strokeWidth={2} aria-hidden="true" />
-                                  <span>Airs</span>
-                                  {formatAirsDate(ep.airDate)}
-                                </div>
-                              ) : isAired ? (
-                                <div style={{ background: 'rgba(0,0,0,0.85)', color: 'var(--text-secondary)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                                  Playable
-                                </div>
-                              ) : null}
-                            </div>
-                            {isEpPlaying && (
-                              <div
-                                className="absolute top-2 right-12 px-2 py-0.5 rounded-md text-xs font-extrabold tracking-widest uppercase z-10 pointer-events-none"
-                                style={{ background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', color: 'var(--on-accent, var(--white))' }}
-                              >
-                                Playing
+                            {isWatched && (
+                              <div className="et-progress">
+                                <div className="et-progress__fill" style={{ width: `${pctWatched}%` }} />
                               </div>
-                            )}
-                            {/* Duration chip */}
-                            {ep.duration && (
-                              <span className="absolute bottom-2 right-2 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 text-xs font-medium text-white">
-                                {ep.duration}
-                              </span>
                             )}
                           </div>
-                          {/* Meta */}
-                          <div className="space-y-1 px-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <h3 className="text-base font-bold text-white group-hover:text-white/90 line-clamp-1">
-                                {ep.title}
-                              </h3>
-                            </div>
-                            <p className={`text-xs ${spoilerFreeMode ? 'text-white/40 italic' : 'text-white/60'} line-clamp-2 leading-relaxed`}>
-                              {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
-                            </p>
-                            {isWatched && (
-                              <div style={{ marginTop: '0.45rem' }}>
-                                <div style={{ height: '3px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${pctWatched}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
-                                </div>
-                                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '3px', display: 'block' }}>
-                                  {watchedTs > 0 ? `${formatTime(watchedTs)} watched` : 'Watched'}
-                                </span>
-                              </div>
-                            )}
+                          <div className="px-0.5">
+                            <h3 className="eb-title line-clamp-1">{ep.title}</h3>
+                            <p className="eb-desc">{spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}</p>
                           </div>
                         </motion.div>
                       );
                     }
 
-                                        // List row
                     return (
-                      <motion.div
+                      <div
                         key={ep.id || idx}
-                        initial={{ opacity: 0, x: -12 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 12 }}
-                        transition={{ duration: DURATION.MED, delay: Math.min(idx * 0.03, 0.25), ease: EASE_OUT }}
-                        whileHover={reduceMotion ? undefined : { background: 'rgba(255,255,255,0.04)' }}
-                        whileTap={playable ? { scale: PRESS_SCALE.ROW } : undefined}
+                        className={`ep${isEpPlaying ? " is-playing" : ""}${episodesExpanded && idx >= EP_LIMIT ? " ep--entering" : ""}`}
+                        style={{ "--ep-i": Math.max(0, idx - EP_LIMIT), opacity: !isAired ? 0.48 : 1 }}
                         role={playable ? "button" : undefined}
                         tabIndex={playable ? 0 : undefined}
                         aria-disabled={playable ? undefined : true}
                         aria-label={playable ? `Play ${ep.title}` : undefined}
                         onClick={playEpisode}
                         onKeyDown={playEpKeyboard}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '1rem',
-                          padding: '0.75rem 1rem', borderRadius: '12px',
-                          background: isEpPlaying ? 'rgba(var(--accent-primary-rgb), 0.08)' : 'transparent',
-                          border: isEpPlaying ? '1px solid rgba(var(--accent-primary-rgb), 0.2)' : '1px solid transparent',
-                          cursor: playable ? 'pointer' : 'default', opacity: (!isAired) ? 0.35 : 1,
-                          transition: 'background var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out)',
-                        }}
                       >
-                        {/* Thumbnail */}
-                        <div style={{ position: 'relative', width: 'clamp(96px, 26vw, 140px)', flexShrink: 0, borderRadius: '8px', overflow: 'hidden', aspectRatio: '16/9', background: '#18181b' }}>
+                        <div className="et">
                           {epThumb ? (
-                            <img src={CdnImageAdapter.getUrl(epThumb, pickImageWidth("episode", { hdThumbs }))} alt={ep.title} loading={thumbLoading} fetchPriority={thumbLoadPriority} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', filter: !isAired ? 'grayscale(0.85) brightness(0.55)' : undefined }} />
+                            <img
+                              src={CdnImageAdapter.getUrl(epThumb, pickImageWidth("episode", { hdThumbs }))}
+                              alt={ep.title}
+                              loading={thumbLoading}
+                              fetchPriority={thumbLoadPriority}
+                              decoding="async"
+                              style={{ filter: !isAired ? "grayscale(0.85) brightness(0.55)" : undefined }}
+                            />
                           ) : (
-                            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px', background: 'linear-gradient(135deg, #18181b 0%, rgba(149,255,80,0.12) 55%, #211519 100%)' }}>
-                              <span style={{ fontSize: '1.05rem', fontWeight: 800, color: 'rgba(255,255,255,0.5)', fontFamily: 'monospace', lineHeight: 1 }}>{String(ep.episodeNumber).padStart(2, '0')}</span>
-                              <Film size={13} strokeWidth={1.5} color="rgba(255,255,255,0.28)" />
+                            <div className="w-full h-full flex items-center justify-center bg-white/5 text-white/50 font-mono font-bold text-lg">
+                              {episodeNumberLabel(ep.episodeNumber)}
                             </div>
                           )}
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {isAired ? (
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                  <Play size={14} fill="#fff" stroke="none" style={{ marginLeft: '2px' }} />
-                                </div>
-                              ) : (
-                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: '#3c8217', color: 'var(--white)', padding: '4px 12px', borderRadius: '7px 7px 0 0', fontSize: '11px', fontWeight: 500, lineHeight: 1.45, backdropFilter: 'blur(6px)', boxShadow: '0 4px 14px rgba(0,0,0,0.35)' }}>
-                                <Calendar size={11} strokeWidth={2} aria-hidden="true" />
+                          <span className="en">{episodeNumberLabel(ep.episodeNumber)}</span>
+                          {isAired ? (
+                            <span className="epl" aria-hidden="true">
+                              <Play size={16} fill="currentColor" stroke="none" />
+                            </span>
+                          ) : (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/45">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-700/90 px-2.5 py-0.5 text-[11px] font-medium text-white">
+                                <Calendar size={11} aria-hidden="true" />
                                 {formatAirsDate(ep.airDate)}
-                              </div>
+                              </span>
+                            </div>
+                          )}
+                          {isWatched && (
+                            <div className="et-progress">
+                              <div className="et-progress__fill" style={{ width: `${pctWatched}%` }} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="eb">
+                          <div className="eb-head">
+                            <h3 className="eb-title">{ep.title}</h3>
+                            {isEpPlaying && (
+                              <span className="chip chip--accent" style={{ padding: "2px 8px", fontSize: 11 }}>
+                                Playing
+                              </span>
                             )}
                           </div>
-                          {isEpPlaying && <div style={{ position: 'absolute', top: '4px', right: '4px', background: 'var(--accent-primary, #95ff50)', color: 'var(--on-accent, white)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.5rem', fontWeight: 800, textTransform: 'uppercase' }}>Playing</div>}
-                          <div style={{ position: 'absolute', bottom: '4px', right: '4px', background: 'rgba(0,0,0,0.7)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.55rem', fontWeight: 700 }}>{ep.duration}</div>
-                        </div>
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '0.25rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isEpPlaying ? 'var(--accent-primary, #95ff50)' : 'var(--text-muted)', fontFamily: 'monospace', flexShrink: 0 }}>E{String(ep.episodeNumber).padStart(2, '0')}</span>
-                              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, margin: 0, color: isEpPlaying ? 'var(--white)' : '#e4e4e7', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.title}</h3>
-                            </div>
+                          <div className="eb-meta">
+                            {ep.duration && <span>{ep.duration}</span>}
+                            {ep.airDate && (
+                              <span>
+                                {formatTMDBDate(ep.airDate, { month: "short", day: "numeric", year: "numeric" }, undefined, releasePlatform)}
+                              </span>
+                            )}
+                            {isWatched && (
+                              <span>{watchedTs > 0 ? `${formatTime(watchedTs)} watched` : "Watched"}</span>
+                            )}
                           </div>
-                          {/* Spoiler-free copy is distinguished by italics, not by
-                              dimming: #52525b (--text-faint) read as a ghost at
-                              2.9:1 against the card. */}
-                          <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: spoilerFreeMode ? 'italic' : 'normal', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <p className={`eb-desc${spoilerFreeMode ? " italic opacity-60" : ""}`}>
                             {spoilerFreeMode ? "Episode details hidden (Spoiler-Free Mode)" : ep.description}
                           </p>
-                          {isWatched && (
-                            <div style={{ marginTop: '0.4rem' }}>
-                              <div style={{ height: '2px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden', maxWidth: '120px' }}>
-                                <div style={{ height: '100%', width: `${pctWatched}%`, background: 'var(--accent-gradient, linear-gradient(90deg, #95ff50, #5ce21c))', borderRadius: '2px' }} />
-                              </div>
-                            </div>
-                          )}
                         </div>
-                      </motion.div>
+
+                        <div className="ed">
+                          <button
+                            type="button"
+                            className={`ep-watch-btn${isWatched ? " is-watched" : ""}`}
+                            aria-pressed={isWatched}
+                            aria-label={isWatched ? `Mark ${ep.title} as not watched` : `Mark ${ep.title} as watched`}
+                            title={isWatched ? "Mark as not watched" : "Mark as watched"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleEpisodeWatched(ep);
+                            }}
+                          >
+                            {isWatched ? <Check size={15} strokeWidth={2.4} /> : <Eye size={15} />}
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
-                  {hasMore && (
-                    <motion.div
-                      key="see-more"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      style={{
-                        gridColumn: episodeLayout === 'grid' ? '1 / -1' : undefined,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '12px',
-                        paddingTop: '1rem',
-                        flexWrap: 'wrap',
-                      }}
-                    >
+
+                  {hasMoreList && (
+                    <div>
                       <motion.button
-                        whileHover={reduceMotion ? undefined : { scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
+                        type="button"
                         whileTap={{ scale: PRESS_SCALE.CONTROL }}
-                        onClick={() => setVisibleEpisodeCount((prev) => Math.min(episodes.length, prev + EPISODES_CHUNK_SIZE))}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                          color: 'var(--white)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
-                          fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out)',
-                        }}
+                        className="eps-more"
+                        onClick={() => setEpisodesExpanded((v) => !v)}
                       >
-                        {`Load more (${episodes.length - visibleEpisodeCount} remaining)`}
+                        <span>
+                          {episodesExpanded
+                            ? "Show less"
+                            : `Show ${episodesForLayout.length - EP_LIMIT} more`}
+                        </span>
+                        <ChevronDownIcon
+                          size={15}
+                          style={{
+                            transform: episodesExpanded ? "rotate(180deg)" : "none",
+                            transition: "transform var(--dur-tap) var(--ease)",
+                          }}
+                        />
+                      </motion.button>
+                    </div>
+                  )}
+
+                  {hasMoreGrid && (
+                    <div className="col-span-full flex items-center justify-center gap-3 pt-4 flex-wrap">
+                      <motion.button
+                        type="button"
+                        whileTap={{ scale: PRESS_SCALE.CONTROL }}
+                        onClick={() => setVisibleEpisodeCount((prev) => Math.min(episodesForLayout.length, prev + EPISODES_CHUNK_SIZE))}
+                        className="eps-more"
+                      >
+                        {`Load more (${episodesForLayout.length - visibleEpisodeCount} remaining)`}
                         <ChevronDownIcon size={14} />
                       </motion.button>
-                      {episodes.length - visibleEpisodeCount > EPISODES_CHUNK_SIZE && (
-                        <button
-                          type="button"
-                          onClick={() => setVisibleEpisodeCount(episodes.length)}
-                          style={{
-                            background: 'transparent', border: 'none',
-                            color: 'var(--text-secondary)', padding: '8px 12px',
-                            fontSize: '0.78rem', fontWeight: 500, cursor: 'pointer',
-                            textDecoration: 'underline',
-                          }}
-                        >
-                          Show all ({episodes.length})
-                        </button>
-                      )}
-                    </motion.div>
+                    </div>
                   )}
-                  {!hasMore && isExpanded && (
-                    <motion.div
-                      key="show-less"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      style={{
-                        gridColumn: episodeLayout === 'grid' ? '1 / -1' : undefined,
-                        display: 'flex', justifyContent: 'center', paddingTop: '1rem',
-                      }}
-                    >
+
+                  {!hasMoreGrid && isExpandedGrid && (
+                    <div className="col-span-full flex justify-center pt-4">
                       <motion.button
-                        whileHover={reduceMotion ? undefined : { scale: 1.03, background: 'rgba(255,255,255,0.1)' }}
+                        type="button"
                         whileTap={{ scale: PRESS_SCALE.CONTROL }}
                         onClick={() => setVisibleEpisodeCount(EPISODES_CHUNK_SIZE)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px',
-                          background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                          color: 'var(--text-secondary)', padding: '8px 20px', borderRadius: 'var(--radius-full)',
-                          fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                          letterSpacing: '0.02em', transition: 'background-color var(--duration-fast) var(--ease-out), border-color var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out)',
-                        }}
+                        className="eps-more"
                       >
                         Show less
-                        <motion.span animate={{ rotate: 180 }} style={{ display: 'flex' }}>
-                          <ChevronDownIcon size={14} />
-                        </motion.span>
                       </motion.button>
-                    </motion.div>
+                    </div>
                   )}
-                  </>
-                );
-              })()
-            }
+                </>
+              );
+            })()}
           </motion.div>
           </AnimatePresence>
 
-          {/* Carousel rail overlay arrows — canonical ghost chevron */}
-          {episodeLayout === 'carousel' && episodes.length > 0 && (
+          {episodeLayout === "carousel" && episodes.length > 0 && (
             <>
               {epCanLeft && (
-                <RailArrow dir="left" onClick={() => scrollEpRail('left')} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
+                <RailArrow dir="left" onClick={() => scrollEpRail("left")} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
               )}
               {epCanRight && (
-                <RailArrow dir="right" onClick={() => scrollEpRail('right')} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
+                <RailArrow dir="right" onClick={() => scrollEpRail("right")} revealOnHover hoverClass="group-hover/episodes:opacity-100" label="Episodes" />
               )}
             </>
           )}
           </div>
-        </motion.section>
-      )}
+          </section>
+        )}
 
-      {/* ── Cast ─────────────────────────────────────────────────────────────── */}
-      {movie.cast && movie.cast.length > 0 && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <div style={{ minWidth: 0 }}>
-            <ErrorBoundary>
-              <CastRail cast={movie.cast} />
-            </ErrorBoundary>
-          </div>
-        </motion.section>
-      )}
-
-      {/* ── Trailers ──────────────────────────────────────────────────────────── */}
-      {movie.videos && movie.videos.length > 0 && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <motion.h2
-            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            {...L.Reveal}
-          >
-            Trailers
-          </motion.h2>
-          <div className="flex gap-5 overflow-x-auto p-4 px-6 hide-scrollbar">
-            {movie.videos.map((vid) => {
-              const rankLabel = classifyTrailer(vid);
-              const kindLabel = rankLabel ? rankLabel[0].toUpperCase() + rankLabel.slice(1) : "Trailer";
-              const playTrailer = () => { setIsPlaying(true); setPlayMode('trailer'); setPlayingTrailerKey(vid.key); setPlayingEpisode(null); };
-              return (
-              <div
-                key={vid.key}
-                role="button"
-                tabIndex={0}
-                aria-label={`Play trailer: ${vid.name}`}
-                className="flex-none w-64 md:w-80 aspect-video group cursor-pointer transition-transform duration-200 active:scale-95"
-                onClick={playTrailer}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" && e.key !== " ") return;
-                  e.preventDefault();
-                  playTrailer();
-                }}
-              >
-                <div className="relative w-full h-full rounded-xl overflow-hidden bg-black/20 border border-white/5 transition-[transform,box-shadow,border-color] duration-300 group-hover:scale-105 group-hover:ring-1 group-hover:ring-white/50 shadow-lg group-hover:shadow-2xl">
-                  <img src={`https://img.youtube.com/vi/${vid.key}/mqdefault.jpg`} alt={vid.name} className="w-full h-full object-cover transition-[filter] duration-300 group-hover:brightness-110" loading="lazy" />
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-300" />
-                  <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-                    <h4 className="text-sm font-bold text-white line-clamp-1">{vid.name}</h4>
-                    <span className="text-xs text-white/70">{kindLabel}</span>
-                  </div>
-                </div>
+        {/* ── 2.0 Below-fold Rails (.dp-shelves) ───────────────────────────── */}
+        <div className="dp-shelves">
+          {collectionParts.length > 1 && (
+            <section className="dp-shelf" aria-label={`Part of ${collectionName}`}>
+              <div className="dp-shelf__head">
+                <h2>Part of {collectionName}</h2>
+                <span className="eh-count">
+                  {collectionParts.length} titles · release order
+                </span>
               </div>
-              );
-            })}
-          </div>
-        </motion.section>
-      )}
-
-      {/* ── Where to Watch ─────────────────────────────────────────────────── */}
-      {movie.watchProviders && (
-        <ErrorBoundary>
-          <WhereToWatch watchProviders={movie.watchProviders} />
-        </ErrorBoundary>
-      )}
-
-      {/* ── Part of <franchise> ────────────────────────────────────────────────
-          Release-ordered parts of the franchise this title belongs to, placed
-          where cinejoy.pk places it (after Trailers, before suggestions): the
-          viewer just decided they are interested in THIS story, so the other
-          chapters are the next question. The current title keeps its card and
-          is marked "You're here" — a franchise rail without its entry point
-          reads as if that part were missing. */}
-      {collectionParts.length > 1 && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-2">
-            <motion.h2
-              className="text-xl lg:text-2xl font-bold text-white/90"
-              style={{ margin: 0 }}
-              {...L.Reveal}
-            >
-              Part of <span className="text-white">{collectionName}</span>
-            </motion.h2>
-            <span className="text-xs lg:text-sm font-medium text-white/45">
-              {collectionParts.length} titles · release order
-            </span>
-          </div>
-          <ErrorBoundary>
-            <DetailTitleRail
-              titles={collectionParts}
-              currentId={movie.id}
-              badgeLabel="You’re here"
-              ariaLabel={`Titles in ${collectionName}`}
-            />
-          </ErrorBoundary>
-        </motion.section>
-      )}
-
-      {/* ── More from <studio> ─────────────────────────────────────────────────
-          The company behind the title, discovered by its own id: a Marvel
-          Studios page, a YRF page, a Netflix-series page. Requirement for the
-          row is a real catalogue (>= 4 other titles), so small production
-          houses never get a stub strip. */}
-      {studioTitles.length > 0 && company && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2">
-            {company.logoUrl ? (
-              <img
-                className="detail-rail__brand"
-                src={company.logoUrl}
-                alt=""
-                aria-hidden="true"
-                loading="lazy"
-                decoding="async"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            ) : null}
-            <motion.h2
-              className="text-xl lg:text-2xl font-bold text-white/90"
-              style={{ margin: 0 }}
-              {...L.Reveal}
-            >
-              More from {company.name}
-            </motion.h2>
-          </div>
-          <ErrorBoundary>
-            <DetailTitleRail
-              titles={studioTitles}
-              currentId={movie.id}
-              badgeLabel="You’re here"
-              ariaLabel={`More from ${company.name}`}
-            />
-          </ErrorBoundary>
-        </motion.section>
-      )}
-
-      {/* ── More Like This ────────────────────────────────────────────────────── */}
-      {(loading || (similar && similar.length > 0)) && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <motion.h2
-            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            {...L.Reveal}
-          >
-            You Might Also Like
-          </motion.h2>
-          {loading ? (
-            <div className="movie-grid">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <MovieCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : (
-            <ErrorBoundary>
-            <motion.div
-              className="flex gap-4 overflow-x-auto overflow-y-clip pb-10 pt-4 details-gutter hide-scrollbar items-start isolate min-h-[310px] lg:min-h-[356px]"
-              style={{
-                maskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)",
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-            >
-              {similar.slice(0, visibleCount).map((sim, idx) => (
-                <motion.div
-                  key={`${sim.id}-${idx}`}
-                  className="flex-none w-[140px] lg:w-[200px]"
-                  {...L.RevealAt((idx % 12) * 0.05)}
-                >
-                  <MovieCard
-                    movie={sim}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-            <div ref={similarEndRef} className="h-px" aria-hidden="true" />
-            </ErrorBoundary>
-          )}
-        </motion.section>
-      )}
-
-
-      {/* ── More from Director ──────────────────────────────────────────────── */}
-      {movie.director && similar.some(s => s.director && s.director === movie.director) && (
-        <motion.section
-          style={{ position: "relative", zIndex: 1, marginTop: "2rem", maxWidth: "100%", marginLeft: "auto", marginRight: "auto" }}
-          {...L.Reveal}
-        >
-          <motion.h2
-            className="text-xl lg:text-2xl font-bold text-white/90 px-2"
-            {...L.Reveal}
-            style={{ marginBottom: '1rem' }}
-          >
-            More from {movie.director}
-          </motion.h2>
-            <div
-              style={{
-                position: "relative",
-                display: "flex",
-                gap: "1.5rem",
-                overflowX: "auto",
-                padding: "1rem",
-                scrollbarWidth: "none",
-              }}
-              ref={directorRailRef}
-            >
-              {canScrollLeft && <RailArrow dir="left" onClick={() => scrollDirector("left")} label={movie.director ? `More from ${movie.director}` : "More titles"} />}
-              {canScrollRight && <RailArrow dir="right" onClick={() => scrollDirector("right")} label={movie.director ? `More from ${movie.director}` : "More titles"} />}
               <ErrorBoundary>
-              {similar.slice(0, 8).filter(s => s.director && s.director === movie.director).slice(0, 5).map((sim, idx) => (
-              <motion.div
-                key={`dir-${sim.id}-${idx}`}
-                {...L.RevealAt(idx * 0.08)}
-                style={{ flexShrink: 0, width: '180px' }}
-              >
-                <MovieCard movie={{ ...sim, source: sim.source || resolvedPlatform }} />
-              </motion.div>
-            ))}
+                <DetailTitleRail
+                  titles={collectionParts}
+                  currentId={movie.id}
+                  badgeLabel="You’re here"
+                  ariaLabel={`Titles in ${collectionName}`}
+                  railKey="collection"
+                />
               </ErrorBoundary>
-          </div>
-        </motion.section>
-      )}
+            </section>
+          )}
 
-      {/* ── Social Proof Bar ─────────────────────────────────────────────────── */}
-      <motion.div
-        {...L.Reveal}
-        style={{
-          position: 'relative', zIndex: 1, marginTop: '2rem',
-          padding: '1rem 1rem',
-          maxWidth: '100%', marginLeft: 'auto', marginRight: 'auto',
-          display: 'flex', flexWrap: 'wrap', gap: '1.5rem',
-          justifyContent: 'center', alignItems: 'center',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-        }}
-      >
-        {movie.matchScore && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ThumbsUp size={16} color="#4ade80" />
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <strong style={{ color: '#4ade80' }}>{movie.matchScore}%</strong> match
-            </span>
+          {studioTitles.length > 0 && company && (
+            <section className="dp-shelf" aria-label={`More from ${company.name}`}>
+              <div className="dp-shelf__head">
+                {company.logoUrl ? (
+                  <img
+                    className="detail-rail__brand"
+                    src={company.logoUrl}
+                    alt=""
+                    aria-hidden="true"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                ) : null}
+                <h2>More from {company.name}</h2>
+              </div>
+              <ErrorBoundary>
+                <DetailTitleRail
+                  titles={studioTitles}
+                  currentId={movie.id}
+                  badgeLabel="You’re here"
+                  ariaLabel={`More from ${company.name}`}
+                  railKey="studio"
+                />
+              </ErrorBoundary>
+            </section>
+          )}
+
+          {similar && similar.length > 0 && (
+            <section className="dp-shelf" aria-label="You Might Also Like">
+              <div className="dp-shelf__head">
+                <h2>You Might Also Like</h2>
+              </div>
+              <ErrorBoundary>
+                <div className="detail-rail">
+                  {similar.slice(0, visibleCount).map((sim, idx) => (
+                    <div key={`${sim.id}-${idx}`} className="detail-rail__item">
+                      <MovieCard
+                        movie={sim}
+                        detailToken={`similar:${idx}:${sim.id}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div ref={similarEndRef} className="h-px" aria-hidden="true" />
+              </ErrorBoundary>
+            </section>
+          )}
+
+          {movie.director && similar.some((s) => s.director && s.director === movie.director) && (
+            <section className="dp-shelf relative" aria-label={`More from ${movie.director}`}>
+              <div className="dp-shelf__head">
+                <h2>More from {movie.director}</h2>
+              </div>
+              <div className="relative">
+                {canScrollLeft && (
+                  <RailArrow
+                    dir="left"
+                    onClick={() => scrollDirector("left")}
+                    label={movie.director ? `More from ${movie.director}` : "More titles"}
+                  />
+                )}
+                {canScrollRight && (
+                  <RailArrow
+                    dir="right"
+                    onClick={() => scrollDirector("right")}
+                    label={movie.director ? `More from ${movie.director}` : "More titles"}
+                  />
+                )}
+                <ErrorBoundary>
+                  <div className="detail-rail" ref={directorRailRef}>
+                    {similar
+                      .slice(0, 8)
+                      .filter((s) => s.director && s.director === movie.director)
+                      .slice(0, 5)
+                      .map((sim, idx) => (
+                        <div key={`dir-${sim.id}-${idx}`} className="detail-rail__item">
+                          <MovieCard
+                            movie={{ ...sim, source: sim.source || resolvedPlatform }}
+                            detailToken={`director:${idx}:${sim.id}`}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                </ErrorBoundary>
+              </div>
+            </section>
+          )}
+        </div>
+
+        {(movie.matchScore || (isTvContent && normalizedSeasonCount > 0)) && (
+          <div className="mt-10 pt-5 border-t border-white/[0.08] flex flex-wrap items-center justify-center gap-6">
+            {movie.matchScore && (
+              <div className="flex items-center gap-2 text-sm text-white/65">
+                <ThumbsUp size={15} className="text-emerald-400" />
+                <span>
+                  <strong className="text-emerald-400">{movie.matchScore}%</strong> match
+                </span>
+              </div>
+            )}
+            {isTvContent && normalizedSeasonCount > 0 && (
+              <div className="flex items-center gap-2 text-sm text-white/65">
+                <Tv size={15} className="text-sky-400" />
+                <span>
+                  <strong className="text-sky-400">{normalizedSeasonCount}</strong> season{normalizedSeasonCount > 1 ? "s" : ""}
+                </span>
+              </div>
+            )}
           </div>
         )}
-        {isTvContent && normalizedSeasonCount > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Tv size={16} color="#60a5fa" />
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <strong style={{ color: '#60a5fa' }}>{normalizedSeasonCount}</strong> season{normalizedSeasonCount > 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
-
-      </motion.div>
-
-      {/* ── Video Player Overlay (portal to body for z-index above navbar) ── */}
-      </div>
+      </article>
 {createPortal(
       <AnimatePresence>
         {isPlaying && (
@@ -2413,16 +2267,18 @@ export default function TitleDetails() {
                 <>
                   {iframeLoading && (
                     <div
+                      className="sk"
+                      aria-hidden="true"
                       style={{
                         position: "absolute",
                         inset: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        margin: "auto",
+                        width: "100%",
+                        height: "min(calc(100vw * 9/16), calc(100vh - 120px))",
+                        maxWidth: "min(1400px, calc((100vh - 120px) * 16/9))",
+                        borderRadius: "20px",
                       }}
-                    >
-                      <Loader variant="inline" size="40px" />
-                    </div>
+                    />
                   )}
                   <iframe
                     key={playingTrailerKey || movie.trailerUrl || movie.trailer}

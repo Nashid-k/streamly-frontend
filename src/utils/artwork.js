@@ -20,3 +20,11 @@ export function pickImageWidth(kind, prefs) {
   const hd = prefs?.hdThumbs !== false;
   return artworkWidth(kind, hd);
 }
+
+/** Deterministic scene hue pair (`--a`, `--b`) for cards, detail posters, and skeletons. */
+export function sceneHues(id) {
+  const seed = String(id ?? "")
+    .split("")
+    .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return [205 + (seed % 45), 255 + (seed % 35)];
+}

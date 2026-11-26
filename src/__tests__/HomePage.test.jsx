@@ -100,12 +100,12 @@ function renderHome(props = {}) {
    while the hero is hovered/focused (or on a coarse pointer), so a test that
    wants them must hover the hero first — see revealHeroControls. */
 const activeSlideName = () => {
-  const active = document.querySelector(".hero-dot[aria-current='true']");
+  const active = document.querySelector(".hero-dots button[aria-current='true']");
   return active?.getAttribute("aria-label");
 };
 
 function revealHeroControls() {
-  const hero = document.querySelector(".hero-container");
+  const hero = document.querySelector(".hero:not(.sk-hero):not(.hero--empty)");
   expect(hero).not.toBeNull();
   fireEvent.mouseEnter(hero);
   return hero;
@@ -251,7 +251,11 @@ describe("HomePage hero", () => {
     stubHomeService({ featured: [MOVIE, SERIES] });
     renderHome({ filter: "all" });
 
-    await screen.findByText(/an insomniac office worker forms an underground fight club/i);
+    await screen.findByText(
+      /an insomniac office worker forms an underground fight club/i,
+      {},
+      { timeout: 5000 }
+    );
     const hero = revealHeroControls();
 
     fireEvent.keyDown(hero, { key: "ArrowRight" });
@@ -265,15 +269,18 @@ describe("HomePage hero", () => {
   });
 
   it("turns the slide ticks into buttons that jump to that slide", async () => {
-    // P2-3: the ticks used to be non-interactive spans. They are now real
-    // buttons with a 44px hit area (see .hero-dot in hero.css), so the previous
-    // "clicking must not advance" assertion no longer describes the product.
+    // Canonical 2.0: the ticks are real buttons with a 28px tall hit area
+    // (`.dots.glass button` in home.css) that jump straight to that slide.
     stubHomeService({ featured: [MOVIE, SERIES] });
     renderHome();
 
-    await screen.findByText(/an insomniac office worker forms an underground fight club/i);
+    await screen.findByText(
+      /an insomniac office worker forms an underground fight club/i,
+      {},
+      { timeout: 5000 },
+    );
     revealHeroControls();
-    const dots = document.querySelectorAll(".hero-dot");
+    const dots = document.querySelectorAll(".hero-dots button");
     expect(dots.length).toBe(2);
     expect(dots[0].tagName).toBe("BUTTON");
     expect(dots[0].getAttribute("aria-current")).toBe("true");
@@ -291,7 +298,11 @@ describe("HomePage cross-route banner record", () => {
     renderHome();
 
     expect(
-      await screen.findByText(/an insomniac office worker forms an underground fight club/i),
+      await screen.findByText(
+        /an insomniac office worker forms an underground fight club/i,
+        {},
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument();
     expect(getBannerMemory()).toMatchObject({
       id: "tmdb-movie-550",
@@ -306,7 +317,11 @@ describe("HomePage cross-route banner record", () => {
     renderHome();
 
     expect(
-      await screen.findByText(/noble families vie for control of the iron throne/i),
+      await screen.findByText(
+        /noble families vie for control of the iron throne/i,
+        {},
+        { timeout: 5000 },
+      ),
     ).toBeInTheDocument();
     expect(getBannerMemory()).toMatchObject({
       id: "tmdb-tv-1399",

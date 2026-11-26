@@ -16,7 +16,6 @@ function BecauseSelector({ anchor, items, onPick }) {
     <RailMenu
       label={t("home.rails.becauseWatched")}
       valueLabel={anchor.title}
-      ariaLabel={t("home.rails.becauseWatched")}
       activeId={anchor.id}
       items={watched.map((m) => ({ id: m.id, label: m.title }))}
       onPick={onPick}

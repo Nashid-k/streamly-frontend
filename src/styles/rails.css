@@ -42,23 +42,22 @@ textarea:focus-visible {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
   position: relative;
-  padding: 0.2rem 0 0;
+  padding: 0.75rem 0 0;
   margin: 0;
 }
 
 /* ── Rail fade-in reveal (CSS half of FadeInSection) ───────────────────────
-   JS only adds .is-visible via IntersectionObserver; the 30px rise + fade runs
-   here as a transition, compositor-side — the previous per-rail framer
-   whileInView animated on the main thread for every rail on the page.
-   The global reduced-motion kill switch (tokens.css + this file) collapses the
-   transition, and without JS support FadeInSection renders is-visible at once,
-   so content can never be stuck hidden. */
+   JS only adds .is-visible/.in via the shared IntersectionObserver; the 24px
+   rise + fade runs here as a transition, compositor-side. Duration and curve
+   are the canonical 2.0 content tokens, not a one-off 0.42s spelling. The
+   global reduced-motion kill switch collapses the transition, and without JS
+   support FadeInSection renders visible at once, so nothing is stranded. */
 .fade-in-section {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(24px);
   transition:
-    opacity 0.42s var(--ease-tv),
-    transform 0.42s var(--ease-tv);
+    opacity var(--dur-content) var(--ease),
+    transform var(--dur-content) var(--ease);
 }
 /* No will-change while pending: a page mounts a dozen below-fold sections, and
    the hint reserved a full-width compositor layer for EACH before the user ever
@@ -74,7 +73,7 @@ textarea:focus-visible {
   padding: 1.5rem 0;
   overscroll-behavior-x: contain;
   scroll-behavior: auto;
-  contain: content;
+  contain: layout style;
 }
 /* Horizontal rails reveal as a row block via FadeInSection — disable
    individual cardEnter stagger delays so horizontal scrolling never
@@ -256,12 +255,16 @@ textarea:focus-visible {
    Proximity (Cinejoy's default via Tailwind) only settles the scroll when it
    is already near an edge. */
 .movie-rail {
+  --fl: 0px;
+  --fr: 0px;
   scroll-snap-type: x proximity;
   scroll-padding-left: var(--gutter, 24px);
   gap: 16px;
-  padding: 16px var(--gutter, 24px) 8px;
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
-  mask-image: linear-gradient(90deg, transparent 0, #000 32px, #000 calc(100% - 32px), transparent 100%);
+  padding: 22px var(--gutter, 24px) 20px;
+  /* Edge widths are driven by useRailArrows: 0px at the start/end, 16px
+     otherwise. No static 32px band on a rail that cannot scroll that way. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--fl), #000 calc(100% - var(--fr)), transparent);
 }
 @media (min-width: 1024px) {
   .movie-rail {
@@ -346,9 +349,8 @@ textarea:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: var(--cw-gap);
-  /* Top pad is hover-scale clearance: cards grow 1.07x upward and the track
-     clips vertically, so 0 here would shave the top of a hovered card. */
-  padding: 1rem var(--gutter, 24px) 0.5rem;
+  /* Top pad is hover-scale clearance so lifted cards never clip vertically. */
+  padding: 20px var(--gutter, 24px) 16px;
   overflow-x: auto;
   overflow-y: clip;
   overscroll-behavior-x: contain;
@@ -830,4 +832,88 @@ textarea:focus-visible {
   outline: 2px solid var(--focus-ring-color);
   outline-offset: 3px;
   border-radius: var(--radius-card);
+}
+
+/* ── Canonical 2.0 rail shell ─────────────────────────────────────────────
+   `.sh` is the section (FadeInSection), `.rail` the track, `.cw` a card cell,
+   `.ar.l/.ar.r` the arrows. Legacy `.movie-rail`, `.fade-in-section`,
+   `.is-visible`, `data-fade` and `.home-rails-*` selectors stay untouched.
+   These rules come last so they win over the older `.arrow` glyph styling
+   without an `!important`. */
+@keyframes railCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sh.rv {
+  transition:
+    opacity var(--dur-content) var(--ease),
+    transform var(--dur-content) var(--ease);
+}
+.sh.rv:not(.in) {
+  opacity: 0;
+  transform: translateY(24px);
+}
+/* Direct cells only: MovieCard itself already carries `.cw`, so a broad
+   descendant selector would animate the cell and its card twice. */
+.sh.in .rail > .cw {
+  animation: railCardIn var(--dur-content) var(--ease) backwards;
+  animation-delay: calc(min(var(--i), 6) * var(--stagger));
+}
+
+.sh .ar {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--glass-bg, rgba(58, 58, 62, 0.5));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
+  color: var(--text-strong, #fff);
+  opacity: 0;
+  transition:
+    opacity var(--dur-reveal) var(--ease),
+    transform var(--dur-reveal) var(--ease),
+    background var(--dur-state) var(--ease);
+}
+.sh .ar.l {
+  left: 4px;
+  transform: translate(-10px, -50%);
+}
+.sh .ar.r {
+  right: 4px;
+  transform: translate(10px, -50%);
+}
+.sh:hover .ar,
+.sh:focus-within .ar {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+.sh:hover .ar:hover {
+  transform: translateY(-50%) scale(1.04);
+}
+.sh:hover .ar:active,
+.sh:focus-within .ar:active {
+  transform: translateY(-50%) scale(0.94);
+}
+.sh.at-start .ar.l,
+.sh.at-end .ar.r {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) scale(0.94);
+}
+.sh .ar:disabled {
+  cursor: default;
+}
+@media (hover: none) {
+  .sh .ar {
+    display: none;
+  }
 }

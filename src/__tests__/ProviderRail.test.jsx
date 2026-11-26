@@ -37,7 +37,7 @@ describe("ProviderRail", () => {
   it("opens on Netflix and lists every service in the picker", async () => {
     renderWithProviders(<ProviderRail mediaType="movie" />, { route: "/" });
 
-    const trigger = await screen.findByRole("button", { name: "Netflix" });
+    const trigger = await screen.findByRole("button", { name: "Movies on Netflix" });
     expect(screen.getByText("Movies on")).toBeInTheDocument();
 
     fireEvent.click(trigger);
@@ -59,7 +59,7 @@ describe("ProviderRail", () => {
   it("shows each service's own brand mark in the picker", async () => {
     renderWithProviders(<ProviderRail mediaType="movie" />, { route: "/" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Netflix" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Movies on Netflix" }));
 
     // A list of bare names is a settings menu. The mark comes from the Browse
     // rail's provider data, so the two surfaces can never disagree.
@@ -76,8 +76,13 @@ describe("ProviderRail", () => {
     renderWithProviders(<ProviderRail mediaType="movie" />, { route: "/" });
 
     // The head must survive an empty catalogue — otherwise the only way back
-    // to another service disappears with the row.
-    const trigger = await screen.findByRole("button", { name: "Netflix" });
+    // to another service disappears with the row. The rail itself explains the
+    // blank shelf and offers a retry instead of leaving a bare dropdown.
+    const trigger = await screen.findByRole("button", { name: "Movies on Netflix" });
+    expect(
+      await screen.findByText("No movies on Netflix right now. Pick another service."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
     fireEvent.click(trigger);
     expect(screen.getAllByRole("option")).toHaveLength(6);
   });
@@ -85,7 +90,7 @@ describe("ProviderRail", () => {
   it("re-queries the chosen service without leaving the page", async () => {
     renderWithProviders(<ProviderRail mediaType="tv" />, { route: "/" });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Netflix" }));
+    fireEvent.click(await screen.findByRole("button", { name: "TV Series on Netflix" }));
     fireEvent.click(screen.getByRole("option", { name: "Hulu" }));
 
     await waitFor(() => {
@@ -93,7 +98,7 @@ describe("ProviderRail", () => {
         expect.objectContaining({ mediaType: "tv", providerId: 15 }),
       );
     });
-    expect(await screen.findByRole("button", { name: "Hulu" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "TV Series on Hulu" })).toBeInTheDocument();
     expect(screen.getByText("TV Series on")).toBeInTheDocument();
   });
 });

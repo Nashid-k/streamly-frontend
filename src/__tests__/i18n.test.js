@@ -206,10 +206,13 @@ describe("user-facing copy typography", () => {
     expect(ascii).toEqual({});
   });
 
-  it("uses a real ellipsis in the pre-bundle boot loader", () => {
+  it("replaces the old pre-bundle spinner copy with the 2.0 boot skeleton", () => {
     const html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf8');
 
     expect(html).not.toMatch(/Loading app\.\.\./);
-    expect(html).toContain('Loading app…');
+    expect(html).not.toContain('Loading app…');
+    expect(html).not.toContain('spinner-ring');
+    expect(html).toContain('id="initial-loader"');
+    expect(html).toContain('boot-sk');
   });
 });

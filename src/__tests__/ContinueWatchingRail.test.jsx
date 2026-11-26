@@ -7,9 +7,13 @@ import { join } from "node:path";
 import ContinueWatchingRail from "../components/ContinueWatchingRail";
 
 const mockRemove = vi.fn();
+const mockToggle = vi.fn(() => true);
 vi.mock("../context/auth", () => ({
   useAppAuth: () => ({
     removeFromContinueWatching: mockRemove,
+    isInList: () => false,
+    toggleMyList: mockToggle,
+    myList: [],
   }),
 }));
 
@@ -46,9 +50,11 @@ describe("ContinueWatchingRail", () => {
     // preview panel, so assert presence via getAllByText.
     expect(screen.getAllByText("Moana")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Breaking Bad")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("S2:E4")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("1hr 53m left")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("40m left")[0]).toBeInTheDocument();
+    // Canonical 2.0 cards put the episode and remaining-time strings in one
+    // `small.meta` row, so they are queried as fragments of that combined label.
+    expect(screen.getAllByText(/S2:E4/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/1hr 53m left/)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/40m left/)[0]).toBeInTheDocument();
   });
 
   it("toggles edit mode and allows removing items", () => {
@@ -86,20 +92,22 @@ describe("ContinueWatchingRail", () => {
       </MemoryRouter>
     );
 
-    expect(container.querySelector(".cw-rail")).not.toBeNull();
+    expect(container.querySelector(".sh.home-rail")).not.toBeNull();
 
-    // Card width/gap/padding live in rails.css; JS only reports which edges
-    // need a fade, so the track must not carry an inline style at all.
-    const track = container.querySelector(".cw-rail__track");
+    // Card width/gap/padding live in home.css; the hook only writes the two
+    // edge-fade custom properties for the mask, never layout geometry.
+    const track = container.querySelector(".rail");
     expect(track).not.toBeNull();
-    expect(track).toHaveAttribute("data-fade");
-    expect(track.getAttribute("style")).toBeNull();
+    expect(track).toHaveAttribute("data-detail-rail", "Continue Watching");
+    expect(track.style.width).toBe("");
+    expect(track.style.gap).toBe("");
+    expect(track.style.padding).toBe("");
 
     // The head control is a sized control class, not an ad-hoc utility box.
     expect(screen.getByRole("button", { name: /edit list/i })).toHaveClass("cw-edit-btn");
 
-    // "See all" is translated, not the old hardcoded English default.
-    expect(screen.getByText("Show all")).toBeInTheDocument();
+    // The canonical feed ends at the last card: no "Explore all" terminator.
+    expect(screen.queryByText("Show all")).toBeNull();
   });
 
   it("does not tuck the lead row under the hero", () => {

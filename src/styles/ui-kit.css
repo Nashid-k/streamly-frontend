@@ -393,15 +393,6 @@
 /* Button icon spin on hover — removed: the only `.btn-icon-spin` consumer
    never rendered, so the rules were dead (no CSS/JXS reference remained). */
 
-/* The old `.btn-spinner` border-circle and the shared `spin` keyframes are
-   gone: every button now spins the branded StreamlyLoader ring instead. */
-
-/* Loader component keyframes */
-@keyframes loader-fade-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.9); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
 /* Banner / toast linear progress animation */
 @keyframes bannerProgress {
   0% { transform: scaleX(0); }

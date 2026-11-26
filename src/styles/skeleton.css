@@ -321,16 +321,258 @@
   margin-bottom: 1rem;
 }
 
+/* ── Canonical 2.0 skeleton vocabulary (additive) ───────────────────────
+   Legacy .skeleton shimmer stays on ::after; .shimmer surfaces use ::before
+   so an element carrying both classes never runs two waves at once. */
+.sk {
+  position: relative;
+  overflow: hidden;
+  background: rgba(127, 127, 127, 0.14) !important;
+  box-shadow: none;
+}
+.sk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 80%
+  );
+  animation: shimmer-wave var(--shimmer-duration) ease-in-out infinite;
+  pointer-events: none;
+}
+.sk::after {
+  display: none;
+}
+
+/* Rails and cards: the old wrappers keep their geometry; the canonical
+   .sh/.cw/.po layer rides on the same nodes. */
+.skeleton-movie-rail.sh {
+  position: relative;
+  margin-top: 44px;
+}
+.sh.in .sk-h2 {
+  width: 180px;
+  height: 24px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+.sh.in .ar {
+  position: absolute;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+}
+.sh.in .ar.l { left: -8px; }
+.sh.in .ar.r { right: -8px; }
+.sk-ar {
+  opacity: 0 !important;
+  pointer-events: none;
+}
+.sk-cw {
+  pointer-events: none;
+}
+.sk-cw .cd {
+  display: block;
+}
+.sk-cw .po.sk {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px;
+  border-radius: 16px;
+}
+.sk-cw .sk-badge {
+  height: 22px;
+  width: 58px;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+.sk-cw .sk-pname {
+  display: none;
+  height: 22px;
+  width: 72%;
+  border-radius: 8px;
+}
+.po.wd .sk-pname,
+.cw.w .sk-pname {
+  display: block;
+  width: 52%;
+  height: 26px;
+}
+.sk-cw .sk-ctitle {
+  display: none;
+  height: 14px;
+  width: 82%;
+  border-radius: 7px;
+  margin-top: 10px;
+}
+.sk-cw .sk-cmeta {
+  display: none;
+  height: 12px;
+  width: 48%;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+.sk-cw.show-info .sk-ctitle,
+.sk-cw.show-info .sk-cmeta {
+  display: block;
+}
+.sk-cw.show-info .sk-cmeta.sk-line--w40 {
+  width: 40%;
+}
+
+/* Hero skeleton: scene-matched palette, line stagger and idle dots. */
+.hbd.sk {
+  --a: 212;
+  --b: 265;
+}
+.hero[data-sk-scene="movies"] .hbd.sk { --a: 20; --b: 350; }
+.hero[data-sk-scene="series"] .hbd.sk { --a: 265; --b: 320; }
+.hero[data-sk-scene="list"] .hbd.sk { --a: 165; --b: 210; }
+.hbd.sk[data-sk-scene="movies"] { --a: 20; --b: 350; }
+.hbd.sk[data-sk-scene="series"] { --a: 265; --b: 320; }
+.hbd.sk[data-sk-scene="list"] { --a: 165; --b: 210; }
+.hbd.sk.sk-hbd {
+  background: radial-gradient(70% 90% at 78% 22%, hsl(var(--a) 70% 46%), transparent 72%),
+    radial-gradient(80% 80% at 8% 100%, hsl(var(--b) 60% 26%), transparent 72%) !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+.hero.sk-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  animation: skhero-in var(--dur-content) var(--ease) backwards;
+}
+.hero.sk-hero .hbd.sk-hbd {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  -webkit-mask: linear-gradient(#000 55%, transparent);
+  mask: linear-gradient(#000 55%, transparent);
+}
+.hero.sk-hero .hx,
+.hero.sk-hero .dots {
+  pointer-events: none;
+}
+.hero.sk-hero .hx {
+  max-width: 600px;
+}
+.hero.sk-hero .btns {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.sk-line {
+  height: 12px;
+  border-radius: 6px;
+}
+.sk-ht {
+  height: clamp(40px, 7vw, 84px);
+  width: min(78%, 520px);
+  border-radius: 12px;
+}
+.sk-hm {
+  height: 14px;
+  width: min(62%, 380px);
+  border-radius: 7px;
+  margin-top: 14px;
+}
+.sk-hd {
+  font-size: 18px;
+  line-height: 1.5;
+  max-height: calc(3 * 1.5em);
+  overflow: hidden;
+  margin-top: 10px;
+}
+.sk-hd .sk-line {
+  width: min(88%, 520px);
+  height: 14px;
+  margin: 6px 0;
+}
+.sk-hd .sk-line.short {
+  width: min(58%, 360px);
+}
+.sk-btn {
+  height: 50px;
+  width: 124px;
+  border-radius: 999px;
+  flex: none;
+}
+.sk-btn.sm {
+  width: 104px;
+}
+.sk-dots {
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+.sk-dots button {
+  width: 40px;
+  height: 28px;
+  margin: 0 -9px;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.sk-dots button::after {
+  display: none;
+}
+.sk-dot {
+  width: 28px;
+  height: 8px;
+  border-radius: 4px;
+  flex: none;
+}
+.sk-dot.dot-idle,
+.sk-dots button:not(:first-child) .sk-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.hero.sk-hero .hx > * {
+  animation: skline-in var(--dur-content) var(--ease) both;
+}
+.hero.sk-hero .hx > :nth-child(2) { animation-delay: var(--stagger); }
+.hero.sk-hero .hx > :nth-child(3) { animation-delay: calc(var(--stagger)*2); }
+.hero.sk-hero .hx > :nth-child(4) { animation-delay: calc(var(--stagger)*3); }
+.hero.sk-hero .dots {
+  animation: skline-in var(--dur-content) var(--ease) calc(var(--stagger)*3) both;
+}
+@keyframes skhero-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes skline-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Skeleton shimmer + entry animations are decorative — freeze them for
    reduced motion (OS or the in-app preference); the static gradient stays. */
 @media (prefers-reduced-motion: reduce) {
   .skeleton::after,
-  .skeleton-card {
+  .skeleton-card,
+  .sk::before,
+  .hero.sk-hero,
+  .hero.sk-hero .hx > *,
+  .hero.sk-hero .dots {
     animation: none;
   }
 }
 html[data-reduce-motion="true"] .skeleton::after,
-html[data-reduce-motion="true"] .skeleton-card {
+html[data-reduce-motion="true"] .skeleton-card,
+html[data-reduce-motion="true"] .sk::before,
+html[data-reduce-motion="true"] .hero.sk-hero,
+html[data-reduce-motion="true"] .hero.sk-hero .hx > *,
+html[data-reduce-motion="true"] .hero.sk-hero .dots {
   animation: none;
 }
 

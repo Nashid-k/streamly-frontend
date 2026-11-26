@@ -1,46 +1,20 @@
 import React from "react";
-import { Link } from "react-router-dom";
+
 import ErrorBoundary from "../ErrorBoundary";
 import ContinueWatchingRail from "../ContinueWatchingRail";
-import SkeletonRail from "../SkeletonRail";
-import FadeInSection from "./FadeInSection";
+import HomeSkeletonRail from "../home/HomeSkeletonRail";
 import MovieRail from "./MovieRail";
 import BecauseSelector from "./BecauseSelector";
 import ProviderRail from "./ProviderRail";
 import BrowseByProviderRail from "./BrowseByProviderRail";
 import RotatingRails from "./RotatingRails";
 import { useAppAuth } from "../../context/auth";
+import { BROWSE_PROVIDERS } from "../../data/homeRailDomains";
 import { useI18n } from "../../i18n/index.jsx";
 
-/* Everything BELOW the hero, in the home feed's fixed order:
-   1. Continue Watching (personal, only when there is history)
-   2. Movies on <provider>     — dropdown: Netflix / Hulu / Disney+ / Prime
-   3. TV Series on <provider>    Video / Max / Apple TV+
-   4. Because you watched (personal, needs history)
-   5. My List (personal, needs saved titles)
-   6. Trending Movies
-   7. Trending Series
-   8. Ten rotating domain rails — a date-seeded pick, so the tail of the page is
-      different tomorrow without ever re-ordering while you browse
-   9. "Explore all" terminator
-
-   i.e. the viewer's own stuff (resume, services they subscribe to, their
-   history, their saves) comes first; the catalogue's start-from-scratch rails —
-   trending, then the rotating tail — follow it.
-
-   There is no Top 10 row, no genre showcase and no static "Top Rated" row any
-   more: the rank row was removed site-wide, and the rotating recipes cover the
-   fixed rows' ground (including a best-rated rail) without repeating the same
-   three rows every visit.
-
-   It is memoised on purpose — the hero owns its rotation and hover state back
-   in HomePage, and every tick of that state used to re-render this whole
-   subtree (a dozen rails × a row of cards each) on the main thread every 10
-   seconds and on every banner hover. All inputs are useMemo'd query results /
-   primitives upstream, so a hero tick now stops at this boundary; real changes
-   (language, list edits, fresh query data) still flow through and re-render it
-   normally. `continueWatching`/`myList` come straight from context here —
-   identity only changes when the data does. */
+/* Everything below the hero, in the feed's fixed order. The entire surface is
+   built from the canonical `.sh/.rail/.cw` vocabulary — no legacy wrappers,
+   curtain metadata or row headers survive on this route. */
 const HomeRails = React.memo(function HomeRails({
   loading,
   filter,
@@ -50,55 +24,128 @@ const HomeRails = React.memo(function HomeRails({
   becauseAnchor,
   onBecauseAnchorChange,
   recommendations,
+  recommendationsLoading = false,
 }) {
   const { t } = useI18n();
   const { continueWatching, myList } = useAppAuth();
 
   const showMovies = filter !== "series" && filter !== "tv shows";
   const showSeries = filter !== "movies";
+  const hasContinue = Array.isArray(continueWatching) && continueWatching.length > 0;
+  const hasMyList = Array.isArray(myList) && myList.length > 0 && filter === "all";
+  const hasBecause = Boolean(becauseAnchor);
+
+  const skeletonRows = [];
+  if (hasContinue) {
+    skeletonRows.push({
+      key: "continue",
+      cards: Math.min(continueWatching.length, 8),
+      label: t("home.rails.continueWatching"),
+      scene: "continue",
+    });
+  }
+  skeletonRows.push({
+    key: "provider-browse",
+    cards: BROWSE_PROVIDERS.length,
+    label: "Browse by Provider",
+    scene: "provider",
+  });
+  if (hasBecause) {
+    skeletonRows.push({
+      key: "because",
+      cards: 8,
+      label: t("home.rails.becauseWatched"),
+      scene: "because",
+      headVariant: "menu",
+    });
+  }
+  if (showMovies) {
+    skeletonRows.push({
+      key: "trending-movies",
+      cards: 8,
+      label: t("home.rails.trendingMovies"),
+      scene: "trending-movies",
+    });
+  }
+  if (showSeries) {
+    skeletonRows.push({
+      key: "trending-series",
+      cards: 8,
+      label: t("home.rails.trendingSeries"),
+      scene: "trending-series",
+    });
+  }
+  if (showMovies) {
+    skeletonRows.push({
+      key: "provider-movie",
+      cards: 8,
+      label: t("home.rails.providerMovies", { name: "" }).trim(),
+      scene: "provider-rail",
+      headVariant: "menu",
+    });
+  }
+  if (showSeries) {
+    skeletonRows.push({
+      key: "provider-tv",
+      cards: 8,
+      label: t("home.rails.providerShows", { name: "" }).trim(),
+      scene: "provider-rail",
+      headVariant: "menu",
+    });
+  }
+  if (hasMyList) {
+    skeletonRows.push({
+      key: "my-list",
+      cards: Math.min(myList.length, 8),
+      label: t("home.rails.myList"),
+      scene: "my-list",
+    });
+  }
+
+  let rowIdx = 0;
+  const nextRowIndex = () => rowIdx++;
 
   return (
     <section ref={railsSentinelRef} className="home-rails-section">
-      {/* Continue Watching — resume-first, above the catalogue rows. Marked as
-          the lead row so rails.css does NOT pull it under the hero with the
-          catalogue rows' negative tuck: it owns its own top spacing. */}
-      {!loading && continueWatching && continueWatching.length > 0 && (
-        <FadeInSection className="home-rails-lead">
-          <ErrorBoundary>
-            <ContinueWatchingRail items={continueWatching} />
-          </ErrorBoundary>
-        </FadeInSection>
-      )}
-
-      {/* Browse by Provider rail — 17 streaming services with logos */}
-      {!loading && (
-        <FadeInSection>
-          <ErrorBoundary>
-            <BrowseByProviderRail />
-          </ErrorBoundary>
-        </FadeInSection>
-      )}
-
       {loading ? (
         <div className="home-rails-skeleton" aria-label="Loading home recommendations">
-          {continueWatching?.length > 0 && (
-            <SkeletonRail variant="continue" cards={5} />
-          )}
-          <SkeletonRail variant="provider" cards={8} />
-          <SkeletonRail headerType="selector" cards={8} />
-          <SkeletonRail headerType="selector" cards={8} />
-          <SkeletonRail headerType="selector" cards={8} />
-          <SkeletonRail cards={8} />
-          <SkeletonRail cards={8} />
-          <SkeletonRail cards={8} />
+          {skeletonRows.map((row, index) => (
+            <HomeSkeletonRail
+              key={row.key}
+              cards={row.cards}
+              label={row.label}
+              scene={row.scene}
+              headVariant={row.headVariant}
+              rowIndex={index}
+            />
+          ))}
         </div>
       ) : (
         <>
-          {/* 1. Because you watched — personalized ranker, anchor picker head */}
-          {becauseAnchor && recommendations?.length > 0 && (
-            <FadeInSection>
+          {hasContinue && (
+            <ErrorBoundary>
+              <ContinueWatchingRail items={continueWatching} rowIndex={nextRowIndex()} />
+            </ErrorBoundary>
+          )}
+
+          <ErrorBoundary>
+            <BrowseByProviderRail rowIndex={nextRowIndex()} />
+          </ErrorBoundary>
+
+          {hasBecause && recommendationsLoading && recommendations.length === 0 ? (
+            <HomeSkeletonRail
+              cards={8}
+              headVariant="menu"
+              label={t("home.rails.becauseWatched")}
+              scene="because"
+              rowIndex={nextRowIndex()}
+            />
+          ) : (
+            hasBecause &&
+            recommendations?.length > 0 && (
               <ErrorBoundary>
                 <MovieRail
+                  rowIndex={nextRowIndex()}
                   category={{
                     name: t("home.rails.becauseWatched"),
                     movies: recommendations,
@@ -113,73 +160,54 @@ const HomeRails = React.memo(function HomeRails({
                   }
                 />
               </ErrorBoundary>
-            </FadeInSection>
+            )
           )}
 
-          {/* 2. Trending Movies */}
-          {showMovies && trendingMovies.length > 0 && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <MovieRail
-                  category={{
-                    name: t("home.rails.trendingMovies"),
-                    movies: trendingMovies,
-                  }}
-                />
-              </ErrorBoundary>
-            </FadeInSection>
+          {showMovies && trendingMovies?.length > 0 && (
+            <ErrorBoundary>
+              <MovieRail
+                rowIndex={nextRowIndex()}
+                category={{
+                  name: t("home.rails.trendingMovies"),
+                  movies: trendingMovies,
+                }}
+              />
+            </ErrorBoundary>
           )}
 
-          {/* 3. Trending Series */}
-          {showSeries && trendingSeries.length > 0 && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <MovieRail
-                  category={{
-                    name: t("home.rails.trendingSeries"),
-                    movies: trendingSeries,
-                  }}
-                />
-              </ErrorBoundary>
-            </FadeInSection>
+          {showSeries && trendingSeries?.length > 0 && (
+            <ErrorBoundary>
+              <MovieRail
+                rowIndex={nextRowIndex()}
+                category={{
+                  name: t("home.rails.trendingSeries"),
+                  movies: trendingSeries,
+                }}
+              />
+            </ErrorBoundary>
           )}
 
-          {/* 4–5. Provider rails — each head is a service dropdown */}
           {showMovies && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <ProviderRail mediaType="movie" />
-              </ErrorBoundary>
-            </FadeInSection>
+            <ErrorBoundary>
+              <ProviderRail mediaType="movie" rowIndex={nextRowIndex()} />
+            </ErrorBoundary>
           )}
           {showSeries && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <ProviderRail mediaType="tv" />
-              </ErrorBoundary>
-            </FadeInSection>
+            <ErrorBoundary>
+              <ProviderRail mediaType="tv" rowIndex={nextRowIndex()} />
+            </ErrorBoundary>
           )}
 
-          {/* 6. My List */}
-          {myList && myList.length > 0 && filter === "all" && (
-            <FadeInSection>
-              <ErrorBoundary>
-                <MovieRail
-                  category={{ name: t("home.rails.myList"), movies: myList }}
-                />
-              </ErrorBoundary>
-            </FadeInSection>
+          {hasMyList && (
+            <ErrorBoundary>
+              <MovieRail
+                rowIndex={nextRowIndex()}
+                category={{ name: t("home.rails.myList"), movies: myList }}
+              />
+            </ErrorBoundary>
           )}
 
-          {/* 7. Ten rotating domain rails (date-seeded) */}
           <RotatingRails filter={filter} />
-
-          {/* 8. Explore all — terminates the feed instead of growing forever */}
-          <div className="home-explore-all">
-            <Link to="/movies" className="home-explore-all__link">
-              Explore all
-            </Link>
-          </div>
         </>
       )}
     </section>

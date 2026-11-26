@@ -5,7 +5,6 @@ import { X, Star, RefreshCw } from "lucide-react";
 import { movieService } from "../api/movieService";
 import { getScoreColor } from "../utils/ratings";
 import useDialogA11y from "../hooks/useDialogA11y";
-import { StreamlyLoader } from "./StreamlyLoader";
 
 const RATING_LEGEND = [
   { label: "8.5+", color: "#22c55e" },
@@ -156,9 +155,39 @@ const RatingsTable = ({ movie, seasons = [], onClose }) => {
         <div className="max-h-[58vh] overflow-y-auto">
           <div className="overflow-x-auto scrollbar-hide px-5 pb-5 pt-3">
             {rows.maxEp === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-10 text-white/45">
-                <StreamlyLoader size={20} label="" />
-                <span className="text-sm">Loading ratings…</span>
+              <div
+                className="inline-grid"
+                role="status"
+                aria-label="Loading episode ratings"
+                style={{
+                  gridTemplateColumns: "52px repeat(10, 44px)",
+                  gap: 4,
+                }}
+              >
+                <div className="flex items-end justify-end pb-1 text-xs font-bold uppercase text-white/30">
+                  S\E
+                </div>
+                {Array.from({ length: 10 }, (_, i) => (
+                  <div
+                    key={`skh-${i}`}
+                    className="skeleton rounded-[4px] mx-auto mb-1"
+                    style={{ width: 18, height: 12 }}
+                  />
+                ))}
+                {Array.from({ length: 4 }, (_, r) => (
+                  <React.Fragment key={`skr-${r}`}>
+                    <div className="flex items-center justify-end pr-2">
+                      <div className="skeleton rounded-[4px]" style={{ width: 22, height: 14 }} />
+                    </div>
+                    {Array.from({ length: 10 }, (_, c) => (
+                      <div
+                        key={`skc-${r}-${c}`}
+                        className="skeleton rounded-[5px]"
+                        style={{ height: cellSize }}
+                      />
+                    ))}
+                  </React.Fragment>
+                ))}
               </div>
             ) : (
               <div

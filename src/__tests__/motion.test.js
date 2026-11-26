@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe } from "../constants/motion";
+import { SPRING, DURATION, EASE_OUT, EASE_IN, HUD_POP, PILL_IN, FADE, MODAL_PANEL, PRESS_SCALE, motionSafe, DURATION_2, EASE_2 } from "../constants/motion";
 import { ROUTE_VARIANTS } from "../constants/routeMotion";
 import { RIVO_MOTION } from "../components/player/chrome/theme";
 import { getRailScrollBehavior } from "../components/rails/MovieRail";
@@ -92,6 +92,172 @@ describe("motion tokens", () => {
     expect(player).toMatch(/--zxc-ease:\s*cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/);
     // tokens.css `--ease-tv` is RIVO's own curve, not Tailwind's default.
     expect(tokens).toMatch(/--ease-tv:\s*cubic-bezier\(0\.2, 0\.8, 0\.2, 1\)/);
+  });
+
+  describe("canonical streamly_2.0 vocabulary", () => {
+    const tokens = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
+    const cssMs = (name) => Number(tokens.match(new RegExp(`${name}:\\s*([\\d.]+)ms`))?.[1]);
+    const cssEase = (name) =>
+      tokens
+        .match(new RegExp(`${name}:\\s*([^;]+);`))?.[1]
+        ?.replace(/\s+/g, "")
+        .replace(/(^|[,(])\./g, "$10.");
+
+    it("publishes the exact 2.0 duration scale in CSS and JS", () => {
+      expect(cssMs("--dur-1")).toBe(220);
+      expect(cssMs("--dur-2")).toBe(300);
+      expect(cssMs("--dur-3")).toBe(400);
+      expect(cssMs("--dur-4")).toBe(640);
+      expect(cssMs("--dur-view")).toBe(620);
+      expect(cssMs("--dur-poster")).toBe(780);
+      expect(cssMs("--dur-nav")).toBe(520);
+      expect(cssMs("--stagger")).toBe(55);
+      expect(DURATION_2).toMatchObject({ STATE: 0.22, TAP: 0.3, REVEAL: 0.4, CONTENT: 0.64, VIEW: 0.62, POSTER: 0.78, NAV: 0.52 });
+    });
+
+    it("keeps the three exact 2.0 easing curves", () => {
+      expect(cssEase("--ease-in-out")).toBe("cubic-bezier(0.4,0,0.2,1)");
+      expect(cssEase("--sp")).toBe("cubic-bezier(0.34,1.25,0.64,1)");
+      expect(cssEase("--ease")).toBe("cubic-bezier(0.22,1,0.36,1)");
+      expect(EASE_2.IN_OUT).toEqual([0.4, 0, 0.2, 1]);
+      expect(EASE_2.UI).toEqual([0.22, 1, 0.36, 1]);
+      expect(EASE_2.SPRING).toEqual([0.34, 1.25, 0.64, 1]);
+    });
+
+    it("derives shimmer, hero rotation and detail dwell from the scale", () => {
+      expect(tokens).toMatch(/--shimmer-duration:\s*1\.8s/);
+      expect(tokens).toMatch(/--hero-rotate-duration:\s*9s/);
+      expect(cssMs("--detail-b-duration")).toBe(640 + 55 * 6 + 120);
+    });
+
+    const src = (path) => readFileSync(join(process.cwd(), "src", ...path.split("/")), "utf8");
+    const home = src("pages/HomePage.jsx");
+    const browse = src("components/browse/BrowseBanner.jsx");
+    const heroCss = src("styles/hero.css");
+    // Home owns a scoped 2.0 layer; the legacy hero/grids files still serve
+    // browse and detail, so the home contract reads home.css instead.
+    const homeCss = src("styles/home.css");
+    const card = src("components/home/HomeCard.jsx");
+    const rail = src("components/home/HomeRail.jsx");
+    const providerBrowse = src("components/rails/BrowseByProviderRail.jsx");
+    const railArrow = rail;
+    const railHook = src("hooks/useRailArrows.js");
+    const railsCss = src("styles/rails.css");
+    const skeletonCard = src("components/home/HomeSkeletonRail.jsx");
+    const skeletonRail = skeletonCard;
+    const skeletonCss = src("styles/skeleton.css");
+
+    it("renders the canonical five-title hero with a 9s re-armable dwell", () => {
+      expect(home).toMatch(/const HERO_LIMIT = 5;/);
+      expect(home).toMatch(/const HERO_DWELL_MS = 9000;/);
+      expect(home).toContain("return pool.slice(0, HERO_LIMIT);");
+      expect(home).toMatch(/hero:\$\{heroScope\}:\$\{heroIndex\}:\$\{activeFeaturedMovie\.id\}/);
+      expect(home).toContain('className="hbd"');
+      expect(home).toContain('className="hx"');
+      expect(home).toContain('className="dots glass hero-dots"');
+      expect(home).toContain('aria-controls="hero-desc"');
+      expect(home).toContain("new window.Image()");
+      expect(browse).toMatch(/const BROWSE_DWELL_MS = 9000;/);
+      expect(browse).toContain('className="hbd"');
+      expect(browse).toContain('className="dots glass hero-dots hero-dots--apple hero-nav"');
+
+      expect(heroCss).toMatch(/\.hero\.sw \.hbd,\s*\.hero\.sw \.hx\s*\{[^}]*opacity:\s*0/);
+      expect(heroCss).toContain("animation: hbdKenBurns var(--hero-ken-burns-duration, 32s)");
+      expect(heroCss).toContain("max-height: calc(3 * 1.5em)");
+      expect(heroCss).toContain("max-height: var(--hdmax, 60em)");
+      expect(heroCss).toContain("animation: dotlive 9s linear forwards");
+      expect(heroCss).toContain("height: min(84vh, 760px) !important");
+      expect(heroCss).toMatch(
+        /@media \(max-width: 900px\)\s*\{\s*\.dots\.glass\.hero-dots\s*\{\s*display: flex !important;/,
+      );
+      expect(heroCss).toContain("width: 140px !important");
+
+      expect(homeCss).toMatch(/\.home-page > \.hero\.sw \.hbd,\s*\.home-page > \.hero\.sw \.hx\s*\{[^}]*opacity:\s*0/);
+      expect(homeCss).toContain("animation: homeHeroKenBurns var(--hero-ken-burns-duration, 32s) ease-in-out infinite alternate;");
+      expect(homeCss).toContain("max-height: calc(3 * 1.5em)");
+      expect(homeCss).toContain("max-height: var(--hdmax, 60em)");
+      expect(homeCss).toContain("animation: homeDotProgress var(--hero-rotate-duration, 9s) linear forwards;");
+      expect(homeCss).toContain("min-height: min(84vh, 760px) !important;");
+      expect(homeCss).toMatch(
+        /@media \(max-width: 820px\)\s*\{\s*\.home-page > \.hero\s*\{[^}]*display: block;/,
+      );
+      expect(homeCss).toMatch(
+        /\.home-page > \.hero \.dots\.glass button\[aria-current="true"\]::after\s*\{[^}]*width: 28px;/,
+      );
+    });
+
+    it("uses canonical card overlays with capped tilt and delayed play affordance", () => {
+      expect(card).toContain('className="cw home-card"');
+      expect(card).toContain('className="po"');
+      expect(card).toContain('className="qp glass"');
+      expect(card).toContain('className={`qa${bump ? " bump" : ""}`}');
+      expect(card).not.toContain("qa glass");
+      expect(homeCss).toMatch(/\.home-rails-section \.qa\s*\{[^}]*background:\s*transparent;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.qa\s*\{[^}]*border:\s*0;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.qa\s*\{[^}]*border-radius:\s*50%;/);
+      expect(card).toContain("${((0.5 - y) * 7).toFixed(2)}deg");
+      expect(card).toContain("${((x - 0.5) * 7).toFixed(2)}deg");
+      expect(card).toMatch(/setTimeout\(\(\) => \{[\s\S]{0,160}?classList\.add\("play-ready"\)[\s\S]{0,40}?\}, 320\)/);
+      expect(card).toContain("data-detail-source={movie.id}");
+      expect(card).toContain("data-detail-token={detailToken}");
+      expect(card).not.toContain("showBelowMeta");
+      expect(card).not.toContain("displayBelowMeta");
+      expect(card).not.toContain('className="po-skeleton');
+      expect(card).not.toContain('className="po-fallback');
+      expect(card).not.toContain('className="po-tags');
+      expect(card).not.toContain("<CountdownBadge");
+      expect(card).toContain('data-initial={(movie.title || "?").trim().charAt(0).toUpperCase()}');
+      expect(card).toContain('<span className="po-progress" aria-hidden="true" />');
+
+      expect(homeCss).toContain("aspect-ratio: 2 / 3;");
+      expect(homeCss).toContain("border-radius: 16px;");
+      expect(homeCss).toContain("--s: 1.04;");
+      expect(homeCss).toContain("--ty: -3px;");
+      expect(homeCss).toContain("@media (hover: none)");
+      expect(homeCss).toMatch(/\.home-rails-section \.cd > span\s*\{[^}]*font-size: 14px;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.cd > small\s*\{[^}]*font-size: 13px;/);
+    });
+
+    it("drives rail edge fades and six-card stagger from the canonical shell", () => {
+      expect(rail).toContain('className="rail"');
+      expect(card).toContain('className="cw home-card" style={{ "--i": Math.min(index, 5) }}');
+      expect(railArrow).toContain('className="ar l glass"');
+      expect(railArrow).toContain('className="ar r glass"');
+      expect(railHook).toContain("syncEdges");
+      expect(railHook).toContain('section.classList.toggle("at-start", atStart)');
+      expect(railHook).toContain('section.classList.toggle("at-end", atEnd)');
+      expect(railsCss).toContain("calc(min(var(--i), 6) * var(--stagger))");
+      expect(railsCss).toContain("--fl: 0px;");
+      expect(railsCss).toContain("mask-image: linear-gradient(90deg, transparent, #000 var(--fl)");
+      expect(railsCss).toContain(".sh.at-start .ar.l");
+
+      expect(providerBrowse).toContain('className="provider-icon-grid"');
+      expect(providerBrowse).toContain('className="provider-icon"');
+      expect(providerBrowse).toContain('data-initial={provider.name.charAt(0)}');
+      expect(providerBrowse).toContain('style={{ "--i": Math.min(index, 6) }}');
+      expect(providerBrowse).not.toContain("<li");
+      expect(providerBrowse).not.toContain('provider-icon__art');
+      expect(homeCss).toMatch(/\.home-rails-section \.provider-icon\s*\{[^}]*animation-name: homeProviderIconIn/);
+      expect(homeCss).toContain("@keyframes homeProviderIconIn");
+      expect(homeCss).toMatch(/\.home-rails-section \.provider-icon\s*\{[^}]*border-radius: 14px;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.provider-icon img\s*\{[^}]*object-fit: cover;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.rail-menu__menu\s*\{[^}]*animation-name: homeRailMenuIn/);
+    });
+
+    it("paints scene-coloured skeletons with the canonical card/rail shape", () => {
+      expect(skeletonCard).toContain('className="cw sk-cw"');
+      expect(skeletonCard).toContain('className="cd"');
+      expect(skeletonCard).toContain('className="po sk"');
+      expect(skeletonRail).toContain('className="sh in home-rail home-rail--skeleton"');
+      expect(skeletonCss).toContain("animation: shimmer-wave var(--shimmer-duration) ease-in-out infinite");
+      expect(skeletonCss).toMatch(/\.hbd\.sk\s*\{\s*--a: 212;\s*--b: 265;/);
+      expect(skeletonCss).toMatch(/\.hero\[data-sk-scene="movies"\] \.hbd\.sk\s*\{\s*--a: 20;\s*--b: 350;/);
+      expect(skeletonCss).toMatch(/\.hero\[data-sk-scene="series"\] \.hbd\.sk\s*\{\s*--a: 265;\s*--b: 320;/);
+      expect(skeletonCss).toMatch(/\.hero\[data-sk-scene="list"\] \.hbd\.sk\s*\{\s*--a: 165;\s*--b: 210;/);
+      expect(skeletonCss).toContain("animation: skhero-in var(--dur-content) var(--ease) backwards");
+      expect(homeCss).toMatch(/\.home-rails-section \.sk-cw \.sk-ctitle\s*\{[^}]*display: block;/);
+      expect(homeCss).toMatch(/\.home-rails-section \.sk-cw \.sk-cmeta\s*\{[^}]*display: block;/);
+    });
   });
 
   describe("shared enter/exit shapes", () => {
@@ -384,7 +550,7 @@ describe("the whole app speaks one easing curve", () => {
         if (/0\.00?1?ms/.test(value)) continue;
         for (const segment of splitTopLevel(value)) {
           const hasTime = /[\d.]+m?s\b|var\(--duration|var\(--anim-hover-time\)/.test(segment);
-          const hasCurve = /ease|cubic-bezier|linear|steps\(/.test(segment);
+          const hasCurve = /ease|cubic-bezier|linear|steps\(|var\(--sp\)/.test(segment);
           if (hasTime && !hasCurve) {
             offenders.push(`${name}:${line} ${segment.replace(/\s+/g, " ").trim()}`);
           }
@@ -765,137 +931,143 @@ describe("route planes arrive as one clean fade", () => {
   });
 });
 
-describe("navigation moves one pill, never the dock", () => {
-  /* The desktop dock is right-docked, so an active-state width change is a
-     reflow of the whole island: 23px of nav shift used to land before the
-     pill had moved a single pixel. The ink also crossfaded for 0.3s, leaving
-     the outgoing label black-on-glass and the incoming label white-on-white
-     mid-flight. The current contract (2026-11-11, "keep only texts on non
-     active navs and text+icon on active ones — the nav is too lengthy"):
-     (a) inactive tabs are TEXT ONLY and the icon mounts beside the label on
-     the active one, (b) measurePill measures synchronously in the same commit
-     the class flips, so the geometry change and the glide land together,
-     (c) the ink is a blend against the pill, not a timed colour change. */
+describe("2.0 shell: one bottom pill and one expanding search", () => {
   const headerCss = readFileSync(join(process.cwd(), "src", "styles", "header.css"), "utf8");
   const responsiveCss = readFileSync(join(process.cwd(), "src", "styles", "responsive.css"), "utf8");
+  const searchCss = readFileSync(join(process.cwd(), "src", "styles", "search.css"), "utf8");
+  const discoveryCss = readFileSync(join(process.cwd(), "src", "styles", "discovery.css"), "utf8");
+  const motionThemesCss = readFileSync(join(process.cwd(), "src", "styles", "motion-themes.css"), "utf8");
   const tokensCss = readFileSync(join(process.cwd(), "src", "styles", "tokens.css"), "utf8");
   const headerJsx = readFileSync(join(process.cwd(), "src", "app", "Header.jsx"), "utf8");
   const mobileJsx = readFileSync(join(process.cwd(), "src", "app", "MobileBottomNav.jsx"), "utf8");
+  const searchPageJsx = readFileSync(join(process.cwd(), "src", "pages", "SearchPage.jsx"), "utf8");
+  const layoutJsx = readFileSync(join(process.cwd(), "src", "app", "Layout.jsx"), "utf8");
 
   function block(css, selector) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return css.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] || "";
   }
 
-  it("keeps the dock short: text-only tabs, the icon joins the active one", () => {
-    const tab = block(headerCss, ".nav-link");
-    expect(tab).toMatch(/font-weight: 600/);
-    // No uniform slot: tabs size to their label, so the dock is as short as
-    // the text allows (--nav-item-w is gone from tokens.css).
-    expect(tab).not.toMatch(/min-width:/);
-    expect(tokensCss).not.toMatch(/--nav-item-w:/);
-    // The icon renders beside the label on the ACTIVE tab only — the 2026-11-11
-    // text-only contract. display:none lifts it out of flex flow on inactive
-    // tabs, leaving no phantom gap for measurePill to mis-measure.
-    expect(headerCss).toMatch(/\.nav-link \.nav-link-icon\s*\{[^}]*display:\s*none/);
-    expect(headerCss).toMatch(/\.nav-link--active \.nav-link-icon\s*\{[^}]*display:\s*inline-block/);
-    // The ≤880px compact strip is icon-only, so every tab re-shows its icon
-    // there — otherwise non-active tabs would render empty.
-    const compact = headerCss.match(/@media \(max-width:\s*880px\)\s*\{([\s\S]*?)\n\}/)?.[1] || "";
-    expect(compact).toMatch(/\.nav-link \.nav-link-icon\s*\{[^}]*display:\s*inline-block/);
-    // The old icon-only reveal (label display:none on inactive tabs) must stay
-    // gone on desktop — the label is always the accessible name there.
-    expect(headerCss).not.toMatch(
-      /\.nav-link:not\(\.nav-link--active\) \.nav-link-label\s*\{[^}]*display:\s*none/,
+  it("renders the frozen four-item pill at every width with one shared pill", () => {
+    expect(mobileJsx).toMatch(/id="tb"/);
+    expect(mobileJsx).toMatch(/className=\{`tb glass mobile-bottom-nav/);
+    expect(mobileJsx).toMatch(/NAV_ITEMS\.map/);
+    expect(mobileJsx).toMatch(/data-v=\{item\.id\}/);
+    expect(mobileJsx).toMatch(/aria-current=\{active \? "page"/);
+    expect(mobileJsx).toMatch(/<span id="pill" aria-hidden="true" \/>/);
+    expect(mobileJsx).not.toMatch(/Search|Settings|useOptionalNotifications/);
+    expect(responsiveCss).not.toMatch(/\.mobile-bottom-nav\s*\{[^}]*display:\s*none/);
+    expect(searchCss).not.toMatch(/\.mobile-bottom-nav\s*\{[^}]*display:\s*none/);
+    expect(discoveryCss).not.toMatch(/\.mobile-bottom-nav[^}]*scale:/);
+  });
+
+  it("uses the canonical pill geometry, timing and navwave/sheen choreography", () => {
+    const nav = block(headerCss, ".tb");
+    expect(nav).toMatch(/bottom:\s*18px/);
+    expect(nav).toMatch(/margin-bottom:\s*env\(safe-area-inset-bottom/);
+    expect(nav).toMatch(/gap:\s*4px/);
+    expect(nav).toMatch(/padding:\s*5px/);
+    expect(nav).toMatch(/border-radius:\s*22px/);
+
+    const link = block(headerCss, ".tb a");
+    expect(link).toMatch(/min-width:\s*clamp\(62px, 7vw, 86px\)/);
+    expect(link).toMatch(/min-height:\s*42px/);
+    expect(link).toMatch(/border-radius:\s*18px/);
+    expect(link).toMatch(/font-size:\s*11px/);
+    expect(block(headerCss, ".tb a[aria-current=\"page\"]")).toMatch(/color:\s*var\(--ui-tint\)/);
+
+    const pill = block(headerCss, "#pill");
+    expect(pill).toMatch(/top:\s*5px/);
+    expect(pill).toMatch(/bottom:\s*5px/);
+    expect(pill).toMatch(/transform:\s*translateX\(var\(--pill-x/);
+    expect(pill).toMatch(/width:\s*var\(--pill-w/);
+    expect(pill).toMatch(/transform var\(--dur-nav\) var\(--sp\)/);
+    expect(pill).toMatch(/width var\(--dur-nav\) var\(--sp\)/);
+    expect(block(headerCss, ".tb.go #pill::after")).toMatch(
+      /animation:\s*pillsheen var\(--dur-nav\) var\(--ease\)/,
     );
-    // Weight stays frozen across states: the pill never reflows from the ink.
-    expect(block(headerCss, ".nav-link--active")).not.toMatch(/font-weight:/);
-    expect(block(headerCss, ".nav-link--active")).not.toMatch(/padding:|gap:/);
-    expect(block(headerCss, ".nav-link--home")).not.toMatch(/font-weight:/);
-    // The visible ⌘K / Ctrl K hint is gone (2026-11-11 user order): search is
-    // a plain icon button again. The Ctrl+K handler itself stays in Header.jsx.
-    expect(headerCss).not.toMatch(/nav-search-hint/);
+    expect(block(headerCss, ".tb.back #pill::after")).toMatch(
+      /animation:\s*pillsheen-back var\(--dur-nav\) var\(--ease\)/,
+    );
+    expect(block(headerCss, ".tb a.wave")).toMatch(
+      /animation:\s*navwave var\(--dur-nav\) var\(--sp\)/,
+    );
+    expect(headerCss).toMatch(/@keyframes navwave[\s\S]*?translateY\(-3px\) scale\(1\.05\)/);
+    expect(block(headerCss, ".tb.sc a")).toMatch(/min-height:\s*36px/);
+
+    expect(mobileJsx).toMatch(/DURATION_2\.NAV/);
+    expect(mobileJsx).toMatch(/--pill-x/);
+    expect(mobileJsx).toMatch(/--pill-w/);
+    expect(mobileJsx).toMatch(/active\.offsetLeft/);
+    expect(mobileJsx).toMatch(/active\.offsetWidth/);
+    expect(mobileJsx).not.toMatch(/activeRect\.width/);
+    expect(mobileJsx).toMatch(/runNavWave/);
+    expect(mobileJsx).toMatch(/useLayoutEffect/);
+    expect(mobileJsx).toMatch(/data-pill-moving/);
+    expect(mobileJsx).toMatch(/prefReduceMotion/);
+    expect(headerCss).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.tb a\.wave/);
+  });
+
+  it("expands the top-right search with the canonical glass and a 250ms debounce", () => {
+    const search = block(headerCss, ".sq.glass");
+    expect(search).toMatch(/position:\s*fixed/);
+    expect(search).toMatch(/top:\s*14px/);
+    expect(search).toMatch(/margin-top:\s*env\(safe-area-inset-top/);
+    expect(search).toMatch(/right:\s*clamp\(14px, 3vw, 40px\)/);
+    expect(search).toMatch(/width:\s*44px/);
+    expect(search).toMatch(/height:\s*44px/);
+    expect(search).toMatch(/width var\(--dur-3\) var\(--ease\)/);
+    expect(search).toMatch(/backdrop-filter:\s*blur\(28px\) saturate\(190%\)/);
+    expect(headerCss).toMatch(
+      /\.sq\.glass:focus-within,\s*\.sq\.glass\.has\s*\{[^}]*width:\s*min\(280px, calc\(100vw - 28px\)\)/,
+    );
+    expect(headerCss).toMatch(/\.sq\.glass\.loading::after/);
+    expect(headerCss).toMatch(/conic-gradient\(var\(--ui-label-2\)/);
+
+    expect(headerJsx).toMatch(/const SEARCH_DEBOUNCE_MS = 250/);
+    expect(headerJsx).toMatch(/className=\{`sq glass shell-search/);
+    expect(headerJsx).toMatch(/shellDebounceRef\.current = window\.setTimeout/);
+    expect(headerJsx).toMatch(/source: "shell"/);
+    expect(headerJsx).toMatch(/streamly:search-focus/);
+    expect(headerJsx).toMatch(/metaKey \|\| event\.ctrlKey/);
     expect(headerJsx).not.toMatch(/<kbd/);
-    expect(headerJsx).not.toMatch(/SEARCH_HINT/);
-    expect(headerJsx).toMatch(/metaKey \|\| e\.ctrlKey/);
+
+    expect(searchPageJsx).toMatch(/\}, 250\);/);
+    expect(searchPageJsx).toMatch(/event\.detail\?\.source === "shell"/);
+    expect(searchPageJsx).toMatch(/shellSearchHasFocus/);
+    expect(searchPageJsx).toMatch(/autoFocus=\{!isTouchDevice && !shellSearchHasFocus\(\)\}/);
+    expect(layoutJsx).toMatch(/active\?\.closest\?\.\("\.sq"\)/);
   });
 
-  it("paints the active ink explicitly instead of blending the whole dock", () => {
-    // 2026-11-12 perf contract: `mix-blend-mode: difference` on the nav links
-    // forced the always-on header island to re-composite every frame while the
-    // ambient blobs drift behind it. The active pill now carries its own dark
-    // ink, so no element in the dock may blend.
-    expect(headerCss).not.toMatch(/mix-blend-mode:\s*difference/);
-    expect(headerCss).not.toMatch(/mix-blend-mode:\s*(?:screen|multiply|overlay|plus-lighter)/);
-    expect(block(headerCss, ".nav-link")).not.toMatch(/mix-blend-mode/);
-    expect(block(headerCss, ".nav-icon-btn")).not.toMatch(/mix-blend-mode:\s*difference/);
-    // Cinejoy active pill is #95ff50; active items use #04120b directly over it
-    expect(block(headerCss, ".nav-link--active")).toMatch(/color:\s*#04120b/);
-    expect(block(headerCss, ".nav-icon-btn--active")).toMatch(/color:\s*#04120b/);
-    expect(block(headerCss, ".nav-link")).not.toMatch(/opacity:/);
+  it("keeps search/settings/account reachable without a desktop nav link strip", () => {
+    expect(headerJsx).toContain("<NotificationCenter />");
+    expect(headerJsx).toContain("shell-utility-cluster");
+    expect(headerJsx).toContain("toggleAccountMenu");
+    expect(headerCss).toMatch(/\.header-row\.shell-search-open \.shell-utility-cluster/);
+    expect(headerCss).toMatch(/@media \(max-width: 639px\)[\s\S]*?\.shell-search-open \.shell-utility-cluster/);
+    expect(headerCss).toMatch(
+      /@media \(max-width: 639px\)[\s\S]*?\.shell-search-open \.header-brand-cluster\s*\{[^}]*visibility:\s*hidden/,
+    );
+    expect(headerJsx).not.toMatch(/NAV_ITEMS\.map/);
+    expect(headerCss).not.toMatch(/\.nav-link\s*\{/);
+    expect(headerCss).not.toMatch(/\.nav-active-pill/);
   });
 
-  it("keeps the always-on header island free of backdrop-filter", () => {
-    // A backdrop filter on permanent chrome re-blurs the animated ambient
-    // layer on every frame, idle included. Blur is only for transient
-    // surfaces (menus, modals, sheets).
-    expect(block(headerCss, ".navbar")).not.toMatch(/backdrop-filter/);
-    expect(block(headerCss, ".navbar.scrolled")).not.toMatch(/backdrop-filter/);
-    expect(block(headerCss, ".navbar")).toMatch(/background:\s*var\(--header-fill/);
-    expect(tokensCss).toMatch(/--header-fill:/);
-  });
-
-  it("drives the pill via CSS custom properties so geometry settles are instant, not glides", () => {
-    // CSS Anchor Positioning jittered on revisit (anchor identity changed
-    // mid-transition and the browser lost the starting point). The pill is now
-    // positioned by JS-measured --pill-x/--pill-w custom properties, with the
-    // transition gated by data-pill-moving: enabled only on a real active-tab
-    // change (smooth glide), disabled for geometry-only updates (instant snap).
-    // Measured synchronously in useLayoutEffect before paint.
-    expect(headerJsx).not.toMatch(/pillItem\.animate\(/);
-    expect(headerJsx).not.toMatch(/LIFT_FLIGHT\.easing/);
-    expect(headerJsx).toMatch(/measurePill/);
-    expect(headerJsx).toMatch(/useLayoutEffect/);
-    expect(headerCss).toMatch(/--pill-x/);
-    expect(headerCss).toMatch(/--pill-w/);
-    expect(headerCss).toMatch(/data-pill-moving/);
-    expect(headerCss).toMatch(/transition:/);
-    expect(tokensCss).not.toMatch(/--nav-transition/);
-
-    // The gate is an attribute selector on the literal "true".
-    // toggleAttribute(name, true) writes an EMPTY value, so the glide rule
-    // never matched and the pill teleported on every navigation.
-    expect(headerJsx).toMatch(/setAttribute\("data-pill-moving", "true"\)/);
-    expect(headerJsx).not.toMatch(/toggleAttribute\("data-pill-moving"/);
-    // Width is a layout property: transitioning it pinned the pill to the main
-    // thread, so the glide inherited the page-mount jank and stuttered on
-    // revisits. Only transform (compositor-owned) may animate.
-    const glideRule = block(headerCss, '.navbar[data-pill-moving="true"] .nav-active-pill');
-    expect(glideRule).toMatch(/transform/);
-    expect(glideRule).not.toMatch(/width/);
-    // The duration token must exist in tokens.css (--duration-med never did,
-    // which made the shorthand invalid and computed the transition to 0s).
-    expect(glideRule).toMatch(/--duration-normal/);
-    expect(tokensCss).toMatch(/--duration-normal:/);
+  it("moves the hidden nav/search View Transition snapshots onto the 2.0 surfaces", () => {
+    expect(motionThemesCss).toMatch(/\.tb\s*\{\s*view-transition-name:\s*navbar;/);
+    expect(motionThemesCss).toMatch(/\.sq\s*\{\s*view-transition-name:\s*searchbar;/);
+    expect(motionThemesCss).not.toMatch(/\.header-row\s*\{\s*view-transition-name/);
+    expect(motionThemesCss).toContain("::view-transition-old(navbar)");
+    expect(motionThemesCss).toContain("::view-transition-old(searchbar)");
   });
 
   it("slides the brand mark when the back button claims its space", () => {
-    // The back button mounts inside the left island on every non-home route.
+    // The back button mounts inside the left cluster on every non-home route.
     // Without a layout animation the logo snapped ~52px right in the same
     // frame the route changed.
     expect(headerJsx).toMatch(/<motion\.div[\s\S]{0,120}layout[\s\S]{0,200}className="app-brand-link-wrap"/);
     expect(headerJsx).toMatch(/useReducedMotion/);
     expect(block(headerCss, ".app-brand-link-wrap")).toMatch(/display:\s*inline-flex/);
-  });
-
-  it("applies the same ink rule to the mobile bottom nav", () => {
-    // Same perf contract as the desktop island: the dock never blends and
-    // never blurs the page behind it.
-    expect(block(responsiveCss, ".bottom-nav-item")).not.toMatch(/mix-blend-mode/);
-    expect(block(responsiveCss, ".mobile-bottom-nav")).not.toMatch(/backdrop-filter/);
-    expect(block(responsiveCss, ".mobile-bottom-nav")).toMatch(/var\(--header-fill/);
-    expect(block(responsiveCss, ".bottom-nav-item.active")).toMatch(/color:\s*#04120b/);
-    expect(mobileJsx).not.toMatch(/var\(--black\)/);
   });
 
   it("keeps mobile hero and browse banners full-bleed with symmetric negative margin", () => {

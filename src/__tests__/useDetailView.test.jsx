@@ -123,6 +123,8 @@ describe("useDetailView", () => {
     expect(sourceNameAtCapture).toBe("streamly-poster");
     expect(getDetailTransitionSnapshot().overlay).toBe(true);
     expect(session.sourceId).toBe(baseMovie.id);
+    expect(session.movieId).toBe(baseMovie.id);
+    expect(session.title).toBe(baseMovie.title);
     expect(session.detailToken).toBe("Trending:0:movie-123");
     expect(session.scrollY).toBe(432);
     expect(session.railKey).toBe("Trending");
@@ -141,6 +143,30 @@ describe("useDetailView", () => {
     expect(poster.style.viewTransitionName).toBe("");
     expect(document.documentElement.hasAttribute("data-poster-morph")).toBe(false);
     expect(document.documentElement.hasAttribute("data-detail-transition")).toBe(false);
+  });
+
+  it("supports hero .hbd View Transition sessions when opened from Home hero", async () => {
+    const hbd = document.createElement("div");
+    hbd.className = "hbd";
+    hbd.dataset.vt = "hero:home:2:movie-123";
+    document.body.appendChild(hbd);
+    stubViewTransitions();
+
+    const ref = renderHarness({ movie: baseMovie, detailViewType: "page" });
+    ref.current.openDetails(baseMovie, {
+      sourceElement: hbd,
+      detailToken: "hero:home:2:movie-123",
+      heroIndex: 2,
+    });
+
+    const session = getDetailTransitionSnapshot().session;
+    expect(session.isHero).toBe(true);
+    expect(session.heroIndex).toBe(2);
+    expect(session.detailToken).toBe("hero:home:2:movie-123");
+
+    await waitFor(() => expect(ref.pathname).toBe("/watch/movie-123/test-movie"));
+    await waitFor(() => expect(getDetailTransitionSnapshot().overlay).toBe(false));
+    hbd.remove();
   });
 
   it("restores the original card and rail/page geometry on C→B→A", async () => {

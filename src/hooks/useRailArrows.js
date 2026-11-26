@@ -8,8 +8,15 @@ import { useState, useLayoutEffect, useCallback, useRef } from "react";
    Scroll fires per frame, and every rail on the page listens. Two guards keep
    that cheap: measurements are coalesced into one rAF, and setState is skipped
    entirely unless a boolean actually flips (a new object every tick made React
-   re-render the rail, its cards and their arrow buttons on each scroll event). */
-export default function useRailArrows(ref, { enabled = true, threshold = 8 } = {}) {
+   re-render the rail, its cards and their arrow buttons on each scroll event).
+
+   `syncEdges` opts into the 2.0 shell: the same measurement also toggles
+   `at-start`/`at-end` on the owning `.sh`, drives its `--fl/--fr` fades and
+   disables its `.ar.l/.ar.r`. Return shape is unchanged for every caller. */
+export default function useRailArrows(
+  ref,
+  { enabled = true, threshold = 8, syncEdges = false } = {},
+) {
   const [arrows, setArrows] = useState({ left: false, right: false });
   const frameRef = useRef(0);
 
@@ -21,7 +28,30 @@ export default function useRailArrows(ref, { enabled = true, threshold = 8 } = {
     const left = scrollLeft > threshold;
     const right = maxScroll > 0 && scrollLeft < maxScroll - threshold;
     setArrows((prev) => (prev.left === left && prev.right === right ? prev : { left, right }));
-  }, [ref, threshold]);
+
+    // Canonical 2.0 edge sync rides the same rAF-coalesced measurement, so
+    // scrolling writes geometry straight to the DOM instead of re-rendering
+    // the rail. Opt-in: other callers keep their existing arrow/fade contract.
+    if (!syncEdges) return;
+    const atStart = maxScroll <= 2 || scrollLeft <= 4;
+    const atEnd = maxScroll <= 2 || scrollLeft >= maxScroll - 4;
+    el.style.setProperty("--fl", atStart ? "0px" : "16px");
+    el.style.setProperty("--fr", atEnd ? "0px" : "16px");
+    const section = el.closest(".sh");
+    if (!section) return;
+    section.classList.toggle("at-start", atStart);
+    section.classList.toggle("at-end", atEnd);
+    const leftArrow = section.querySelector(".ar.l");
+    const rightArrow = section.querySelector(".ar.r");
+    if (leftArrow) {
+      leftArrow.disabled = atStart;
+      leftArrow.tabIndex = atStart ? -1 : 0;
+    }
+    if (rightArrow) {
+      rightArrow.disabled = atEnd;
+      rightArrow.tabIndex = atEnd ? -1 : 0;
+    }
+  }, [ref, threshold, syncEdges]);
 
   const update = useCallback(() => {
     if (frameRef.current) return;

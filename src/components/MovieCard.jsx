@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useMemo, memo } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Check, Star, Play } from "lucide-react";
 import slugify from "slugify";
@@ -38,6 +38,11 @@ const isTouchDevice =
   !!window.matchMedia &&
   window.matchMedia("(hover: none), (pointer: coarse)").matches;
 
+const prefersReducedMotion = () =>
+  typeof window !== "undefined" &&
+  !!window.matchMedia &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 const MovieCard = memo(function MovieCard({
   movie,
   detailToken,
@@ -61,10 +66,17 @@ const MovieCard = memo(function MovieCard({
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasImageError, setHasImageError] = useState(false);
   const isTvContent = movie?.isSeries || String(movie?.id || '').startsWith('tmdb-tv-');
-  // Below-card metadata removed per user request (shows on hover).
-  // Kept only when highlightQuery exists so search term <mark> highlighting in .movie-title works.
-  const showBelowMeta = Boolean(highlightQuery);
+  // Legacy surfaces show metadata on hover only. Search keeps it for <mark>
+  // highlighting; home uses its own HomeCard with the 2.0 card structure.
+  const displayBelowMeta = Boolean(highlightQuery);
 
+  const cardRef = useRef(null);
+  const posterRef = useRef(null);
+  const tiltFrameRef = useRef(0);
+  const tiltPointRef = useRef(null);
+  const playTimerRef = useRef(0);
+  const bumpTimersRef = useRef([]);
+  const [bump, setBump] = useState(false);
 
   // Hover/focus no longer drive any animation state (that is CSS in
   // styles/grids.css) — the handlers exist purely to warm the details cache so
@@ -77,6 +89,87 @@ const MovieCard = memo(function MovieCard({
   const handleFocus = useCallback(() => {
     PrefetchAdapter.prefetchMovieDetails(movie.id);
   }, [movie.id]);
+
+  /* Canonical 2.0 poster tilt: one coalesced rAF per card writes the CSS vars,
+     so a burst of pointermove events never schedules a burst of frames. Touch
+     and reduced-motion viewers keep the flat poster. */
+  const clearTilt = useCallback(() => {
+    tiltPointRef.current = null;
+    if (tiltFrameRef.current && typeof window !== "undefined") {
+      window.cancelAnimationFrame?.(tiltFrameRef.current);
+      tiltFrameRef.current = 0;
+    }
+    const poster = posterRef.current;
+    if (!poster) return;
+    poster.classList.remove("tilting");
+    poster.style.removeProperty("--rx");
+    poster.style.removeProperty("--ry");
+  }, []);
+
+  const handlePointerMove = useCallback((event) => {
+    if (event.pointerType === "touch" || isTouchDevice || prefersReducedMotion()) return;
+    tiltPointRef.current = { x: event.clientX, y: event.clientY };
+    if (tiltFrameRef.current) return;
+
+    const applyTilt = () => {
+      tiltFrameRef.current = 0;
+      const point = tiltPointRef.current;
+      const poster = posterRef.current;
+      if (!point || !poster) return;
+      const rect = poster.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const x = Math.min(1, Math.max(0, (point.x - rect.left) / rect.width));
+      const y = Math.min(1, Math.max(0, (point.y - rect.top) / rect.height));
+      poster.classList.add("tilting");
+      poster.style.setProperty("--rx", `${((0.5 - y) * 7).toFixed(2)}deg`);
+      poster.style.setProperty("--ry", `${((x - 0.5) * 7).toFixed(2)}deg`);
+      poster.style.setProperty("--mx", `${(x * 100).toFixed(2)}%`);
+      poster.style.setProperty("--my", `${(y * 100).toFixed(2)}%`);
+    };
+
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      tiltFrameRef.current = window.requestAnimationFrame(applyTilt);
+    } else {
+      applyTilt();
+    }
+  }, []);
+
+  /* play-ready is the hover-after-320ms affordance. One timer per card, cleared
+     and restarted only on a real entry (not on bubbling from inner buttons). */
+  const clearPlayReady = useCallback(() => {
+    if (playTimerRef.current) {
+      clearTimeout(playTimerRef.current);
+      playTimerRef.current = 0;
+    }
+    cardRef.current?.classList.remove("play-ready");
+  }, []);
+
+  const handlePointerOver = useCallback(
+    (event) => {
+      if (isTouchDevice || event.pointerType === "touch") return;
+      if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
+      if (playTimerRef.current) clearTimeout(playTimerRef.current);
+      playTimerRef.current = setTimeout(() => {
+        playTimerRef.current = 0;
+        cardRef.current?.classList.add("play-ready");
+      }, 320);
+    },
+    [],
+  );
+
+  const handlePointerOut = useCallback(
+    (event) => {
+      if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
+      clearPlayReady();
+      clearTilt();
+    },
+    [clearPlayReady, clearTilt],
+  );
+
+  const handlePointerLeave = useCallback(() => {
+    clearPlayReady();
+    clearTilt();
+  }, [clearPlayReady, clearTilt]);
 
   // Details open through one shared gateway — page or modal per the
   // Detail View Type preference (same behavior as the hero banner).
@@ -92,8 +185,8 @@ const MovieCard = memo(function MovieCard({
   const navigateToDetails = useCallback(
     (event) => {
       const sourceElement =
-        event?.currentTarget?.querySelector(".movie-poster") ||
-        event?.currentTarget?.querySelector(".poster-wrapper");
+        event?.currentTarget?.querySelector(".poster-wrapper") ||
+        event?.currentTarget?.querySelector(".movie-poster");
       openDetails(movie, { sourceElement, detailToken });
     },
     [openDetails, movie, detailToken],
@@ -109,6 +202,38 @@ const MovieCard = memo(function MovieCard({
     [onToggleSelect, navigateToDetails, movie.id],
   );
 
+  const clearBumpTimers = useCallback(() => {
+    bumpTimersRef.current.forEach(clearTimeout);
+    bumpTimersRef.current = [];
+  }, []);
+
+  /* Re-mount the icon for one tap cycle so a second add restarts the spring
+     instead of leaving a spent CSS animation on the same node. */
+  const triggerBump = useCallback(() => {
+    clearBumpTimers();
+    setBump(false);
+    bumpTimersRef.current.push(
+      setTimeout(() => {
+        setBump(true);
+        bumpTimersRef.current.push(
+          setTimeout(() => {
+            setBump(false);
+            bumpTimersRef.current = [];
+          }, 300),
+        );
+      }, 0),
+    );
+  }, [clearBumpTimers]);
+
+  const handleQuickPlay = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(watchTo);
+    },
+    [navigate, watchTo],
+  );
+
   const handleToggleMyList = useCallback(
     (e) => {
       e.preventDefault();
@@ -117,6 +242,7 @@ const MovieCard = memo(function MovieCard({
       // Gated: a refusal means the sign-in dialog opened instead, so no toast and
       // no "added to your list" notification for a save that never happened.
       if (toggleMyList(movie) === false) return;
+      if (!wasInList) triggerBump();
       toast({
         title: wasInList ? "Removed from List" : "Added to My List",
         message: wasInList
@@ -140,7 +266,7 @@ const MovieCard = memo(function MovieCard({
         fireListMilestone((myList?.length || 0) + 1, addNotification);
       }
     },
-    [movie, isInList, toggleMyList, toast, addNotification, isTvContent],
+    [movie, isInList, toggleMyList, toast, addNotification, isTvContent, triggerBump],
   );
 
   const inList = isInList(movie.id);
@@ -176,6 +302,18 @@ const MovieCard = memo(function MovieCard({
     setHasImageError(false);
   }, [posterSrc]);
 
+  useEffect(
+    () => () => {
+      if (playTimerRef.current) clearTimeout(playTimerRef.current);
+      clearBumpTimers();
+      if (tiltFrameRef.current && typeof window !== "undefined") {
+        window.cancelAnimationFrame?.(tiltFrameRef.current);
+        tiltFrameRef.current = 0;
+      }
+    },
+    [clearBumpTimers],
+  );
+
   const platformForDate = movie.source || movie.platform;
 
   // Content tags ("NEW" = recently released) come from one pure helper so the
@@ -201,7 +339,8 @@ const MovieCard = memo(function MovieCard({
     >
       {isVisible ? (
         <div
-          className="movie-card"
+          ref={cardRef}
+          className="movie-card cd cw"
           role="button"
           tabIndex={0}
           aria-label={
@@ -221,6 +360,10 @@ const MovieCard = memo(function MovieCard({
           }}
           onMouseEnter={handleMouseEnter}
           onFocus={handleFocus}
+          onPointerMove={handlePointerMove}
+          onPointerOver={handlePointerOver}
+          onPointerOut={handlePointerOut}
+          onPointerLeave={handlePointerLeave}
           style={{
             cursor: "pointer",
             position: "relative",
@@ -228,12 +371,12 @@ const MovieCard = memo(function MovieCard({
         >
           {/* ── Poster wrapper ───────────────────────────────── */}
           <div
-            className="poster-wrapper"
+            ref={posterRef}
+            className="poster-wrapper po"
             data-detail-source={movie.id}
             data-detail-token={detailToken}
             style={{
               overflow: "hidden",
-              background: "var(--bg-surface)",
               position: "relative",
             }}
           >
@@ -313,12 +456,13 @@ const MovieCard = memo(function MovieCard({
 
 
 
-            {/* Mobile quick action — only visible on touch devices where
-                the hover curtain is unreachable. Tapping navigates to
-                details; this button toggles the watchlist. */}
+            {/* Canonical 2.0 add-list control. The legacy class stays on the
+                node so existing call sites/tests keep finding the same button. */}
             <button
+              type="button"
               onClick={handleToggleMyList}
-              className="card-quick-list"
+              className={`qa card-quick-list${bump ? " bump" : ""}`}
+              aria-pressed={inList}
               aria-label={
                 inList
                   ? `Remove ${movie.title} from My List`
@@ -336,8 +480,6 @@ const MovieCard = memo(function MovieCard({
                 sizes={posterSrcSet ? CdnImageAdapter.getSizes("card") : undefined}
                 alt={movie.title}
                 className="movie-poster"
-                data-detail-source={movie.id}
-                data-detail-token={detailToken}
                 loading="lazy"
                 decoding="async"
                 onLoad={() => setIsLoaded(true)}
@@ -393,28 +535,22 @@ const MovieCard = memo(function MovieCard({
               }}
             />
 
-            {/* Centred play disc — appears on hover/focus above every layer
-                (z 15), plays the title straight from the poster. */}
-            <div className="card-play-disc">
-              <button
-                type="button"
-                className="card-play-disc__btn"
-                aria-label={`Play ${movie.title}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  navigate(watchTo);
-                }}
-              >
-                <Play
-                  size={20}
-                  fill="currentColor"
-                  stroke="none"
-                  style={{ marginLeft: "2px" }}
-                  aria-hidden="true"
-                />
-              </button>
-            </div>
+            {/* Canonical 2.0 quick play. The button itself carries the legacy
+                disc classes so existing hooks keep resolving the same control. */}
+            <button
+              type="button"
+              className="qp card-play-disc card-play-disc__btn"
+              aria-label={`Play ${movie.title}`}
+              onClick={handleQuickPlay}
+            >
+              <Play
+                size={22}
+                fill="currentColor"
+                stroke="none"
+                style={{ marginLeft: "2px" }}
+                aria-hidden="true"
+              />
+            </button>
 
             {/* ── Cinematic curtain ─────────────────────────── */}
             <div
@@ -518,7 +654,7 @@ const MovieCard = memo(function MovieCard({
       ) : null}
 
       {/* Below-card metadata — touch devices (no hover curtain) */}
-      {isVisible && showBelowMeta && (
+      {isVisible && displayBelowMeta && (
         <div className="movie-info" role="presentation">
           <p className="movie-title" title={movie.title}>
             {highlightQuery

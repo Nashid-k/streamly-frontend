@@ -2091,8 +2091,7 @@
 }
 
 /* Double-tap seek edge wave/glow — clean radial edge pulse without dark plates */
-:is(.player, .np-root) .dt,
-.dt {
+:is(.player, .np-root) .dt {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -2102,18 +2101,15 @@
   z-index: 3;
   will-change: opacity;
 }
-:is(.player, .np-root) .dt.l,
-.dt.l {
+:is(.player, .np-root) .dt.l {
   left: 0;
   background: radial-gradient(ellipse at 0% 50%, rgba(var(--white-rgb), 0.14) 0%, rgba(var(--white-rgb), 0.04) 45%, transparent 72%) !important;
 }
-:is(.player, .np-root) .dt.r,
-.dt.r {
+:is(.player, .np-root) .dt.r {
   right: 0;
   background: radial-gradient(ellipse at 100% 50%, rgba(var(--white-rgb), 0.14) 0%, rgba(var(--white-rgb), 0.04) 45%, transparent 72%) !important;
 }
-:is(.player, .np-root) .dt.show,
-.dt.show {
+:is(.player, .np-root) .dt.show {
   display: block !important;
   animation: dtFlash 650ms var(--ease) forwards !important;
 }

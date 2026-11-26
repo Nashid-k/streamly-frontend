@@ -2,18 +2,15 @@ import { motion } from "framer-motion";
 import { DURATION, EASE_OUT } from "../constants/motion";
 import MovieCardSkeleton from "./MovieCardSkeleton";
 import MovieDetailsSkeleton from "./MovieDetailsSkeleton";
-import SkeletonRail from "./SkeletonRail";
+import HomeSkeletonRail from "./home/HomeSkeletonRail";
 
-/* Shape-matched Suspense fallback for lazy route chunks. Every route family
-   renders a skeleton of ITS OWN final layout, built from the same primitives
-   the pages themselves use (.skeleton shimmer, MovieCardSkeleton,
-   SkeletonRail, MovieDetailsSkeleton), so a cold chunk swap reads as the page
-   simply filling in — no centred spinner, no layout jump when the real
-   content lands. routeWarmup keeps this mostly unseen; when it does render
-   (first visit, slow network) it is the honest shape of what is coming. */
+/* Shape-matched 2.0 Suspense fallback for lazy route chunks mirroring
+   `streamly_2.0.html` (.hero.sk-hero, HomeSkeletonRail, MovieDetailsSkeleton,
+   .ph.sk.sk-ph + .gr). */
 
-const GUTTER = "var(--content-gutter, 2rem)";
+const GUTTER = "clamp(18px, 4vw, 56px)";
 const TOP = "var(--header-clearance, 6rem)";
+const HERO_DOT_COUNT = 5;
 
 const shapeFor = (pathname = "") => {
   if (pathname === "/") return "home";
@@ -33,102 +30,79 @@ const shapeFor = (pathname = "") => {
 
 const padded = { padding: `${TOP} ${GUTTER} 4rem`, width: "100%" };
 
-function GridSkeleton({ count = 12, grid = "discovery-grid", style }) {
+function Hero2Skeleton({ scene = "home" }) {
+  return (
+    <section
+      className="hero sk-hero skeleton-hero"
+      data-sk-scene={scene}
+      aria-hidden="true"
+    >
+      <div className="hbd sk sk-hbd" />
+      <div className="hx">
+        <div className="hh"><span className="sk sk-ht" /></div>
+        <p className="hm"><span className="sk sk-hm" /></p>
+        <div className="hdw">
+          <p className="hd sk-hd">
+            <span className="sk sk-line" />
+            <span className="sk sk-line" />
+            <span className="sk sk-line short" />
+          </p>
+        </div>
+        <div className="btns">
+          <span className="btn p sk sk-btn" />
+          <span className="btn g sk sk-btn sm" />
+          <span className="btn g sk sk-btn lg" />
+        </div>
+      </div>
+      <div className="dots glass sk-dots">
+        {Array.from({ length: HERO_DOT_COUNT }, (_, index) => (
+          <button key={index} type="button" tabIndex={-1} disabled>
+            <span className={`sk sk-dot${index ? " dot-idle" : ""}`} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function GridSkeleton({ count = 12, grid = "gr discovery-grid", style }) {
   return (
     <div className={grid} style={style}>
       {Array.from({ length: count }, (_, i) => (
-        <MovieCardSkeleton key={i} />
+        <MovieCardSkeleton key={i} index={i} />
       ))}
     </div>
   );
 }
 
-function HeadLine({ width = "40%", height = "2.6rem", marginBottom = "0.75rem" }) {
+function HeadLine({ width = "min(46%, 380px)", height = "2.4rem", marginBottom = "0.75rem" }) {
   return (
     <div
-      className="skeleton"
+      className="skeleton sk"
       style={{ width, height, marginBottom, borderRadius: "10px" }}
     />
   );
 }
 
 const SHAPES = {
-  /* Mirror of HomePage's own skeleton-hero block (same classes), so the
-     chunk handoff lands on the identical shape. */
   home: () => (
-    <>
-      <div className="skeleton skeleton-hero" style={{ overflow: "hidden" }}>
-        <div className="hero-content" style={{ zIndex: 2 }}>
-          <div
-            className="skeleton"
-            style={{
-              width: "min(420px, 70%)",
-              height: "clamp(2.2rem, 4vw, 3.4rem)",
-              borderRadius: "8px",
-              marginBottom: "1.2rem",
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.6rem",
-              flexWrap: "wrap",
-              marginBottom: "1.1rem",
-            }}
-          >
-            {[70, 95, 60, 85].map((w, i) => (
-              <div
-                key={i}
-                className="skeleton"
-                style={{ width: `${w}px`, height: "22px", borderRadius: "6px" }}
-              />
-            ))}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.45rem",
-              marginBottom: "1.5rem",
-              maxWidth: "560px",
-            }}
-          >
-            <div className="skeleton" style={{ width: "100%", height: "12px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "86%", height: "12px", borderRadius: "4px" }} />
-            <div className="skeleton" style={{ width: "62%", height: "12px", borderRadius: "4px" }} />
-          </div>
-          <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
-            <div className="skeleton" style={{ width: "150px", height: "48px", borderRadius: "var(--radius-full)" }} />
-            <div className="skeleton" style={{ width: "120px", height: "48px", borderRadius: "var(--radius-full)" }} />
-          </div>
-        </div>
+    <div className="home-page main-content main-content--has-hero main">
+      <Hero2Skeleton scene="home" />
+      <div className="home-rails-section">
+        <HomeSkeletonRail scene="provider" cards={12} rowIndex={0} />
+        <HomeSkeletonRail scene="home" cards={8} rowIndex={1} />
+        <HomeSkeletonRail scene="home" cards={8} rowIndex={2} />
       </div>
-      <div
-        style={{
-          padding: `2.5rem ${GUTTER} 4rem`,
-          display: "grid",
-          gap: "2.5rem",
-        }}
-      >
-        <SkeletonRail cards={8} />
-        <SkeletonRail cards={8} />
-      </div>
-    </>
+    </div>
   ),
 
-  /* Same banner slot the page's BrowseBanner skeleton reserves, then the
-     same discovery grid. */
   browse: () => (
-    <>
-      <div
-        className="hero-container hero-container--browse skeleton-hero"
-        aria-hidden="true"
-      />
+    <div className="home-page main-content main-content--has-hero main">
+      <Hero2Skeleton scene="browse" />
       <div style={{ padding: `1.5rem ${GUTTER} 4rem` }}>
         <GridSkeleton count={12} />
       </div>
-    </>
+    </div>
   ),
 
   /* /watch — the page itself mounts MovieDetailsSkeleton while its query

@@ -1,5 +1,5 @@
-/* Single source of truth for navigation — feeds the desktop glass dock and
-   the concise five-item mobile bar. */
+/* Single source of truth for navigation — feeds the 2.0 bottom pill at every
+   width. Keep the four ids, destinations and match functions frozen. */
 
 import { Home, Clapperboard, Tv, Bookmark } from "lucide-react";
 

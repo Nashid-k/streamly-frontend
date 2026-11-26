@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { ExternalLink } from "lucide-react";
-import { MotionLeaf } from "../MotionLeaf";
 
 function getViewerRegion() {
   if (typeof navigator === "undefined" || !navigator.language) return "US";
@@ -24,7 +23,6 @@ function dedupeProviders(list = []) {
 }
 
 export default function WhereToWatch({ watchProviders, className = "" }) {
-  const L = new MotionLeaf();
   const userRegion = useMemo(() => getViewerRegion(), []);
 
   const regionalData = useMemo(() => {
@@ -54,7 +52,6 @@ export default function WhereToWatch({ watchProviders, className = "" }) {
   return (
     <section
       className={`where-to-watch relative z-10 max-w-full mx-auto px-2 mt-8 ${className}`}
-      {...L.Reveal}
       aria-label="Where to watch"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-4">

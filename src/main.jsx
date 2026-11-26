@@ -22,6 +22,8 @@ import "./styles/modals.css";
 import "./styles/discovery.css";
 import "./styles/provider.css";
 import "./styles/motion-themes.css";
+import "./styles/home.css";
+import "./styles/detail.css";
 import { ToastProvider } from "./components/Toast.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { PreferencesProvider } from "./context/PreferencesContext.jsx";
