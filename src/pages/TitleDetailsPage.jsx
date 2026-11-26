@@ -239,6 +239,7 @@ export default function TitleDetails() {
 
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const autoPlayConsumedRef = useRef(null);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [unreleasedModalOpen, setUnreleasedModalOpen] = useState(false);
   const unreleasedPanelRef = useRef(null);
@@ -797,6 +798,22 @@ export default function TitleDetails() {
     setSelectedSeason(preferredSeason);
     setPlayingEpisode(Number(saved?.savedEpisode) > 0 ? Number(saved.savedEpisode) : 1);
   }, [movieId, isTvContent, availableSeasonKey]);
+
+  // Direct play entry from Hero / Banner Play button (`state: { autoPlay: true }`):
+  // waits once for resolved metadata & unreleased check, then opens the player
+  // immediately without requiring a second Play click on Details.
+  useEffect(() => {
+    if (!location.state?.autoPlay || loading || !movie) return;
+    const visitKey = `${location.key || "default"}:${id}`;
+    if (autoPlayConsumedRef.current === visitKey) return;
+    autoPlayConsumedRef.current = visitKey;
+    if (isUnreleased(movie.releaseDate)) {
+      setUnreleasedModalOpen(true);
+      return;
+    }
+    setPlayMode("movie");
+    setIsPlaying(true);
+  }, [location.state?.autoPlay, location.key, id, loading, movie]);
 
   // Scroll handled by useScrollRestoration in Layout
 
@@ -2119,6 +2136,7 @@ export default function TitleDetails() {
       <AnimatePresence>
         {isPlaying && (
           <motion.div
+            key="player-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -2416,7 +2434,7 @@ export default function TitleDetails() {
             </motion.div>
           </motion.div>
         )}
-        {unreleasedModalOpen && createPortal(
+        {unreleasedModalOpen && (
           <MotionFade
             key="unreleased"
             className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-md px-6"
@@ -2453,8 +2471,7 @@ export default function TitleDetails() {
                 <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" /> Back
               </button>
             </motion.div>
-          </MotionFade>,
-          document.body
+          </MotionFade>
         )}
 
         {ratingsOpen && movie && (

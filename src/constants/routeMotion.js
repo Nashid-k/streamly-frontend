@@ -28,8 +28,16 @@ export const REDUCED_ROUTE_TRANSITION = { duration: 0 };
    on its own clock (ease-in, accelerating away) instead of the enter curve. */
 const planeEnter = () => ({
   opacity: 0,
+  pointerEvents: "auto",
   translateZ: 0,
   willChange: "opacity",
+});
+
+const planeActive = () => ({
+  opacity: 1,
+  pointerEvents: "auto",
+  translateZ: 0,
+  willChange: "auto",
 });
 
 const planeExit = (duration = DURATION.FAST) => ({
@@ -43,26 +51,26 @@ const planeExit = (duration = DURATION.FAST) => ({
 export const ROUTE_VARIANTS = {
   "fade-up-subtle": {
     initial: planeEnter(),
-    animate: { opacity: 1, translateZ: 0, willChange: "auto" },
+    animate: planeActive(),
     exit: planeExit(),
   },
   /* The deeper arrivals (/watch + /category + collections) keep a slightly
      longer fade so drilling in still reads as one beat, not a flash. */
   "fade-up": {
     initial: planeEnter(),
-    animate: { opacity: 1, translateZ: 0, willChange: "auto" },
+    animate: planeActive(),
     exit: planeExit(DURATION.MED),
   },
   /* Direction-neutral characters (search, settings stay phrase-level fades —
      a sliding settings panel reads wrong). */
   "fade-only": {
     initial: planeEnter(),
-    animate: { opacity: 1, translateZ: 0, willChange: "auto" },
+    animate: planeActive(),
     exit: planeExit(),
   },
   crossfade: {
     initial: planeEnter(),
-    animate: { opacity: 1, translateZ: 0, willChange: "auto" },
+    animate: planeActive(),
     exit: {
       opacity: 0.15,
       pointerEvents: "none",
@@ -74,24 +82,24 @@ export const ROUTE_VARIANTS = {
 
 export const REDUCED_ROUTE_VARIANTS = {
   "fade-up-subtle": {
-    initial: { opacity: 0, translateZ: 0 },
-    animate: { opacity: 1, translateZ: 0 },
-    exit: { opacity: 0, translateZ: 0 },
+    initial: { opacity: 0, pointerEvents: "auto", translateZ: 0 },
+    animate: { opacity: 1, pointerEvents: "auto", translateZ: 0 },
+    exit: { opacity: 0, pointerEvents: "none", translateZ: 0 },
   },
   "fade-up": {
-    initial: { opacity: 0, translateZ: 0 },
-    animate: { opacity: 1, translateZ: 0 },
-    exit: { opacity: 0, translateZ: 0 },
+    initial: { opacity: 0, pointerEvents: "auto", translateZ: 0 },
+    animate: { opacity: 1, pointerEvents: "auto", translateZ: 0 },
+    exit: { opacity: 0, pointerEvents: "none", translateZ: 0 },
   },
   "fade-only": {
-    initial: { opacity: 0, translateZ: 0 },
-    animate: { opacity: 1, translateZ: 0 },
-    exit: { opacity: 0, translateZ: 0 },
+    initial: { opacity: 0, pointerEvents: "auto", translateZ: 0 },
+    animate: { opacity: 1, pointerEvents: "auto", translateZ: 0 },
+    exit: { opacity: 0, pointerEvents: "none", translateZ: 0 },
   },
   crossfade: {
-    initial: { opacity: 0, translateZ: 0 },
-    animate: { opacity: 1, translateZ: 0 },
-    exit: { opacity: 0, translateZ: 0 },
+    initial: { opacity: 0, pointerEvents: "auto", translateZ: 0 },
+    animate: { opacity: 1, pointerEvents: "auto", translateZ: 0 },
+    exit: { opacity: 0, pointerEvents: "none", translateZ: 0 },
   },
 };
 

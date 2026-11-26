@@ -1,5 +1,5 @@
 import SEO from "../components/SEO";
-import { DURATION_2, EASE_2, PRESS_SCALE } from "../constants/motion";
+import { DURATION_2, EASE_2 } from "../constants/motion";
 import slugify from "slugify";
 import ErrorBoundary from "../components/ErrorBoundary";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
@@ -1037,14 +1037,6 @@ export default function Home({ filter = "all", title }) {
               transition={restoredFromDetail ? { duration: 0 } : { duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
               onTouchStart={handleHeroTouchStart}
               onTouchEnd={handleHeroTouchEnd}
-              whileTap={{ scale: PRESS_SCALE.ROW }}
-              onClick={() =>
-                openDetails(activeFeaturedMovie, {
-                  sourceElement: heroHbdRef.current,
-                  detailToken: heroToken,
-                  heroIndex,
-                })
-              }
               onMouseEnter={() => {
                 isHeroHoveredRef.current = true;
               }}
@@ -1057,16 +1049,6 @@ export default function Home({ filter = "all", title }) {
               onBlur={(event) => {
                 if (event.currentTarget.contains(event.relatedTarget)) return;
                 isHeroHoveredRef.current = false;
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && activeFeaturedMovie) {
-                  event.preventDefault();
-                  openDetails(activeFeaturedMovie, {
-                    sourceElement: heroHbdRef.current,
-                    detailToken: heroToken,
-                    heroIndex,
-                  });
-                }
               }}
             >
               <div
@@ -1156,6 +1138,7 @@ export default function Home({ filter = "all", title }) {
                             lower: true,
                             strict: true,
                           })}`,
+                          { state: { movie: activeFeaturedMovie, autoPlay: true } },
                         );
                       }}
                     >

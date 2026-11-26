@@ -925,6 +925,9 @@ describe("route planes arrive as one clean fade", () => {
       expect(exit, `${variant}.exit`).not.toHaveProperty("scale");
       // The leaving ghost must not swallow the click that navigated.
       expect(exit, `${variant}.exit`).toHaveProperty("pointerEvents", "none");
+      // Returning to a route before its exit finishes must restore pointerEvents.
+      expect(enter, `${variant}.initial`).toHaveProperty("pointerEvents", "auto");
+      expect(resolve(states.animate), `${variant}.animate`).toHaveProperty("pointerEvents", "auto");
     }
     // crossfade holds a sliver of the outgoing page instead of a hard 0.
     expect(ROUTE_VARIANTS.crossfade.exit.opacity).toBeGreaterThan(0);

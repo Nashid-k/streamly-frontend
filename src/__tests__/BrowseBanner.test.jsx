@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, fireEvent } from "@testing-library/react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import BrowseBanner from "../components/browse/BrowseBanner";
 import { ratingService } from "../api/ratingService";
 import { renderWithProviders } from "../test/testUtils";
@@ -127,5 +128,66 @@ describe("bannerMemory record", () => {
 
     clearBannerMemory();
     expect(getBannerMemory()).toBeNull();
+  });
+});
+
+function BrowseWatchProbe() {
+  const loc = useLocation();
+  return (
+    <div
+      data-testid="browse-watch-route"
+      data-pathname={loc.pathname}
+      data-autoplay={String(Boolean(loc.state?.autoPlay))}
+      data-movie-id={loc.state?.movie?.id || ""}
+    />
+  );
+}
+
+describe("BrowseBanner click and CTA routing", () => {
+  it("ignores clicks and Enter on the banner container and opens Details only via More Info", async () => {
+    const { container } = renderWithProviders(
+      <Routes>
+        <Route
+          path="/movies"
+          element={<BrowseBanner pool={[CARRIED]} loading={false} mediaType="movie" />}
+        />
+        <Route path="/watch/:id/:slug" element={<BrowseWatchProbe />} />
+      </Routes>,
+      { route: "/movies" },
+    );
+
+    const overview = await screen.findByText(/the banner that was on screen/i);
+    const hero = container.querySelector(".hero-container--browse");
+    expect(hero).not.toBeNull();
+    fireEvent.click(hero);
+    fireEvent.click(overview);
+    fireEvent.keyDown(hero, { key: "Enter" });
+    expect(screen.queryByTestId("browse-watch-route")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^more info$/i }));
+    const probe = await screen.findByTestId("browse-watch-route");
+    expect(probe).toHaveAttribute("data-pathname", "/watch/tmdb-movie-100/carried-movie");
+    expect(probe).toHaveAttribute("data-autoplay", "false");
+    expect(probe).toHaveAttribute("data-movie-id", "tmdb-movie-100");
+  });
+
+  it("launches playback directly (`state.autoPlay: true`) when BrowseBanner Play is clicked", async () => {
+    renderWithProviders(
+      <Routes>
+        <Route
+          path="/movies"
+          element={<BrowseBanner pool={[CARRIED]} loading={false} mediaType="movie" />}
+        />
+        <Route path="/watch/:id/:slug" element={<BrowseWatchProbe />} />
+      </Routes>,
+      { route: "/movies" },
+    );
+
+    await screen.findByText(/the banner that was on screen/i);
+    fireEvent.click(screen.getByRole("button", { name: /^play$/i }));
+    const probe = await screen.findByTestId("browse-watch-route");
+    expect(probe).toHaveAttribute("data-pathname", "/watch/tmdb-movie-100/carried-movie");
+    expect(probe).toHaveAttribute("data-autoplay", "true");
+    expect(probe).toHaveAttribute("data-movie-id", "tmdb-movie-100");
   });
 });

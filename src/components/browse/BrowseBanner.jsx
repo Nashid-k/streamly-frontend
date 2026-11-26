@@ -263,7 +263,6 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
       transition={{ duration: DURATION_2.REVEAL, ease: EASE_2.UI }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      onClick={() => openDetails(active)}
       onMouseEnter={() => {
         pausedRef.current = true;
       }}
@@ -276,12 +275,6 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
       onBlur={(event) => {
         if (event.currentTarget.contains(event.relatedTarget)) return;
         pausedRef.current = false;
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" && active) {
-          event.preventDefault();
-          openDetails(active);
-        }
       }}
     >
       {/* Canonical 2.0 backdrop: scene wash + mask + 32s Ken Burns, keyed by
@@ -405,6 +398,7 @@ export default function BrowseBanner({ pool, loading = false, mediaType = null }
                 e.stopPropagation();
                 navigate(
                   `/watch/${active.id}/${slugify(active.title, { lower: true, strict: true })}`,
+                  { state: { movie: active, autoPlay: true } },
                 );
               }}
             >

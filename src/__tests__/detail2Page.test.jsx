@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { Route, Routes } from "react-router-dom";
 import MovieDetailsSkeleton from "../components/MovieDetailsSkeleton";
 import TitleDetailsPage from "../pages/TitleDetailsPage";
@@ -122,5 +122,47 @@ describe("Streamly 2.0 TitleDetailsPage & MovieDetailsSkeleton", () => {
     const showLessBtn = screen.getByRole("button", { name: /show less/i });
     fireEvent.click(showLessBtn);
     expect(container.querySelectorAll(".dp .eps .ep")).toHaveLength(8);
+  });
+
+  it("auto-opens playback when entered via Banner Play (`state.autoPlay`) and stays on Details after closing", async () => {
+    renderWithProviders(
+      <Routes>
+        <Route path="/watch/:id" element={<TitleDetailsPage />} />
+      </Routes>,
+      { route: { pathname: "/watch/tv-555", state: { autoPlay: true } } },
+    );
+
+    const closeBtn = await screen.findByRole("button", { name: "Close player" }, { timeout: 4000 });
+    expect(closeBtn).toBeInTheDocument();
+
+    fireEvent.click(closeBtn);
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Close player" })).toBeNull();
+    });
+    expect(await screen.findByRole("heading", { name: "Severance" })).toBeInTheDocument();
+  });
+
+  it("opens the unreleased notice instead of playback when Banner Play targets an unreleased title", async () => {
+    mockMovieService.getMovieDetails.mockImplementationOnce(async () => ({
+      id: "movie-999",
+      type: "movie",
+      isSeries: false,
+      title: "Future Release",
+      description: "Coming later.",
+      releaseDate: "2099-12-31",
+      genres: ["Sci-Fi"],
+    }));
+
+    renderWithProviders(
+      <Routes>
+        <Route path="/watch/:id" element={<TitleDetailsPage />} />
+      </Routes>,
+      { route: { pathname: "/watch/movie-999", state: { autoPlay: true } } },
+    );
+
+    expect(
+      await screen.findByRole("dialog", { name: /this hasn't released yet/i }, { timeout: 4000 }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close player" })).toBeNull();
   });
 });

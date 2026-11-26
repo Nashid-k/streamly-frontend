@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Home from "../pages/HomePage";
 import { movieService } from "../api/movieService";
 import { renderWithProviders } from "../test/testUtils";
@@ -328,5 +329,72 @@ describe("HomePage cross-route banner record", () => {
       mediaType: "tv",
       title: "Game of Thrones",
     });
+  });
+});
+
+function WatchRouteProbe() {
+  const loc = useLocation();
+  return (
+    <div
+      data-testid="watch-route"
+      data-pathname={loc.pathname}
+      data-autoplay={String(Boolean(loc.state?.autoPlay))}
+      data-movie-id={loc.state?.movie?.id || ""}
+    />
+  );
+}
+
+describe("HomePage hero banner actions", () => {
+  it("ignores clicks and Enter on the hero banner itself, opening Details only from Details button", async () => {
+    stubHomeService();
+    const { container } = renderWithProviders(
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/watch/:id/:slug" element={<WatchRouteProbe />} />
+      </Routes>,
+      { route: "/" },
+    );
+
+    const overview = await screen.findByText(
+      /an insomniac office worker forms an underground fight club/i,
+      {},
+      { timeout: 5000 },
+    );
+
+    const hero = container.querySelector(".hero");
+    expect(hero).not.toBeNull();
+    fireEvent.click(hero);
+    fireEvent.click(overview);
+    fireEvent.keyDown(hero, { key: "Enter" });
+    expect(screen.queryByTestId("watch-route")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /^details$/i }));
+    const probe = await screen.findByTestId("watch-route");
+    expect(probe).toHaveAttribute("data-pathname", "/watch/tmdb-movie-550/fight-club");
+    expect(probe).toHaveAttribute("data-autoplay", "false");
+    expect(probe).toHaveAttribute("data-movie-id", "tmdb-movie-550");
+  });
+
+  it("launches playback directly (`state.autoPlay: true`) when hero Play is clicked", async () => {
+    stubHomeService();
+    renderWithProviders(
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/watch/:id/:slug" element={<WatchRouteProbe />} />
+      </Routes>,
+      { route: "/" },
+    );
+
+    await screen.findByText(
+      /an insomniac office worker forms an underground fight club/i,
+      {},
+      { timeout: 5000 },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^play$/i }));
+    const probe = await screen.findByTestId("watch-route");
+    expect(probe).toHaveAttribute("data-pathname", "/watch/tmdb-movie-550/fight-club");
+    expect(probe).toHaveAttribute("data-autoplay", "true");
+    expect(probe).toHaveAttribute("data-movie-id", "tmdb-movie-550");
   });
 });
