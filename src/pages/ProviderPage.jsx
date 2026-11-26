@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Film, Home, Grid, ChevronLeft } from "lucide-react";
+import { Film, Home, Grid } from "lucide-react";
 import { BROWSE_PROVIDERS } from "../data/homeRailDomains";
 import { CURATED_PROVIDER_TITLES } from "../data/providerCatalog";
 import { movieService } from "../api/movieService";
-import MovieCard from "../components/MovieCard";
+import HomeCard from "../components/home/HomeCard";
+import HomeRail from "../components/home/HomeRail";
+import HomeSkeletonRail from "../components/home/HomeSkeletonRail";
 import AmbientBackground from "../components/AmbientBackground";
 import { reportQueryError } from "../utils/debugLogger";
 
 export default function ProviderPage() {
-  const navigate = useNavigate();
+
   const params = useParams();
   const [searchParams] = useSearchParams();
   const rawId = params.providerId || params.id || searchParams.get("id");
@@ -154,6 +156,8 @@ export default function ProviderPage() {
   }, [seriesQuery.data, provider?.id]);
 
   const activeItems = tab === "movies" ? movies : series;
+  const leadItems = activeItems.slice(0, 12);
+  const moreItems = activeItems.slice(12);
   const isLoading = (tab === "movies" ? moviesQuery.isLoading : seriesQuery.isLoading) && activeItems.length === 0;
 
   // Pick ambient backdrop
@@ -192,14 +196,6 @@ export default function ProviderPage() {
       <div className="provider-content">
         {/* Hero Header */}
         <div className="provider-hero">
-          <button
-            type="button"
-            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/"))}
-            className="provider-back-btn"
-            aria-label="Back"
-          >
-            <ChevronLeft size={22} />
-          </button>
           <div className="provider-hero__logo">
             <img src={provider.logo} alt={provider.name} loading="eager" decoding="async" />
           </div>
@@ -232,19 +228,12 @@ export default function ProviderPage() {
           </div>
         </div>
 
-        {/* Grid or Skeleton */}
+        {/* Canonical 2.0 rails: wide lead shelf + poster continuation shelf. */}
         {isLoading ? (
-          <div className="skeleton-grid" style={{ padding: "0 var(--gutter, 24px) 60px" }}>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="sk-card">
-                <div className="skeleton sk-card__poster" />
-                <div className="sk-card__cap">
-                  <div className="skeleton sk-card__line" />
-                  <div className="skeleton sk-card__line sk-card__line--short" />
-                </div>
-              </div>
-            ))}
-          </div>
+          <section className="home-rails-section provider-rails-section" aria-label={`Loading ${provider.name} titles`}>
+            <HomeSkeletonRail cards={8} label={`Trending on ${provider.name}`} scene="provider-rail" rowIndex={0} />
+            <HomeSkeletonRail cards={8} label={`More on ${provider.name}`} scene="provider-rail" rowIndex={1} />
+          </section>
         ) : activeItems.length === 0 ? (
           <div className="provider-empty">
             <Film className="icon" size={48} />
@@ -271,11 +260,38 @@ export default function ProviderPage() {
             )}
           </div>
         ) : (
-          <div className="provider-grid" id="provider-grid">
-            {activeItems.map((item, index) => (
-              <MovieCard key={item.id || item.imdbId || index} movie={item} />
-            ))}
-          </div>
+          <section className="home-rails-section provider-rails-section" aria-label={`${provider.name} ${tab}`}>
+            <HomeRail
+              rowIndex={0}
+              title={`Trending on ${provider.name}`}
+              movies={leadItems}
+              className="home-rails-lead"
+              renderItem={(movie, index, detailToken) => (
+                <HomeCard
+                  key={movie.id}
+                  movie={movie}
+                  index={index}
+                  detailToken={detailToken}
+                  wide
+                />
+              )}
+            />
+            {moreItems.length > 0 && (
+              <HomeRail
+                rowIndex={1}
+                title={`More on ${provider.name}`}
+                movies={moreItems}
+                renderItem={(movie, index, detailToken) => (
+                  <HomeCard
+                    key={movie.id}
+                    movie={movie}
+                    index={index}
+                    detailToken={detailToken}
+                  />
+                )}
+              />
+            )}
+          </section>
         )}
       </div>
     </div>

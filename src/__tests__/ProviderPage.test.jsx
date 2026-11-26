@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, fireEvent } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { Routes, Route } from "react-router-dom";
 import ProviderPage from "../pages/ProviderPage";
 import { movieService } from "../api/movieService";
@@ -10,6 +10,17 @@ vi.mock("../api/movieService", () => ({
     getDiscover: vi.fn(),
   },
 }));
+
+function makeTitles(count) {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `movie-${index}`,
+    title: `Test Title ${index}`,
+    posterUrl: `/poster-${index}.jpg`,
+    backdropUrl: `/backdrop-${index}.jpg`,
+    releaseYear: 2024,
+    imdbRating: 7.5,
+  }));
+}
 
 function renderProviderPage(route = "/provider/8") {
   return renderWithProviders(
@@ -24,12 +35,11 @@ function renderProviderPage(route = "/provider/8") {
 
 describe("ProviderPage", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    movieService.getDiscover.mockResolvedValue([]);
   });
 
   it("renders the provider hero with logo and title for Netflix (id 8)", async () => {
-    movieService.getDiscover.mockResolvedValue([]);
-
     renderProviderPage("/provider/8");
 
     expect(screen.getByRole("heading", { name: "Netflix" })).toBeInTheDocument();
@@ -38,8 +48,6 @@ describe("ProviderPage", () => {
   });
 
   it("switches tabs between Movies and Series", async () => {
-    movieService.getDiscover.mockResolvedValue([]);
-
     renderProviderPage("/provider/8");
 
     const moviesTab = screen.getByRole("tab", { name: /Movies/i });
@@ -61,25 +69,46 @@ describe("ProviderPage", () => {
     expect(screen.getByRole("link", { name: /Back to Home/i })).toBeInTheDocument();
   });
 
-  it("resolves slug aliases and renders curated catalog for Peacock (id 386)", async () => {
-    movieService.getDiscover.mockResolvedValue([]);
-
-    renderProviderPage("/provider/peacock");
+  it("resolves slug aliases and renders canonical rails without an in-page back button", async () => {
+    const { container } = renderProviderPage("/provider/peacock");
 
     expect(screen.getByRole("heading", { name: "Peacock Premium" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Back/i })).toBeInTheDocument();
-    // Curated catalog has 8 movies for Peacock
+    expect(screen.queryByRole("button", { name: /^Back$/i })).not.toBeInTheDocument();
+    expect(container.querySelector(".provider-back-btn")).toBeNull();
+    expect(container.querySelector(".home-rails-section.provider-rails-section")).not.toBeNull();
+    expect(container.querySelector(".home-rails-lead .cw.w .po.wd")).not.toBeNull();
+
     const moviesTab = screen.getByRole("tab", { name: /^Movies/i });
-    expect(moviesTab).toBeInTheDocument();
     expect(moviesTab).toHaveTextContent("8");
   });
 
   it("resolves prime-video slug to Amazon Prime Video with curated catalog", async () => {
-    movieService.getDiscover.mockResolvedValue([]);
-
     renderProviderPage("/provider/prime-video");
 
     expect(screen.getByRole("heading", { name: "Amazon Prime Video" })).toBeInTheDocument();
   });
-});
 
+  it("splits a large provider catalog into a wide lead rail and continuation rail", async () => {
+    movieService.getDiscover.mockImplementation(({ mediaType }) =>
+      Promise.resolve(mediaType === "movie" ? makeTitles(15) : []),
+    );
+
+    const { container } = renderProviderPage("/provider/8");
+
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /^Movies/i })).toHaveTextContent("15");
+    });
+
+    const lead = container.querySelector(".home-rails-lead");
+    expect(lead).not.toBeNull();
+    expect(lead.querySelectorAll(".cw.w .po.wd").length).toBeGreaterThan(0);
+    expect(lead.querySelector("[data-detail-token^='Trending on Netflix:']")).not.toBeNull();
+
+    const more = container.querySelector(
+      ".home-rails-section > .home-rail:not(.home-rails-lead):not(.home-rail--skeleton)",
+    );
+    expect(more).not.toBeNull();
+    expect(more.querySelectorAll(".cw").length).toBeGreaterThan(0);
+    expect(container.querySelector(".provider-grid, .skeleton-grid")).toBeNull();
+  });
+});

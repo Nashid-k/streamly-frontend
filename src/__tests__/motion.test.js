@@ -146,6 +146,9 @@ describe("motion tokens", () => {
     const skeletonCard = src("components/home/HomeSkeletonRail.jsx");
     const skeletonRail = skeletonCard;
     const skeletonCss = src("styles/skeleton.css");
+    const providerPage = src("pages/ProviderPage.jsx");
+    const providerCss = src("styles/provider.css");
+    const header = src("app/Header.jsx");
 
     it("renders the canonical five-title hero with a 9s re-armable dwell", () => {
       expect(home).toMatch(/const HERO_LIMIT = 5;/);
@@ -260,6 +263,33 @@ describe("motion tokens", () => {
       expect(skeletonCss).toContain("animation: skhero-in var(--dur-content) var(--ease) backwards");
       expect(homeCss).toMatch(/\.home-rails-section \.sk-cw \.sk-ctitle\s*\{[^}]*display: block;/);
       expect(homeCss).toMatch(/\.home-rails-section \.sk-cw \.sk-cmeta\s*\{[^}]*display: block;/);
+    });
+
+    it("reuses canonical rails on every provider and removes both back affordances", () => {
+      expect(providerPage).toContain('import HomeRail from "../components/home/HomeRail";');
+      expect(providerPage).toContain('import HomeCard from "../components/home/HomeCard";');
+      expect(providerPage).toContain('import HomeSkeletonRail from "../components/home/HomeSkeletonRail";');
+      expect(providerPage).toContain('className="home-rails-section provider-rails-section"');
+      expect(providerPage).toContain('className="home-rails-lead"');
+      expect(providerPage).toMatch(/<HomeCard[\s\S]{0,240}wide/);
+      expect(providerPage).toContain("const leadItems = activeItems.slice(0, 12);");
+      expect(providerPage).toContain("const moreItems = activeItems.slice(12);");
+      expect(providerPage).not.toContain("provider-back-btn");
+      expect(providerPage).not.toContain("provider-grid");
+      expect(providerPage).not.toContain("skeleton-grid");
+      expect(providerPage).not.toContain("useNavigate");
+
+      expect(header).toContain('const isProviderRoute = /^\\/provider(?:\\/|$)/.test(location.pathname);');
+      expect(header).toMatch(/location\.pathname !== "\/"[\s\S]{0,160}!isProviderRoute/);
+
+      expect(providerCss).not.toContain("provider-back-btn");
+      expect(providerCss).not.toContain("provider-grid");
+      expect(providerCss).not.toContain("@keyframes cardIn");
+      expect(providerCss).toContain("animation: providerReveal var(--dur-content) var(--ease)");
+      expect(providerCss).toContain("calc(var(--stagger) * 2)");
+      expect(providerCss).toContain(".provider-rails-section {");
+      expect(providerCss).toContain("@media (prefers-reduced-motion: reduce)");
+      expect(providerCss).toContain('html[data-reduce-motion="true"] .provider-hero__logo');
     });
   });
 

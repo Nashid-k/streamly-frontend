@@ -144,6 +144,31 @@
 
 - [x] **Continue Watching uses canonical wide rail cards (2026-11-26).** `HomeCard` now supports the `.cw.w > .po.wd` 16:9 variant used by `Trending this week` in `streamly_2.0.html:168-170,556`: backdrop-ladder art, visible title over a stronger bottom scrim, centered quick-play, and an in-poster progress/episode label. `ContinueWatchingRail` opts in without changing the frozen feed order, query keys, storage keys or routes. `docs/vibecoder.md` §6.3 records the variant. Gates: `npm run lint` exit 0 (140 warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000` 135/135 files / 1589 passed + 2 skipped (240.03s; one earlier parallel-run `detail2Page` timeout passed in isolation and on the final rerun), `npm run build` exit 0 (3.66s).
 
+- [x] **Provider pages use the canonical 2.0 home rails (2026-11-26).** Every
+      `/provider/:providerId` route now reuses `HomeRail`, `HomeCard` and
+      `HomeSkeletonRail` inside `.home-rails-section`: a wide `.cw.w > .po.wd`
+      lead shelf (`Trending on <provider>`, first 12 titles) plus a poster
+      continuation shelf (`More on <provider>`). Both back affordances are gone
+      — the in-page `.provider-back-btn` was deleted and `Header.jsx` suppresses
+      `.back-btn` on `/provider` and `/provider/*` while leaving the 404 page's
+      “Back to Home” link as the only exit. `provider.css` dropped the legacy
+      grid/back-button CSS and uses the exact 2.0 tokens for hero/tab reveals
+      (`--dur-content`, `--stagger`, `--ease`, `--sp`) with both reduced-motion
+      bypasses. Frozen `normalizeResult`, query keys, Streamly storage keys and
+      routes are unchanged. Source guards live in `motion.test.js`; component
+      guards in `ProviderPage.test.jsx`. Gates: `npm run lint` exit 0 (140
+      pre-existing warnings), `npm run test -- --maxWorkers=4 --testTimeout=15000`
+      135/135 files / 1591 passed + 2 skipped (200.87s), `npm run build` exit 0
+      (2.33s). Obscura stealth fetch on the built bundle at `/provider/9`:
+      zero `.back-btn`/`.provider-back-btn`, one canonical rails section,
+      12 `.cw.w > .po.wd` lead cards, one continuation rail with 8 poster cards,
+      zero legacy grids, token `Trending on Amazon Prime Video:0:movie-801688`,
+      zero horizontal overflow; `/provider/netflix` matched with zero back
+      buttons and 12 wide lead cards. CSSOM confirmed `providerReveal`,
+      `providerPillIn` and the `.provider-rails-section` rule; the stealth
+      fetch renderer does not apply `aspect-ratio` or computed animation, so
+      those remain source/CSSOM-guarded.
+
 ## User-prioritised Streamly 2.0 UI build (2026-11-25)
 
 > User order: start building the canonical UI now, in phases. This supersedes

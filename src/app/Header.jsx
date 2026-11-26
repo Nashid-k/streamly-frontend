@@ -28,6 +28,10 @@ function Header() {
   const reduceMotion = osReducedMotion || !!prefReduceMotion;
   const detailBack = useDetailBack();
 
+  // Provider pages have their own brand/hero header and no back affordance
+  // on purpose; the global arrow must not duplicate one there.
+  const isProviderRoute = /^\/provider(?:\/|$)/.test(location.pathname);
+
   const urlQuery = new URLSearchParams(location.search).get("q") || "";
   const [shellQuery, setShellQuery] = useState(urlQuery);
   const [shellFocused, setShellFocused] = useState(false);
@@ -261,9 +265,11 @@ function Header() {
     >
       <div className="header-brand-cluster">
         {/* Back arrow on secondary routes; `/watch/*` owns its own 2.0 `.lk`
-            back pill inside the details header. */}
+            back pill. Provider routes own a brand header with no back affordance. */}
         <AnimatePresence mode="wait" initial={false}>
-          {location.pathname !== "/" && !location.pathname.startsWith("/watch") && (
+          {location.pathname !== "/" &&
+            !location.pathname.startsWith("/watch") &&
+            !isProviderRoute && (
             <motion.button
               key="back-btn"
               initial={false}

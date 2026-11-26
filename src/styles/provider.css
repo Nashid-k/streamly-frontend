@@ -1,6 +1,6 @@
-/* Provider page — Cinejoy provider-page mirror */
+/* Provider page — canonical 2.0 hero + home rails, no legacy grid or back pill. */
 .provider-page {
-  padding: 140px 0 60px;
+  padding: 140px 0 0;
   position: relative;
   z-index: 10;
 }
@@ -14,44 +14,19 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  padding: 0 var(--gutter, 24px);
-  margin-bottom: 32px;
-}
-.provider-back-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
-  color: var(--text-strong, #ffffff);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: transform var(--duration-fast) var(--ease-out),
-              background var(--duration-fast) var(--ease-out);
-}
-.provider-back-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
-  transform: scale(1.05);
-}
-.provider-back-btn:active {
-  transform: scale(0.95);
+  padding: 0 var(--gutter, clamp(18px, 4vw, 56px));
+  margin-bottom: 28px;
 }
 .provider-hero__logo {
   width: 72px;
   height: 72px;
-  /* +4px (2026-11-13) — matches the rail's rounder provider chip. */
   border-radius: 22px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.6);
   flex-shrink: 0;
-  animation: heroReveal 0.5s var(--ease-out) both;
+  animation: providerReveal var(--dur-content) var(--ease) backwards;
 }
 @media (min-width: 1024px) {
   .provider-hero__logo {
@@ -65,28 +40,28 @@
   object-fit: cover;
 }
 .provider-hero__name {
-  font-size: clamp(2.4rem, 5vw, 3.6rem);
-  font-weight: 900;
+  margin: 0;
+  font: 800 clamp(2.4rem, 5vw, 3.6rem) / 1.05 var(--font-display, Inter, sans-serif);
   letter-spacing: -0.025em;
   color: var(--text-strong, #ffffff);
   text-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
-  animation: heroReveal 0.5s var(--ease-out) 0.1s both;
-  margin: 0;
+  animation: providerReveal var(--dur-content) var(--ease) calc(var(--stagger) * 1) backwards;
 }
 .provider-toggle-row {
   position: relative;
   z-index: 2;
-  padding: 0 var(--gutter, 24px);
+  padding: 0 var(--gutter, clamp(18px, 4vw, 56px));
   margin-bottom: 24px;
-  animation: heroReveal 0.5s var(--ease-out) 0.2s both;
+  animation: providerReveal var(--dur-content) var(--ease) calc(var(--stagger) * 2) backwards;
 }
 .provider-toggle {
   display: inline-flex;
   gap: 2px;
   padding: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
+  background: rgba(16, 16, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: var(--radius-pill, 9999px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 .provider-toggle button {
   display: inline-flex;
@@ -99,12 +74,19 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-out), background-color var(--duration-fast) var(--ease-out);
+  transition:
+    color var(--dur-state) var(--ease),
+    background-color var(--dur-state) var(--ease),
+    transform var(--dur-tap) var(--ease);
+}
+.provider-toggle button:active {
+  transform: scale(0.96);
 }
 .provider-toggle button.is-active {
   background: var(--accent-color, #95ff50);
   color: #04120b;
   box-shadow: 0 4px 12px -4px rgba(149, 255, 80, 0.4);
+  animation: providerPillIn var(--dur-tap) var(--sp) both;
 }
 .provider-toggle button:hover:not(.is-active) {
   color: var(--text-strong, #ffffff);
@@ -123,7 +105,7 @@
 .provider-empty {
   position: relative;
   z-index: 2;
-  padding: 80px var(--gutter, 24px);
+  padding: 80px var(--gutter, clamp(18px, 4vw, 56px));
   text-align: center;
   color: var(--text-muted, rgba(255, 255, 255, 0.6));
   font-size: 15px;
@@ -135,63 +117,57 @@
   color: var(--text-faint, rgba(255, 255, 255, 0.45));
   display: block;
 }
-.provider-page .skeleton-grid {
-  position: relative;
-  z-index: 2;
+
+/* The rail shell and cards come straight from Home; only the stack rhythm is
+   scoped here. Wide lead cards use home.css's `.cw.w > .po.wd` geometry. */
+.provider-rails-section {
+  --cw: clamp(138px, 15vw, 180px);
+  --cww: clamp(250px, 27vw, 380px);
+  --rail-stack-gap: 40px;
+  --rail-lead-pad: 20px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
 }
-/* Responsive grid (2/3/4/5/6 cols) */
-.provider-grid {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px 12px;
-  padding: 0 var(--gutter, 24px) 60px;
-}
-.provider-grid .card,
-.provider-grid .movie-card {
-  width: auto;
-  animation: cardIn 0.4s var(--ease-out) backwards;
-}
-@media (min-width: 640px) {
-  .provider-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px 14px;
-  }
-}
-@media (min-width: 768px) {
-  .provider-grid {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px 16px;
-  }
-}
-@media (min-width: 1024px) {
-  .provider-grid {
-    grid-template-columns: repeat(5, 1fr);
-    gap: 24px 18px;
-  }
-}
-@media (min-width: 1280px) {
-  .provider-grid {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 28px 20px;
-  }
+.provider-rails-section > .home-rails-lead {
+  --cww: clamp(250px, 27vw, 380px);
 }
 
-@keyframes cardIn {
+@keyframes providerReveal {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
+}
+@keyframes providerPillIn {
+  from { transform: scale(0.94); }
+  to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .provider-hero__logo,
+  .provider-hero__name,
+  .provider-toggle-row,
+  .provider-toggle button,
+  .provider-toggle button.is-active {
+    animation: none;
+    transition: none;
+  }
+}
+html[data-reduce-motion="true"] .provider-hero__logo,
+html[data-reduce-motion="true"] .provider-hero__name,
+html[data-reduce-motion="true"] .provider-toggle-row,
+html[data-reduce-motion="true"] .provider-toggle button,
+html[data-reduce-motion="true"] .provider-toggle button.is-active {
+  animation: none;
+  transition: none;
 }
 
 @media (max-width: 768px) {
   .provider-page {
-    padding: 84px 0 calc(96px + env(safe-area-inset-bottom, 0px));
+    padding-top: 84px;
   }
   .provider-hero {
     gap: 12px;
@@ -206,16 +182,12 @@
   .provider-hero__name {
     font-size: 1.8rem;
   }
-  .provider-back-btn {
-    width: 36px;
-    height: 36px;
-  }
   .provider-toggle-row {
     padding: 0 var(--gutter, 16px);
     margin-bottom: 18px;
   }
-  .provider-grid {
-    padding: 0 var(--gutter, 16px) calc(96px + env(safe-area-inset-bottom, 0px));
+  .provider-rails-section {
+    --cww: 250px;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 }
-
