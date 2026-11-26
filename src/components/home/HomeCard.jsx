@@ -38,6 +38,7 @@ const HomeCard = memo(function HomeCard({
   progressLabel,
   editMode = false,
   onRemove,
+  wide = false,
 }) {
   const { isInList, toggleMyList, myList } = useAppAuth();
   const { addNotification } = useOptionalNotifications() || {};
@@ -65,15 +66,29 @@ const HomeCard = memo(function HomeCard({
   const rating = Number(movie.imdbRating) > 0 ? Number(movie.imdbRating).toFixed(1) : null;
   const year = String(movie.releaseYear || movie.year || "").substring(0, 4);
 
-  const posterPath = movie.posterUrl || movie.backdropUrl;
+  // Canonical 2.0 uses the 16:9 `.cw.w > .po.wd` card for the wide lead rail
+  // (Trending this week). Continue Watching reuses that shape, so its art must
+  // come from the backdrop ladder rather than the portrait poster ladder.
+  const posterPath = wide
+    ? movie.backdropUrl || movie.posterUrl
+    : movie.posterUrl || movie.backdropUrl;
   const posterSrc = useMemo(
-    () => CdnImageAdapter.getUrl(posterPath, pickImageWidth("card", { hdThumbs })),
-    [posterPath, hdThumbs],
+    () =>
+      wide && posterPath
+        ? CdnImageAdapter.getBackdropUrl(posterPath)
+        : CdnImageAdapter.getUrl(posterPath, pickImageWidth("card", { hdThumbs })),
+    [posterPath, hdThumbs, wide],
   );
   const posterSrcSet = useMemo(
-    () => (hdThumbs === false || !posterPath ? undefined : CdnImageAdapter.getSrcSet(posterPath, "card")),
-    [posterPath, hdThumbs],
+    () =>
+      hdThumbs === false || !posterPath
+        ? undefined
+        : CdnImageAdapter.getSrcSet(posterPath, wide ? "backdrop" : "card"),
+    [posterPath, hdThumbs, wide],
   );
+  const artSizes = wide
+    ? "(max-width: 640px) 250px, (max-width: 1400px) 27vw, 380px"
+    : CdnImageAdapter.getSizes("card");
   const [hueA, hueB] = useMemo(() => sceneHues(movie.id), [movie.id]);
   const [isLoaded, setIsLoaded] = useState(() => hasLoadedMediaUrl(posterSrc));
   const watchTo = useMemo(
@@ -246,7 +261,11 @@ const HomeCard = memo(function HomeCard({
   const progressPercent = Math.min(100, Math.max(0, progressValue));
 
   return (
-    <div ref={virtualRef} className="cw home-card" style={{ "--i": Math.min(index, 5) }}>
+    <div
+      ref={virtualRef}
+      className={`cw home-card${wide ? " w" : ""}`}
+      style={{ "--i": Math.min(index, 5) }}
+    >
       {isVisible && (
         <>
           <div
@@ -276,7 +295,7 @@ const HomeCard = memo(function HomeCard({
           >
             <div
               ref={posterRef}
-              className="po"
+              className={`po${wide ? " wd" : ""}`}
               data-detail-source={movie.id}
               data-detail-token={detailToken}
               data-initial={(movie.title || "?").trim().charAt(0).toUpperCase()}
@@ -294,7 +313,7 @@ const HomeCard = memo(function HomeCard({
                   className="po-img"
                   src={posterSrc}
                   srcSet={posterSrcSet}
-                  sizes={posterSrcSet ? CdnImageAdapter.getSizes("card") : undefined}
+                  sizes={posterSrcSet ? artSizes : undefined}
                   alt={movie.title}
                   loading={isDetailRestoring() ? "eager" : "lazy"}
                   decoding="async"
@@ -315,6 +334,7 @@ const HomeCard = memo(function HomeCard({
               ) : null}
               {tagLabel ? <em>{tagLabel}</em> : null}
               <b>{movie.title}</b>
+              {wide && progressLabel ? <small className="po-meta">{progressLabel}</small> : null}
               {progressPercent > 0 ? <span className="po-progress" aria-hidden="true" /> : null}
             </div>
             <span>{movie.title}</span>

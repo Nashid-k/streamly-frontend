@@ -81,6 +81,7 @@ const ContinueWatchingRail = memo(function ContinueWatchingRail({ items = [], ro
             progressLabel={[label, remaining].filter(Boolean).join(" · ")}
             editMode={editMode}
             onRemove={() => removeFromContinueWatching(item.id)}
+            wide
           />
         );
       }}

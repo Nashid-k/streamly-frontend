@@ -1063,9 +1063,36 @@ html[data-detail-transition="A"] .home-rails-section .sh.in .rail > .cw {
   overflow-wrap: anywhere;
   transition: opacity var(--dur-reveal) var(--ease);
 }
-.home-rails-section .po[data-loaded="true"] b {
+.home-rails-section .po:not(.wd)[data-loaded="true"] b {
   opacity: 0;
   pointer-events: none;
+}
+/* Wide rail cards keep their title over the backdrop: canonical `.po.wd` has
+   no `.im` class, so the copy is not suppressed when the art resolves. */
+.home-rails-section .po.wd em,
+.home-rails-section .po.wd b,
+.home-rails-section .po.wd .po-meta {
+  z-index: 3;
+}
+.home-rails-section .po.wd::after {
+  background:
+    radial-gradient(180px circle at var(--mx, 30%) var(--my, 0%), rgba(255, 255, 255, 0.28), transparent 60%),
+    linear-gradient(transparent 32%, rgba(0, 0, 0, 0.72));
+}
+.home-rails-section .po-meta {
+  position: absolute;
+  left: 14px;
+  bottom: 16px;
+  z-index: 3;
+  max-width: calc(100% - 28px);
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--lbl);
+  font: 600 12px/1.3 var(--font-ui, Inter, sans-serif);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .home-rails-section .po-progress {
   position: absolute;

@@ -186,7 +186,9 @@ search/entrance follow-up `640 + 55*3 + extra` (`:497`); player HUD idle
 - **Hero:** `.hbd` backdrop, five featured items, dots, 9s rotation, `Read more`
   after three lines, lazy logo swap, preloaded neighbours, swap fade (`:150-155`,
   `:733-740`).
-- **Cards/rails:** `2/3` posters, radius 16, `data-vt`, pointer 3D tilt
+- **Cards/rails:** `2/3` posters by default; the wide lead rail uses the
+  canonical `.cw.w > .po.wd` 16:9 backdrop card (`:168-170`, `:556`) and
+  Continue Watching opts into that shape. Radius 16, `data-vt`, pointer 3D tilt
   (`±7deg`, `--s:1.04`, `--ty:-3px`), quick-play `.qp`, add-list `.qa`,
   hover-after-320ms `play-ready`, rail arrows `.ar`, edge fades `--fl/--fr`,
   6-card reveal cap (`:65-78`, `:171-182`, `:388-392`, `:557-561`, `:726-730`).

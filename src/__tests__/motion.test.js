@@ -187,8 +187,8 @@ describe("motion tokens", () => {
     });
 
     it("uses canonical card overlays with capped tilt and delayed play affordance", () => {
-      expect(card).toContain('className="cw home-card"');
-      expect(card).toContain('className="po"');
+      expect(card).toContain('className={`cw home-card${wide ? " w" : ""}`}');
+      expect(card).toContain('className={`po${wide ? " wd" : ""}`}');
       expect(card).toContain('className="qp glass"');
       expect(card).toContain('className={`qa${bump ? " bump" : ""}`}');
       expect(card).not.toContain("qa glass");
@@ -210,6 +210,8 @@ describe("motion tokens", () => {
       expect(card).toContain('<span className="po-progress" aria-hidden="true" />');
 
       expect(homeCss).toContain("aspect-ratio: 2 / 3;");
+      expect(homeCss).toContain("aspect-ratio: 16 / 9;");
+      expect(homeCss).toMatch(/\.home-rails-section \.po:not\(\.wd\)\[data-loaded="true"\] b/);
       expect(homeCss).toContain("border-radius: 16px;");
       expect(homeCss).toContain("--s: 1.04;");
       expect(homeCss).toContain("--ty: -3px;");
@@ -220,7 +222,8 @@ describe("motion tokens", () => {
 
     it("drives rail edge fades and six-card stagger from the canonical shell", () => {
       expect(rail).toContain('className="rail"');
-      expect(card).toContain('className="cw home-card" style={{ "--i": Math.min(index, 5) }}');
+      expect(card).toContain('className={`cw home-card${wide ? " w" : ""}`}');
+      expect(card).toContain('style={{ "--i": Math.min(index, 5) }}');
       expect(railArrow).toContain('className="ar l glass"');
       expect(railArrow).toContain('className="ar r glass"');
       expect(railHook).toContain("syncEdges");

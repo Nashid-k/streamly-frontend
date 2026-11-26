@@ -39,13 +39,17 @@ describe("ContinueWatchingRail", () => {
   ];
 
   it("renders Continue Watching header, items, and formatted remaining time", () => {
-    render(
+    const { container } = render(
       <MemoryRouter>
         <ContinueWatchingRail items={items} />
       </MemoryRouter>
     );
 
     expect(screen.getByText("Continue Watching")).toBeInTheDocument();
+    // The lead row reuses the canonical wide "Trending this week" card shape.
+    expect(container.querySelectorAll(".cw.w")).toHaveLength(2);
+    expect(container.querySelectorAll(".po.wd")).toHaveLength(2);
+    expect(container.querySelectorAll(".po-meta")[1]).toHaveTextContent("S2:E4");
     // Title / progress strings intentionally repeat in the desktop hover
     // preview panel, so assert presence via getAllByText.
     expect(screen.getAllByText("Moana")[0]).toBeInTheDocument();
